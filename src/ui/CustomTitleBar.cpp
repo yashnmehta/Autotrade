@@ -7,6 +7,9 @@ CustomTitleBar::CustomTitleBar(QWidget *parent)
     : QWidget(parent), m_isDragging(false)
 {
     setFixedHeight(32);
+    // Ensure styled background is used so stylesheet background-color is painted
+    setAttribute(Qt::WA_StyledBackground, true);
+    setAutoFillBackground(true);
     setStyleSheet("background-color: #2d2d30; color: #ffffff;");
 
     QHBoxLayout *layout = new QHBoxLayout(this);

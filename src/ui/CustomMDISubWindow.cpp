@@ -40,36 +40,81 @@ CustomMDISubWindow::CustomMDISubWindow(const QString &title, QWidget *parent)
     // Connect drag signals for snapping support
     connect(m_titleBar, &CustomTitleBar::dragStarted, this, [this](const QPoint &globalPos)
             {
+        // Activate window when titlebar is pressed
+        emit windowActivated();
+
         m_dragStartPos = globalPos;
-        m_dragStartGeometry = geometry(); });
+        m_dragStartGeometry = geometry();
+
+        // If the press started on the resize border (top edge inside title bar), begin resize
+        QPoint local = mapFromGlobal(globalPos);
+        Qt::Edges edges;
+        if (isOnResizeBorder(local, edges))
+        {
+            m_isResizing = true;
+            m_resizeEdges = edges;
+            qDebug() << "[MDISubWindow] start resize from titlebar, edges:" << edges;
+        }
+    });
 
     connect(m_titleBar, &CustomTitleBar::dragMoved, this, [this](const QPoint &globalPos)
             {
-        if (m_isMaximized || m_isPinned) return;  // Don't move if maximized or pinned
-        
+        if (m_isMaximized || m_isPinned) return;  // Don't move/resize if maximized or pinned
+
         QPoint delta = globalPos - m_dragStartPos;
         QRect newGeometry = m_dragStartGeometry;
-        newGeometry.translate(delta);
-        
-        // Get snap preview from parent MDI area
-        CustomMDIArea *mdiArea = qobject_cast<CustomMDIArea*>(parentWidget());
-        if (mdiArea) {
-            QRect snapped = mdiArea->getSnappedGeometry(newGeometry);
-            mdiArea->showSnapPreview(snapped);
-            setGeometry(newGeometry);  // Show actual position while dragging
-        } else {
+
+        if (m_isResizing)
+        {
+            // Resize based on edges
+            if (m_resizeEdges & Qt::LeftEdge)
+                newGeometry.setLeft(m_dragStartGeometry.left() + delta.x());
+            if (m_resizeEdges & Qt::TopEdge)
+                newGeometry.setTop(m_dragStartGeometry.top() + delta.y());
+            if (m_resizeEdges & Qt::RightEdge)
+                newGeometry.setRight(m_dragStartGeometry.right() + delta.x());
+            if (m_resizeEdges & Qt::BottomEdge)
+                newGeometry.setBottom(m_dragStartGeometry.bottom() + delta.y());
+
+            // Enforce minimum size
+            if (newGeometry.width() < 200)
+                newGeometry.setWidth(200);
+            if (newGeometry.height() < 150)
+                newGeometry.setHeight(150);
+
             setGeometry(newGeometry);
-        } });
+        }
+        else
+        {
+            newGeometry.translate(delta);
+            CustomMDIArea *mdiArea = qobject_cast<CustomMDIArea*>(parentWidget());
+            if (mdiArea) {
+                QRect snapped = mdiArea->getSnappedGeometry(newGeometry);
+                mdiArea->showSnapPreview(snapped);
+                setGeometry(newGeometry);  // Show actual position while dragging
+            } else {
+                setGeometry(newGeometry);
+            }
+        }
+    });
 
     connect(m_titleBar, &CustomTitleBar::dragEnded, this, [this]()
             {
         CustomMDIArea *mdiArea = qobject_cast<CustomMDIArea*>(parentWidget());
+        if (m_isResizing)
+        {
+            // End resizing
+            m_isResizing = false;
+            m_resizeEdges = Qt::Edges();
+        }
+
         if (mdiArea) {
             // Apply snap on release
             QRect snapped = mdiArea->getSnappedGeometry(geometry());
             setGeometry(snapped);
             mdiArea->hideSnapPreview();
-        } });
+        }
+    });
 
     // Styling
     setStyleSheet(
