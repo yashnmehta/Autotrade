@@ -29,10 +29,10 @@ set(SOURCES
     src/main.cpp
     src/ui/CustomMainWindow.cpp
     src/ui/MainWindow.cpp
-    src/ui/CustomTitleBar.cpp
-    src/ui/CustomMDIArea.cpp
-    src/ui/CustomMDISubWindow.cpp
-    src/ui/MDITaskBar.cpp
+    src/widgets/CustomTitleBar.cpp
+    src/widgets/CustomMDIArea.cpp
+    src/widgets/CustomMDISubWindow.cpp
+    src/widgets/MDITaskBar.cpp
     src/ui/ScripBar.cpp
     src/ui/InfoBar.cpp
     src/data/Greeks.cpp
