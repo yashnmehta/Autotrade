@@ -112,6 +112,11 @@ private:
     QPoint m_resizeStartPos;
     QRect m_resizeStartGeometry;
 
+    // Pending resize state when click originates from titlebar child widgets
+    bool m_pendingResize;
+    QPoint m_pendingResizeStartPos;
+    ResizeDirection m_pendingResizeDirection;
+
     // Constraints
     QSize m_minimumSize;
     QSize m_maximumSize;

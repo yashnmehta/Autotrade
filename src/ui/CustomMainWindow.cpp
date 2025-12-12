@@ -11,6 +11,9 @@ CustomMainWindow::CustomMainWindow(QWidget *parent)
       m_isMaximized(false),
       m_isResizing(false),
       m_resizeDirection(None),
+      m_pendingResize(false),
+      m_pendingResizeStartPos(QPoint()),
+      m_pendingResizeDirection(None),
       m_minimumSize(400, 300),
       m_maximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX)
 {
@@ -452,14 +455,15 @@ bool CustomMainWindow::eventFilter(QObject *watched, QEvent *event)
         if (m_isResizing && (mouseEvent->buttons() & Qt::LeftButton))
         {
             performResize(mouseEvent->globalPos());
-            return true;
+            return true; // We are actively resizing, consume the event
         }
         else if (!m_isMaximized && !m_isResizing)
         {
-            // Update cursor
+            // Update cursor for visual feedback but do NOT consume the event: we want
+            // CustomTitleBar::mouseMoveEvent to receive the event so window drag works.
             ResizeDirection direction = detectResizeDirection(mouseEvent->pos());
             updateCursorShape(direction);
-            return true; // Consume to prevent title bar from handling
+            // do NOT return true; let title bar handle the underlying event (dragging)
         }
     }
     else if (watched == m_titleBar && event->type() == QEvent::MouseButtonRelease)

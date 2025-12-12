@@ -7,6 +7,7 @@
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QPainter>
 #include <QPushButton>
 #include <QMenuBar>
 #include <QMenu>
@@ -15,6 +16,7 @@
 #include <QHeaderView>
 #include <QToolBar>
 #include <QStatusBar>
+#include <QDockWidget>
 #include <QSettings>
 #include <QCloseEvent>
 #include <QDebug>
@@ -31,6 +33,11 @@ MainWindow::MainWindow(QWidget *parent)
     // Restore saved toolbar/dock state
     QSettings s("TradingCompany", "TradingTerminal");
     restoreState(s.value("mainwindow/state").toByteArray());
+    // Restore visibility preferences
+    if (m_infoDock)
+        m_infoDock->setVisible(s.value("mainwindow/info_visible", true).toBool());
+    if (m_statusBar)
+        m_statusBar->setVisible(s.value("mainwindow/status_visible", true).toBool());
 }
 
 MainWindow::~MainWindow()
@@ -147,13 +154,16 @@ void MainWindow::setupContent()
 
     // Create info bar
     createInfoBar();
-    layout->addWidget(m_infoBar);
 }
 
 void MainWindow::closeEvent(QCloseEvent *event)
 {
     QSettings s("TradingCompany", "TradingTerminal");
     s.setValue("mainwindow/state", saveState());
+    if (m_infoDock)
+        s.setValue("mainwindow/info_visible", m_infoDock->isVisible());
+    if (m_statusBar)
+        s.setValue("mainwindow/status_visible", m_statusBar->isVisible());
     // Let base class handle the rest
     CustomMainWindow::closeEvent(event);
 }
@@ -191,7 +201,17 @@ void MainWindow::createMenuBar()
     // View Menu
     QMenu *viewMenu = menuBar->addMenu("&View");
     viewMenu->addAction("&Toolbar");
-    viewMenu->addAction("&Status Bar");
+    m_statusBarAction = viewMenu->addAction("&Status Bar");
+    m_statusBarAction->setCheckable(true);
+    m_statusBarAction->setChecked(m_statusBar && m_statusBar->isVisible());
+    connect(m_statusBarAction, &QAction::toggled, this, [this](bool visible)
+            { if (m_statusBar) m_statusBar->setVisible(visible); });
+
+    m_infoBarAction = viewMenu->addAction("&Info Bar");
+    m_infoBarAction->setCheckable(true);
+    m_infoBarAction->setChecked(m_infoDock && m_infoDock->isVisible());
+    connect(m_infoBarAction, &QAction::toggled, this, [this](bool visible)
+            { if (m_infoDock) m_infoDock->setVisible(visible); });
     viewMenu->addSeparator();
     viewMenu->addAction("&Fullscreen");
     QAction *resetLayoutAction = viewMenu->addAction("Reset &Layout");
@@ -330,9 +350,22 @@ void MainWindow::createStatusBar()
 
 void MainWindow::createInfoBar()
 {
-    m_infoBar = new QWidget(this);
-    m_infoBar->setFixedHeight(25);
-    m_infoBar->setStyleSheet(
+    // Info bar is implemented as a bottom QDockWidget so it's not part of central widget
+    // It is not movable/floatable and can be shown/hidden via the View menu.
+    m_infoDock = new QDockWidget(this);
+    m_infoDock->setAllowedAreas(Qt::BottomDockWidgetArea);
+    // Allow only close (to hide) but not float or move to other areas
+    m_infoDock->setFeatures(QDockWidget::DockWidgetClosable);
+    // Remove the title bar for a compact look
+    m_infoDock->setTitleBarWidget(new QWidget());
+
+    m_infoBarWidget = new QWidget(this);
+#ifdef Q_OS_MAC
+    m_infoBarWidget->setFixedHeight(15);
+#else
+    m_infoBarWidget->setFixedHeight(25);
+#endif
+    m_infoBarWidget->setStyleSheet(
         "QWidget { "
         "   background-color: #1e1e1e; "
         "   border-top: 1px solid #3e3e42; "
@@ -343,17 +376,68 @@ void MainWindow::createInfoBar()
         "   padding: 2px 4px; "
         "}");
 
-    QHBoxLayout *layout = new QHBoxLayout(m_infoBar);
+    QHBoxLayout *layout = new QHBoxLayout(m_infoBarWidget);
     layout->setContentsMargins(10, 0, 10, 0);
     layout->setSpacing(10);
 
-    QLabel *versionLabel = new QLabel("Trading Terminal v1.0.0", m_infoBar);
+    QLabel *versionLabel = new QLabel("Trading Terminal v1.0.0", m_infoBarWidget);
     layout->addWidget(versionLabel);
 
-    layout->addStretch();
+    // Center info text (elidable if too long)
+    m_infoTextLabel = new QLabel("Ready", m_infoBarWidget);
+    m_infoTextLabel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    m_infoTextLabel->setAlignment(Qt::AlignCenter);
+    layout->addWidget(m_infoTextLabel);
 
-    QLabel *copyrightLabel = new QLabel("© 2024 Trading Company", m_infoBar);
-    layout->addWidget(copyrightLabel);
+    // Right-hand compact widgets
+    QLabel *separator = new QLabel("|", m_infoBarWidget);
+    separator->setStyleSheet("color: #666666; padding: 0 6px;");
+    layout->addWidget(separator);
+
+    m_connIconLabel = new QLabel(m_infoBarWidget);
+    m_connIconLabel->setFixedSize(12, 12);
+    // draw a default gray circle
+    QPixmap dot(12, 12);
+    dot.fill(Qt::transparent);
+    QPainter p(&dot);
+    p.setRenderHint(QPainter::Antialiasing);
+    p.setBrush(QBrush(QColor("#888888")));
+    p.setPen(Qt::NoPen);
+    p.drawEllipse(0, 0, 12, 12);
+    p.end();
+    m_connIconLabel->setPixmap(dot);
+    m_connIconLabel->setToolTip("Not connected");
+    layout->addWidget(m_connIconLabel);
+
+    m_lastUpdateLabel = new QLabel("Last Update: --", m_infoBarWidget);
+    m_lastUpdateLabel->setStyleSheet("color: #888888;");
+    layout->addWidget(m_lastUpdateLabel);
+
+    m_infoDock->setWidget(m_infoBarWidget);
+    // Context menu for quick actions (hide)
+    m_infoBarWidget->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(m_infoBarWidget, &QWidget::customContextMenuRequested, this, &MainWindow::showInfoBarContextMenu);
+    addDockWidget(Qt::BottomDockWidgetArea, m_infoDock);
+}
+
+void MainWindow::showInfoBarContextMenu(const QPoint &pos)
+{
+    if (!m_infoBarWidget || !m_infoDock)
+        return;
+    QMenu menu(m_infoBarWidget);
+    QAction *hideAction = menu.addAction("Hide Info Bar");
+    connect(hideAction, &QAction::triggered, this, [this]()
+            {
+        if (m_infoDock)
+        {
+            m_infoDock->hide();
+            if (m_infoBarAction)
+                m_infoBarAction->setChecked(false);
+            // persist
+            QSettings s("TradingCompany", "TradingTerminal");
+            s.setValue("mainwindow/info_visible", false);
+        } });
+    menu.exec(m_infoBarWidget->mapToGlobal(pos));
 }
 
 void MainWindow::createMarketWatch()

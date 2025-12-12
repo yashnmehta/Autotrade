@@ -8,6 +8,8 @@ class QToolBar;
 class QStatusBar;
 class QCloseEvent;
 class ScripBar;
+class QLabel;
+class QDockWidget;
 
 /**
  * @brief Trading Terminal Main Window
@@ -43,6 +45,7 @@ private:
     void createConnectionBar();
     void createStatusBar();
     void createInfoBar();
+    void showInfoBarContextMenu(const QPoint &pos);
     // Persist state
     void closeEvent(QCloseEvent *event) override;
 
@@ -51,7 +54,13 @@ private:
     QToolBar *m_connectionToolBar;
     QWidget *m_connectionBar;
     QStatusBar *m_statusBar;
-    QWidget *m_infoBar;
+    QDockWidget *m_infoDock;
+    QWidget *m_infoBarWidget;
+    QLabel *m_infoTextLabel;
+    QLabel *m_connIconLabel;
+    QLabel *m_lastUpdateLabel;
+    QAction *m_statusBarAction;
+    QAction *m_infoBarAction;
     ScripBar *m_scripBar;
     QToolBar *m_scripToolBar;
 };
