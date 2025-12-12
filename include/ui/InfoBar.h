@@ -2,8 +2,12 @@
 #define INFOBAR_H
 
 #include <QWidget>
-#include <QMap>
-#include <QString>
+
+// Forward declarations to keep this header lightweight and avoid pulling
+// heavy Qt template code into every translation unit that includes it.
+class QString;
+template <typename K, typename V>
+class QMap;
 namespace Ui
 {
     class InfoBar;
