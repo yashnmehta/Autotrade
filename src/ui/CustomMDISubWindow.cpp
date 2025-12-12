@@ -167,12 +167,14 @@ void CustomMDISubWindow::mousePressEvent(QMouseEvent *event)
 {
     if (event->button() == Qt::LeftButton)
     {
+        qDebug() << "[MDISubWindow]" << title() << "mousePressEvent at" << event->pos();
         emit windowActivated();
 
         // Check if on resize border
         Qt::Edges edges;
         if (isOnResizeBorder(event->pos(), edges))
         {
+            qDebug() << "[MDISubWindow]" << title() << "starting resize, edges:" << edges;
             m_isResizing = true;
             m_resizeEdges = edges;
             m_dragStartPos = event->globalPos();
@@ -189,6 +191,7 @@ void CustomMDISubWindow::mouseMoveEvent(QMouseEvent *event)
 {
     if (m_isResizing && (event->buttons() & Qt::LeftButton))
     {
+        qDebug() << "[MDISubWindow]" << title() << "resizing, pos:" << event->pos();
         QPoint delta = event->globalPos() - m_dragStartPos;
         QRect newGeometry = m_dragStartGeometry;
 

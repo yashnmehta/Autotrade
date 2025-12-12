@@ -81,6 +81,7 @@ void CustomTitleBar::mousePressEvent(QMouseEvent *event)
         m_dragPosition = event->globalPos() - parentWidget()->geometry().topLeft();
         emit dragStarted(event->globalPos());
         event->accept();
+        event->setAccepted(true);
     }
 }
 
@@ -90,7 +91,10 @@ void CustomTitleBar::mouseMoveEvent(QMouseEvent *event)
     {
         emit dragMoved(event->globalPos());
         event->accept();
+        event->setAccepted(true);
+        return;  // Don't propagate
     }
+    QWidget::mouseMoveEvent(event);
 }
 
 void CustomTitleBar::mouseReleaseEvent(QMouseEvent *event)
@@ -100,8 +104,11 @@ void CustomTitleBar::mouseReleaseEvent(QMouseEvent *event)
         if (m_isDragging)
         {
             emit dragEnded();
+            event->accept();
+            event->setAccepted(true);
         }
         m_isDragging = false;
+        return;  // Don't propagate
     }
     QWidget::mouseReleaseEvent(event);
 }

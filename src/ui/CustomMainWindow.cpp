@@ -96,6 +96,13 @@ void CustomMainWindow::setupUi()
     connect(m_titleBar, &CustomTitleBar::minimizeClicked, this, &CustomMainWindow::showMinimized);
     connect(m_titleBar, &CustomTitleBar::maximizeClicked, this, &CustomMainWindow::toggleMaximize);
     connect(m_titleBar, &CustomTitleBar::closeClicked, this, &QWidget::close);
+    
+    // Connect drag signals to move the window
+    connect(m_titleBar, &CustomTitleBar::dragMoved, this, [this](const QPoint &globalPos) {
+        if (!m_isMaximized && !m_isResizing) {
+            move(globalPos - m_titleBar->mapFromGlobal(globalPos) - QPoint(0, 0));
+        }
+    });
 
     qDebug() << "CustomMainWindow created";
 }

@@ -176,7 +176,14 @@ void MainWindow::closeEvent(QCloseEvent *event)
 
 void MainWindow::createMenuBar()
 {
-    QMenuBar *menuBar = new QMenuBar(this);
+    // On Linux, QMainWindow's menuBar() conflicts with setMenuWidget() titlebar
+    // So we need to either:
+    // 1. Not use setMenuWidget and put titlebar in layout (loses QToolBar integration)
+    // 2. Use menuBar() which returns the QMainWindow's native menubar slot
+    // We'll use option 2 and let QMainWindow manage the menubar natively
+    // This means titlebar is in setMenuWidget(), menubar goes below it automatically
+    
+    QMenuBar *menuBar = QMainWindow::menuBar();  // Use QMainWindow's native menubar
     menuBar->setStyleSheet(
         "QMenuBar { "
         "   background-color: #2d2d30; "
