@@ -91,7 +91,7 @@ private:
     QRect m_dragStartGeometry;
     Qt::Edges m_resizeEdges;
 
-    static constexpr int RESIZE_BORDER_WIDTH = 8;
+    static constexpr int RESIZE_BORDER_WIDTH = 12;
 };
 
 #endif // CUSTOMMDISUBWINDOW_H

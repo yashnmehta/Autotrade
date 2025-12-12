@@ -290,7 +290,6 @@ void MainWindow::createMenuBar()
         } }, QKeySequence("Ctrl+Tab"));
     // Make sure the shortcut works even if menu doesn't have focus (macOS/embedded menubar)
     nextWindowAction->setShortcutContext(Qt::ApplicationShortcut);
-    // Note: we rely on QAction's shortcut (ApplicationShortcut context)
 
     QAction *prevWindowAction = windowMenu->addAction("&Previous Window", this, [this]()
                                                       {

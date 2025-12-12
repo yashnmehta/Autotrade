@@ -1,6 +1,6 @@
 #include "widgets/CustomMDIArea.h"
 #include "widgets/CustomMDISubWindow.h"
-#include "widgets/MDITaskBar.h"
+#include "ui/MDITaskBar.h"
 #include <QVBoxLayout>
 #include <QResizeEvent>
 #include <QDebug>
@@ -259,4 +259,241 @@ void CustomMDIArea::cascadeWindows()
     {
         activateWindow(m_windows.last());
     }
+}
+
+void CustomMDIArea::tileWindows()
+{
+    // Default to grid tiling
+    tileVertically();
+}
+
+void CustomMDIArea::tileHorizontally()
+{
+    QList<CustomMDISubWindow *> visibleWindows;
+    for (CustomMDISubWindow *window : m_windows)
+    {
+        if (!window->isMinimized())
+        {
+            visibleWindows.append(window);
+        }
+    }
+
+    if (visibleWindows.isEmpty())
+        return;
+
+    int availableHeight = height() - m_taskBar->height();
+    int windowHeight = availableHeight / visibleWindows.count();
+    int y = 0;
+
+    for (CustomMDISubWindow *window : visibleWindows)
+    {
+        window->setGeometry(0, y, width(), windowHeight);
+        window->show();
+        y += windowHeight;
+    }
+}
+
+void CustomMDIArea::tileVertically()
+{
+    QList<CustomMDISubWindow *> visibleWindows;
+    for (CustomMDISubWindow *window : m_windows)
+    {
+        if (!window->isMinimized())
+        {
+            visibleWindows.append(window);
+        }
+    }
+
+    if (visibleWindows.isEmpty())
+        return;
+
+    // Calculate grid dimensions
+    int count = visibleWindows.count();
+    int cols = qCeil(qSqrt(count));
+    int rows = qCeil((double)count / cols);
+
+    int availableHeight = height() - m_taskBar->height();
+    int windowWidth = width() / cols;
+    int windowHeight = availableHeight / rows;
+
+    int index = 0;
+    for (int row = 0; row < rows && index < count; ++row)
+    {
+        for (int col = 0; col < cols && index < count; ++col)
+        {
+            CustomMDISubWindow *window = visibleWindows[index++];
+            window->setGeometry(col * windowWidth, row * windowHeight, windowWidth, windowHeight);
+            window->show();
+        }
+    }
+}
+
+QRect CustomMDIArea::getSnappedGeometry(const QRect &geometry) const
+{
+    QRect snapped = geometry;
+    int availableHeight = height() - m_taskBar->height();
+
+    // Snap to left edge
+    if (qAbs(geometry.left()) < SNAP_DISTANCE)
+    {
+        snapped.moveLeft(0);
+    }
+
+    // Snap to right edge
+    if (qAbs(geometry.right() - width()) < SNAP_DISTANCE)
+    {
+        snapped.moveRight(width() - 1);
+    }
+
+    // Snap to top edge
+    if (qAbs(geometry.top()) < SNAP_DISTANCE)
+    {
+        snapped.moveTop(0);
+    }
+
+    // Snap to bottom edge (above taskbar)
+    if (qAbs(geometry.bottom() - availableHeight) < SNAP_DISTANCE)
+    {
+        snapped.moveBottom(availableHeight - 1);
+    }
+
+    // Snap to other windows
+    for (CustomMDISubWindow *window : m_windows)
+    {
+        if (window->isMinimized() || !window->isVisible())
+            continue;
+
+        QRect other = window->geometry();
+
+        // Snap to right edge of other window
+        if (qAbs(geometry.left() - other.right()) < SNAP_DISTANCE)
+        {
+            snapped.moveLeft(other.right());
+        }
+
+        // Snap to left edge of other window
+        if (qAbs(geometry.right() - other.left()) < SNAP_DISTANCE)
+        {
+            snapped.moveRight(other.left() - 1);
+        }
+
+        // Snap to bottom edge of other window
+        if (qAbs(geometry.top() - other.bottom()) < SNAP_DISTANCE)
+        {
+            snapped.moveTop(other.bottom());
+        }
+
+        // Snap to top edge of other window
+        if (qAbs(geometry.bottom() - other.top()) < SNAP_DISTANCE)
+        {
+            snapped.moveBottom(other.top() - 1);
+        }
+    }
+
+    return snapped;
+}
+
+void CustomMDIArea::showSnapPreview(const QRect &snapRect)
+{
+    if (m_snapPreview)
+    {
+        m_snapPreview->setGeometry(snapRect);
+        m_snapPreview->raise();
+        m_snapPreview->show();
+    }
+}
+
+void CustomMDIArea::hideSnapPreview()
+{
+    if (m_snapPreview)
+    {
+        m_snapPreview->hide();
+    }
+}
+
+void CustomMDIArea::saveWorkspace(const QString &name)
+{
+    QSettings settings("TradingCompany", "TradingTerminal");
+    settings.beginGroup("workspaces/" + name);
+
+    // Save window count
+    settings.setValue("windowCount", m_windows.count());
+
+    // Save each window's state
+    for (int i = 0; i < m_windows.count(); ++i)
+    {
+        CustomMDISubWindow *window = m_windows[i];
+        QString prefix = QString("window_%1/").arg(i);
+
+        settings.setValue(prefix + "type", window->windowType());
+        settings.setValue(prefix + "title", window->title());
+        settings.setValue(prefix + "geometry", window->geometry());
+        settings.setValue(prefix + "minimized", window->isMinimized());
+        settings.setValue(prefix + "maximized", window->isMaximized());
+        settings.setValue(prefix + "pinned", window->isPinned());
+    }
+
+    settings.endGroup();
+    qDebug() << "CustomMDIArea: Workspace saved:" << name;
+}
+
+void CustomMDIArea::loadWorkspace(const QString &name)
+{
+    QSettings settings("TradingCompany", "TradingTerminal");
+    settings.beginGroup("workspaces/" + name);
+
+    if (!settings.contains("windowCount"))
+    {
+        qDebug() << "CustomMDIArea: Workspace not found:" << name;
+        settings.endGroup();
+        return;
+    }
+
+    // Close all existing windows
+    QList<CustomMDISubWindow *> windowsCopy = m_windows;
+    for (CustomMDISubWindow *window : windowsCopy)
+    {
+        window->close();
+    }
+
+    // Load windows
+    int windowCount = settings.value("windowCount").toInt();
+
+    for (int i = 0; i < windowCount; ++i)
+    {
+        QString prefix = QString("window_%1/").arg(i);
+        QString type = settings.value(prefix + "type").toString();
+        QString title = settings.value(prefix + "title").toString();
+        QRect geometry = settings.value(prefix + "geometry").toRect();
+        bool minimized = settings.value(prefix + "minimized").toBool();
+        bool maximized = settings.value(prefix + "maximized").toBool();
+        bool pinned = settings.value(prefix + "pinned").toBool();
+
+        // Signal parent to create window of specific type
+        // This needs to be handled by MainWindow since it knows how to create specific window types
+        emit windowActivated(nullptr); // Signal to trigger window creation
+
+        qDebug() << "CustomMDIArea: Need to create window:" << type << title;
+    }
+
+    settings.endGroup();
+    qDebug() << "CustomMDIArea: Workspace loaded:" << name;
+}
+
+QStringList CustomMDIArea::availableWorkspaces() const
+{
+    QSettings settings("TradingCompany", "TradingTerminal");
+    settings.beginGroup("workspaces");
+    QStringList workspaces = settings.childGroups();
+    settings.endGroup();
+    return workspaces;
+}
+
+void CustomMDIArea::deleteWorkspace(const QString &name)
+{
+    QSettings settings("TradingCompany", "TradingTerminal");
+    settings.beginGroup("workspaces");
+    settings.remove(name);
+    settings.endGroup();
+    qDebug() << "CustomMDIArea: Workspace deleted:" << name;
 }

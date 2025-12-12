@@ -120,7 +120,7 @@ CustomMDISubWindow::CustomMDISubWindow(const QString &title, QWidget *parent)
     setStyleSheet(
         "CustomMDISubWindow { "
         "   background-color: #252526; "
-        "   border: 1px solid #3e3e42; "
+        "   border: 1px solid #cccccc; "  // Light thin border for edge visibility
         "}");
 
     resize(800, 600);
