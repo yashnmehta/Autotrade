@@ -203,7 +203,17 @@ void MainWindow::createMenuBar()
     // CRITICAL: Set fixed height to prevent menu bar from being too tall
     menuBar->setFixedHeight(25);
 
-    // Add menu bar to our custom layout
+    // Platform-specific attachment: macOS uses the native system menu bar,
+    // other platforms embed the menu bar inside the window (top of central widget).
+#ifdef Q_OS_MAC
+    menuBar->setNativeMenuBar(true);
+    qDebug() << "Using native macOS menu bar";
+#else
+    menuBar->setNativeMenuBar(false);
+    // Force menu bar to take full width and be part of vertical layout
+    menuBar->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    menuBar->setFixedHeight(25);
+
     QVBoxLayout *layout = qobject_cast<QVBoxLayout *>(centralWidget()->layout());
     if (layout)
     {
@@ -216,6 +226,7 @@ void MainWindow::createMenuBar()
     {
         qDebug() << "ERROR: Could not get layout to add menu bar!";
     }
+#endif
 
     // File Menu
     QMenu *fileMenu = menuBar->addMenu("&File");
