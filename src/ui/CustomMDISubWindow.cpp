@@ -3,6 +3,8 @@
 #include "ui/CustomMDIArea.h"
 #include <QMouseEvent>
 #include <QCloseEvent>
+#include <QContextMenuEvent>
+#include <QMenu>
 #include <QApplication>
 #include <QDebug>
 
@@ -11,6 +13,7 @@ CustomMDISubWindow::CustomMDISubWindow(const QString &title, QWidget *parent)
       m_contentWidget(nullptr),
       m_isMinimized(false),
       m_isMaximized(false),
+      m_isPinned(false),
       m_isDragging(false),
       m_isResizing(false)
 {
@@ -33,6 +36,40 @@ CustomMDISubWindow::CustomMDISubWindow(const QString &title, QWidget *parent)
     connect(m_titleBar, &CustomTitleBar::minimizeClicked, this, &CustomMDISubWindow::minimizeRequested);
     connect(m_titleBar, &CustomTitleBar::maximizeClicked, this, &CustomMDISubWindow::maximizeRequested);
     connect(m_titleBar, &CustomTitleBar::closeClicked, this, &CustomMDISubWindow::closeRequested);
+
+    // Connect drag signals for snapping support
+    connect(m_titleBar, &CustomTitleBar::dragStarted, this, [this](const QPoint &globalPos)
+            {
+        m_dragStartPos = globalPos;
+        m_dragStartGeometry = geometry(); });
+
+    connect(m_titleBar, &CustomTitleBar::dragMoved, this, [this](const QPoint &globalPos)
+            {
+        if (m_isMaximized || m_isPinned) return;  // Don't move if maximized or pinned
+        
+        QPoint delta = globalPos - m_dragStartPos;
+        QRect newGeometry = m_dragStartGeometry;
+        newGeometry.translate(delta);
+        
+        // Get snap preview from parent MDI area
+        CustomMDIArea *mdiArea = qobject_cast<CustomMDIArea*>(parentWidget());
+        if (mdiArea) {
+            QRect snapped = mdiArea->getSnappedGeometry(newGeometry);
+            mdiArea->showSnapPreview(snapped);
+            setGeometry(newGeometry);  // Show actual position while dragging
+        } else {
+            setGeometry(newGeometry);
+        } });
+
+    connect(m_titleBar, &CustomTitleBar::dragEnded, this, [this]()
+            {
+        CustomMDIArea *mdiArea = qobject_cast<CustomMDIArea*>(parentWidget());
+        if (mdiArea) {
+            // Apply snap on release
+            QRect snapped = mdiArea->getSnappedGeometry(geometry());
+            setGeometry(snapped);
+            mdiArea->hideSnapPreview();
+        } });
 
     // Styling
     setStyleSheet(
@@ -260,4 +297,77 @@ void CustomMDISubWindow::updateCursor(const QPoint &pos)
     {
         setCursor(Qt::ArrowCursor);
     }
+}
+
+void CustomMDISubWindow::setPinned(bool pinned)
+{
+    m_isPinned = pinned;
+    if (m_isPinned)
+    {
+        raise();
+        setStyleSheet(
+            "CustomMDISubWindow { "
+            "   background-color: #252526; "
+            "   border: 2px solid #FFA500; " // Orange border for pinned
+            "}");
+    }
+    else
+    {
+        setStyleSheet(
+            "CustomMDISubWindow { "
+            "   background-color: #252526; "
+            "   border: 1px solid #3e3e42; "
+            "}");
+    }
+}
+
+void CustomMDISubWindow::contextMenuEvent(QContextMenuEvent *event)
+{
+    QMenu menu(this);
+
+    QAction *pinAction = menu.addAction(m_isPinned ? "Unpin Window" : "Pin Window");
+    menu.addSeparator();
+
+    QAction *minimizeAction = menu.addAction("Minimize");
+    QAction *maximizeAction = menu.addAction(m_isMaximized ? "Restore" : "Maximize");
+    menu.addSeparator();
+
+    QAction *closeAction = menu.addAction("Close");
+    QAction *closeOthersAction = menu.addAction("Close All Others");
+
+    QAction *selected = menu.exec(event->globalPos());
+
+    if (selected == pinAction)
+    {
+        setPinned(!m_isPinned);
+    }
+    else if (selected == minimizeAction)
+    {
+        emit minimizeRequested();
+    }
+    else if (selected == maximizeAction)
+    {
+        emit maximizeRequested();
+    }
+    else if (selected == closeAction)
+    {
+        close();
+    }
+    else if (selected == closeOthersAction)
+    {
+        CustomMDIArea *mdiArea = qobject_cast<CustomMDIArea *>(parent());
+        if (mdiArea)
+        {
+            QList<CustomMDISubWindow *> windows = mdiArea->windowList();
+            for (CustomMDISubWindow *win : windows)
+            {
+                if (win != this)
+                {
+                    win->close();
+                }
+            }
+        }
+    }
+
+    event->accept();
 }

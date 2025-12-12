@@ -25,7 +25,7 @@ void ScripBar::setupUI()
     setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
     setMaximumHeight(28);
 #ifdef Q_OS_MAC
-    setMaximumHeight(15);
+    setMaximumHeight(28);
 #endif
 
     // Exchange button + menu

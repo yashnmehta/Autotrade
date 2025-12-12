@@ -19,6 +19,10 @@ signals:
     void minimizeClicked();
     void maximizeClicked();
     void closeClicked();
+    void doubleClicked();
+    void dragStarted(const QPoint &globalPos);
+    void dragMoved(const QPoint &globalPos);
+    void dragEnded();
 
 protected:
     void mousePressEvent(QMouseEvent *event) override;

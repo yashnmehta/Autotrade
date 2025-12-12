@@ -10,7 +10,7 @@ class MDITaskBar;
 
 /**
  * @brief Custom MDI Area - Pure C++ implementation without QMdiArea limitations
- * 
+ *
  * Features:
  * - Native C++ window management
  * - No Qt::SubWindow flag restrictions
@@ -31,11 +31,28 @@ public:
     void activateWindow(CustomMDISubWindow *window);
     void minimizeWindow(CustomMDISubWindow *window);
     void restoreWindow(CustomMDISubWindow *window);
-    
-    CustomMDISubWindow* activeWindow() const;
-    QList<CustomMDISubWindow*> windowList() const;
-    
-    MDITaskBar* taskBar() const { return m_taskBar; }
+
+    // Window Arrangement
+    void cascadeWindows();
+    void tileWindows();
+    void tileHorizontally();
+    void tileVertically();
+
+    // Window Snapping
+    QRect getSnappedGeometry(const QRect &geometry) const;
+    void showSnapPreview(const QRect &snapRect);
+    void hideSnapPreview();
+
+    // Workspace Management
+    void saveWorkspace(const QString &name);
+    void loadWorkspace(const QString &name);
+    QStringList availableWorkspaces() const;
+    void deleteWorkspace(const QString &name);
+
+    CustomMDISubWindow *activeWindow() const;
+    QList<CustomMDISubWindow *> windowList() const;
+
+    MDITaskBar *taskBar() const { return m_taskBar; }
 
 signals:
     void windowActivated(CustomMDISubWindow *window);
@@ -47,18 +64,21 @@ protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
 
 private:
-    void cascadeWindows();
-    void tileWindows();
     QPoint getNextWindowPosition();
-    
-    QList<CustomMDISubWindow*> m_windows;
-    QList<CustomMDISubWindow*> m_minimizedWindows;
+
+    QList<CustomMDISubWindow *> m_windows;
+    QList<CustomMDISubWindow *> m_minimizedWindows;
     CustomMDISubWindow *m_activeWindow;
     MDITaskBar *m_taskBar;
-    
+
+    // Window positioning
     int m_nextX;
     int m_nextY;
     static constexpr int CASCADE_OFFSET = 30;
+
+    // Snapping
+    QWidget *m_snapPreview;
+    static constexpr int SNAP_DISTANCE = 15;
 };
 
 #endif // CUSTOMMDIAREA_H

@@ -83,6 +83,15 @@ void CustomMainWindow::setupUi()
     // Install event filter on title bar to handle resize events
     m_titleBar->installEventFilter(this);
 
+    // Install event filter on title bar children (buttons, labels) to handle resize from button areas
+    for (QObject *child : m_titleBar->children())
+    {
+        if (qobject_cast<QWidget *>(child))
+        {
+            child->installEventFilter(this);
+        }
+    }
+
     // Connect title bar signals
     connect(m_titleBar, &CustomTitleBar::minimizeClicked, this, &CustomMainWindow::showMinimized);
     connect(m_titleBar, &CustomTitleBar::maximizeClicked, this, &CustomMainWindow::toggleMaximize);
@@ -196,6 +205,8 @@ void CustomMainWindow::mousePressEvent(QMouseEvent *event)
     {
         // Detect if clicking on resize border
         m_resizeDirection = detectResizeDirection(event->pos());
+        qDebug() << "[MainWindow Press] pos:" << event->pos() << "globalPos:" << event->globalPos()
+                 << "detected direction:" << m_resizeDirection << "windowSize:" << size();
 
         if (m_resizeDirection != None)
         {
@@ -204,7 +215,7 @@ void CustomMainWindow::mousePressEvent(QMouseEvent *event)
             m_resizeStartGeometry = geometry();
             event->accept();
 
-            qDebug() << "Resize started, direction:" << m_resizeDirection;
+            qDebug() << "[MainWindow] Resize started, direction:" << m_resizeDirection;
             return;
         }
     }
@@ -434,8 +445,13 @@ bool CustomMainWindow::eventFilter(QObject *watched, QEvent *event)
         QMouseEvent *mouseEvent = static_cast<QMouseEvent *>(event);
         if (mouseEvent->button() == Qt::LeftButton && !m_isMaximized)
         {
-            // Check if clicking on resize border
-            ResizeDirection direction = detectResizeDirection(mouseEvent->pos());
+            // Map titleBar local coordinates to MainWindow coordinates for accurate detection
+            QPoint windowPos = m_titleBar->mapTo(this, mouseEvent->pos());
+            ResizeDirection direction = detectResizeDirection(windowPos);
+
+            qDebug() << "[Press] titleBarPos:" << mouseEvent->pos() << "windowPos:" << windowPos
+                     << "direction:" << direction;
+
             if (direction != None)
             {
                 // Handle resize directly
@@ -444,8 +460,33 @@ bool CustomMainWindow::eventFilter(QObject *watched, QEvent *event)
                 m_resizeStartPos = mouseEvent->globalPos();
                 m_resizeStartGeometry = geometry();
 
-                qDebug() << "Resize started from title bar, direction:" << m_resizeDirection;
+                qDebug() << "[Resize Start] direction:" << m_resizeDirection;
                 return true; // Consume the event
+            }
+        }
+    }
+    // Also handle events from title bar children (buttons)
+    else if (m_titleBar->isAncestorOf(qobject_cast<QWidget *>(watched)) && event->type() == QEvent::MouseButtonPress)
+    {
+        QMouseEvent *mouseEvent = static_cast<QMouseEvent *>(event);
+        if (mouseEvent->button() == Qt::LeftButton && !m_isMaximized)
+        {
+            // Map child widget coordinates to MainWindow coordinates
+            QWidget *childWidget = qobject_cast<QWidget *>(watched);
+            QPoint windowPos = childWidget->mapTo(this, mouseEvent->pos());
+            ResizeDirection direction = detectResizeDirection(windowPos);
+
+            qDebug() << "[Press Child]" << childWidget->objectName() << "childPos:" << mouseEvent->pos()
+                     << "windowPos:" << windowPos << "direction:" << direction;
+
+            if (direction != None)
+            {
+                m_resizeDirection = direction;
+                m_isResizing = true;
+                m_resizeStartPos = mouseEvent->globalPos();
+                m_resizeStartGeometry = geometry();
+                qDebug() << "[Resize Start Child] direction:" << m_resizeDirection;
+                return true; // Consume to start resize instead of button click
             }
         }
     }
@@ -459,20 +500,40 @@ bool CustomMainWindow::eventFilter(QObject *watched, QEvent *event)
         }
         else if (!m_isMaximized && !m_isResizing)
         {
-            // Update cursor for visual feedback but do NOT consume the event: we want
-            // CustomTitleBar::mouseMoveEvent to receive the event so window drag works.
-            ResizeDirection direction = detectResizeDirection(mouseEvent->pos());
+            // Map titleBar coordinates to MainWindow for accurate cursor detection
+            QPoint windowPos = m_titleBar->mapTo(this, mouseEvent->pos());
+            ResizeDirection direction = detectResizeDirection(windowPos);
             updateCursorShape(direction);
             // do NOT return true; let title bar handle the underlying event (dragging)
         }
     }
-    else if (watched == m_titleBar && event->type() == QEvent::MouseButtonRelease)
+    // Handle move events from title bar children
+    else if (m_titleBar->isAncestorOf(qobject_cast<QWidget *>(watched)) && event->type() == QEvent::MouseMove)
+    {
+        QMouseEvent *mouseEvent = static_cast<QMouseEvent *>(event);
+        if (m_isResizing && (mouseEvent->buttons() & Qt::LeftButton))
+        {
+            performResize(mouseEvent->globalPos());
+            return true;
+        }
+        else if (!m_isMaximized && !m_isResizing)
+        {
+            // Map child coordinates to MainWindow
+            QWidget *childWidget = qobject_cast<QWidget *>(watched);
+            QPoint windowPos = childWidget->mapTo(this, mouseEvent->pos());
+            ResizeDirection direction = detectResizeDirection(windowPos);
+            updateCursorShape(direction);
+        }
+    }
+    else if ((watched == m_titleBar || m_titleBar->isAncestorOf(qobject_cast<QWidget *>(watched))) && event->type() == QEvent::MouseButtonRelease)
     {
         QMouseEvent *mouseEvent = static_cast<QMouseEvent *>(event);
         if (mouseEvent->button() == Qt::LeftButton && m_isResizing)
         {
-            qDebug() << "Resize ended";
+            qDebug() << "[Resize End]";
             m_isResizing = false;
+            m_resizeDirection = None;
+            updateCursorShape(None);
             return true;
         }
     }

@@ -76,9 +76,10 @@ void CustomTitleBar::mousePressEvent(QMouseEvent *event)
 {
     if (event->button() == Qt::LeftButton)
     {
-        // Start dragging - the parent will handle resize detection
+        // Start dragging - emit signal for parent to handle
         m_isDragging = true;
-        m_dragPosition = event->globalPos() - window()->frameGeometry().topLeft();
+        m_dragPosition = event->globalPos() - parentWidget()->geometry().topLeft();
+        emit dragStarted(event->globalPos());
         event->accept();
     }
 }
@@ -87,7 +88,7 @@ void CustomTitleBar::mouseMoveEvent(QMouseEvent *event)
 {
     if (m_isDragging && (event->buttons() & Qt::LeftButton))
     {
-        window()->move(event->globalPos() - m_dragPosition);
+        emit dragMoved(event->globalPos());
         event->accept();
     }
 }
@@ -96,6 +97,10 @@ void CustomTitleBar::mouseReleaseEvent(QMouseEvent *event)
 {
     if (event->button() == Qt::LeftButton)
     {
+        if (m_isDragging)
+        {
+            emit dragEnded();
+        }
         m_isDragging = false;
     }
     QWidget::mouseReleaseEvent(event);
@@ -105,7 +110,12 @@ void CustomTitleBar::mouseDoubleClickEvent(QMouseEvent *event)
 {
     if (event->button() == Qt::LeftButton)
     {
-        emit maximizeClicked();
+        emit doubleClicked();
+        emit maximizeClicked(); // Also emit for backwards compatibility
         event->accept();
+    }
+    else
+    {
+        QWidget::mouseDoubleClickEvent(event);
     }
 }

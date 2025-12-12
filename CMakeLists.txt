@@ -9,6 +9,9 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Set AUTOUIC search paths for .ui files
+set(CMAKE_AUTOUIC_SEARCH_PATHS ${CMAKE_SOURCE_DIR}/resources/forms)
+
 # Find Qt5 components
 find_package(Qt5 COMPONENTS Widgets Network WebSockets REQUIRED)
 
@@ -30,6 +33,7 @@ set(SOURCES
     src/ui/CustomMDISubWindow.cpp
     src/ui/MDITaskBar.cpp
     src/ui/ScripBar.cpp
+    src/ui/InfoBar.cpp
     src/data/Greeks.cpp
 )
 
@@ -42,13 +46,14 @@ set(HEADERS
     include/ui/CustomMDISubWindow.h
     include/ui/MDITaskBar.h
     include/ui/ScripBar.h
+    include/ui/InfoBar.h
     include/data/Greeks.h
     include/data/ScripMaster.h
 )
 
 # UI files
 set(FORMS
-    # resources/forms/Main.ui # Uncomment when we copy the file
+    resources/forms/InfoBar.ui
 )
 
 # Resource files

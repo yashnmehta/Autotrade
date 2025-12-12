@@ -9,6 +9,7 @@ class QStatusBar;
 class QCloseEvent;
 class ScripBar;
 class QLabel;
+class InfoBar;
 class QDockWidget;
 
 /**
@@ -38,6 +39,11 @@ private slots:
                                const QString &optionType);
     void resetLayout();
 
+    // Workspace management
+    void saveCurrentWorkspace();
+    void loadWorkspace();
+    void manageWorkspaces();
+
 private:
     void setupContent();
     void createMenuBar();
@@ -45,7 +51,6 @@ private:
     void createConnectionBar();
     void createStatusBar();
     void createInfoBar();
-    void showInfoBarContextMenu(const QPoint &pos);
     // Persist state
     void closeEvent(QCloseEvent *event) override;
 
@@ -55,10 +60,7 @@ private:
     QWidget *m_connectionBar;
     QStatusBar *m_statusBar;
     QDockWidget *m_infoDock;
-    QWidget *m_infoBarWidget;
-    QLabel *m_infoTextLabel;
-    QLabel *m_connIconLabel;
-    QLabel *m_lastUpdateLabel;
+    InfoBar *m_infoBar;
     QAction *m_statusBarAction;
     QAction *m_infoBarAction;
     ScripBar *m_scripBar;

@@ -3,6 +3,7 @@
 #include "ui/CustomMDIArea.h"
 #include "ui/CustomMDISubWindow.h"
 #include "ui/ScripBar.h"
+#include "ui/InfoBar.h"
 #include "data/Greeks.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -17,6 +18,11 @@
 #include <QToolBar>
 #include <QStatusBar>
 #include <QDockWidget>
+#include <QInputDialog>
+#include <QMessageBox>
+#include <QDialog>
+#include <QListWidget>
+#include <QShortcut>
 #include <QSettings>
 #include <QCloseEvent>
 #include <QDebug>
@@ -219,14 +225,109 @@ void MainWindow::createMenuBar()
 
     // Window Menu
     QMenu *windowMenu = menuBar->addMenu("&Window");
-    QAction *marketWatchAction = windowMenu->addAction("New &Market Watch");
-    QAction *buyWindowAction = windowMenu->addAction("New &Buy Window");
+    QAction *marketWatchAction = windowMenu->addAction("New &Market Watch", this, &MainWindow::createMarketWatch, QKeySequence("Ctrl+M"));
+    QAction *buyWindowAction = windowMenu->addAction("New &Buy Window", this, &MainWindow::createBuyWindow, QKeySequence("Ctrl+B"));
     windowMenu->addSeparator();
-    windowMenu->addAction("&Cascade");
-    windowMenu->addAction("&Tile");
 
-    connect(marketWatchAction, &QAction::triggered, this, &MainWindow::createMarketWatch);
-    connect(buyWindowAction, &QAction::triggered, this, &MainWindow::createBuyWindow);
+    // Window Arrangement
+    QAction *cascadeAction = windowMenu->addAction("&Cascade", this, [this]()
+                                                   { m_mdiArea->cascadeWindows(); });
+
+    QAction *tileAction = windowMenu->addAction("&Tile", this, [this]()
+                                                { m_mdiArea->tileWindows(); });
+
+    QAction *tileHorzAction = windowMenu->addAction("Tile &Horizontally", this, [this]()
+                                                    { m_mdiArea->tileHorizontally(); });
+
+    QAction *tileVertAction = windowMenu->addAction("Tile &Vertically", this, [this]()
+                                                    { m_mdiArea->tileVertically(); });
+
+    windowMenu->addSeparator();
+
+    // Window Navigation
+    QAction *nextWindowAction = windowMenu->addAction("&Next Window", this, [this]()
+                                                      {
+        QList<CustomMDISubWindow*> windows = m_mdiArea->windowList();
+        if (windows.count() > 1) {
+            CustomMDISubWindow *current = m_mdiArea->activeWindow();
+            int index = windows.indexOf(current);
+            int nextIndex = (index + 1) % windows.count();
+            if (nextIndex < 0) nextIndex = 0;
+            m_mdiArea->activateWindow(windows[nextIndex]);
+        } }, QKeySequence("Ctrl+Tab"));
+    // Make sure the shortcut works even if menu doesn't have focus (macOS/embedded menubar)
+    nextWindowAction->setShortcutContext(Qt::ApplicationShortcut);
+    // Fallback QShortcut for environments where Ctrl+Tab is swallowed
+    QShortcut *nextShortcut = new QShortcut(QKeySequence("Ctrl+Tab"), this);
+    nextShortcut->setContext(Qt::ApplicationShortcut);
+    connect(nextShortcut, &QShortcut::activated, this, [this]()
+            {
+        QList<CustomMDISubWindow*> windows = m_mdiArea->windowList();
+        qDebug() << "Shortcut NextWindow activated. windows count:" << windows.count();
+        if (windows.count() > 1) {
+            CustomMDISubWindow *current = m_mdiArea->activeWindow();
+            QString curTitle = current ? current->title() : QString("<none>");
+            int index = windows.indexOf(current);
+            int nextIndex = (index + 1) % windows.count();
+            qDebug() << "Current index:" << index << "current title:" << curTitle << "next index:" << nextIndex;
+            if (nextIndex < 0) nextIndex = 0;
+            CustomMDISubWindow *target = windows[nextIndex];
+            qDebug() << "Activating window:" << (target ? target->title() : QString("<null>"));
+            m_mdiArea->activateWindow(target);
+        } else {
+            qDebug() << "NextWindow: not enough windows to switch.";
+        } });
+
+    QAction *prevWindowAction = windowMenu->addAction("&Previous Window", this, [this]()
+                                                      {
+        QList<CustomMDISubWindow*> windows = m_mdiArea->windowList();
+        if (windows.count() > 1) {
+            CustomMDISubWindow *current = m_mdiArea->activeWindow();
+            int index = windows.indexOf(current);
+            int prevIndex = (index - 1 + windows.count()) % windows.count();
+            if (prevIndex < 0) prevIndex = 0;
+            m_mdiArea->activateWindow(windows[prevIndex]);
+        } }, QKeySequence("Ctrl+Shift+Tab"));
+    prevWindowAction->setShortcutContext(Qt::ApplicationShortcut);
+    QShortcut *prevShortcut = new QShortcut(QKeySequence("Ctrl+Shift+Tab"), this);
+    prevShortcut->setContext(Qt::ApplicationShortcut);
+    connect(prevShortcut, &QShortcut::activated, this, [this]()
+            {
+        QList<CustomMDISubWindow*> windows = m_mdiArea->windowList();
+        qDebug() << "Shortcut PrevWindow activated. windows count:" << windows.count();
+        if (windows.count() > 1) {
+            CustomMDISubWindow *current = m_mdiArea->activeWindow();
+            QString curTitle = current ? current->title() : QString("<none>");
+            int index = windows.indexOf(current);
+            int prevIndex = (index - 1 + windows.count()) % windows.count();
+            qDebug() << "Current index:" << index << "current title:" << curTitle << "prev index:" << prevIndex;
+            if (prevIndex < 0) prevIndex = 0;
+            CustomMDISubWindow *target = windows[prevIndex];
+            qDebug() << "Activating window:" << (target ? target->title() : QString("<null>"));
+            m_mdiArea->activateWindow(target);
+        } else {
+            qDebug() << "PrevWindow: not enough windows to switch.";
+        } });
+
+    QAction *closeWindowAction = windowMenu->addAction("&Close Window", this, [this]()
+                                                       {
+        CustomMDISubWindow *active = m_mdiArea->activeWindow();
+        if (active) active->close(); }, QKeySequence("Ctrl+W"));
+
+    windowMenu->addSeparator();
+
+    // Maximize/Minimize
+    QAction *maximizeAction = windowMenu->addAction("Ma&ximize Window", this, [this]()
+                                                    {
+        CustomMDISubWindow *active = m_mdiArea->activeWindow();
+        if (active) active->maximize(); }, QKeySequence("F11"));
+
+    windowMenu->addSeparator();
+
+    // Workspace Management
+    QAction *saveWorkspaceAction = windowMenu->addAction("&Save Workspace...", this, &MainWindow::saveCurrentWorkspace, QKeySequence("Ctrl+Shift+S"));
+    QAction *loadWorkspaceAction = windowMenu->addAction("&Load Workspace...", this, &MainWindow::loadWorkspace, QKeySequence("Ctrl+Shift+O"));
+    QAction *manageWorkspacesAction = windowMenu->addAction("&Manage Workspaces...", this, &MainWindow::manageWorkspaces);
 
     // Tools Menu
     QMenu *toolsMenu = menuBar->addMenu("&Tools");
@@ -359,92 +460,57 @@ void MainWindow::createInfoBar()
     // Remove the title bar for a compact look
     m_infoDock->setTitleBarWidget(new QWidget());
 
-    m_infoBarWidget = new QWidget(this);
 #ifdef Q_OS_MAC
-    m_infoBarWidget->setFixedHeight(15);
+    m_infoBar = new InfoBar(this);
+    m_infoBar->setFixedHeight(50);
 #else
-    m_infoBarWidget->setFixedHeight(25);
+    m_infoBar = new InfoBar(this);
+    m_infoBar->setFixedHeight(50);
 #endif
-    m_infoBarWidget->setStyleSheet(
-        "QWidget { "
-        "   background-color: #1e1e1e; "
-        "   border-top: 1px solid #3e3e42; "
-        "} "
-        "QLabel { "
-        "   color: #888888; "
-        "   font-size: 10px; "
-        "   padding: 2px 4px; "
-        "}");
 
-    QHBoxLayout *layout = new QHBoxLayout(m_infoBarWidget);
-    layout->setContentsMargins(10, 0, 10, 0);
-    layout->setSpacing(10);
+    // InfoBar is responsible for its internal layout
 
-    QLabel *versionLabel = new QLabel("Trading Terminal v1.0.0", m_infoBarWidget);
-    layout->addWidget(versionLabel);
-
-    // Center info text (elidable if too long)
-    m_infoTextLabel = new QLabel("Ready", m_infoBarWidget);
-    m_infoTextLabel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
-    m_infoTextLabel->setAlignment(Qt::AlignCenter);
-    layout->addWidget(m_infoTextLabel);
-
-    // Right-hand compact widgets
-    QLabel *separator = new QLabel("|", m_infoBarWidget);
-    separator->setStyleSheet("color: #666666; padding: 0 6px;");
-    layout->addWidget(separator);
-
-    m_connIconLabel = new QLabel(m_infoBarWidget);
-    m_connIconLabel->setFixedSize(12, 12);
-    // draw a default gray circle
-    QPixmap dot(12, 12);
-    dot.fill(Qt::transparent);
-    QPainter p(&dot);
-    p.setRenderHint(QPainter::Antialiasing);
-    p.setBrush(QBrush(QColor("#888888")));
-    p.setPen(Qt::NoPen);
-    p.drawEllipse(0, 0, 12, 12);
-    p.end();
-    m_connIconLabel->setPixmap(dot);
-    m_connIconLabel->setToolTip("Not connected");
-    layout->addWidget(m_connIconLabel);
-
-    m_lastUpdateLabel = new QLabel("Last Update: --", m_infoBarWidget);
-    m_lastUpdateLabel->setStyleSheet("color: #888888;");
-    layout->addWidget(m_lastUpdateLabel);
-
-    m_infoDock->setWidget(m_infoBarWidget);
-    // Context menu for quick actions (hide)
-    m_infoBarWidget->setContextMenuPolicy(Qt::CustomContextMenu);
-    connect(m_infoBarWidget, &QWidget::customContextMenuRequested, this, &MainWindow::showInfoBarContextMenu);
-    addDockWidget(Qt::BottomDockWidgetArea, m_infoDock);
-}
-
-void MainWindow::showInfoBarContextMenu(const QPoint &pos)
-{
-    if (!m_infoBarWidget || !m_infoDock)
-        return;
-    QMenu menu(m_infoBarWidget);
-    QAction *hideAction = menu.addAction("Hide Info Bar");
-    connect(hideAction, &QAction::triggered, this, [this]()
+    m_infoDock->setWidget(m_infoBar);
+    connect(m_infoBar, &InfoBar::hideRequested, this, [this]()
             {
         if (m_infoDock)
         {
             m_infoDock->hide();
             if (m_infoBarAction)
                 m_infoBarAction->setChecked(false);
-            // persist
             QSettings s("TradingCompany", "TradingTerminal");
             s.setValue("mainwindow/info_visible", false);
         } });
-    menu.exec(m_infoBarWidget->mapToGlobal(pos));
+    connect(m_infoBar, &InfoBar::detailsRequested, this, [this]()
+            {
+        // stub: show info details dialog
+        qDebug() << "InfoBar details requested"; });
+    addDockWidget(Qt::BottomDockWidgetArea, m_infoDock);
+    // Keep View Menu in sync when user manually toggles dock visibility
+    connect(m_infoDock, &QDockWidget::visibilityChanged, this, [this](bool visible)
+            {
+        if (m_infoBarAction)
+            m_infoBarAction->setChecked(visible);
+        QSettings s("TradingCompany", "TradingTerminal");
+        s.setValue("mainwindow/info_visible", visible); });
+    // Demo: populate InfoBar with sample stats
+    QMap<QString, QString> stats;
+    stats["NSE Eq:Open"] = "0";
+    stats["NSE Eq Orders"] = "0";
+    stats["NSE Der Orders"] = "0";
+    stats["BSE Eq Orders"] = "0";
+    m_infoBar->setSegmentStats(stats);
+    m_infoBar->setTotalCounts(0, 0, 0);
+    m_infoBar->setUserId("User: demouser");
 }
+// InfoBar menu handled by InfoBar; no MainWindow callback needed
 
 void MainWindow::createMarketWatch()
 {
     static int counter = 1;
 
     CustomMDISubWindow *window = new CustomMDISubWindow(QString("Market Watch %1").arg(counter++), m_mdiArea);
+    window->setWindowType("MarketWatch");
 
     // Create table for market watch
     QTableWidget *table = new QTableWidget(5, 7, window);
@@ -483,6 +549,8 @@ void MainWindow::createMarketWatch()
             { m_mdiArea->minimizeWindow(window); });
     connect(window, &CustomMDISubWindow::maximizeRequested, [window]()
             { window->maximize(); });
+    connect(window, &CustomMDISubWindow::windowActivated, [this, window]()
+            { m_mdiArea->activateWindow(window); });
 
     // Add to MDI area
     m_mdiArea->addWindow(window);
@@ -493,6 +561,7 @@ void MainWindow::createMarketWatch()
 void MainWindow::createBuyWindow()
 {
     CustomMDISubWindow *window = new CustomMDISubWindow("Buy Order", m_mdiArea);
+    window->setWindowType("BuyWindow");
 
     // Create buy window content
     QWidget *content = new QWidget(window);
@@ -539,6 +608,8 @@ void MainWindow::createBuyWindow()
             { m_mdiArea->minimizeWindow(window); });
     connect(window, &CustomMDISubWindow::maximizeRequested, [window]()
             { window->maximize(); });
+    connect(window, &CustomMDISubWindow::windowActivated, [this, window]()
+            { m_mdiArea->activateWindow(window); });
 
     // Add to MDI area
     m_mdiArea->addWindow(window);
@@ -559,4 +630,105 @@ void MainWindow::onAddToWatchRequested(const QString &exchange, const QString &s
 
     // TODO: Add the symbol to the market watch table
     // This would require updating the table with the selected scrip data
+}
+
+void MainWindow::saveCurrentWorkspace()
+{
+    bool ok;
+    QString name = QInputDialog::getText(this, "Save Workspace",
+                                         "Workspace name:", QLineEdit::Normal,
+                                         "", &ok);
+
+    if (ok && !name.isEmpty())
+    {
+        m_mdiArea->saveWorkspace(name);
+        QMessageBox::information(this, "Workspace Saved",
+                                 QString("Workspace '%1' has been saved.").arg(name));
+    }
+}
+
+void MainWindow::loadWorkspace()
+{
+    QStringList workspaces = m_mdiArea->availableWorkspaces();
+
+    if (workspaces.isEmpty())
+    {
+        QMessageBox::information(this, "No Workspaces",
+                                 "No saved workspaces found.");
+        return;
+    }
+
+    bool ok;
+    QString name = QInputDialog::getItem(this, "Load Workspace",
+                                         "Select workspace:", workspaces,
+                                         0, false, &ok);
+
+    if (ok && !name.isEmpty())
+    {
+        m_mdiArea->loadWorkspace(name);
+        QMessageBox::information(this, "Workspace Loaded",
+                                 QString("Workspace '%1' has been loaded.").arg(name));
+    }
+}
+
+void MainWindow::manageWorkspaces()
+{
+    QStringList workspaces = m_mdiArea->availableWorkspaces();
+
+    if (workspaces.isEmpty())
+    {
+        QMessageBox::information(this, "No Workspaces",
+                                 "No saved workspaces found.");
+        return;
+    }
+
+    QDialog dialog(this);
+    dialog.setWindowTitle("Manage Workspaces");
+    dialog.resize(400, 300);
+
+    QVBoxLayout *layout = new QVBoxLayout(&dialog);
+
+    QListWidget *listWidget = new QListWidget(&dialog);
+    listWidget->addItems(workspaces);
+    layout->addWidget(listWidget);
+
+    QHBoxLayout *buttonLayout = new QHBoxLayout();
+    QPushButton *loadBtn = new QPushButton("Load", &dialog);
+    QPushButton *deleteBtn = new QPushButton("Delete", &dialog);
+    QPushButton *closeBtn = new QPushButton("Close", &dialog);
+
+    buttonLayout->addWidget(loadBtn);
+    buttonLayout->addWidget(deleteBtn);
+    buttonLayout->addStretch();
+    buttonLayout->addWidget(closeBtn);
+    layout->addLayout(buttonLayout);
+
+    connect(loadBtn, &QPushButton::clicked, [&]()
+            {
+        QListWidgetItem *item = listWidget->currentItem();
+        if (item) {
+            m_mdiArea->loadWorkspace(item->text());
+            QMessageBox::information(&dialog, "Workspace Loaded",
+                                   QString("Workspace '%1' has been loaded.").arg(item->text()));
+            dialog.accept();
+        } });
+
+    connect(deleteBtn, &QPushButton::clicked, [&]()
+            {
+        QListWidgetItem *item = listWidget->currentItem();
+        if (item) {
+            QMessageBox::StandardButton reply = QMessageBox::question(
+                &dialog, "Delete Workspace",
+                QString("Are you sure you want to delete workspace '%1'?").arg(item->text()),
+                QMessageBox::Yes | QMessageBox::No);
+            
+            if (reply == QMessageBox::Yes) {
+                m_mdiArea->deleteWorkspace(item->text());
+                delete listWidget->takeItem(listWidget->row(item));
+            }
+        } });
+
+    connect(closeBtn, &QPushButton::clicked, &dialog, &QDialog::accept);
+
+    dialog.exec();
 }

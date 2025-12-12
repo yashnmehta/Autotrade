@@ -167,3 +167,83 @@ connect(window, &CustomMainWindow::windowStateChanged,
 | Resize customization | ❌ | ✅ |
 | Cross-platform look | ❌ (OS-dependent) | ✅ (Consistent) |
 | Performance | Good | **Excellent** |
+
+
+
+
+
+
+uggested Features to Add:
+1. CustomMDIArea Enhancements:
+✅ Window Arrangement Modes (already stubbed)
+Cascade windows
+Tile windows (horizontal/vertical/grid)
+Stack windows
+❌ Window Snapping (CRITICAL for trading)
+Snap to edges when dragging near borders
+Magnetic docking to other windows
+Grid-based positioning
+❌ Workspace Layouts (ESSENTIAL)
+Save/load window layouts (positions, sizes, which windows open)
+Predefined layouts: "Trading", "Analysis", "Orders"
+Quick layout switching via toolbar/menu
+❌ Tab Groups (Modern UI)
+Allow windows to be tabbed together like Chrome/VS Code
+Drag window to titlebar of another to create tab group
+❌ Window Linking (Trading-specific)
+Link windows together (e.g., chart + order entry show same symbol)
+Broadcast symbol changes across linked windows
+2. CustomMDISubWindow Enhancements:
+✅ Basic resize/drag (implemented)
+❌ Snap Indicators (Visual feedback)
+Show blue highlight zones when dragging near edges
+Preview where window will snap before releasing
+❌ Window Memory (UX)
+Remember last position/size per window type
+Restore windows to last state on app restart
+❌ Window Pinning (Trading-specific)
+Pin window to stay on top of others
+Pin to specific position (prevents accidental move)
+❌ Double-click Titlebar Actions
+Double-click to maximize/restore (like Windows)
+Shade/roll-up window to just titlebar
+❌ Context Menu (Right-click titlebar)
+Always on Top
+Move to Screen Edge
+Close All Others
+Window Settings
+3. MDITaskBar Enhancements:
+✅ Basic minimize/restore (implemented)
+❌ Window Preview (Modern UX)
+Hover over button shows thumbnail preview
+Preview updates in real-time
+❌ Window Grouping (Organization)
+Group by window type (Charts, Orders, Market Watch)
+Collapsible groups
+❌ Quick Actions (Productivity)
+Right-click button for context menu
+Close window from taskbar
+Pin/unpin window
+❌ Visual Indicators (Status awareness)
+Show alert badges (e.g., "5 new orders")
+Flash button when window needs attention
+Different colors for different window types
+❌ Overflow Menu (Scalability)
+If too many windows, show overflow button (»)
+Popup menu with all windows
+4. Professional Trading Features:
+❌ Window Linking/Broadcasting ⭐ PRIORITY
+Symbol linking between windows
+Time-frame synchronization for charts
+❌ Keyboard Shortcuts ⭐ PRIORITY
+Ctrl+Tab: Cycle through windows
+Alt+1-9: Activate specific window
+Ctrl+W: Close active window
+F11: Maximize active window
+❌ Tear-off Windows (Multi-monitor)
+Drag window outside MDI area to create floating window
+Drag back to dock into MDI
+❌ Window Templates (Productivity)
+Save window configuration as template
+Quick-create from template
+Priority Recommendations:

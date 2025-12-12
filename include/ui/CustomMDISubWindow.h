@@ -35,6 +35,10 @@ public:
     void setTitle(const QString &title);
     QString title() const;
 
+    // Window Type (for workspace save/load)
+    void setWindowType(const QString &type) { m_windowType = type; }
+    QString windowType() const { return m_windowType; }
+
     // Window State
     bool isMinimized() const { return m_isMinimized; }
     bool isMaximized() const { return m_isMaximized; }
@@ -42,6 +46,10 @@ public:
     void minimize();
     void restore();
     void maximize();
+
+    // Pinning
+    void setPinned(bool pinned);
+    bool isPinned() const { return m_isPinned; }
 
 signals:
     void closeRequested();
@@ -55,6 +63,7 @@ protected:
     void mouseReleaseEvent(QMouseEvent *event) override;
     void focusInEvent(QFocusEvent *event) override;
     void closeEvent(QCloseEvent *event) override;
+    void contextMenuEvent(QContextMenuEvent *event) override;
 
 private:
     void setupResizeHandles();
@@ -64,10 +73,12 @@ private:
     CustomTitleBar *m_titleBar;
     QWidget *m_contentWidget;
     QVBoxLayout *m_mainLayout;
+    QString m_windowType; // For workspace persistence
 
     // Window State
     bool m_isMinimized;
     bool m_isMaximized;
+    bool m_isPinned;
     QRect m_normalGeometry; // For restoring from maximize
 
     // Dragging/Resizing (Native C++)
