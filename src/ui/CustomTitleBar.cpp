@@ -1,4 +1,4 @@
-#include "ui/CustomTitleBar.h"
+#include "widgets/CustomTitleBar.h"
 #include <QHBoxLayout>
 #include <QMouseEvent>
 #include <QApplication>
@@ -10,6 +10,8 @@ CustomTitleBar::CustomTitleBar(QWidget *parent)
     // Ensure styled background is used so stylesheet background-color is painted
     setAttribute(Qt::WA_StyledBackground, true);
     setAutoFillBackground(true);
+    m_isActive = true;
+    // Default style (active)
     setStyleSheet("background-color: #2d2d30; color: #ffffff;");
 
     QHBoxLayout *layout = new QHBoxLayout(this);
@@ -63,6 +65,52 @@ CustomTitleBar::CustomTitleBar(QWidget *parent)
     connect(m_minimizeButton, &QPushButton::clicked, this, &CustomTitleBar::minimizeClicked);
     connect(m_maximizeButton, &QPushButton::clicked, this, &CustomTitleBar::maximizeClicked);
     connect(m_closeButton, &QPushButton::clicked, this, &CustomTitleBar::closeClicked);
+}
+
+void CustomTitleBar::setActive(bool active)
+{
+    if (m_isActive == active)
+        return;
+
+    m_isActive = active;
+
+    if (m_isActive) {
+        // Active titlebar: slightly lighter background and brighter title
+        setStyleSheet(
+            "background-color: #32343a; color: #ffffff;"
+        );
+        m_titleLabel->setStyleSheet("font-size:13px; color: #e6f0ff;");
+        m_minimizeButton->setStyleSheet(
+            "QPushButton { background-color: transparent; color: #ffffff; border: none; padding: 0px 16px; font-size: 16px; }"
+            "QPushButton:hover { background-color: #3e3e42; }"
+        );
+        m_maximizeButton->setStyleSheet(
+            "QPushButton { background-color: transparent; color: #ffffff; border: none; padding: 0px 16px; font-size: 16px; }"
+            "QPushButton:hover { background-color: #3e3e42; }"
+        );
+        m_closeButton->setStyleSheet(
+            "QPushButton { background-color: transparent; color: #ffffff; border: none; padding: 0px 16px; font-size: 16px; }"
+            "QPushButton:hover { background-color: #e81123; }"
+        );
+    } else {
+        // Inactive (background closer to MDI area background, dim title)
+        setStyleSheet(
+            "background-color: #262626; color: #bdbdbd;"
+        );
+        m_titleLabel->setStyleSheet("font-size:13px; color: #9f9f9f;");
+        m_minimizeButton->setStyleSheet(
+            "QPushButton { background-color: transparent; color: #bdbdbd; border: none; padding: 0px 16px; font-size: 16px; }"
+            "QPushButton:hover { background-color: #2f2f32; }"
+        );
+        m_maximizeButton->setStyleSheet(
+            "QPushButton { background-color: transparent; color: #bdbdbd; border: none; padding: 0px 16px; font-size: 16px; }"
+            "QPushButton:hover { background-color: #2f2f32; }"
+        );
+        m_closeButton->setStyleSheet(
+            "QPushButton { background-color: transparent; color: #bdbdbd; border: none; padding: 0px 16px; font-size: 16px; }"
+            "QPushButton:hover { background-color: #7a1e20; }"
+        );
+    }
 }
 
 void CustomTitleBar::setTitle(const QString &title)

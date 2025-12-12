@@ -1,6 +1,6 @@
-#include "ui/CustomMDISubWindow.h"
-#include "ui/CustomTitleBar.h"
-#include "ui/CustomMDIArea.h"
+#include "widgets/CustomMDISubWindow.h"
+#include "widgets/CustomTitleBar.h"
+#include "widgets/CustomMDIArea.h"
 #include <QMouseEvent>
 #include <QCloseEvent>
 #include <QContextMenuEvent>
@@ -126,6 +126,12 @@ CustomMDISubWindow::CustomMDISubWindow(const QString &title, QWidget *parent)
     resize(800, 600);
 
     qDebug() << "CustomMDISubWindow created:" << title;
+}
+
+void CustomMDISubWindow::setActive(bool active)
+{
+    if (m_titleBar)
+        m_titleBar->setActive(active);
 }
 
 CustomMDISubWindow::~CustomMDISubWindow()

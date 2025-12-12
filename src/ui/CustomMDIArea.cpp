@@ -1,5 +1,5 @@
-#include "ui/CustomMDIArea.h"
-#include "ui/CustomMDISubWindow.h"
+#include "widgets/CustomMDIArea.h"
+#include "widgets/CustomMDISubWindow.h"
 #include "ui/MDITaskBar.h"
 #include <QVBoxLayout>
 #include <QResizeEvent>
@@ -116,6 +116,8 @@ void CustomMDIArea::activateWindow(CustomMDISubWindow *window)
     {
         m_activeWindow->setStyleSheet(
             "CustomMDISubWindow { border: 1px solid #3e3e42; }");
+        // dim its titlebar
+        m_activeWindow->setActive(false);
     }
 
     // Activate new window
@@ -126,6 +128,8 @@ void CustomMDIArea::activateWindow(CustomMDISubWindow *window)
     window->setStyleSheet(
         "CustomMDISubWindow { border: 1px solid #007acc; }" // Active border (VS Code blue)
     );
+    // make titlebar visually active
+    window->setActive(true);
 
     emit windowActivated(window);
 

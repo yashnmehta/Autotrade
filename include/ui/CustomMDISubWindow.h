@@ -35,6 +35,9 @@ public:
     void setTitle(const QString &title);
     QString title() const;
 
+    // Active/inactive visual state (titlebar contrast)
+    void setActive(bool active);
+
     // Window Type (for workspace save/load)
     void setWindowType(const QString &type) { m_windowType = type; }
     QString windowType() const { return m_windowType; }

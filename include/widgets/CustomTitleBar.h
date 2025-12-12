@@ -1,0 +1,6 @@
+#ifndef WIDGETS_CUSTOMTITLEBAR_H
+#define WIDGETS_CUSTOMTITLEBAR_H
+
+#include "../ui/CustomTitleBar.h"
+
+#endif // WIDGETS_CUSTOMTITLEBAR_H

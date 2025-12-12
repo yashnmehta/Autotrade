@@ -1,5 +1,5 @@
 #include "ui/CustomMDIChild.h"
-#include "ui/CustomTitleBar.h"
+#include "widgets/CustomTitleBar.h"
 #include <QVBoxLayout>
 
 CustomMDIChild::CustomMDIChild(const QString &title, QWidget *parent)

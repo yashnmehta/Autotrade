@@ -14,6 +14,7 @@ public:
 
     void setTitle(const QString &title);
     QString title() const;
+    void setActive(bool active);
 
 signals:
     void minimizeClicked();
@@ -38,6 +39,7 @@ private:
 
     QPoint m_dragPosition;
     bool m_isDragging;
+    bool m_isActive;
 };
 
 #endif // CUSTOMTITLEBAR_H

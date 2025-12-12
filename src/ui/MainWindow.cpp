@@ -1,7 +1,7 @@
 #include "ui/MainWindow.h"
-#include "ui/CustomTitleBar.h"
-#include "ui/CustomMDIArea.h"
-#include "ui/CustomMDISubWindow.h"
+#include "widgets/CustomTitleBar.h"
+#include "widgets/CustomMDIArea.h"
+#include "widgets/CustomMDISubWindow.h"
 #include "ui/ScripBar.h"
 #include "ui/InfoBar.h"
 #include "data/Greeks.h"
@@ -290,26 +290,7 @@ void MainWindow::createMenuBar()
         } }, QKeySequence("Ctrl+Tab"));
     // Make sure the shortcut works even if menu doesn't have focus (macOS/embedded menubar)
     nextWindowAction->setShortcutContext(Qt::ApplicationShortcut);
-    // Fallback QShortcut for environments where Ctrl+Tab is swallowed
-    QShortcut *nextShortcut = new QShortcut(QKeySequence("Ctrl+Tab"), this);
-    nextShortcut->setContext(Qt::ApplicationShortcut);
-    connect(nextShortcut, &QShortcut::activated, this, [this]()
-            {
-        QList<CustomMDISubWindow*> windows = m_mdiArea->windowList();
-        qDebug() << "Shortcut NextWindow activated. windows count:" << windows.count();
-        if (windows.count() > 1) {
-            CustomMDISubWindow *current = m_mdiArea->activeWindow();
-            QString curTitle = current ? current->title() : QString("<none>");
-            int index = windows.indexOf(current);
-            int nextIndex = (index + 1) % windows.count();
-            qDebug() << "Current index:" << index << "current title:" << curTitle << "next index:" << nextIndex;
-            if (nextIndex < 0) nextIndex = 0;
-            CustomMDISubWindow *target = windows[nextIndex];
-            qDebug() << "Activating window:" << (target ? target->title() : QString("<null>"));
-            m_mdiArea->activateWindow(target);
-        } else {
-            qDebug() << "NextWindow: not enough windows to switch.";
-        } });
+    // Note: we rely on QAction's shortcut (ApplicationShortcut context)
 
     QAction *prevWindowAction = windowMenu->addAction("&Previous Window", this, [this]()
                                                       {
@@ -322,25 +303,6 @@ void MainWindow::createMenuBar()
             m_mdiArea->activateWindow(windows[prevIndex]);
         } }, QKeySequence("Ctrl+Shift+Tab"));
     prevWindowAction->setShortcutContext(Qt::ApplicationShortcut);
-    QShortcut *prevShortcut = new QShortcut(QKeySequence("Ctrl+Shift+Tab"), this);
-    prevShortcut->setContext(Qt::ApplicationShortcut);
-    connect(prevShortcut, &QShortcut::activated, this, [this]()
-            {
-        QList<CustomMDISubWindow*> windows = m_mdiArea->windowList();
-        qDebug() << "Shortcut PrevWindow activated. windows count:" << windows.count();
-        if (windows.count() > 1) {
-            CustomMDISubWindow *current = m_mdiArea->activeWindow();
-            QString curTitle = current ? current->title() : QString("<none>");
-            int index = windows.indexOf(current);
-            int prevIndex = (index - 1 + windows.count()) % windows.count();
-            qDebug() << "Current index:" << index << "current title:" << curTitle << "prev index:" << prevIndex;
-            if (prevIndex < 0) prevIndex = 0;
-            CustomMDISubWindow *target = windows[prevIndex];
-            qDebug() << "Activating window:" << (target ? target->title() : QString("<null>"));
-            m_mdiArea->activateWindow(target);
-        } else {
-            qDebug() << "PrevWindow: not enough windows to switch.";
-        } });
 
     QAction *closeWindowAction = windowMenu->addAction("&Close Window", this, [this]()
                                                        {
