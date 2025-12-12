@@ -164,9 +164,11 @@ void MainWindow::createMenuBar()
 {
     // Create a custom menu bar widget (NOT using QMainWindow::menuBar())
     // This avoids conflicts with our custom title bar and layout
-    QMenuBar *menuBar = new QMenuBar(centralWidget());
+    // CRITICAL: Create with nullptr parent first to avoid auto-positioning
+    QMenuBar *menuBar = new QMenuBar(nullptr);
 
-    // CRITICAL for Linux: Force native=false to prevent side-by-side layout
+    // CRITICAL for ALL platforms: Force native=false BEFORE adding to layout
+    // This prevents macOS/Linux from positioning it at window/desktop level
     menuBar->setNativeMenuBar(false);
 
     // Force menu bar to take full width and be part of vertical layout
@@ -198,11 +200,21 @@ void MainWindow::createMenuBar()
         "   background-color: #094771; "
         "}");
 
-    // Add menu bar to our custom layout (will be added in setupContent())
+    // CRITICAL: Set fixed height to prevent menu bar from being too tall
+    menuBar->setFixedHeight(25);
+
+    // Add menu bar to our custom layout
     QVBoxLayout *layout = qobject_cast<QVBoxLayout *>(centralWidget()->layout());
     if (layout)
     {
-        layout->insertWidget(0, menuBar); // Insert at top (below title bar)
+        // Reparent to central widget and add to layout
+        menuBar->setParent(centralWidget());
+        layout->insertWidget(0, menuBar); // Insert at position 0 (top of content)
+        qDebug() << "Menu bar added to layout at position 0";
+    }
+    else
+    {
+        qDebug() << "ERROR: Could not get layout to add menu bar!";
     }
 
     // File Menu
