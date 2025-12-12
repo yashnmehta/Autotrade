@@ -1,6 +1,6 @@
-#include "widgets/CustomMDISubWindow.h"
-#include "widgets/CustomTitleBar.h"
-#include "widgets/CustomMDIArea.h"
+#include "ui/CustomMDISubWindow.h"
+#include "ui/CustomTitleBar.h"
+#include "ui/CustomMDIArea.h"
 #include <QMouseEvent>
 #include <QCloseEvent>
 #include <QContextMenuEvent>
@@ -23,9 +23,9 @@ CustomMDISubWindow::CustomMDISubWindow(const QString &title, QWidget *parent)
     setMouseTracking(true); // For resize cursor
     setFocusPolicy(Qt::StrongFocus); // Allow focus for keyboard events
 
-    // Main layout
+    // Main layout with margins for resize borders
     m_mainLayout = new QVBoxLayout(this);
-    m_mainLayout->setContentsMargins(0, 0, 0, 0);
+    m_mainLayout->setContentsMargins(3, 3, 3, 3);  // 3px margin for visible resize area
     m_mainLayout->setSpacing(0);
 
     // Custom title bar
@@ -117,11 +117,11 @@ CustomMDISubWindow::CustomMDISubWindow(const QString &title, QWidget *parent)
         }
     });
 
-    // Styling
+    // Styling with VISIBLE borders
     setStyleSheet(
         "CustomMDISubWindow { "
         "   background-color: #252526; "
-        "   border: 2px solid #cccccc; "  // Light thin border for edge visibility
+        "   border: 3px solid #007acc; "  // Bright blue border for visibility
         "}");
 
     resize(800, 600);
@@ -157,6 +157,7 @@ void CustomMDISubWindow::setContentWidget(QWidget *widget)
     if (m_contentWidget)
     {
         m_mainLayout->removeWidget(m_contentWidget);
+        m_contentWidget->removeEventFilter(this);
         m_contentWidget->setParent(nullptr);
     }
 
@@ -164,6 +165,8 @@ void CustomMDISubWindow::setContentWidget(QWidget *widget)
     if (m_contentWidget)
     {
         m_mainLayout->addWidget(m_contentWidget);
+        // Install event filter to capture mouse events near edges
+        m_contentWidget->installEventFilter(this);
     }
 }
 
@@ -363,7 +366,7 @@ void CustomMDISubWindow::setPinned(bool pinned)
         setStyleSheet(
             "CustomMDISubWindow { "
             "   background-color: #252526; "
-            "   border: 2px solid #FFA500; " // Orange border for pinned
+            "   border: 3px solid #FFA500; " // Orange border for pinned
             "}");
     }
     else
@@ -371,7 +374,7 @@ void CustomMDISubWindow::setPinned(bool pinned)
         setStyleSheet(
             "CustomMDISubWindow { "
             "   background-color: #252526; "
-            "   border: 1px solid #3e3e42; "
+            "   border: 3px solid #007acc; "  // Bright blue border
             "}");
     }
 }
@@ -425,4 +428,87 @@ void CustomMDISubWindow::contextMenuEvent(QContextMenuEvent *event)
     }
 
     event->accept();
+}
+
+bool CustomMDISubWindow::eventFilter(QObject *watched, QEvent *event)
+{
+    // Filter events from content widget to handle resizing from edges
+    if (watched == m_contentWidget)
+    {
+        if (event->type() == QEvent::MouseMove)
+        {
+            QMouseEvent *mouseEvent = static_cast<QMouseEvent*>(event);
+            // Map content widget position to subwindow coordinates
+            QPoint subWindowPos = m_contentWidget->mapTo(this, mouseEvent->pos());
+            
+            // Check if we're near the edge (within resize border area)
+            Qt::Edges edges;
+            if (isOnResizeBorder(subWindowPos, edges))
+            {
+                updateCursor(subWindowPos);
+                
+                // If already resizing, handle the resize
+                if (m_isResizing && (mouseEvent->buttons() & Qt::LeftButton))
+                {
+                    QPoint delta = mouseEvent->globalPos() - m_dragStartPos;
+                    QRect newGeometry = m_dragStartGeometry;
+
+                    // Resize based on edges
+                    if (m_resizeEdges & Qt::LeftEdge)
+                        newGeometry.setLeft(m_dragStartGeometry.left() + delta.x());
+                    if (m_resizeEdges & Qt::TopEdge)
+                        newGeometry.setTop(m_dragStartGeometry.top() + delta.y());
+                    if (m_resizeEdges & Qt::RightEdge)
+                        newGeometry.setRight(m_dragStartGeometry.right() + delta.x());
+                    if (m_resizeEdges & Qt::BottomEdge)
+                        newGeometry.setBottom(m_dragStartGeometry.bottom() + delta.y());
+
+                    // Enforce minimum size
+                    if (newGeometry.width() < 200)
+                        newGeometry.setWidth(200);
+                    if (newGeometry.height() < 150)
+                        newGeometry.setHeight(150);
+
+                    setGeometry(newGeometry);
+                    return true;  // Event handled
+                }
+            }
+            else if (!m_isResizing)
+            {
+                // Reset cursor if not on border
+                m_contentWidget->setCursor(Qt::ArrowCursor);
+            }
+        }
+        else if (event->type() == QEvent::MouseButtonPress)
+        {
+            QMouseEvent *mouseEvent = static_cast<QMouseEvent*>(event);
+            if (mouseEvent->button() == Qt::LeftButton)
+            {
+                QPoint subWindowPos = m_contentWidget->mapTo(this, mouseEvent->pos());
+                Qt::Edges edges;
+                if (isOnResizeBorder(subWindowPos, edges))
+                {
+                    qDebug() << "[MDISubWindow]" << title() << "starting resize from content, edges:" << edges;
+                    m_isResizing = true;
+                    m_resizeEdges = edges;
+                    m_dragStartPos = mouseEvent->globalPos();
+                    m_dragStartGeometry = geometry();
+                    emit windowActivated();
+                    return true;  // Event handled
+                }
+            }
+        }
+        else if (event->type() == QEvent::MouseButtonRelease)
+        {
+            QMouseEvent *mouseEvent = static_cast<QMouseEvent*>(event);
+            if (mouseEvent->button() == Qt::LeftButton && m_isResizing)
+            {
+                m_isResizing = false;
+                m_resizeEdges = Qt::Edges();
+                return true;  // Event handled
+            }
+        }
+    }
+    
+    return QWidget::eventFilter(watched, event);
 }

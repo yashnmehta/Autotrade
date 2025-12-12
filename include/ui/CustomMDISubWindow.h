@@ -67,6 +67,7 @@ protected:
     void focusInEvent(QFocusEvent *event) override;
     void closeEvent(QCloseEvent *event) override;
     void contextMenuEvent(QContextMenuEvent *event) override;
+    bool eventFilter(QObject *watched, QEvent *event) override;
 
 private:
     void setupResizeHandles();
@@ -91,7 +92,7 @@ private:
     QRect m_dragStartGeometry;
     Qt::Edges m_resizeEdges;
 
-    static constexpr int RESIZE_BORDER_WIDTH = 16;
+    static constexpr int RESIZE_BORDER_WIDTH = 10;  // Border width for resize detection
 };
 
 #endif // CUSTOMMDISUBWINDOW_H

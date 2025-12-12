@@ -1,5 +1,5 @@
-#include "widgets/MDITaskBar.h"
-#include "widgets/CustomMDISubWindow.h"
+#include "ui/MDITaskBar.h"
+#include "ui/CustomMDISubWindow.h"
 #include <QDebug>
 
 MDITaskBar::MDITaskBar(QWidget *parent)

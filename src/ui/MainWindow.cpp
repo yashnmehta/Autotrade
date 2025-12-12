@@ -1,7 +1,7 @@
 #include "ui/MainWindow.h"
-#include "widgets/CustomTitleBar.h"
-#include "widgets/CustomMDIArea.h"
-#include "widgets/CustomMDISubWindow.h"
+#include "ui/CustomTitleBar.h"
+#include "ui/CustomMDIArea.h"
+#include "ui/CustomMDISubWindow.h"
 #include "ui/ScripBar.h"
 #include "ui/InfoBar.h"
 #include "data/Greeks.h"
@@ -289,7 +289,11 @@ void MainWindow::createMenuBar()
             m_mdiArea->activateWindow(windows[nextIndex]);
         } });
     // QShortcut for cross-platform window switching
+#ifdef Q_OS_MACOS
+    QShortcut *nextShortcut = new QShortcut(QKeySequence("Meta+Tab"), this);
+#else
     QShortcut *nextShortcut = new QShortcut(QKeySequence("Ctrl+Tab"), this);
+#endif
     nextShortcut->setContext(Qt::ApplicationShortcut);
     connect(nextShortcut, &QShortcut::activated, this, [this]()
             {
@@ -312,7 +316,11 @@ void MainWindow::createMenuBar()
             if (prevIndex < 0) prevIndex = 0;
             m_mdiArea->activateWindow(windows[prevIndex]);
         } });
+#ifdef Q_OS_MACOS
+    QShortcut *prevShortcut = new QShortcut(QKeySequence("Meta+Shift+Tab"), this);
+#else
     QShortcut *prevShortcut = new QShortcut(QKeySequence("Ctrl+Shift+Tab"), this);
+#endif
     prevShortcut->setContext(Qt::ApplicationShortcut);
     connect(prevShortcut, &QShortcut::activated, this, [this]()
             {

@@ -1,5 +1,5 @@
 #include "ui/CustomMainWindow.h"
-#include "widgets/CustomTitleBar.h"
+#include "ui/CustomTitleBar.h"
 #include <QMouseEvent>
 #include <QApplication>
 #include <QScreen>

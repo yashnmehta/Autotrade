@@ -1,4 +1,4 @@
-#include "widgets/CustomTitleBar.h"
+#include "ui/CustomTitleBar.h"
 #include <QHBoxLayout>
 #include <QMouseEvent>
 #include <QApplication>

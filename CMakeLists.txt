@@ -21,7 +21,6 @@ include_directories(
     ${CMAKE_SOURCE_DIR}/include/ui
     ${CMAKE_SOURCE_DIR}/include/api
     ${CMAKE_SOURCE_DIR}/include/data
-    ${CMAKE_SOURCE_DIR}/include/widgets
 )
 
 # Source files
@@ -46,10 +45,6 @@ set(HEADERS
     include/ui/CustomMDIArea.h
     include/ui/CustomMDISubWindow.h
     include/ui/MDITaskBar.h
-    include/widgets/CustomTitleBar.h
-    include/widgets/CustomMDIArea.h
-    include/widgets/CustomMDISubWindow.h
-    include/widgets/MDITaskBar.h
     include/ui/ScripBar.h
     include/ui/InfoBar.h
     include/data/Greeks.h

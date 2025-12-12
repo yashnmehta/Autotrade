@@ -1,5 +1,5 @@
-#include "widgets/CustomMDIArea.h"
-#include "widgets/CustomMDISubWindow.h"
+#include "ui/CustomMDIArea.h"
+#include "ui/CustomMDISubWindow.h"
 #include "ui/MDITaskBar.h"
 #include <QVBoxLayout>
 #include <QResizeEvent>

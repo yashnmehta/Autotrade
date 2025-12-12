@@ -1,6 +1,0 @@
-#ifndef WIDGETS_CUSTOMMDIAREA_H
-#define WIDGETS_CUSTOMMDIAREA_H
-
-#include "../ui/CustomMDIArea.h"
-
-#endif // WIDGETS_CUSTOMMDIAREA_H
