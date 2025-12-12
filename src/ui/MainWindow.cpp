@@ -362,7 +362,13 @@ void MainWindow::createMenuBar()
     helpMenu->addAction("&Documentation");
 
     // Add menu bar to title bar (custom integration)
-    titleBar()->layout()->addWidget(menuBar);
+    // Ensure we don't use the native/global menu bar on Linux (consistent behavior)
+    menuBar->setNativeMenuBar(false);
+    // Insert the menu bar next to the title label so it appears before the stretch
+    if (titleBar() && titleBar()->layout())
+    {
+        titleBar()->layout()->insertWidget(1, menuBar);
+    }
 }
 
 void MainWindow::resetLayout()
