@@ -1,6 +1,18 @@
 # Trading Terminal (C++ Edition)
 
+**Status:** ✅ **STABLE** - Critical crashes fixed (Dec 12, 2025)
+
 This is the native C++ implementation of the Trading Terminal using Qt 5.15+.
+
+## 🎯 Latest Update
+
+**December 12, 2025** - Major stability fix:
+- ✅ Fixed critical segmentation fault on startup
+- ✅ Corrected window layout hierarchy (title bar now at top)
+- ✅ Redesigned architecture for better maintainability
+- ✅ Application now runs stably on macOS
+
+See `docs/CRITICAL_FIX_SUMMARY.md` for details.
 
 ## Prerequisites
 

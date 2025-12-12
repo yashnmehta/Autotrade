@@ -106,6 +106,9 @@ private:
     bool m_isMaximized;
     QRect m_normalGeometry;
 
+    // Drag State
+    QPoint m_dragOffset; // Offset from cursor to window top-left during drag
+
     // Resize State
     bool m_isResizing;
     ResizeDirection m_resizeDirection;

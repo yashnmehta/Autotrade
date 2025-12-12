@@ -36,7 +36,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     // Setup content FIRST (creates layout and widgets)
     setupContent();
-    
+
     // Restore visibility preferences
     QSettings s("TradingCompany", "TradingTerminal");
     if (m_infoDock)
@@ -69,7 +69,7 @@ void MainWindow::setupContent()
 
     // Create menu bar (custom widget, NOT QMainWindow::menuBar())
     createMenuBar();
-    
+
     // Create toolbar
     createToolBar();
     layout->addWidget(m_toolBar);
@@ -138,7 +138,7 @@ void MainWindow::setupContent()
 
     // Custom MDI Area (main content area)
     m_mdiArea = new CustomMDIArea(container);
-    layout->addWidget(m_mdiArea, 1);  // Give it stretch factor so it expands
+    layout->addWidget(m_mdiArea, 1); // Give it stretch factor so it expands
 
     // Create status bar at the bottom
     createStatusBar();
@@ -165,6 +165,13 @@ void MainWindow::createMenuBar()
     // Create a custom menu bar widget (NOT using QMainWindow::menuBar())
     // This avoids conflicts with our custom title bar and layout
     QMenuBar *menuBar = new QMenuBar(centralWidget());
+
+    // CRITICAL for Linux: Force native=false to prevent side-by-side layout
+    menuBar->setNativeMenuBar(false);
+
+    // Force menu bar to take full width and be part of vertical layout
+    menuBar->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+
     menuBar->setStyleSheet(
         "QMenuBar { "
         "   background-color: #2d2d30; "
@@ -195,7 +202,7 @@ void MainWindow::createMenuBar()
     QVBoxLayout *layout = qobject_cast<QVBoxLayout *>(centralWidget()->layout());
     if (layout)
     {
-        layout->insertWidget(0, menuBar);  // Insert at top (below title bar)
+        layout->insertWidget(0, menuBar); // Insert at top (below title bar)
     }
 
     // File Menu
@@ -212,13 +219,13 @@ void MainWindow::createMenuBar()
     viewMenu->addAction("&Toolbar");
     m_statusBarAction = viewMenu->addAction("&Status Bar");
     m_statusBarAction->setCheckable(true);
-    m_statusBarAction->setChecked(true);  // Will be updated after statusBar is created
+    m_statusBarAction->setChecked(true); // Will be updated after statusBar is created
     connect(m_statusBarAction, &QAction::toggled, this, [this](bool visible)
             { if (m_statusBar) m_statusBar->setVisible(visible); });
 
     m_infoBarAction = viewMenu->addAction("&Info Bar");
     m_infoBarAction->setCheckable(true);
-    m_infoBarAction->setChecked(true);  // Will be updated after infoBar is created
+    m_infoBarAction->setChecked(true); // Will be updated after infoBar is created
     connect(m_infoBarAction, &QAction::toggled, this, [this](bool visible)
             { if (m_infoDock) m_infoDock->setVisible(visible); });
     viewMenu->addSeparator();

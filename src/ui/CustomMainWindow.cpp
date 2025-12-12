@@ -42,7 +42,7 @@ void CustomMainWindow::setupUi()
     // This becomes QMainWindow's central widget
     QWidget *mainContainer = new QWidget(this);
     mainContainer->setObjectName("mainContainer");
-    
+
     // Create main vertical layout: TitleBar → Content
     QVBoxLayout *containerLayout = new QVBoxLayout(mainContainer);
     containerLayout->setContentsMargins(0, 0, 0, 0);
@@ -57,7 +57,7 @@ void CustomMainWindow::setupUi()
     m_centralWidget = new QWidget(mainContainer);
     m_centralWidget->setObjectName("contentWidget");
     containerLayout->addWidget(m_centralWidget);
-    
+
     // Create layout for central widget (for derived classes to use)
     m_mainLayout = new QVBoxLayout(m_centralWidget);
     m_mainLayout->setContentsMargins(0, 0, 0, 0);
@@ -82,13 +82,18 @@ void CustomMainWindow::setupUi()
     connect(m_titleBar, &CustomTitleBar::minimizeClicked, this, &CustomMainWindow::showMinimized);
     connect(m_titleBar, &CustomTitleBar::maximizeClicked, this, &CustomMainWindow::toggleMaximize);
     connect(m_titleBar, &CustomTitleBar::closeClicked, this, &QWidget::close);
-    
+
     // Connect drag signals to move the window
-    connect(m_titleBar, &CustomTitleBar::dragMoved, this, [this](const QPoint &globalPos) {
+    // Store drag offset when drag starts
+    connect(m_titleBar, &CustomTitleBar::dragStarted, this, [this](const QPoint &globalPos)
+            { m_dragOffset = globalPos - frameGeometry().topLeft(); });
+
+    // Move window during drag using stored offset
+    connect(m_titleBar, &CustomTitleBar::dragMoved, this, [this](const QPoint &globalPos)
+            {
         if (!m_isMaximized && !m_isResizing) {
-            move(globalPos - m_titleBar->mapFromGlobal(globalPos) - QPoint(0, 0));
-        }
-    });
+            move(globalPos - m_dragOffset);
+        } });
 
     qDebug() << "CustomMainWindow created";
 }
