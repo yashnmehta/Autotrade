@@ -38,47 +38,33 @@ void CustomMainWindow::setupUi()
     // Default size
     resize(1280, 720);
 
-    // If some layout already exists on this widget, try to reuse it (legacy cases)
-    if (this->layout())
-    {
-        m_mainLayout = qobject_cast<QVBoxLayout *>(this->layout());
-        if (m_mainLayout)
-        {
-            QWidget *possibleCentral = m_mainLayout->parentWidget();
-            if (possibleCentral)
-            {
-                // Make sure QMainWindow knows about the central widget
-                QMainWindow::setCentralWidget(possibleCentral);
-            }
-        }
-    }
+    // Create a main container widget that will hold everything
+    // This becomes QMainWindow's central widget
+    QWidget *mainContainer = new QWidget(this);
+    mainContainer->setObjectName("mainContainer");
+    
+    // Create main vertical layout: TitleBar → Content
+    QVBoxLayout *containerLayout = new QVBoxLayout(mainContainer);
+    containerLayout->setContentsMargins(0, 0, 0, 0);
+    containerLayout->setSpacing(0);
 
-    // Create a central container widget for QMainWindow and install layout on it if none exists
-    QWidget *central = nullptr;
-    if (!m_mainLayout)
-    {
-        central = new QWidget(this);
-        central->setObjectName("centralContainer");
-        m_mainLayout = new QVBoxLayout(central);
-        m_mainLayout->setContentsMargins(0, 0, 0, 0);
-        m_mainLayout->setSpacing(0);
-        QMainWindow::setCentralWidget(central);
-    }
-    else
-    {
-        // central will be the parent widget of the existing layout
-        central = m_mainLayout->parentWidget();
-    }
+    // Create title bar and add to top of container
+    m_titleBar = new CustomTitleBar(mainContainer);
+    containerLayout->addWidget(m_titleBar);
+
+    // Create a content widget that will hold everything below the title bar
+    // This is where derived classes can add their content
+    m_centralWidget = new QWidget(mainContainer);
+    m_centralWidget->setObjectName("contentWidget");
+    containerLayout->addWidget(m_centralWidget);
+    
+    // Create layout for central widget (for derived classes to use)
+    m_mainLayout = new QVBoxLayout(m_centralWidget);
     m_mainLayout->setContentsMargins(0, 0, 0, 0);
     m_mainLayout->setSpacing(0);
 
-    // Create title bar outside the central widget and place it in the QMainWindow's menu/widget area
-    // This ensures any QToolBar added to the QMainWindow will appear below the title bar
-    m_titleBar = new CustomTitleBar(this);
-    QMainWindow::setMenuWidget(m_titleBar);
-
-    // Set the central widget on QMainWindow (central contains the main layout without the title bar)
-    QMainWindow::setCentralWidget(central);
+    // Set the main container as QMainWindow's central widget
+    QMainWindow::setCentralWidget(mainContainer);
 
     // Install event filter on title bar to handle resize events
     m_titleBar->installEventFilter(this);

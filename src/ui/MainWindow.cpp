@@ -34,12 +34,11 @@ MainWindow::MainWindow(QWidget *parent)
     resize(1600, 900);
     setMinimumSize(800, 600);
 
+    // Setup content FIRST (creates layout and widgets)
     setupContent();
-    createMenuBar();
-    // Restore saved toolbar/dock state
-    QSettings s("TradingCompany", "TradingTerminal");
-    restoreState(s.value("mainwindow/state").toByteArray());
+    
     // Restore visibility preferences
+    QSettings s("TradingCompany", "TradingTerminal");
     if (m_infoDock)
         m_infoDock->setVisible(s.value("mainwindow/info_visible", true).toBool());
     if (m_statusBar)
@@ -52,41 +51,35 @@ MainWindow::~MainWindow()
 
 void MainWindow::setupContent()
 {
-    // Use the base class central widget container (created by CustomMainWindow)
-    QWidget *container = this->centralWidget();
+    // Get the central widget container from CustomMainWindow
+    // This contains the main vertical layout where we add our content
+    QWidget *container = centralWidget();
     if (!container)
     {
-        // Fallback: create a local container
-        container = new QWidget(this);
-        QVBoxLayout *fallbackLayout = new QVBoxLayout(container);
-        fallbackLayout->setContentsMargins(0, 0, 0, 0);
-        setCentralWidget(container);
+        qDebug() << "ERROR: No central widget from CustomMainWindow!";
+        return;
     }
 
     QVBoxLayout *layout = qobject_cast<QVBoxLayout *>(container->layout());
     if (!layout)
     {
-        layout = new QVBoxLayout(container);
-        layout->setContentsMargins(0, 0, 0, 0);
-        layout->setSpacing(0);
+        qDebug() << "ERROR: No layout on central widget!";
+        return;
     }
 
-    // Create toolbar (dockable)
+    // Create menu bar (custom widget, NOT QMainWindow::menuBar())
+    createMenuBar();
+    
+    // Create toolbar
     createToolBar();
-    addToolBar(m_toolBar);
-    // On macOS enforce compact toolbar height
+    layout->addWidget(m_toolBar);
 #ifdef Q_OS_MAC
     m_toolBar->setFixedHeight(25);
 #endif
 
-    // Create connection bar
+    // Create connection bar wrapped in a toolbar-like widget
     createConnectionBar();
-    // Wrap connection widget inside a QToolBar so it becomes dockable/movable
-    m_connectionToolBar = new QToolBar(tr("Connection"), this);
-    m_connectionToolBar->setAllowedAreas(Qt::AllToolBarAreas);
-    m_connectionToolBar->setMovable(true);
-    m_connectionToolBar->setFloatable(true);
-    // Use same theme as main toolbar but remove outer border for a flat look
+    m_connectionToolBar = new QToolBar(tr("Connection"), container);
     m_connectionToolBar->setStyleSheet(
         "QToolBar { "
         "   background-color: #2d2d30; "
@@ -105,24 +98,18 @@ void MainWindow::setupContent()
         "QToolButton:pressed { "
         "   background-color: #094771; "
         "}");
-    // Reparent the widget into the toolbar
     m_connectionBar->setParent(nullptr);
     m_connectionToolBar->addWidget(m_connectionBar);
-    QMainWindow::addToolBar(Qt::TopToolBarArea, m_connectionToolBar);
+    layout->addWidget(m_connectionToolBar);
 #ifdef Q_OS_MAC
     m_connectionToolBar->setFixedHeight(25);
-    // also shrink wrapped widget
     m_connectionBar->setFixedHeight(25);
 #endif
 
-    // Create scrip bar (below connection bar) and wrap in a QToolBar
+    // Create scrip bar wrapped in a toolbar
     m_scripBar = new ScripBar(container);
     connect(m_scripBar, &ScripBar::addToWatchRequested, this, &MainWindow::onAddToWatchRequested);
-    m_scripToolBar = new QToolBar(tr("Scrip Bar"), this);
-    m_scripToolBar->setAllowedAreas(Qt::TopToolBarArea | Qt::BottomToolBarArea);
-    m_scripToolBar->setMovable(true);
-    m_scripToolBar->setFloatable(true);
-    // match main toolbar theme but remove outer border for flat look
+    m_scripToolBar = new QToolBar(tr("Scrip Bar"), container);
     m_scripToolBar->setStyleSheet(
         "QToolBar { "
         "   background-color: #2d2d30; "
@@ -143,29 +130,28 @@ void MainWindow::setupContent()
         "}");
     m_scripBar->setParent(nullptr);
     m_scripToolBar->addWidget(m_scripBar);
-    QMainWindow::addToolBar(Qt::TopToolBarArea, m_scripToolBar);
+    layout->addWidget(m_scripToolBar);
 #ifdef Q_OS_MAC
     m_scripToolBar->setFixedHeight(25);
     m_scripBar->setMaximumHeight(25);
 #endif
 
-    // Custom MDI Area (Pure C++, no QMdiArea)
+    // Custom MDI Area (main content area)
     m_mdiArea = new CustomMDIArea(container);
-    layout->addWidget(m_mdiArea);
+    layout->addWidget(m_mdiArea, 1);  // Give it stretch factor so it expands
 
-    // Create status bar
+    // Create status bar at the bottom
     createStatusBar();
-    // Use QMainWindow's status bar
-    setStatusBar(m_statusBar);
+    layout->addWidget(m_statusBar);
 
-    // Create info bar
+    // Create info bar (as a dock widget on the side)
     createInfoBar();
 }
 
 void MainWindow::closeEvent(QCloseEvent *event)
 {
+    // Save user preferences
     QSettings s("TradingCompany", "TradingTerminal");
-    s.setValue("mainwindow/state", saveState());
     if (m_infoDock)
         s.setValue("mainwindow/info_visible", m_infoDock->isVisible());
     if (m_statusBar)
@@ -176,19 +162,19 @@ void MainWindow::closeEvent(QCloseEvent *event)
 
 void MainWindow::createMenuBar()
 {
-    // On Linux, QMainWindow's menuBar() conflicts with setMenuWidget() titlebar
-    // So we need to either:
-    // 1. Not use setMenuWidget and put titlebar in layout (loses QToolBar integration)
-    // 2. Use menuBar() which returns the QMainWindow's native menubar slot
-    // We'll use option 2 and let QMainWindow manage the menubar natively
-    // This means titlebar is in setMenuWidget(), menubar goes below it automatically
-    
-    QMenuBar *menuBar = QMainWindow::menuBar();  // Use QMainWindow's native menubar
+    // Create a custom menu bar widget (NOT using QMainWindow::menuBar())
+    // This avoids conflicts with our custom title bar and layout
+    QMenuBar *menuBar = new QMenuBar(centralWidget());
     menuBar->setStyleSheet(
         "QMenuBar { "
         "   background-color: #2d2d30; "
         "   color: #ffffff; "
         "   border-bottom: 1px solid #3e3e42; "
+        "   padding: 0px; "
+        "} "
+        "QMenuBar::item { "
+        "   padding: 4px 8px; "
+        "   background-color: transparent; "
         "} "
         "QMenuBar::item:selected { "
         "   background-color: #3e3e42; "
@@ -198,9 +184,19 @@ void MainWindow::createMenuBar()
         "   color: #ffffff; "
         "   border: 1px solid #3e3e42; "
         "} "
+        "QMenu::item { "
+        "   padding: 4px 20px; "
+        "} "
         "QMenu::item:selected { "
         "   background-color: #094771; "
         "}");
+
+    // Add menu bar to our custom layout (will be added in setupContent())
+    QVBoxLayout *layout = qobject_cast<QVBoxLayout *>(centralWidget()->layout());
+    if (layout)
+    {
+        layout->insertWidget(0, menuBar);  // Insert at top (below title bar)
+    }
 
     // File Menu
     QMenu *fileMenu = menuBar->addMenu("&File");
@@ -216,13 +212,13 @@ void MainWindow::createMenuBar()
     viewMenu->addAction("&Toolbar");
     m_statusBarAction = viewMenu->addAction("&Status Bar");
     m_statusBarAction->setCheckable(true);
-    m_statusBarAction->setChecked(m_statusBar && m_statusBar->isVisible());
+    m_statusBarAction->setChecked(true);  // Will be updated after statusBar is created
     connect(m_statusBarAction, &QAction::toggled, this, [this](bool visible)
             { if (m_statusBar) m_statusBar->setVisible(visible); });
 
     m_infoBarAction = viewMenu->addAction("&Info Bar");
     m_infoBarAction->setCheckable(true);
-    m_infoBarAction->setChecked(m_infoDock && m_infoDock->isVisible());
+    m_infoBarAction->setChecked(true);  // Will be updated after infoBar is created
     connect(m_infoBarAction, &QAction::toggled, this, [this](bool visible)
             { if (m_infoDock) m_infoDock->setVisible(visible); });
     viewMenu->addSeparator();
