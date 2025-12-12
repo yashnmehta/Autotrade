@@ -290,9 +290,12 @@ void MainWindow::createMenuBar()
         } });
     // QShortcut for cross-platform window switching
 #ifdef Q_OS_MACOS
-    QShortcut *nextShortcut = new QShortcut(QKeySequence("Meta+Tab"), this);
+    // Cmd+` is standard macOS shortcut for cycling windows
+    QShortcut *nextShortcut = new QShortcut(QKeySequence("Meta+`"), this);
+    QShortcut *nextShortcut2 = new QShortcut(QKeySequence("Meta+]"), this);
 #else
     QShortcut *nextShortcut = new QShortcut(QKeySequence("Ctrl+Tab"), this);
+    QShortcut *nextShortcut2 = nullptr;
 #endif
     nextShortcut->setContext(Qt::ApplicationShortcut);
     connect(nextShortcut, &QShortcut::activated, this, [this]()
@@ -305,6 +308,21 @@ void MainWindow::createMenuBar()
             if (nextIndex < 0) nextIndex = 0;
             m_mdiArea->activateWindow(windows[nextIndex]);
         } });
+#ifdef Q_OS_MACOS
+    if (nextShortcut2) {
+        nextShortcut2->setContext(Qt::ApplicationShortcut);
+        connect(nextShortcut2, &QShortcut::activated, this, [this]()
+                {
+            QList<CustomMDISubWindow*> windows = m_mdiArea->windowList();
+            if (windows.count() > 1) {
+                CustomMDISubWindow *current = m_mdiArea->activeWindow();
+                int index = windows.indexOf(current);
+                int nextIndex = (index + 1) % windows.count();
+                if (nextIndex < 0) nextIndex = 0;
+                m_mdiArea->activateWindow(windows[nextIndex]);
+            } });
+    }
+#endif
 
     QAction *prevWindowAction = windowMenu->addAction("&Previous Window", this, [this]()
                                                       {
@@ -317,9 +335,12 @@ void MainWindow::createMenuBar()
             m_mdiArea->activateWindow(windows[prevIndex]);
         } });
 #ifdef Q_OS_MACOS
-    QShortcut *prevShortcut = new QShortcut(QKeySequence("Meta+Shift+Tab"), this);
+    // Cmd+Shift+` is standard macOS shortcut for cycling windows backwards
+    QShortcut *prevShortcut = new QShortcut(QKeySequence("Meta+Shift+`"), this);
+    QShortcut *prevShortcut2 = new QShortcut(QKeySequence("Meta+["), this);
 #else
     QShortcut *prevShortcut = new QShortcut(QKeySequence("Ctrl+Shift+Tab"), this);
+    QShortcut *prevShortcut2 = nullptr;
 #endif
     prevShortcut->setContext(Qt::ApplicationShortcut);
     connect(prevShortcut, &QShortcut::activated, this, [this]()
