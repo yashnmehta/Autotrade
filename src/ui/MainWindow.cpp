@@ -287,9 +287,20 @@ void MainWindow::createMenuBar()
             int nextIndex = (index + 1) % windows.count();
             if (nextIndex < 0) nextIndex = 0;
             m_mdiArea->activateWindow(windows[nextIndex]);
-        } }, QKeySequence("Ctrl+Tab"));
-    // Make sure the shortcut works even if menu doesn't have focus (macOS/embedded menubar)
-    nextWindowAction->setShortcutContext(Qt::ApplicationShortcut);
+        } });
+    // QShortcut for cross-platform window switching
+    QShortcut *nextShortcut = new QShortcut(QKeySequence("Ctrl+Tab"), this);
+    nextShortcut->setContext(Qt::ApplicationShortcut);
+    connect(nextShortcut, &QShortcut::activated, this, [this]()
+            {
+        QList<CustomMDISubWindow*> windows = m_mdiArea->windowList();
+        if (windows.count() > 1) {
+            CustomMDISubWindow *current = m_mdiArea->activeWindow();
+            int index = windows.indexOf(current);
+            int nextIndex = (index + 1) % windows.count();
+            if (nextIndex < 0) nextIndex = 0;
+            m_mdiArea->activateWindow(windows[nextIndex]);
+        } });
 
     QAction *prevWindowAction = windowMenu->addAction("&Previous Window", this, [this]()
                                                       {
@@ -300,8 +311,19 @@ void MainWindow::createMenuBar()
             int prevIndex = (index - 1 + windows.count()) % windows.count();
             if (prevIndex < 0) prevIndex = 0;
             m_mdiArea->activateWindow(windows[prevIndex]);
-        } }, QKeySequence("Ctrl+Shift+Tab"));
-    prevWindowAction->setShortcutContext(Qt::ApplicationShortcut);
+        } });
+    QShortcut *prevShortcut = new QShortcut(QKeySequence("Ctrl+Shift+Tab"), this);
+    prevShortcut->setContext(Qt::ApplicationShortcut);
+    connect(prevShortcut, &QShortcut::activated, this, [this]()
+            {
+        QList<CustomMDISubWindow*> windows = m_mdiArea->windowList();
+        if (windows.count() > 1) {
+            CustomMDISubWindow *current = m_mdiArea->activeWindow();
+            int index = windows.indexOf(current);
+            int prevIndex = (index - 1 + windows.count()) % windows.count();
+            if (prevIndex < 0) prevIndex = 0;
+            m_mdiArea->activateWindow(windows[prevIndex]);
+        } });
 
     QAction *closeWindowAction = windowMenu->addAction("&Close Window", this, [this]()
                                                        {

@@ -21,6 +21,7 @@ CustomMDISubWindow::CustomMDISubWindow(const QString &title, QWidget *parent)
     setWindowFlags(Qt::Widget); // Stay as a child widget
     setAttribute(Qt::WA_DeleteOnClose);
     setMouseTracking(true); // For resize cursor
+    setFocusPolicy(Qt::StrongFocus); // Allow focus for keyboard events
 
     // Main layout
     m_mainLayout = new QVBoxLayout(this);
@@ -120,7 +121,7 @@ CustomMDISubWindow::CustomMDISubWindow(const QString &title, QWidget *parent)
     setStyleSheet(
         "CustomMDISubWindow { "
         "   background-color: #252526; "
-        "   border: 1px solid #cccccc; "  // Light thin border for edge visibility
+        "   border: 2px solid #cccccc; "  // Light thin border for edge visibility
         "}");
 
     resize(800, 600);
