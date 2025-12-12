@@ -544,13 +544,12 @@ void MainWindow::createMarketWatch()
     table->horizontalHeader()->setStretchLastSection(true);
     table->setAlternatingRowColors(true);
 
-    // Dark theme for table
+    // Dark theme for table (removed border:none to not interfere with parent)
     table->setStyleSheet(
         "QTableWidget { "
         "   background-color: #1e1e1e; "
         "   color: #cccccc; "
         "   gridline-color: #3e3e42; "
-        "   border: none; "
         "} "
         "QHeaderView::section { "
         "   background-color: #2d2d30; "

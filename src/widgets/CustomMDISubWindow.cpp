@@ -4,6 +4,8 @@
 #include <QMouseEvent>
 #include <QCloseEvent>
 #include <QContextMenuEvent>
+#include <QPaintEvent>
+#include <QPainter>
 #include <QMenu>
 #include <QApplication>
 #include <QDebug>
@@ -23,10 +25,12 @@ CustomMDISubWindow::CustomMDISubWindow(const QString &title, QWidget *parent)
     setMouseTracking(true); // For resize cursor
     setFocusPolicy(Qt::StrongFocus); // Allow focus for keyboard events
     setAttribute(Qt::WA_StyledBackground, true);  // Ensure stylesheet is applied
+    setAttribute(Qt::WA_OpaquePaintEvent, false);  // Allow border painting
+    setAutoFillBackground(false);  // Let stylesheet handle background
 
     // Main layout with margins for resize borders (must be >= border width)
     m_mainLayout = new QVBoxLayout(this);
-    m_mainLayout->setContentsMargins(5, 5, 5, 5);  // 5px margin to show 4px border + extra space
+    m_mainLayout->setContentsMargins(6, 6, 6, 6);  // 6px margin to show 5px border + extra space
     m_mainLayout->setSpacing(0);
 
     // Custom title bar
@@ -118,12 +122,13 @@ CustomMDISubWindow::CustomMDISubWindow(const QString &title, QWidget *parent)
         }
     });
 
-    // Styling with HIGHLY VISIBLE borders
-    setAutoFillBackground(true);
+    // Styling with HIGHLY VISIBLE borders (works on both macOS and Linux)
     setStyleSheet(
         "CustomMDISubWindow { "
         "   background-color: #1e1e1e; "
-        "   border: 4px solid #00ffff; "  // Bright cyan - highly visible!
+        "   border: 5px solid #00ffff; "  // Bright cyan - highly visible!
+        "   margin: 0px; "
+        "   padding: 0px; "
         "}");
 
     resize(800, 600);
@@ -144,7 +149,9 @@ void CustomMDISubWindow::setActive(bool active)
             setStyleSheet(
                 "CustomMDISubWindow { "
                 "   background-color: #1e1e1e; "
-                "   border: 4px solid #00ffff; "  // Bright cyan for active
+                "   border: 5px solid #00ffff; "  // Bright cyan for active
+                "   margin: 0px; "
+                "   padding: 0px; "
                 "}");
         }
         else
@@ -152,7 +159,9 @@ void CustomMDISubWindow::setActive(bool active)
             setStyleSheet(
                 "CustomMDISubWindow { "
                 "   background-color: #1e1e1e; "
-                "   border: 4px solid #00aaaa; "  // Dimmer cyan for inactive
+                "   border: 5px solid #00aaaa; "  // Dimmer cyan for inactive
+                "   margin: 0px; "
+                "   padding: 0px; "
                 "}");
         }
     }
@@ -389,7 +398,9 @@ void CustomMDISubWindow::setPinned(bool pinned)
         setStyleSheet(
             "CustomMDISubWindow { "
             "   background-color: #1e1e1e; "
-            "   border: 4px solid #ffff00; " // Bright yellow for pinned!
+            "   border: 5px solid #ffff00; " // Bright yellow for pinned!
+            "   margin: 0px; "
+            "   padding: 0px; "
             "}");
     }
     else
@@ -397,7 +408,9 @@ void CustomMDISubWindow::setPinned(bool pinned)
         setStyleSheet(
             "CustomMDISubWindow { "
             "   background-color: #1e1e1e; "
-            "   border: 4px solid #00ffff; "  // Bright cyan!
+            "   border: 5px solid #00ffff; "  // Bright cyan!
+            "   margin: 0px; "
+            "   padding: 0px; "
             "}");
     }
 }
@@ -534,4 +547,44 @@ bool CustomMDISubWindow::eventFilter(QObject *watched, QEvent *event)
     }
     
     return QWidget::eventFilter(watched, event);
+}
+
+void CustomMDISubWindow::paintEvent(QPaintEvent *event)
+{
+    QWidget::paintEvent(event);
+    
+    // Manually paint border for Linux compatibility
+    QPainter painter(this);
+    painter.setRenderHint(QPainter::Antialiasing);
+    
+    // Determine border color based on state
+    QColor borderColor;
+    int borderWidth = 5;
+    
+    if (m_isPinned)
+    {
+        borderColor = QColor(255, 255, 0);  // Bright yellow for pinned
+    }
+    else if (m_titleBar && m_titleBar->property("isActive").toBool())
+    {
+        borderColor = QColor(0, 255, 255);  // Bright cyan for active
+    }
+    else
+    {
+        borderColor = QColor(0, 170, 170);  // Dimmer cyan for inactive
+    }
+    
+    // Draw the border
+    QPen pen(borderColor, borderWidth);
+    painter.setPen(pen);
+    painter.setBrush(Qt::NoBrush);
+    
+    QRect borderRect = rect().adjusted(
+        borderWidth / 2,
+        borderWidth / 2,
+        -borderWidth / 2,
+        -borderWidth / 2
+    );
+    
+    painter.drawRect(borderRect);
 }

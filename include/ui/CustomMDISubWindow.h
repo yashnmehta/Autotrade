@@ -68,6 +68,7 @@ protected:
     void closeEvent(QCloseEvent *event) override;
     void contextMenuEvent(QContextMenuEvent *event) override;
     bool eventFilter(QObject *watched, QEvent *event) override;
+    void paintEvent(QPaintEvent *event) override;  // Manual border painting for Linux
 
 private:
     void setupResizeHandles();
