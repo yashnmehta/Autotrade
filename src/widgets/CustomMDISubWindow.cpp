@@ -22,10 +22,11 @@ CustomMDISubWindow::CustomMDISubWindow(const QString &title, QWidget *parent)
     setAttribute(Qt::WA_DeleteOnClose);
     setMouseTracking(true); // For resize cursor
     setFocusPolicy(Qt::StrongFocus); // Allow focus for keyboard events
+    setAttribute(Qt::WA_StyledBackground, true);  // Ensure stylesheet is applied
 
-    // Main layout with margins for resize borders
+    // Main layout with margins for resize borders (must be >= border width)
     m_mainLayout = new QVBoxLayout(this);
-    m_mainLayout->setContentsMargins(3, 3, 3, 3);  // 3px margin for visible resize area
+    m_mainLayout->setContentsMargins(5, 5, 5, 5);  // 5px margin to show 4px border + extra space
     m_mainLayout->setSpacing(0);
 
     // Custom title bar
@@ -117,11 +118,12 @@ CustomMDISubWindow::CustomMDISubWindow(const QString &title, QWidget *parent)
         }
     });
 
-    // Styling with VISIBLE borders
+    // Styling with HIGHLY VISIBLE borders
+    setAutoFillBackground(true);
     setStyleSheet(
         "CustomMDISubWindow { "
-        "   background-color: #252526; "
-        "   border: 3px solid #007acc; "  // Bright blue border for visibility
+        "   background-color: #1e1e1e; "
+        "   border: 4px solid #00ffff; "  // Bright cyan - highly visible!
         "}");
 
     resize(800, 600);
@@ -133,6 +135,27 @@ void CustomMDISubWindow::setActive(bool active)
 {
     if (m_titleBar)
         m_titleBar->setActive(active);
+    
+    // Update border color based on active state
+    if (!m_isPinned)
+    {
+        if (active)
+        {
+            setStyleSheet(
+                "CustomMDISubWindow { "
+                "   background-color: #1e1e1e; "
+                "   border: 4px solid #00ffff; "  // Bright cyan for active
+                "}");
+        }
+        else
+        {
+            setStyleSheet(
+                "CustomMDISubWindow { "
+                "   background-color: #1e1e1e; "
+                "   border: 4px solid #00aaaa; "  // Dimmer cyan for inactive
+                "}");
+        }
+    }
 }
 
 CustomMDISubWindow::~CustomMDISubWindow()
@@ -365,16 +388,16 @@ void CustomMDISubWindow::setPinned(bool pinned)
         raise();
         setStyleSheet(
             "CustomMDISubWindow { "
-            "   background-color: #252526; "
-            "   border: 3px solid #FFA500; " // Orange border for pinned
+            "   background-color: #1e1e1e; "
+            "   border: 4px solid #ffff00; " // Bright yellow for pinned!
             "}");
     }
     else
     {
         setStyleSheet(
             "CustomMDISubWindow { "
-            "   background-color: #252526; "
-            "   border: 3px solid #007acc; "  // Bright blue border
+            "   background-color: #1e1e1e; "
+            "   border: 4px solid #00ffff; "  // Bright cyan!
             "}");
     }
 }
