@@ -353,6 +353,21 @@ void MainWindow::createMenuBar()
             if (prevIndex < 0) prevIndex = 0;
             m_mdiArea->activateWindow(windows[prevIndex]);
         } });
+#ifdef Q_OS_MACOS
+    if (prevShortcut2) {
+        prevShortcut2->setContext(Qt::ApplicationShortcut);
+        connect(prevShortcut2, &QShortcut::activated, this, [this]()
+                {
+            QList<CustomMDISubWindow*> windows = m_mdiArea->windowList();
+            if (windows.count() > 1) {
+                CustomMDISubWindow *current = m_mdiArea->activeWindow();
+                int index = windows.indexOf(current);
+                int prevIndex = (index - 1 + windows.count()) % windows.count();
+                if (prevIndex < 0) prevIndex = 0;
+                m_mdiArea->activateWindow(windows[prevIndex]);
+            } });
+    }
+#endif
 
     QAction *closeWindowAction = windowMenu->addAction("&Close Window", this, [this]()
                                                        {
