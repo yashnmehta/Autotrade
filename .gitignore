@@ -1,0 +1,39 @@
+# Build directories
+/build/
+/TradingTerminal_autogen/
+
+# CMake files
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+
+# Object files and libraries
+*.o
+*.obj
+*.so
+*.dylib
+*.a
+*.dll
+
+# Qt generated files
+*.moc
+moc_*.cpp
+mocs_compilation.cpp
+*.pro.user*
+*.user
+
+# macOS
+.DS_Store
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+
+# App bundle
+TradingTerminal.app/
+
+# Logs and misc
+*.log
+*.tmp
