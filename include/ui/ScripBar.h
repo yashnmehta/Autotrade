@@ -8,6 +8,7 @@
 #include <QLabel>
 #include <QToolButton>
 #include <QMenu>
+#include "ui/CustomScripComboBox.h"
 
 class ScripBar : public QWidget
 {
@@ -24,8 +25,8 @@ signals:
                              const QString &optionType);
 
 private slots:
-    void onExchangeChanged(int index);
-    void onSegmentChanged(int index);
+    void onExchangeChanged(const QString &text);
+    void onSegmentChanged(const QString &text);
     void onInstrumentChanged(int index);
     void onSymbolChanged(const QString &text);
     void onExpiryChanged(int index);
@@ -35,6 +36,7 @@ private slots:
 
 private:
     void setupUI();
+    void setupShortcuts();
     void populateExchanges();
     void populateSegments(const QString &exchange);
     void populateInstruments(const QString &segment);
@@ -45,13 +47,13 @@ private:
 
     QHBoxLayout *m_layout;
 
-    QComboBox *m_exchangeCombo;
-    QComboBox *m_segmentCombo;
-    QComboBox *m_instrumentCombo;
-    QComboBox *m_symbolCombo;
-    QComboBox *m_expiryCombo;
-    QComboBox *m_strikeCombo;
-    QComboBox *m_optionTypeCombo;
+    CustomScripComboBox *m_exchangeCombo;
+    CustomScripComboBox *m_segmentCombo;
+    CustomScripComboBox *m_instrumentCombo;
+    CustomScripComboBox *m_symbolCombo;
+    CustomScripComboBox *m_expiryCombo;
+    CustomScripComboBox *m_strikeCombo;
+    CustomScripComboBox *m_optionTypeCombo;
 
     // compact toolbuttons to save horizontal space
     QToolButton *m_exchangeBtn;

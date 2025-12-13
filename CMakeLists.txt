@@ -33,6 +33,7 @@ set(SOURCES
     src/widgets/CustomMDISubWindow.cpp
     src/widgets/MDITaskBar.cpp
     src/ui/ScripBar.cpp
+    src/ui/CustomScripComboBox.cpp
     src/ui/InfoBar.cpp
     src/data/Greeks.cpp
 )
@@ -46,6 +47,7 @@ set(HEADERS
     include/ui/CustomMDISubWindow.h
     include/ui/MDITaskBar.h
     include/ui/ScripBar.h
+    include/ui/CustomScripComboBox.h
     include/ui/InfoBar.h
     include/data/Greeks.h
     include/data/ScripMaster.h
