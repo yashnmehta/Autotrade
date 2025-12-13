@@ -30,7 +30,7 @@ CustomMDISubWindow::CustomMDISubWindow(const QString &title, QWidget *parent)
 
     // Main layout with margins for resize borders (must be >= border width)
     m_mainLayout = new QVBoxLayout(this);
-    m_mainLayout->setContentsMargins(6, 6, 6, 6);  // 6px margin to show 5px border + extra space
+    m_mainLayout->setContentsMargins(3, 3, 3, 3);  // 3px margin to show 2px border + extra space
     m_mainLayout->setSpacing(0);
 
     // Custom title bar
@@ -122,11 +122,11 @@ CustomMDISubWindow::CustomMDISubWindow(const QString &title, QWidget *parent)
         }
     });
 
-    // Styling with HIGHLY VISIBLE borders (works on both macOS and Linux)
+    // Styling with subtle VS Code-like borders (works on both macOS and Linux)
     setStyleSheet(
         "CustomMDISubWindow { "
         "   background-color: #1e1e1e; "
-        "   border: 5px solid #00ffff; "  // Bright cyan - highly visible!
+        "   border: 2px solid #007acc; "  // VS Code blue
         "   margin: 0px; "
         "   padding: 0px; "
         "}");
@@ -149,7 +149,7 @@ void CustomMDISubWindow::setActive(bool active)
             setStyleSheet(
                 "CustomMDISubWindow { "
                 "   background-color: #1e1e1e; "
-                "   border: 5px solid #00ffff; "  // Bright cyan for active
+                "   border: 2px solid #007acc; "  // VS Code blue for active
                 "   margin: 0px; "
                 "   padding: 0px; "
                 "}");
@@ -159,7 +159,7 @@ void CustomMDISubWindow::setActive(bool active)
             setStyleSheet(
                 "CustomMDISubWindow { "
                 "   background-color: #1e1e1e; "
-                "   border: 5px solid #00aaaa; "  // Dimmer cyan for inactive
+                "   border: 2px solid #3e3e42; "  // Dark gray for inactive
                 "   margin: 0px; "
                 "   padding: 0px; "
                 "}");
@@ -398,7 +398,7 @@ void CustomMDISubWindow::setPinned(bool pinned)
         setStyleSheet(
             "CustomMDISubWindow { "
             "   background-color: #1e1e1e; "
-            "   border: 5px solid #ffff00; " // Bright yellow for pinned!
+            "   border: 2px solid #ce9178; " // Subtle orange for pinned
             "   margin: 0px; "
             "   padding: 0px; "
             "}");
@@ -408,7 +408,7 @@ void CustomMDISubWindow::setPinned(bool pinned)
         setStyleSheet(
             "CustomMDISubWindow { "
             "   background-color: #1e1e1e; "
-            "   border: 5px solid #00ffff; "  // Bright cyan!
+            "   border: 2px solid #007acc; "  // VS Code blue
             "   margin: 0px; "
             "   padding: 0px; "
             "}");
@@ -559,19 +559,19 @@ void CustomMDISubWindow::paintEvent(QPaintEvent *event)
     
     // Determine border color based on state
     QColor borderColor;
-    int borderWidth = 5;
+    int borderWidth = 2;
     
     if (m_isPinned)
     {
-        borderColor = QColor(255, 255, 0);  // Bright yellow for pinned
+        borderColor = QColor(206, 145, 120);  // Subtle orange for pinned
     }
     else if (m_titleBar && m_titleBar->property("isActive").toBool())
     {
-        borderColor = QColor(0, 255, 255);  // Bright cyan for active
+        borderColor = QColor(0, 122, 204);  // VS Code blue for active
     }
     else
     {
-        borderColor = QColor(0, 170, 170);  // Dimmer cyan for inactive
+        borderColor = QColor(62, 62, 66);  // Dark gray for inactive
     }
     
     // Draw the border
