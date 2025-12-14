@@ -13,7 +13,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOUIC_SEARCH_PATHS ${CMAKE_SOURCE_DIR}/resources/forms)
 
 # Find Qt5 components
-find_package(Qt5 COMPONENTS Widgets Network WebSockets REQUIRED)
+find_package(Qt5 COMPONENTS Widgets Network WebSockets UiTools REQUIRED)
 
 # Include directories
 include_directories(
@@ -36,6 +36,16 @@ set(SOURCES
     src/ui/CustomScripComboBox.cpp
     src/ui/InfoBar.cpp
     src/data/Greeks.cpp
+    # Market Watch components
+    src/ui/MarketWatchModel.cpp
+    src/ui/MarketWatchWindow.cpp
+    src/ui/TokenAddressBook.cpp
+    src/api/TokenSubscriptionManager.cpp
+    # Order and Quote windows
+    src/ui/BuyWindow.cpp
+    src/ui/SellWindow.cpp
+    src/ui/SnapQuoteWindow.cpp
+    src/ui/PositionWindow.cpp
 )
 
 # Header files (for MOC)
@@ -51,6 +61,16 @@ set(HEADERS
     include/ui/InfoBar.h
     include/data/Greeks.h
     include/data/ScripMaster.h
+    # Market Watch components
+    include/ui/MarketWatchModel.h
+    include/ui/MarketWatchWindow.h
+    include/ui/TokenAddressBook.h
+    include/api/TokenSubscriptionManager.h
+    # Order and Quote windows
+    include/ui/BuyWindow.h
+    include/ui/SellWindow.h
+    include/ui/SnapQuoteWindow.h
+    include/ui/PositionWindow.h
 )
 
 # UI files
@@ -60,7 +80,7 @@ set(FORMS
 
 # Resource files
 set(RESOURCES
-    # resources/resources.qrc
+    resources/resources.qrc
 )
 
 # Add executable
@@ -76,6 +96,7 @@ target_link_libraries(TradingTerminal PRIVATE
     Qt5::Widgets
     Qt5::Network
     Qt5::WebSockets
+    Qt5::UiTools
 )
 
 # macOS Bundle Settings

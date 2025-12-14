@@ -4,6 +4,11 @@
 #include "ui/CustomMDISubWindow.h"
 #include "ui/ScripBar.h"
 #include "ui/InfoBar.h"
+#include "ui/MarketWatchWindow.h"
+#include "ui/BuyWindow.h"
+#include "ui/SellWindow.h"
+#include "ui/SnapQuoteWindow.h"
+#include "ui/PositionWindow.h"
 #include "data/Greeks.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -260,6 +265,9 @@ void MainWindow::createMenuBar()
     QMenu *windowMenu = menuBar->addMenu("&Window");
     QAction *marketWatchAction = windowMenu->addAction("New &Market Watch", this, &MainWindow::createMarketWatch, QKeySequence("Ctrl+M"));
     QAction *buyWindowAction = windowMenu->addAction("New &Buy Window", this, &MainWindow::createBuyWindow, QKeySequence("Ctrl+B"));
+    QAction *sellWindowAction = windowMenu->addAction("New &Sell Window", this, &MainWindow::createSellWindow, QKeySequence("Ctrl+S"));
+    QAction *snapQuoteAction = windowMenu->addAction("New S&nap Quote", this, &MainWindow::createSnapQuoteWindow, QKeySequence("Ctrl+Q"));
+    QAction *positionAction = windowMenu->addAction("New &Position Window", this, &MainWindow::createPositionWindow, QKeySequence("Ctrl+P"));
     windowMenu->addSeparator();
 
     // Window Arrangement
@@ -413,6 +421,14 @@ void MainWindow::createToolBar()
     newBuyOrder->setIcon(QIcon(":/icons/buy_order.png")); // Placeholder
     connect(newBuyOrder, &QAction::triggered, this, &MainWindow::createBuyWindow);
 
+    QAction *newSellOrder = m_toolBar->addAction("Sell Order");
+    newSellOrder->setIcon(QIcon(":/icons/sell_order.png")); // Placeholder
+    connect(newSellOrder, &QAction::triggered, this, &MainWindow::createSellWindow);
+
+    QAction *newSnapQuote = m_toolBar->addAction("Snap Quote");
+    newSnapQuote->setIcon(QIcon(":/icons/snap_quote.png")); // Placeholder
+    connect(newSnapQuote, &QAction::triggered, this, &MainWindow::createSnapQuoteWindow);
+
     m_toolBar->addSeparator();
 
     QAction *connectAction = m_toolBar->addAction("Connect");
@@ -540,37 +556,34 @@ void MainWindow::createMarketWatch()
     CustomMDISubWindow *window = new CustomMDISubWindow(QString("Market Watch %1").arg(counter++), m_mdiArea);
     window->setWindowType("MarketWatch");
 
-    // Create table for market watch
-    QTableWidget *table = new QTableWidget(5, 7, window);
-    table->setHorizontalHeaderLabels({"Symbol", "LTP", "Change", "Open", "High", "Low", "Volume"});
-    table->horizontalHeader()->setStretchLastSection(true);
-    table->setAlternatingRowColors(true);
+    // Create new MarketWatchWindow with token support
+    MarketWatchWindow *marketWatch = new MarketWatchWindow(window);
+    
+    // Add sample scrips with mock tokens
+    // In production, these would come from ScripMaster
+    marketWatch->addScrip("NIFTY 50", "NSE", 26000);
+    marketWatch->addScrip("BANKNIFTY", "NSE", 26009);
+    marketWatch->addScrip("RELIANCE", "NSE", 2885);
+    marketWatch->addScrip("TCS", "NSE", 11536);
+    marketWatch->addScrip("HDFCBANK", "NSE", 1333);
+    
+    // Connect Buy/Sell signals
+    connect(marketWatch, &MarketWatchWindow::buyRequested,
+            this, [this](const QString &symbol, int token) {
+        qDebug() << "Buy requested for" << symbol << "token:" << token;
+        // TODO: Open buy window with pre-filled data
+    });
+    
+    connect(marketWatch, &MarketWatchWindow::sellRequested,
+            this, [this](const QString &symbol, int token) {
+        qDebug() << "Sell requested for" << symbol << "token:" << token;
+        // TODO: Open sell window with pre-filled data
+    });
 
-    // Dark theme for table (removed border:none to not interfere with parent)
-    table->setStyleSheet(
-        "QTableWidget { "
-        "   background-color: #1e1e1e; "
-        "   color: #cccccc; "
-        "   gridline-color: #3e3e42; "
-        "} "
-        "QHeaderView::section { "
-        "   background-color: #2d2d30; "
-        "   color: #ffffff; "
-        "   padding: 4px; "
-        "   border: 1px solid #3e3e42; "
-        "}");
+    window->setContentWidget(marketWatch);
+    window->resize(900, 400);
 
-    // Sample data
-    QStringList symbols = {"RELIANCE", "INFY", "TCS", "HDFCBANK", "NIFTY"};
-    for (int i = 0; i < 5; ++i)
-    {
-        table->setItem(i, 0, new QTableWidgetItem(symbols[i]));
-        table->setItem(i, 1, new QTableWidgetItem("0.00"));
-    }
-
-    window->setContentWidget(table);
-
-    // Connect signals
+    // Connect window signals
     connect(window, &CustomMDISubWindow::closeRequested, window, &QWidget::close);
     connect(window, &CustomMDISubWindow::minimizeRequested, [this, window]()
             { m_mdiArea->minimizeWindow(window); });
@@ -582,7 +595,7 @@ void MainWindow::createMarketWatch()
     // Add to MDI area
     m_mdiArea->addWindow(window);
 
-    qDebug() << "Market Watch created";
+    qDebug() << "Market Watch created with token support";
 }
 
 void MainWindow::createBuyWindow()
@@ -590,46 +603,30 @@ void MainWindow::createBuyWindow()
     CustomMDISubWindow *window = new CustomMDISubWindow("Buy Order", m_mdiArea);
     window->setWindowType("BuyWindow");
 
-    // Create buy window content
-    QWidget *content = new QWidget(window);
-    QVBoxLayout *layout = new QVBoxLayout(content);
+    // Create BuyWindow with UI file
+    BuyWindow *buyWindow = new BuyWindow(window);
+    
+    window->setContentWidget(buyWindow);
+    window->setMinimumWidth(1200);
+    window->resize(1200, 200);
+    window->setMinimumSize(1200, 250);
+    window->setMaximumHeight(230);
 
-    QLabel *label = new QLabel("Buy Order Window", content);
-    label->setAlignment(Qt::AlignCenter);
-    QFont font = label->font();
-    font.setPointSize(16);
-    label->setFont(font);
+    // Connect order submitted signal
+    connect(buyWindow, &BuyWindow::orderSubmitted, [](const QString &exchange, int token, 
+                                                        const QString &symbol, int qty, 
+                                                        double price, const QString &orderType) {
+        qDebug() << "[MainWindow] Buy Order Submitted:" 
+                 << "Exchange:" << exchange 
+                 << "Token:" << token
+                 << "Symbol:" << symbol
+                 << "Qty:" << qty 
+                 << "Price:" << price
+                 << "Type:" << orderType;
+        // TODO: Connect to order management system
+    });
 
-    layout->addWidget(label);
-
-    // Test Greeks button
-    QPushButton *btn = new QPushButton("Calculate Greeks", content);
-    layout->addWidget(btn);
-
-    connect(btn, &QPushButton::clicked, []()
-            {
-        qDebug() << "Calculating Greeks for NIFTY 18000 CE...";
-        
-        double S = 18100.0;
-        double K = 18000.0;
-        double T = 7.0 / 365.0;
-        double r = 0.05;
-        double sigma = 0.15;
-        
-        OptionGreeks g = GreeksCalculator::calculate(S, K, T, r, sigma, true);
-        
-        qDebug() << "Price:" << g.price;
-        qDebug() << "Delta:" << g.delta;
-        qDebug() << "Gamma:" << g.gamma;
-        qDebug() << "Theta:" << g.theta;
-        qDebug() << "Vega:" << g.vega; });
-
-    layout->addStretch();
-
-    window->setContentWidget(content);
-    window->resize(400, 300);
-
-    // Connect signals
+    // Connect MDI signals
     connect(window, &CustomMDISubWindow::closeRequested, window, &QWidget::close);
     connect(window, &CustomMDISubWindow::minimizeRequested, [this, window]()
             { m_mdiArea->minimizeWindow(window); });
@@ -641,7 +638,137 @@ void MainWindow::createBuyWindow()
     // Add to MDI area
     m_mdiArea->addWindow(window);
 
-    qDebug() << "Buy Window created";
+    qDebug() << "[MainWindow] Buy Window created";
+}
+
+void MainWindow::createSellWindow()
+{
+    CustomMDISubWindow *window = new CustomMDISubWindow("Sell Order", m_mdiArea);
+    window->setWindowType("SellWindow");
+
+    // Create SellWindow with UI file
+    SellWindow *sellWindow = new SellWindow(window);
+    
+    window->setContentWidget(sellWindow);
+    window->resize(600, 250);
+
+    // Connect order submitted signal
+    connect(sellWindow, &SellWindow::orderSubmitted, [](const QString &exchange, int token, 
+                                                         const QString &symbol, int qty, 
+                                                         double price, const QString &orderType) {
+        qDebug() << "[MainWindow] Sell Order Submitted:" 
+                 << "Exchange:" << exchange 
+                 << "Token:" << token
+                 << "Symbol:" << symbol
+                 << "Qty:" << qty 
+                 << "Price:" << price
+                 << "Type:" << orderType;
+        // TODO: Connect to order management system
+    });
+
+    // Connect MDI signals
+    connect(window, &CustomMDISubWindow::closeRequested, window, &QWidget::close);
+    connect(window, &CustomMDISubWindow::minimizeRequested, [this, window]()
+            { m_mdiArea->minimizeWindow(window); });
+    connect(window, &CustomMDISubWindow::maximizeRequested, [window]()
+            { window->maximize(); });
+    connect(window, &CustomMDISubWindow::windowActivated, [this, window]()
+            { m_mdiArea->activateWindow(window); });
+
+    // Add to MDI area
+    m_mdiArea->addWindow(window);
+
+    qDebug() << "[MainWindow] Sell Window created";
+}
+
+void MainWindow::createSnapQuoteWindow()
+{
+    CustomMDISubWindow *window = new CustomMDISubWindow("Snap Quote", m_mdiArea);
+    window->setWindowType("SnapQuote");
+
+    // Create SnapQuoteWindow with UI file
+    SnapQuoteWindow *snapWindow = new SnapQuoteWindow(window);
+    
+    window->setContentWidget(snapWindow);
+    window->resize(860, 300);
+
+    // Set some sample data for demonstration
+    snapWindow->setScripDetails("NSE", "F", 26000, "FUTIDX", "NIFTY");
+    snapWindow->updateQuote(
+        4794.05,        // ltpPrice
+        50,             // ltpQty
+        "02:42:39 PM",  // ltpTime
+        4754.00,        // open
+        4818.00,        // high
+        4735.00,        // low
+        4764.90,        // close
+        22605150,       // volume
+        108131508973.50, // value
+        4783.49,        // atp
+        0.61            // percentChange
+    );
+    
+    snapWindow->updateStatistics(
+        "+4742.40 - 5796.25",  // DPR
+        32000050,              // OI
+        2.35,                  // OI %
+        0.00,                  // Gain/Loss
+        0.00,                  // MTM Value
+        0.00                   // MTM Pos
+    );
+    
+    // Sample bid depth
+    snapWindow->updateBidDepth(1, 100, 4794.05);
+    snapWindow->updateBidDepth(2, 50, 4793.40);
+    snapWindow->updateBidDepth(3, 1500, 4793.35);
+    snapWindow->updateBidDepth(4, 50, 4793.10);
+    snapWindow->updateBidDepth(5, 4000, 4793.10);
+    
+    // Sample ask depth (price, qty, orders)
+    snapWindow->updateAskDepth(1, 4795.00, 1900, 5);
+    snapWindow->updateAskDepth(2, 4795.05, 50, 1);
+    snapWindow->updateAskDepth(3, 4795.60, 3200, 1);
+    snapWindow->updateAskDepth(4, 4796.10, 200, 1);
+    snapWindow->updateAskDepth(5, 4796.20, 200, 1);
+
+    // Connect MDI signals
+    connect(window, &CustomMDISubWindow::closeRequested, window, &QWidget::close);
+    connect(window, &CustomMDISubWindow::minimizeRequested, [this, window]()
+            { m_mdiArea->minimizeWindow(window); });
+    connect(window, &CustomMDISubWindow::maximizeRequested, [window]()
+            { window->maximize(); });
+    connect(window, &CustomMDISubWindow::windowActivated, [this, window]()
+            { m_mdiArea->activateWindow(window); });
+
+    // Add to MDI area
+    m_mdiArea->addWindow(window);
+
+    qDebug() << "[MainWindow] Snap Quote Window created";
+}
+
+void MainWindow::createPositionWindow()
+{
+    // Create window with Position widget
+    CustomMDISubWindow *window = new CustomMDISubWindow("Integrated Net Position", m_mdiArea);
+    window->setWindowType("PositionWindow");
+
+    PositionWindow *posWindow = new PositionWindow(window);
+    window->setContentWidget(posWindow);
+    window->resize(1000, 500);
+
+    // Connect MDI signals
+    connect(window, &CustomMDISubWindow::closeRequested, window, &QWidget::close);
+    connect(window, &CustomMDISubWindow::minimizeRequested, [this, window]()
+            { m_mdiArea->minimizeWindow(window); });
+    connect(window, &CustomMDISubWindow::maximizeRequested, [window]()
+            { window->maximize(); });
+    connect(window, &CustomMDISubWindow::windowActivated, [this, window]()
+            { m_mdiArea->activateWindow(window); });
+
+    // Add to MDI area
+    m_mdiArea->addWindow(window);
+
+    qDebug() << "[MainWindow] Position Window created";
 }
 
 void MainWindow::onAddToWatchRequested(const QString &exchange, const QString &segment,
@@ -651,12 +778,53 @@ void MainWindow::onAddToWatchRequested(const QString &exchange, const QString &s
 {
     qDebug() << "Adding to watch:" << symbol << "from" << exchange << segment << instrument;
 
-    // Find existing market watch window or create new one
-    // For now, just create a new market watch and add the symbol
-    createMarketWatch();
-
-    // TODO: Add the symbol to the market watch table
-    // This would require updating the table with the selected scrip data
+    // Find active market watch window
+    CustomMDISubWindow *activeWindow = m_mdiArea->activeWindow();
+    MarketWatchWindow *marketWatch = nullptr;
+    
+    if (activeWindow && activeWindow->windowType() == "MarketWatch") {
+        // Use active market watch
+        marketWatch = qobject_cast<MarketWatchWindow*>(activeWindow->contentWidget());
+    } else {
+        // Find first market watch window
+        QList<CustomMDISubWindow*> windows = m_mdiArea->windowList();
+        for (CustomMDISubWindow *win : windows) {
+            if (win->windowType() == "MarketWatch") {
+                marketWatch = qobject_cast<MarketWatchWindow*>(win->contentWidget());
+                if (marketWatch) {
+                    m_mdiArea->activateWindow(win);
+                    break;
+                }
+            }
+        }
+    }
+    
+    // If no market watch found, create a new one
+    if (!marketWatch) {
+        qDebug() << "No market watch found, creating new one";
+        createMarketWatch();
+        
+        // Get the newly created market watch
+        activeWindow = m_mdiArea->activeWindow();
+        if (activeWindow) {
+            marketWatch = qobject_cast<MarketWatchWindow*>(activeWindow->contentWidget());
+        }
+    }
+    
+    if (marketWatch) {
+        // TODO: Get real token from ScripMaster
+        // For now, use a mock token based on symbol hash
+        int mockToken = qHash(symbol + exchange) % 100000;
+        
+        bool added = marketWatch->addScrip(symbol, exchange, mockToken);
+        if (added) {
+            qDebug() << "Successfully added" << symbol << "to market watch with token" << mockToken;
+        } else {
+            qDebug() << "Failed to add" << symbol << "to market watch (duplicate or invalid)";
+        }
+    } else {
+        qWarning() << "Failed to get MarketWatchWindow instance";
+    }
 }
 
 void MainWindow::saveCurrentWorkspace()

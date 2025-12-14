@@ -1,0 +1,8 @@
+<RCC>
+    <qresource prefix="/">
+        <file>forms/InfoBar.ui</file>
+        <file>forms/BuyWindow.ui</file>
+        <file>forms/SellWindow.ui</file>
+        <file>forms/SnapQuote.ui</file>
+    </qresource>
+</RCC>

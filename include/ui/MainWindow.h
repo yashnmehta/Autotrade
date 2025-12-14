@@ -33,6 +33,9 @@ private slots:
     // Window actions
     void createMarketWatch();
     void createBuyWindow();
+    void createSellWindow();
+    void createSnapQuoteWindow();
+    void createPositionWindow();
     void onAddToWatchRequested(const QString &exchange, const QString &segment,
                                const QString &instrument, const QString &symbol,
                                const QString &expiry, const QString &strike,
