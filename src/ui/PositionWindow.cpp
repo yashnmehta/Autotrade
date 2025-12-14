@@ -42,11 +42,9 @@ void PositionWindow::setupUI()
     mainLayout->setContentsMargins(8, 8, 8, 8);
     mainLayout->setSpacing(8);
 
-    // Setup filter bar (top controls) and column filter bar (per-column inputs)
+    // Setup filter bar (top controls)
     setupFilterBar();
     mainLayout->addWidget(m_topFilterWidget);
-    // Column-level filter bar will be created by setupFilterBar and initially hidden
-    mainLayout->addWidget(m_columnFilterBar);
 
     // Setup table view
     setupTableView();
@@ -139,30 +137,20 @@ void PositionWindow::setupFilterBar()
     filterLayout->addWidget(m_btnRefresh);
     filterLayout->addWidget(m_btnExport);
 
-    // Save top filter widget (contains Exchange/Segment/Periodicity/User/Client/Security)
+    // Save top filter widget and apply styling for better visibility
     m_topFilterWidget = filterWidget;
-
-    // Create column-level filter bar (per-column inputs) - hidden by default
-    m_columnFilterBar = new QWidget(this);
-    QHBoxLayout* colLayout = new QHBoxLayout(m_columnFilterBar);
-    colLayout->setContentsMargins(2, 2, 2, 2);
-    colLayout->setSpacing(6);
-    m_columnFilterBar->setStyleSheet("background-color: #F5F5F5; border-bottom: 1px solid rgba(0,0,0,0.12);");
-
-    for (int col = 0; col < PositionModel::ColumnCount; ++col) {
-        QLineEdit* le = new QLineEdit(m_columnFilterBar);
-        le->setPlaceholderText("Filter...");
-        le->setClearButtonEnabled(true);
-        le->setMinimumHeight(30);
-        le->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
-        le->setStyleSheet("QLineEdit { background: #FFFFFF; color: #111111; border: 1px solid rgba(0,0,0,0.12); border-radius:4px; padding:4px 8px; }");
-        connect(le, &QLineEdit::textChanged, [this, col](const QString& txt){
-            onColumnFilterChanged(col, txt);
-        });
-        colLayout->addWidget(le);
-    }
-
-    m_columnFilterBar->setVisible(false);
+    m_topFilterWidget->setStyleSheet(
+        "QWidget { background-color: #F5F5F5; padding: 8px; border-radius: 4px; }"
+        "QLabel { color: #333333; font-weight: 500; }"
+        "QComboBox { background: #FFFFFF; color: #111111; border: 1px solid #CCCCCC; "
+        "border-radius: 3px; padding: 4px 8px; min-height: 24px; }"
+        "QComboBox:hover { border-color: #999999; }"
+        "QComboBox::drop-down { border: none; }"
+        "QPushButton { background: #4A90E2; color: white; border: none; "
+        "border-radius: 3px; padding: 6px 16px; font-weight: 500; }"
+        "QPushButton:hover { background: #357ABD; }"
+        "QPushButton:pressed { background: #2868A6; }"
+    );
 }
 
 void PositionWindow::setupTableView()
@@ -182,6 +170,22 @@ void PositionWindow::setupTableView()
     m_tableView->horizontalHeader()->setStretchLastSection(true);
     m_tableView->verticalHeader()->setVisible(false);
     
+    // Style the header for better visibility
+    m_tableView->horizontalHeader()->setStyleSheet(
+        "QHeaderView::section { "
+        "background-color: #2C2C2C; "
+        "color: #FFFFFF; "
+        "padding: 6px; "
+        "border: 1px solid #1A1A1A; "
+        "font-weight: bold; "
+        "font-size: 11px; "
+        "}"
+        "QHeaderView::section:hover { "
+        "background-color: #3A3A3A; "
+        "}"
+    );
+    m_tableView->horizontalHeader()->setMinimumHeight(32);
+    
     // Set column widths
     m_tableView->setColumnWidth(PositionModel::Symbol, 120);
     m_tableView->setColumnWidth(PositionModel::SeriesExpiry, 80);
@@ -193,8 +197,6 @@ void PositionWindow::setupTableView()
     m_tableView->setColumnWidth(PositionModel::MTMMargin, 100);
     m_tableView->setColumnWidth(PositionModel::BuyValue, 100);
     m_tableView->setColumnWidth(PositionModel::SellValue, 100);
-    
-    // Note: column-level filter widgets are created in setupFilterBar() and toggled separately
 }
 
 void PositionWindow::addPosition(const Position& position)
@@ -221,12 +223,12 @@ void PositionWindow::clearPositions()
     applyFilters();
 }
 
-void PositionWindow::applyFilters()
+QList<Position> PositionWindow::getTopFilteredPositions() const
 {
-    QList<Position> filteredPositions;
+    QList<Position> filtered;
     
     for (const Position& pos : m_allPositions) {
-        // Apply top filter bar filters
+        // Apply top filter bar filters only
         if (m_filterExchange != "(ALL)" && !m_filterExchange.isEmpty() && pos.exchange != m_filterExchange)
             continue;
         if (m_filterSegment != "(ALL)" && !m_filterSegment.isEmpty() && pos.segment != m_filterSegment)
@@ -238,29 +240,45 @@ void PositionWindow::applyFilters()
         if (m_filterSecurity != "(ALL)" && !m_filterSecurity.isEmpty() && pos.symbol != m_filterSecurity)
             continue;
         
-        // Apply column filters (text-based search)
+        filtered.append(pos);
+    }
+    
+    return filtered;
+}
+
+void PositionWindow::applyFilters()
+{
+    QList<Position> filteredPositions;
+    
+    // First apply top filters
+    QList<Position> topFiltered = getTopFilteredPositions();
+    
+    // Then apply column filters
+    for (const Position& pos : topFiltered) {
+        // Apply column filters (multi-select)
         bool passColumnFilters = true;
         for (auto it = m_columnFilters.constBegin(); it != m_columnFilters.constEnd(); ++it) {
             int column = it.key();
-            QString filterText = it.value();
-            if (filterText.isEmpty()) continue;
+            QStringList selectedValues = it.value();
+            if (selectedValues.isEmpty()) continue;
             
             QString cellValue;
             switch (column) {
                 case PositionModel::Symbol: cellValue = pos.symbol; break;
                 case PositionModel::SeriesExpiry: cellValue = pos.seriesExpiry; break;
-                case PositionModel::BuyQty: cellValue = QString::number(pos.buyQty); break;
-                case PositionModel::SellQty: cellValue = QString::number(pos.sellQty); break;
-                case PositionModel::NetPrice: cellValue = QString::number(pos.netPrice, 'f', 2); break;
-                case PositionModel::MarkPrice: cellValue = QString::number(pos.markPrice, 'f', 2); break;
+                case PositionModel::BuyQty: cellValue = pos.buyQty > 0 ? QString::number(pos.buyQty) : ""; break;
+                case PositionModel::SellQty: cellValue = pos.sellQty > 0 ? QString::number(pos.sellQty) : ""; break;
+                case PositionModel::NetPrice: cellValue = pos.netPrice != 0.0 ? QString::number(pos.netPrice, 'f', 2) : ""; break;
+                case PositionModel::MarkPrice: cellValue = pos.markPrice != 0.0 ? QString::number(pos.markPrice, 'f', 2) : ""; break;
                 case PositionModel::MTMGainLoss: cellValue = QString::number(pos.mtmGainLoss, 'f', 2); break;
                 case PositionModel::MTMMargin: cellValue = QString::number(pos.mtmMargin, 'f', 2); break;
-                case PositionModel::BuyValue: cellValue = QString::number(pos.buyValue, 'f', 2); break;
-                case PositionModel::SellValue: cellValue = QString::number(pos.sellValue, 'f', 2); break;
+                case PositionModel::BuyValue: cellValue = pos.buyValue != 0.0 ? QString::number(pos.buyValue, 'f', 2) : ""; break;
+                case PositionModel::SellValue: cellValue = pos.sellValue != 0.0 ? QString::number(pos.sellValue, 'f', 2) : ""; break;
                 default: break;
             }
             
-            if (!cellValue.contains(filterText, Qt::CaseInsensitive)) {
+            // Check if cellValue is in selected values
+            if (!selectedValues.contains(cellValue)) {
                 passColumnFilters = false;
                 break;
             }
@@ -271,8 +289,17 @@ void PositionWindow::applyFilters()
         }
     }
     
+    qDebug() << "[PositionWindow::applyFilters] Filtered" << filteredPositions.size() << "positions from" << m_allPositions.size();
+    qDebug() << "[PositionWindow::applyFilters] Filter row visible:" << m_filterRowVisible;
+    
     m_model->setPositions(filteredPositions);
     updateSummaryRow();
+    
+    // Recreate filter widgets after model reset (model reset deletes all index widgets)
+    if (m_filterRowVisible) {
+        qDebug() << "[PositionWindow::applyFilters] Recreating filter widgets after model reset";
+        recreateFilterWidgets();
+    }
 }
 
 void PositionWindow::updateSummaryRow()
@@ -294,8 +321,50 @@ void PositionWindow::updateSummaryRow()
     m_model->setSummary(summary);
 }
 
+void PositionWindow::recreateFilterWidgets()
+{
+    if (!m_filterRowVisible) {
+        qDebug() << "[PositionWindow::recreateFilterWidgets] Skipping - filter row not visible";
+        return;
+    }
+    
+    qDebug() << "[PositionWindow::recreateFilterWidgets] Recreating filter widgets";
+    
+    // Store current filter selections before recreating widgets
+    QMap<int, QStringList> currentFilters = m_columnFilters;
+    
+    // Clear old widget list (widgets are already deleted by Qt during model reset)
+    m_filterWidgets.clear();
+    
+    // Create fresh widgets for row 0
+    for (int col = 0; col < PositionModel::ColumnCount; ++col) {
+        FilterRowWidget* filterWidget = new FilterRowWidget(col, this, m_tableView);
+        m_filterWidgets.append(filterWidget);
+        
+        QModelIndex idx = m_model->index(0, col);
+        if (idx.isValid()) {
+            m_tableView->setIndexWidget(idx, filterWidget);
+            
+            // Restore filter state if this column had filters
+            if (currentFilters.contains(col)) {
+                filterWidget->m_selectedValues = currentFilters[col];
+                filterWidget->updateButtonDisplay();
+            }
+            
+            connect(filterWidget, &FilterRowWidget::filterChanged, this, &PositionWindow::onColumnFilterChanged);
+            qDebug() << "[PositionWindow::recreateFilterWidgets] Created widget for column" << col;
+        } else {
+            qDebug() << "[PositionWindow::recreateFilterWidgets] WARNING: Invalid index for column" << col;
+        }
+    }
+    
+    m_tableView->setRowHeight(0, 36);
+    qDebug() << "[PositionWindow::recreateFilterWidgets] Completed -" << m_filterWidgets.size() << "widgets created";
+}
+
 void PositionWindow::onFilterChanged()
 {
+    qDebug() << "[PositionWindow::onFilterChanged] Top filter changed";
     m_filterExchange = m_cbExchange->currentText();
     m_filterSegment = m_cbSegment->currentText();
     m_filterPeriodicity = m_cbPeriodicity->currentText();
@@ -306,13 +375,19 @@ void PositionWindow::onFilterChanged()
     applyFilters();
 }
 
-void PositionWindow::onColumnFilterChanged(int column, const QString& filterText)
+void PositionWindow::onColumnFilterChanged(int column, const QStringList& selectedValues)
 {
-    if (filterText.isEmpty()) {
+    qDebug() << "[PositionWindow::onColumnFilterChanged] Column" << column << "filter changed. Values:" << selectedValues;
+    
+    if (selectedValues.isEmpty()) {
         m_columnFilters.remove(column);
+        qDebug() << "[PositionWindow::onColumnFilterChanged] Removed filter for column" << column;
     } else {
-        m_columnFilters[column] = filterText;
+        m_columnFilters[column] = selectedValues;
+        qDebug() << "[PositionWindow::onColumnFilterChanged] Set filter for column" << column << "with" << selectedValues.size() << "values";
     }
+    
+    qDebug() << "[PositionWindow::onColumnFilterChanged] Total active column filters:" << m_columnFilters.size();
     applyFilters();
 }
 
@@ -322,19 +397,30 @@ void PositionWindow::toggleFilterRow()
     m_model->setFilterRowVisible(m_filterRowVisible);
     
     if (m_filterRowVisible) {
-        // Show the dedicated column filter bar above the table
-        if (m_columnFilterBar) m_columnFilterBar->setVisible(true);
-        qDebug() << "[PositionWindow] Column filter bar shown";
-    } else {
-        // Hide and clear filter inputs
-        if (m_columnFilterBar) {
-            QList<QLineEdit*> edits = m_columnFilterBar->findChildren<QLineEdit*>();
-            for (QLineEdit* e : edits) e->clear();
-            m_columnFilterBar->setVisible(false);
+        // Show filter widgets in row 0 (Excel-style)
+        qDebug() << "[PositionWindow::toggleFilterRow] Creating filter widgets";
+        m_filterWidgets.clear();
+        
+        for (int col = 0; col < PositionModel::ColumnCount; ++col) {
+            FilterRowWidget* filterWidget = new FilterRowWidget(col, this, m_tableView);
+            m_filterWidgets.append(filterWidget);
+            m_tableView->setIndexWidget(m_model->index(0, col), filterWidget);
+            connect(filterWidget, &FilterRowWidget::filterChanged, this, &PositionWindow::onColumnFilterChanged);
+            qDebug() << "[PositionWindow::toggleFilterRow] Created filter widget for column" << col;
         }
+        m_tableView->setRowHeight(0, 36);
+        qDebug() << "[PositionWindow] Filter row activated (Excel-style) with" << m_filterWidgets.size() << "widgets";
+    } else {
+        // Clear filter widgets and filters
+        qDebug() << "[PositionWindow::toggleFilterRow] Clearing filter widgets";
+        for (int col = 0; col < PositionModel::ColumnCount; ++col) {
+            m_tableView->setIndexWidget(m_model->index(0, col), nullptr);
+        }
+        qDeleteAll(m_filterWidgets);
+        m_filterWidgets.clear();
         m_columnFilters.clear();
         applyFilters();
-        qDebug() << "[PositionWindow] Column filter bar hidden";
+        qDebug() << "[PositionWindow] Filter row deactivated";
     }
 }
 
@@ -568,45 +654,232 @@ void PositionModel::setFilterRowVisible(bool visible)
 // FilterRowWidget Implementation
 // ============================================================================
 
-FilterRowWidget::FilterRowWidget(int column, QWidget* parent)
+FilterRowWidget::FilterRowWidget(int column, PositionWindow* positionWindow, QWidget* parent)
     : QWidget(parent)
     , m_column(column)
-    , m_lineEdit(nullptr)
-    , m_comboBox(nullptr)
+    , m_filterButton(nullptr)
+    , m_positionWindow(positionWindow)
 {
     QHBoxLayout* layout = new QHBoxLayout(this);
-    layout->setContentsMargins(4, 4, 4, 4);
-    layout->setSpacing(4);
+    layout->setContentsMargins(2, 2, 2, 2);
+    layout->setSpacing(0);
 
-    // Visual container: slightly lighter than header to separate from dark chrome
+    // Visual container
     this->setStyleSheet("background-color: #F5F5F5; border-bottom: 1px solid rgba(0,0,0,0.12);");
 
-    // Use line edit for text filtering
-    m_lineEdit = new QLineEdit(this);
-    m_lineEdit->setPlaceholderText("Filter...");
-    m_lineEdit->setClearButtonEnabled(true);
-    m_lineEdit->setMinimumHeight(30);
-    m_lineEdit->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
-    // Make the edit visually distinct: white background, darker text, padding
-    m_lineEdit->setStyleSheet(
-        "QLineEdit { background: #FFFFFF; color: #111111; border: 1px solid rgba(0,0,0,0.12); "
-        "border-radius: 4px; padding: 4px 8px; }");
+    // Create filter button with dropdown icon
+    m_filterButton = new QPushButton(this);
+    m_filterButton->setText("▼ Filter");
+    m_filterButton->setStyleSheet(
+        "QPushButton { "
+        "background: #FFFFFF; color: #333333; border: 1px solid rgba(0,0,0,0.15); "
+        "border-radius: 3px; padding: 4px 8px; text-align: left; font-size: 10px; "
+        "}"
+        "QPushButton:hover { background: #F8F8F8; border-color: #4A90E2; }"
+        "QPushButton:pressed { background: #E8E8E8; }"
+    );
+    m_filterButton->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
+    m_filterButton->setMinimumHeight(28);
 
-    layout->addWidget(m_lineEdit);
+    layout->addWidget(m_filterButton);
 
-    connect(m_lineEdit, &QLineEdit::textChanged, [this](const QString& text) {
-        emit filterChanged(m_column, text);
-    });
+    connect(m_filterButton, &QPushButton::clicked, this, &FilterRowWidget::showFilterPopup);
 }
 
-QString FilterRowWidget::filterText() const
+QStringList FilterRowWidget::getUniqueValuesForColumn() const
 {
-    return m_lineEdit ? m_lineEdit->text() : QString();
+    QSet<QString> uniqueValues;
+    
+    if (!m_positionWindow) return QStringList();
+    
+    // Get positions after top filters but before column filters
+    QList<Position> positions = m_positionWindow->getTopFilteredPositions();
+    
+    for (const Position& pos : positions) {
+        QString value;
+        switch (m_column) {
+            case PositionModel::Symbol: value = pos.symbol; break;
+            case PositionModel::SeriesExpiry: value = pos.seriesExpiry; break;
+            case PositionModel::BuyQty: if (pos.buyQty > 0) value = QString::number(pos.buyQty); break;
+            case PositionModel::SellQty: if (pos.sellQty > 0) value = QString::number(pos.sellQty); break;
+            case PositionModel::NetPrice: if (pos.netPrice != 0.0) value = QString::number(pos.netPrice, 'f', 2); break;
+            case PositionModel::MarkPrice: if (pos.markPrice != 0.0) value = QString::number(pos.markPrice, 'f', 2); break;
+            case PositionModel::MTMGainLoss: value = QString::number(pos.mtmGainLoss, 'f', 2); break;
+            case PositionModel::MTMMargin: value = QString::number(pos.mtmMargin, 'f', 2); break;
+            case PositionModel::BuyValue: if (pos.buyValue != 0.0) value = QString::number(pos.buyValue, 'f', 2); break;
+            case PositionModel::SellValue: if (pos.sellValue != 0.0) value = QString::number(pos.sellValue, 'f', 2); break;
+        }
+        if (!value.isEmpty()) {
+            uniqueValues.insert(value);
+        }
+    }
+    
+    QStringList list = uniqueValues.values();
+    list.sort();
+    return list;
+}
+
+void FilterRowWidget::showFilterPopup()
+{
+    qDebug() << "[FilterRowWidget::showFilterPopup] Opening filter dialog for column" << m_column;
+    qDebug() << "[FilterRowWidget::showFilterPopup] Current selected values:" << m_selectedValues;
+    
+    QDialog* dialog = new QDialog(this);
+    dialog->setWindowTitle("Filter Options");
+    dialog->setMinimumWidth(250);
+    dialog->setMinimumHeight(300);
+    
+    QVBoxLayout* mainLayout = new QVBoxLayout(dialog);
+    
+    // Search box
+    QLineEdit* searchBox = new QLineEdit(dialog);
+    searchBox->setPlaceholderText("Search...");
+    mainLayout->addWidget(searchBox);
+    
+    // List widget with checkboxes
+    QListWidget* listWidget = new QListWidget(dialog);
+    QStringList uniqueValues = getUniqueValuesForColumn();
+    
+    // Add "(Select All)" option
+    QListWidgetItem* selectAllItem = new QListWidgetItem("(Select All)", listWidget);
+    selectAllItem->setFlags(selectAllItem->flags() | Qt::ItemIsUserCheckable);
+    selectAllItem->setCheckState(m_selectedValues.isEmpty() ? Qt::Checked : Qt::Unchecked);
+    
+    // Add unique values
+    for (const QString& value : uniqueValues) {
+        QListWidgetItem* item = new QListWidgetItem(value, listWidget);
+        item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
+        item->setCheckState(m_selectedValues.isEmpty() || m_selectedValues.contains(value) ? Qt::Checked : Qt::Unchecked);
+    }
+    
+    mainLayout->addWidget(listWidget);
+    
+    // Connect select all
+    connect(listWidget, &QListWidget::itemChanged, [listWidget, selectAllItem](QListWidgetItem* item) {
+        if (item == selectAllItem) {
+            Qt::CheckState state = item->checkState();
+            for (int i = 1; i < listWidget->count(); ++i) {
+                listWidget->item(i)->setCheckState(state);
+            }
+        } else {
+            // Update select all state
+            bool allChecked = true;
+            for (int i = 1; i < listWidget->count(); ++i) {
+                if (listWidget->item(i)->checkState() != Qt::Checked) {
+                    allChecked = false;
+                    break;
+                }
+            }
+            selectAllItem->setCheckState(allChecked ? Qt::Checked : Qt::Unchecked);
+        }
+    });
+    
+    // Search functionality
+    connect(searchBox, &QLineEdit::textChanged, [listWidget](const QString& text) {
+        for (int i = 1; i < listWidget->count(); ++i) {
+            QListWidgetItem* item = listWidget->item(i);
+            item->setHidden(!item->text().contains(text, Qt::CaseInsensitive));
+        }
+    });
+    
+    // Buttons
+    QDialogButtonBox* buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, dialog);
+    mainLayout->addWidget(buttonBox);
+    
+    connect(buttonBox, &QDialogButtonBox::accepted, dialog, &QDialog::accept);
+    connect(buttonBox, &QDialogButtonBox::rejected, dialog, &QDialog::reject);
+    
+    if (dialog->exec() == QDialog::Accepted) {
+        // Collect selected values
+        m_selectedValues.clear();
+        int checkedCount = 0;
+        for (int i = 1; i < listWidget->count(); ++i) {
+            QListWidgetItem* item = listWidget->item(i);
+            if (item->checkState() == Qt::Checked && !item->isHidden()) {
+                m_selectedValues.append(item->text());
+                checkedCount++;
+            }
+        }
+        
+        // Count total visible items
+        int totalVisible = 0;
+        for (int i = 1; i < listWidget->count(); ++i) {
+            if (!listWidget->item(i)->isHidden()) totalVisible++;
+        }
+        
+        // Update button text - show filter is active if not all items selected
+        if (m_selectedValues.isEmpty() || checkedCount == totalVisible) {
+            m_filterButton->setText("▼ Filter");
+            m_selectedValues.clear(); // Clear means no filter
+        } else {
+            m_filterButton->setText(QString("▼ (%1)").arg(m_selectedValues.count()));
+            m_filterButton->setStyleSheet(
+                "QPushButton { "
+                "background: #E3F2FD; color: #1976D2; border: 1px solid #1976D2; "
+                "border-radius: 3px; padding: 4px 8px; text-align: left; font-size: 10px; font-weight: bold; "
+                "}"
+                "QPushButton:hover { background: #BBDEFB; border-color: #1565C0; }"
+                "QPushButton:pressed { background: #90CAF9; }"
+            );
+        }
+        
+        // Reset button style if no filter
+        if (m_selectedValues.isEmpty() && m_filterButton) {
+            m_filterButton->setStyleSheet(
+                "QPushButton { "
+                "background: #FFFFFF; color: #333333; border: 1px solid rgba(0,0,0,0.15); "
+                "border-radius: 3px; padding: 4px 8px; text-align: left; font-size: 10px; "
+                "}"
+                "QPushButton:hover { background: #F8F8F8; border-color: #4A90E2; }"
+                "QPushButton:pressed { background: #E8E8E8; }"
+            );
+        }
+        
+        emit filterChanged(m_column, m_selectedValues);
+    }
+    
+    dialog->deleteLater();
+}
+
+void FilterRowWidget::applyFilter()
+{
+    emit filterChanged(m_column, m_selectedValues);
+}
+
+QStringList FilterRowWidget::selectedValues() const
+{
+    return m_selectedValues;
+}
+
+void FilterRowWidget::updateButtonDisplay()
+{
+    if (!m_filterButton) return;
+    
+    if (m_selectedValues.isEmpty()) {
+        m_filterButton->setText("▼ Filter");
+        m_filterButton->setStyleSheet(
+            "QPushButton { "
+            "background: #FFFFFF; color: #333333; border: 1px solid rgba(0,0,0,0.15); "
+            "border-radius: 3px; padding: 4px 8px; text-align: left; font-size: 10px; "
+            "}"
+            "QPushButton:hover { background: #F8F8F8; border-color: #4A90E2; }"
+            "QPushButton:pressed { background: #E8E8E8; }"
+        );
+    } else {
+        m_filterButton->setText(QString("▼ (%1)").arg(m_selectedValues.count()));
+        m_filterButton->setStyleSheet(
+            "QPushButton { "
+            "background: #E3F2FD; color: #1976D2; border: 1px solid #1976D2; "
+            "border-radius: 3px; padding: 4px 8px; text-align: left; font-size: 10px; font-weight: bold; "
+            "}"
+            "QPushButton:hover { background: #BBDEFB; border-color: #1565C0; }"
+            "QPushButton:pressed { background: #90CAF9; }"
+        );
+    }
 }
 
 void FilterRowWidget::clear()
 {
-    if (m_lineEdit) {
-        m_lineEdit->clear();
-    }
+    m_selectedValues.clear();
+    updateButtonDisplay();
 }

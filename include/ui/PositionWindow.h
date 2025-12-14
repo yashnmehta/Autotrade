@@ -53,7 +53,7 @@ public:
 
 private slots:
     void onFilterChanged();
-    void onColumnFilterChanged(int column, const QString& filterText);
+    void onColumnFilterChanged(int column, const QStringList& selectedValues);
     void onRefreshClicked();
     void onExportClicked();
     void toggleFilterRow();
@@ -65,6 +65,12 @@ private:
     void applyFilters();
     void updateSummaryRow();
 
+public:
+    QList<Position> getTopFilteredPositions() const;
+
+private:
+    void recreateFilterWidgets();
+
     // Filter bar widgets
     QComboBox* m_cbExchange;
     QComboBox* m_cbSegment;
@@ -75,13 +81,13 @@ private:
     QPushButton* m_btnRefresh;
     QPushButton* m_btnExport;
     QWidget* m_topFilterWidget;
-    QWidget* m_columnFilterBar;
 
     // Table view and model
     QTableView* m_tableView;
     PositionModel* m_model;
     bool m_filterRowVisible;
     QShortcut* m_filterShortcut;
+    QList<FilterRowWidget*> m_filterWidgets;
 
     // All positions (unfiltered)
     QList<Position> m_allPositions;
@@ -93,7 +99,7 @@ private:
     QString m_filterUser;
     QString m_filterClient;
     QString m_filterSecurity;
-    QMap<int, QString> m_columnFilters; // column -> filter text
+    QMap<int, QStringList> m_columnFilters; // column -> selected values list
 };
 
 // Filter row delegate for embedding widgets in table
@@ -102,17 +108,27 @@ class FilterRowWidget : public QWidget
     Q_OBJECT
 
 public:
-    explicit FilterRowWidget(int column, QWidget* parent = nullptr);
-    QString filterText() const;
+    explicit FilterRowWidget(int column, PositionWindow* positionWindow, QWidget* parent = nullptr);
+    QStringList selectedValues() const;
     void clear();
+    void updateButtonDisplay();
 
 signals:
-    void filterChanged(int column, const QString& text);
+    void filterChanged(int column, const QStringList& selectedValues);
+
+private slots:
+    void showFilterPopup();
+    void applyFilter();
 
 private:
+    QStringList getUniqueValuesForColumn() const;
+    
     int m_column;
-    QLineEdit* m_lineEdit;
-    QComboBox* m_comboBox;
+    QPushButton* m_filterButton;
+    PositionWindow* m_positionWindow;
+
+public:
+    QStringList m_selectedValues; // Public so PositionWindow can restore state
 };
 
 // Custom table model for positions
