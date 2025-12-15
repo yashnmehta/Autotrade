@@ -22,10 +22,12 @@ include_directories(
     ${CMAKE_SOURCE_DIR}/include/core/widgets
     ${CMAKE_SOURCE_DIR}/include/core/base
     ${CMAKE_SOURCE_DIR}/include/app
+    ${CMAKE_SOURCE_DIR}/include/ui
     ${CMAKE_SOURCE_DIR}/include/views
     ${CMAKE_SOURCE_DIR}/include/models
     ${CMAKE_SOURCE_DIR}/include/services
     ${CMAKE_SOURCE_DIR}/include/services/xts
+    ${CMAKE_SOURCE_DIR}/include/api
     ${CMAKE_SOURCE_DIR}/include/repository
     ${CMAKE_SOURCE_DIR}/include/utils
 )
@@ -76,6 +78,20 @@ set(APP_HEADERS
 )
 
 # ========================================
+# UI LAYER - Dialogs & Windows
+# ✅ SplashScreen, LoginWindow, etc.
+# ========================================
+set(UI_SOURCES
+    src/ui/SplashScreen.cpp
+    src/ui/LoginWindow.cpp
+)
+
+set(UI_HEADERS
+    include/ui/SplashScreen.h
+    include/ui/LoginWindow.h
+)
+
+# ========================================
 # VIEWS LAYER - Trading Windows
 # ✅ Actively developed
 # ========================================
@@ -115,10 +131,27 @@ set(MODEL_HEADERS
 # ========================================
 set(SERVICE_SOURCES
     src/services/TokenSubscriptionManager.cpp
+    src/services/LoginFlowService.cpp
 )
 
 set(SERVICE_HEADERS
     include/services/TokenSubscriptionManager.h
+    include/services/LoginFlowService.h
+)
+
+# ========================================
+# API LAYER - XTS API Integration
+# ✅ XTS Market Data & Interactive API clients
+# ========================================
+set(API_SOURCES
+    src/api/XTSMarketDataClient.cpp
+    src/api/XTSInteractiveClient.cpp
+)
+
+set(API_HEADERS
+    include/api/XTSTypes.h
+    include/api/XTSMarketDataClient.h
+    include/api/XTSInteractiveClient.h
 )
 
 # ========================================
@@ -141,11 +174,13 @@ set(REPOSITORY_HEADERS
 set(UTILS_SOURCES
     src/utils/ClipboardHelpers.cpp
     src/utils/SelectionHelpers.cpp
+    src/utils/ConfigLoader.cpp
 )
 
 set(UTILS_HEADERS
     include/utils/ClipboardHelpers.h
     include/utils/SelectionHelpers.h
+    include/utils/ConfigLoader.h
 )
 
 # ========================================
@@ -168,9 +203,11 @@ set(VIEW_HELPER_HEADERS
 set(SOURCES
     ${CORE_WIDGET_SOURCES}
     ${APP_SOURCES}
+    ${UI_SOURCES}
     ${VIEW_SOURCES}
     ${MODEL_SOURCES}
     ${SERVICE_SOURCES}
+    ${API_SOURCES}
     ${REPOSITORY_SOURCES}
     ${UTILS_SOURCES}
     ${VIEW_HELPER_SOURCES}
@@ -179,17 +216,21 @@ set(SOURCES
 set(HEADERS
     ${CORE_WIDGET_HEADERS}
     ${APP_HEADERS}
+    ${UI_HEADERS}
     ${VIEW_HEADERS}
     ${MODEL_HEADERS}
     ${UTILS_HEADERS}
     ${VIEW_HELPER_HEADERS}
     ${SERVICE_HEADERS}
+    ${API_HEADERS}
     ${REPOSITORY_HEADERS}
 )
 
 # UI files
 set(FORMS
     resources/forms/InfoBar.ui
+    resources/forms/SplashScreen.ui
+    resources/forms/LoginWindow.ui
 )
 
 # Resource files
