@@ -156,15 +156,24 @@ set(API_HEADERS
 
 # ========================================
 # REPOSITORY LAYER - Data Access
-# ✅ Actively developed
+# ✅ Master contract repositories with array-based search
 # ========================================
 set(REPOSITORY_SOURCES
     src/repository/Greeks.cpp
+    src/repository/MasterFileParser.cpp
+    src/repository/NSEFORepository.cpp
+    src/repository/NSECMRepository.cpp
+    src/repository/RepositoryManager.cpp
 )
 
 set(REPOSITORY_HEADERS
     include/repository/Greeks.h
     include/repository/ScripMaster.h
+    include/repository/ContractData.h
+    include/repository/MasterFileParser.h
+    include/repository/NSEFORepository.h
+    include/repository/NSECMRepository.h
+    include/repository/RepositoryManager.h
 )
 
 # ========================================

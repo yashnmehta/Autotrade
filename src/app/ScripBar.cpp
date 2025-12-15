@@ -1,5 +1,6 @@
 #include "app/ScripBar.h"
 #include "api/XTSMarketDataClient.h"
+#include "repository/RepositoryManager.h"
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QDebug>
@@ -182,42 +183,65 @@ void ScripBar::populateSymbols(const QString &instrument)
 {
     m_symbolCombo->clearItems();
     
-    if (m_xtsClient && m_xtsClient->isLoggedIn()) {
-        qDebug() << "[ScripBar] Calling XTS getInstruments for:" << getCurrentExchange() << getCurrentSegment() << instrument;
-        
-        // Get exchange segment code
-        int exchangeSegment = getCurrentExchangeSegmentCode();
-        
-        // Call XTS API to get instruments
-        m_xtsClient->getInstruments(exchangeSegment,
-            [this, instrument](bool success, const QVector<XTS::Instrument> &instruments, const QString &error) {
-                if (success) {
-                    qDebug() << "[ScripBar] Received" << instruments.size() << "instruments from XTS";
-                    
-                    // Filter by instrument type and extract unique symbols
-                    QStringList symbols;
-                    for (const auto &inst : instruments) {
-                        // Basic filtering - you may need to adjust based on your needs
-                        if (!symbols.contains(inst.instrumentName)) {
-                            symbols.append(inst.instrumentName);
-                        }
-                    }
-                    
-                    qDebug() << "[ScripBar] Filtered to" << symbols.size() << "unique symbols";
-                    m_symbolCombo->addItems(symbols);
-                    
-                    if (m_symbolCombo->count() > 0) {
-                        onSymbolChanged(m_symbolCombo->currentText());
-                    }
-                } else {
-                    qWarning() << "[ScripBar] Failed to get instruments:" << error;
-                    m_symbolCombo->addItem("Error loading instruments");
-                }
-            }
-        );
-    } else {
-        qWarning() << "[ScripBar] XTS client not available or not logged in";
-        m_symbolCombo->addItem("Please login first");
+    // Use RepositoryManager for array-based search (NO API CALLS)
+    RepositoryManager* repo = RepositoryManager::getInstance();
+    
+    if (!repo->isLoaded()) {
+        qWarning() << "[ScripBar] Repository not loaded yet";
+        m_symbolCombo->addItem("Loading master data...");
+        return;
+    }
+    
+    QString exchange = getCurrentExchange();
+    QString segment = getCurrentSegment();
+    
+    qDebug() << "[ScripBar] Array-based search:" << exchange << segment << instrument;
+    
+    // Get all scrips for this segment and series
+    QVector<ContractData> contracts = repo->getScrips(exchange, segment, instrument);
+    
+    qDebug() << "[ScripBar] Found" << contracts.size() << "contracts in local array";
+    
+    if (contracts.isEmpty()) {
+        m_symbolCombo->addItem("No instruments found");
+        return;
+    }
+    
+    // Extract unique symbols
+    QSet<QString> uniqueSymbols;
+    for (const ContractData& contract : contracts) {
+        if (!contract.name.isEmpty()) {
+            uniqueSymbols.insert(contract.name);
+        }
+    }
+    
+    // Convert to sorted list
+    QStringList symbols = uniqueSymbols.values();
+    symbols.sort();
+    
+    qDebug() << "[ScripBar] Found" << symbols.size() << "unique symbols";
+    
+    // Update cache with full contracts for later use
+    m_instrumentCache.clear();
+    for (const ContractData& contract : contracts) {
+        InstrumentData inst;
+        inst.exchangeInstrumentID = contract.exchangeInstrumentID;
+        inst.name = contract.name;
+        inst.symbol = contract.name;
+        inst.series = contract.series;
+        inst.instrumentType = contract.series;
+        inst.expiryDate = contract.expiryDate;
+        inst.strikePrice = contract.strikePrice;
+        inst.optionType = contract.optionType;
+        inst.exchangeSegment = RepositoryManager::getExchangeSegmentID(exchange, segment);
+        m_instrumentCache.append(inst);
+    }
+    
+    // Populate combo box
+    m_symbolCombo->addItems(symbols);
+    
+    if (m_symbolCombo->count() > 0) {
+        onSymbolChanged(m_symbolCombo->currentText());
     }
 }
 

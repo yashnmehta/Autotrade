@@ -1,4 +1,5 @@
 #include "services/LoginFlowService.h"
+#include "repository/RepositoryManager.h"
 #include <QDebug>
 #include <QCoreApplication>
 #include <QDir>
@@ -98,6 +99,15 @@ void LoginFlowService::executeLogin(
                             file.close();
                             qDebug() << "Master contracts saved to:" << filePath;
                             updateStatus("masters", "Master files downloaded", 75);
+                            
+                            // Load master contracts into RepositoryManager for array-based search
+                            qDebug() << "[LoginFlow] Loading masters into RepositoryManager...";
+                            RepositoryManager* repo = RepositoryManager::getInstance();
+                            if (repo->loadAll(mastersDir)) {
+                                qDebug() << "[LoginFlow] RepositoryManager loaded successfully";
+                            } else {
+                                qWarning() << "[LoginFlow] Failed to load RepositoryManager";
+                            }
                         } else {
                             qWarning() << "Failed to save master file:" << file.errorString();
                             updateStatus("masters", "Master download completed (file save failed)", 75);
