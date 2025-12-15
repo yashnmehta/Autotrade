@@ -1,5 +1,9 @@
 #include "services/LoginFlowService.h"
 #include <QDebug>
+#include <QCoreApplication>
+#include <QDir>
+#include <QFile>
+#include <QTextStream>
 
 LoginFlowService::LoginFlowService(QObject *parent)
     : QObject(parent)
@@ -71,9 +75,33 @@ void LoginFlowService::executeLogin(
 
             // Phase 3: Download Masters (if requested)
             if (downloadMasters) {
-                updateStatus("masters", "Downloading master contracts...", 70);
-                // TODO: Implement master download
-                updateStatus("masters", "Master files downloaded", 75);
+                updateStatus("masters", "Downloading NSEFO masters...", 70);
+                
+                QStringList segments = {"NSEFO", "NSECM", "BSEFO", "BSECM"};
+                m_mdClient->downloadMasterContracts(segments, [this](bool success, const QString &csvData, const QString &error) {
+                    if (success) {
+                        // Save to file in Masters directory
+                        QString appDir = QCoreApplication::applicationDirPath();
+                        QString mastersDir = appDir + "/../../Masters";
+                        QDir().mkpath(mastersDir);
+                        
+                        QString filePath = mastersDir + "/master_contracts_latest.txt";
+                        QFile file(filePath);
+                        if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+                            QTextStream stream(&file);
+                            stream << csvData;
+                            file.close();
+                            qDebug() << "Master contracts saved to:" << filePath;
+                            updateStatus("masters", "Master files downloaded", 75);
+                        } else {
+                            qWarning() << "Failed to save master file:" << file.errorString();
+                            updateStatus("masters", "Master download completed (file save failed)", 75);
+                        }
+                    } else {
+                        qWarning() << "Master download failed:" << error;
+                        updateStatus("masters", "Master download failed (continuing anyway)", 75);
+                    }
+                });
             } else {
                 updateStatus("masters", "Skipping master download", 75);
             }

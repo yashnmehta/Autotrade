@@ -48,8 +48,11 @@ int main(int argc, char *argv[])
                     
                     // Load credentials from config file
                     ConfigLoader *config = new ConfigLoader();
-                    QString configPath = "configs/config.ini";
+                    // Get application directory and construct config path
+                    QString appDir = QCoreApplication::applicationDirPath();
+                    QString configPath = appDir + "/../../configs/config.ini"; // Go up from .app/Contents/MacOS
                     
+                    qDebug() << "Looking for config at:" << configPath;
                     if (QFile::exists(configPath) && config->load(configPath)) {
                         qDebug() << "Loading credentials from config file";
                         loginWindow->setMarketDataAppKey(config->getMarketDataAppKey());

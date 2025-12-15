@@ -46,6 +46,10 @@ public:
     
     void searchInstruments(const QString &searchString, int exchangeSegment,
                            std::function<void(bool, const QVector<XTS::Instrument>&, const QString&)> callback);
+    
+    // Download master contracts (returns CSV data)
+    void downloadMasterContracts(const QStringList &exchangeSegments,
+                                  std::function<void(bool, const QString&, const QString&)> callback);
 
 signals:
     void connectionStatusChanged(bool connected);

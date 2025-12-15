@@ -352,3 +352,66 @@ QNetworkRequest XTSMarketDataClient::createRequest(const QString &endpoint) cons
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
     return request;
 }
+
+void XTSMarketDataClient::downloadMasterContracts(const QStringList &exchangeSegments,
+                                                    std::function<void(bool, const QString&, const QString&)> callback)
+{
+    if (m_token.isEmpty()) {
+        callback(false, QString(), "Not authenticated - please login first");
+        return;
+    }
+
+    QJsonObject requestObj;
+    QJsonArray segmentsArray;
+    for (const QString &segment : exchangeSegments) {
+        segmentsArray.append(segment);
+    }
+    requestObj["exchangeSegmentList"] = segmentsArray;
+
+    QJsonDocument requestDoc(requestObj);
+    QByteArray requestData = requestDoc.toJson();
+
+    QNetworkRequest request = createRequest("/marketdata/instruments/master");
+    
+    QNetworkReply *reply = m_networkManager->post(request, requestData);
+    
+    connect(reply, &QNetworkReply::finished, this, [=]() {
+        reply->deleteLater();
+
+        if (reply->error() != QNetworkReply::NoError) {
+            callback(false, QString(), "Network error: " + reply->errorString());
+            return;
+        }
+
+        QByteArray responseData = reply->readAll();
+        QJsonDocument doc = QJsonDocument::fromJson(responseData);
+
+        if (doc.isNull() || !doc.isObject()) {
+            callback(false, QString(), "Invalid JSON response");
+            return;
+        }
+
+        QJsonObject obj = doc.object();
+        QString type = obj["type"].toString();
+        
+        if (type != "success") {
+            QString error = obj["description"].toString();
+            callback(false, QString(), "Download failed: " + error);
+            return;
+        }
+
+        // Extract result - can be string (CSV) or object
+        QString csvData;
+        if (obj["result"].isString()) {
+            csvData = obj["result"].toString();
+        } else if (obj["result"].isObject() || obj["result"].isArray()) {
+            // Re-serialize to JSON string if it's an object/array
+            QJsonDocument resultDoc(obj["result"].toObject());
+            csvData = QString::fromUtf8(resultDoc.toJson());
+        } else {
+            csvData = QString::fromUtf8(responseData);
+        }
+
+        callback(true, csvData, QString());
+    });
+}
