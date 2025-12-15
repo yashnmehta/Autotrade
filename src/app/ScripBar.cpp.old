@@ -1,14 +1,15 @@
 #include "app/ScripBar.h"
-#include "api/XTSMarketDataClient.h"
 #include <QHBoxLayout>
+#include <QMenu>
+#include <QAction>
 #include <QLabel>
+#include <QPushButton>
 #include <QDebug>
 #include <QShortcut>
 #include <QKeySequence>
 
 ScripBar::ScripBar(QWidget *parent)
     : QWidget(parent)
-    , m_xtsClient(nullptr)
 {
     setupUI();
     populateExchanges();
@@ -16,12 +17,6 @@ ScripBar::ScripBar(QWidget *parent)
 }
 
 ScripBar::~ScripBar() = default;
-
-void ScripBar::setXTSClient(XTSMarketDataClient *client)
-{
-    m_xtsClient = client;
-    qDebug() << "XTS client set for ScripBar";
-}
 
 void ScripBar::setupUI()
 {
@@ -32,6 +27,9 @@ void ScripBar::setupUI()
 
     setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
     setMaximumHeight(28);
+#ifdef Q_OS_MAC
+    setMaximumHeight(28);
+#endif
 
     // Exchange combo (custom)
     m_exchangeCombo = new CustomScripComboBox(this);
@@ -40,6 +38,10 @@ void ScripBar::setupUI()
     m_exchangeCombo->setObjectName("cbExchange");  // For keyboard shortcut
     m_layout->addWidget(m_exchangeCombo);
     connect(m_exchangeCombo, &CustomScripComboBox::itemSelected, this, &ScripBar::onExchangeChanged);
+    
+    // Keep references for compatibility
+    m_exchangeBtn = nullptr;
+    m_exchangeMenu = nullptr;
 
     // Segment combo (custom)
     m_segmentCombo = new CustomScripComboBox(this);
@@ -47,14 +49,18 @@ void ScripBar::setupUI()
     m_segmentCombo->setMinimumWidth(48);
     m_layout->addWidget(m_segmentCombo);
     connect(m_segmentCombo, &CustomScripComboBox::itemSelected, this, &ScripBar::onSegmentChanged);
+    
+    // Keep references for compatibility
+    m_segmentBtn = nullptr;
+    m_segmentMenu = nullptr;
 
     // Instrument combo (custom)
     m_instrumentCombo = new CustomScripComboBox(this);
     m_instrumentCombo->setSortMode(CustomScripComboBox::AlphabeticalSort);
     m_instrumentCombo->setMinimumWidth(80);
     m_layout->addWidget(m_instrumentCombo);
-    connect(m_instrumentCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
-            this, &ScripBar::onInstrumentChanged);
+    connect(m_instrumentCombo, &CustomScripComboBox::itemSelected, 
+            this, [this](const QString &text) { onInstrumentChanged(0); });
 
     // Symbol combo (custom)
     m_symbolCombo = new CustomScripComboBox(this);
@@ -68,55 +74,56 @@ void ScripBar::setupUI()
     m_expiryCombo->setSortMode(CustomScripComboBox::ChronologicalSort);
     m_expiryCombo->setMinimumWidth(80);
     m_layout->addWidget(m_expiryCombo);
-    connect(m_expiryCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
-            this, &ScripBar::onExpiryChanged);
+    connect(m_expiryCombo, &CustomScripComboBox::itemSelected, 
+            this, [this](const QString &text) { onExpiryChanged(0); });
 
     // Strike combo (custom with numeric sorting)
     m_strikeCombo = new CustomScripComboBox(this);
     m_strikeCombo->setSortMode(CustomScripComboBox::NumericSort);
     m_strikeCombo->setMinimumWidth(64);
     m_layout->addWidget(m_strikeCombo);
-    connect(m_strikeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
-            this, &ScripBar::onStrikeChanged);
+    connect(m_strikeCombo, &CustomScripComboBox::itemSelected, 
+            this, [this](const QString &text) { onStrikeChanged(0); });
 
     // Option Type combo (custom)
     m_optionTypeCombo = new CustomScripComboBox(this);
     m_optionTypeCombo->setSortMode(CustomScripComboBox::NoSort);
     m_optionTypeCombo->setMinimumWidth(48);
     m_layout->addWidget(m_optionTypeCombo);
-    connect(m_optionTypeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
-            this, &ScripBar::onOptionTypeChanged);
+    connect(m_optionTypeCombo, &CustomScripComboBox::itemSelected, 
+            this, [this](const QString &text) { onOptionTypeChanged(0); });
 
-    // Add to Watch button
+    // Add to Watch
     m_addToWatchButton = new QPushButton(tr("Add"), this);
     m_addToWatchButton->setMinimumWidth(64);
     m_layout->addWidget(m_addToWatchButton);
     connect(m_addToWatchButton, &QPushButton::clicked, this, &ScripBar::onAddToWatchClicked);
 
     // Connect Enter key (when dropdown closed) from all comboboxes to trigger Add button
-    connect(m_exchangeCombo, &CustomScripComboBox::enterPressedWhenClosed,
+    // This enables keyboard workflow: Ctrl+S -> type -> Enter -> Enter (adds to watchlist)
+    connect(m_exchangeCombo, &CustomScripComboBox::enterPressedWhenClosed, 
             m_addToWatchButton, &QPushButton::click);
-    connect(m_segmentCombo, &CustomScripComboBox::enterPressedWhenClosed,
+    connect(m_segmentCombo, &CustomScripComboBox::enterPressedWhenClosed, 
             m_addToWatchButton, &QPushButton::click);
-    connect(m_instrumentCombo, &CustomScripComboBox::enterPressedWhenClosed,
+    connect(m_instrumentCombo, &CustomScripComboBox::enterPressedWhenClosed, 
             m_addToWatchButton, &QPushButton::click);
-    connect(m_symbolCombo, &CustomScripComboBox::enterPressedWhenClosed,
+    connect(m_symbolCombo, &CustomScripComboBox::enterPressedWhenClosed, 
             m_addToWatchButton, &QPushButton::click);
-    connect(m_expiryCombo, &CustomScripComboBox::enterPressedWhenClosed,
+    connect(m_expiryCombo, &CustomScripComboBox::enterPressedWhenClosed, 
             m_addToWatchButton, &QPushButton::click);
-    connect(m_strikeCombo, &CustomScripComboBox::enterPressedWhenClosed,
+    connect(m_strikeCombo, &CustomScripComboBox::enterPressedWhenClosed, 
             m_addToWatchButton, &QPushButton::click);
-    connect(m_optionTypeCombo, &CustomScripComboBox::enterPressedWhenClosed,
+    connect(m_optionTypeCombo, &CustomScripComboBox::enterPressedWhenClosed, 
             m_addToWatchButton, &QPushButton::click);
 
     m_layout->addStretch();
 
-    // Compact flat styling (matches existing toolbar)
+    // Compact flat styling (inherit main toolbar look but flat)
     setStyleSheet(
-        "QWidget { background-color: #2d2d30; }"
-        "QToolButton, QComboBox, QPushButton { color: #ffffff; background: #1e1e1e; border: none; padding: 2px 6px; }"
-        "QComboBox QAbstractItemView { background: #1e1e1e; color: #ffffff; selection-background-color: #094771; }"
-        "QPushButton { background: #0e639c; border-radius: 2px; }");
+        "QWidget{ background-color: #2d2d30; }"
+        "QToolButton, QComboBox, QPushButton{ color: #ffffff; background: #1e1e1e; border: none; padding: 2px 6px; }"
+        "QComboBox QAbstractItemView{ background: #1e1e1e; color: #ffffff; selection-background-color: #094771;}"
+        "QPushButton{ background: #0e639c; border-radius: 2px;}");
 }
 
 void ScripBar::populateExchanges()
@@ -124,7 +131,7 @@ void ScripBar::populateExchanges()
     m_exchangeCombo->clearItems();
     QStringList exchanges = {"NSE", "BSE", "MCX"};
     m_exchangeCombo->addItems(exchanges);
-
+    
     // Set default
     m_currentExchange = "NSE";
     if (m_exchangeCombo->lineEdit()) {
@@ -141,13 +148,11 @@ void ScripBar::populateSegments(const QString &exchange)
         segs << "CM" << "FO" << "CD";
     else if (exchange == "BSE")
         segs << "CM" << "FO";
-    else if (exchange == "MCX")
-        segs << "FO";
     else
         segs << "CM";
 
     m_segmentCombo->addItems(segs);
-
+    
     // Set default
     m_currentSegment = segs.isEmpty() ? QString() : segs.first();
     if (m_segmentCombo->lineEdit()) {
@@ -163,14 +168,12 @@ void ScripBar::populateInstruments(const QString &segment)
     if (segment == "CM")
         instruments << "EQUITY";
     else if (segment == "FO")
-        instruments << "FUTIDX" << "FUTSTK" << "OPTIDX" << "OPTSTK";
-    else if (segment == "CD")
-        instruments << "FUTCUR" << "OPTCUR";
+        instruments << "FUTIDX" << "OPTIDX";
     else
         instruments << "EQUITY";
-
+    
     m_instrumentCombo->addItems(instruments);
-
+    
     // Set default
     if (!instruments.isEmpty() && m_instrumentCombo->lineEdit()) {
         m_instrumentCombo->lineEdit()->setText(instruments.first());
@@ -181,17 +184,9 @@ void ScripBar::populateInstruments(const QString &segment)
 void ScripBar::populateSymbols(const QString &instrument)
 {
     m_symbolCombo->clearItems();
-    
-    // TODO: Replace with real XTS API search when m_xtsClient is available
-    if (m_xtsClient && m_xtsClient->isLoggedIn()) {
-        // Future: Call XTS search API
-        // searchInstrumentsAsync(getCurrentExchange() + " " + instrument);
-        qDebug() << "XTS search would be called here for:" << instrument;
-    }
-    
-    // Demo data for now
     if (instrument == "EQUITY")
     {
+        // Add more symbols for better demonstration
         QStringList symbols = {
             "RELIANCE", "TCS", "INFY", "HDFCBANK", "ICICIBANK",
             "HINDUNILVR", "ITC", "SBIN", "BHARTIARTL", "KOTAKBANK",
@@ -206,46 +201,35 @@ void ScripBar::populateSymbols(const QString &instrument)
         };
         m_symbolCombo->addItems(symbols);
     }
-    
-    if (m_symbolCombo->count() > 0) {
-        onSymbolChanged(m_symbolCombo->currentText());
-    }
+    onSymbolChanged(m_symbolCombo->currentText());
 }
 
 void ScripBar::populateExpiries(const QString &symbol)
 {
     Q_UNUSED(symbol)
     m_expiryCombo->clearItems();
-    
-    // Demo data - in production, fetch from XTS based on symbol
+    // Add more expiry dates for demonstration (chronological order will be applied)
     QStringList expiries = {
         "19-Dec-2024", "26-Dec-2024", "02-Jan-2025", "09-Jan-2025",
         "16-Jan-2025", "23-Jan-2025", "30-Jan-2025", "06-Feb-2025",
         "13-Feb-2025", "27-Feb-2025"
     };
     m_expiryCombo->addItems(expiries);
-    
-    if (m_expiryCombo->count() > 0) {
-        onExpiryChanged(0);
-    }
+    onExpiryChanged(0);
 }
 
 void ScripBar::populateStrikes(const QString &expiry)
 {
     Q_UNUSED(expiry)
     m_strikeCombo->clearItems();
-    
-    // Demo data - in production, fetch from XTS based on symbol + expiry
+    // Add more strike prices for demonstration (numeric sort will apply)
     QStringList strikes = {
         "17000", "17500", "18000", "18500", "19000", "19500",
         "20000", "20500", "21000", "21500", "22000", "22500",
         "23000", "23500", "24000", "24500", "25000"
     };
     m_strikeCombo->addItems(strikes);
-    
-    if (m_strikeCombo->count() > 0) {
-        onStrikeChanged(0);
-    }
+    onStrikeChanged(0);
 }
 
 void ScripBar::populateOptionTypes(const QString &strike)
@@ -254,7 +238,7 @@ void ScripBar::populateOptionTypes(const QString &strike)
     m_optionTypeCombo->clearItems();
     QStringList types = {"CE", "PE"};
     m_optionTypeCombo->addItems(types);
-
+    
     // Set default
     if (m_optionTypeCombo->lineEdit()) {
         m_optionTypeCombo->lineEdit()->setText("CE");
@@ -262,14 +246,12 @@ void ScripBar::populateOptionTypes(const QString &strike)
 }
 
 // Slot implementations
-void ScripBar::onExchangeChanged(const QString &text)
-{
+void ScripBar::onExchangeChanged(const QString &text) {
     m_currentExchange = text;
     populateSegments(text);
 }
 
-void ScripBar::onSegmentChanged(const QString &text)
-{
+void ScripBar::onSegmentChanged(const QString &text) {
     m_currentSegment = text;
     populateInstruments(text);
 }
@@ -280,29 +262,14 @@ void ScripBar::onInstrumentChanged(int index)
     QString inst = m_instrumentCombo->currentText();
     populateSymbols(inst);
 }
-
 void ScripBar::onSymbolChanged(const QString &text)
 {
+    Q_UNUSED(text)
     populateExpiries(text);
 }
-
-void ScripBar::onExpiryChanged(int index)
-{
-    Q_UNUSED(index)
-    populateStrikes(m_expiryCombo->currentText());
-}
-
-void ScripBar::onStrikeChanged(int index)
-{
-    Q_UNUSED(index)
-    populateOptionTypes(m_strikeCombo->currentText());
-}
-
-void ScripBar::onOptionTypeChanged(int index)
-{
-    Q_UNUSED(index)
-    // No cascading needed after option type
-}
+void ScripBar::onExpiryChanged(int) { populateStrikes(m_expiryCombo->currentText()); }
+void ScripBar::onStrikeChanged(int) { populateOptionTypes(m_strikeCombo->currentText()); }
+void ScripBar::onOptionTypeChanged(int) {}
 
 void ScripBar::onAddToWatchClicked()
 {
@@ -313,9 +280,8 @@ void ScripBar::onAddToWatchClicked()
     QString expiry = m_expiryCombo->currentText();
     QString strike = m_strikeCombo->currentText();
     QString optionType = m_optionTypeCombo->currentText();
-    
     emit addToWatchRequested(exchange, segment, instrument, symbol, expiry, strike, optionType);
-    qDebug() << "Add to watch requested:" << symbol << expiry << strike << optionType;
+    qDebug() << "Add to watch requested:" << symbol;
 }
 
 void ScripBar::setupShortcuts()
@@ -330,85 +296,6 @@ void ScripBar::setupShortcuts()
             qDebug() << "[ScripBar] Exchange focused";
         }
     });
-
+    
     qDebug() << "[ScripBar] Keyboard shortcut registered: Ctrl+S (or Cmd+S on Mac) -> Focus Exchange";
-}
-
-QString ScripBar::getCurrentExchange() const
-{
-    return m_currentExchange;
-}
-
-QString ScripBar::getCurrentSegment() const
-{
-    return m_currentSegment;
-}
-
-int ScripBar::getCurrentExchangeSegmentCode() const
-{
-    // Map to XTS exchange segment codes
-    QString key = m_currentExchange + "_" + m_currentSegment;
-    
-    static QMap<QString, int> segmentMap = {
-        {"NSE_CM", 1},   // NSECM
-        {"NSE_FO", 2},   // NSEFO
-        {"NSE_CD", 13},  // NSECD
-        {"BSE_CM", 11},  // BSECM
-        {"BSE_FO", 12},  // BSEFO
-        {"BSE_CD", 61},  // BSECD
-        {"MCX_FO", 51}   // MCXFO
-    };
-    
-    return segmentMap.value(key, 1); // Default to NSECM
-}
-
-void ScripBar::searchInstrumentsAsync(const QString &searchText)
-{
-    if (!m_xtsClient || !m_xtsClient->isLoggedIn()) {
-        qWarning() << "Cannot search: XTS client not available or not logged in";
-        return;
-    }
-    
-    int exchangeSegment = getCurrentExchangeSegmentCode();
-    
-    // Call XTS search API
-    m_xtsClient->searchInstruments(searchText, exchangeSegment,
-        [this](bool success, const QVector<XTS::Instrument> &instruments, const QString &error) {
-            if (success) {
-                // Convert XTS instruments to our InstrumentData format
-                QVector<InstrumentData> data;
-                for (const auto &inst : instruments) {
-                    InstrumentData item;
-                    item.exchangeInstrumentID = inst.exchangeInstrumentID;
-                    item.name = inst.instrumentName;
-                    item.symbol = inst.instrumentName;
-                    item.series = inst.series;
-                    item.exchangeSegment = inst.exchangeSegment;
-                    // TODO: Parse instrument type, expiry, strike, option type from name
-                    data.append(item);
-                }
-                onInstrumentsReceived(data);
-            } else {
-                qWarning() << "Instrument search failed:" << error;
-            }
-        }
-    );
-}
-
-void ScripBar::onInstrumentsReceived(const QVector<InstrumentData> &instruments)
-{
-    m_instrumentCache = instruments;
-    
-    // Extract unique symbols and populate symbol combo
-    QStringList symbols;
-    for (const auto &inst : instruments) {
-        if (!symbols.contains(inst.symbol)) {
-            symbols.append(inst.symbol);
-        }
-    }
-    
-    m_symbolCombo->clearItems();
-    m_symbolCombo->addItems(symbols);
-    
-    qDebug() << "Received" << instruments.size() << "instruments," << symbols.size() << "unique symbols";
 }
