@@ -93,9 +93,11 @@ void XTSMarketDataClient::connectWebSocket(std::function<void(bool, const QStrin
 
     m_wsConnectCallback = callback;
 
-    // XTS WebSocket URL format: wss://host/marketdata/feed?token=xxx
-    QString wsUrl = m_baseURL.replace("https://", "wss://").replace("http://", "ws://");
-    wsUrl += "/marketdata/feed?token=" + m_token;
+    // XTS WebSocket URL format: wss://host/apimarketdata/feed?token=xxx
+    // m_baseURL already contains /apimarketdata, so just replace protocol and add /feed
+    QString wsUrl = m_baseURL;
+    wsUrl.replace("https://", "wss://").replace("http://", "ws://");
+    wsUrl += "/feed?token=" + m_token;
 
     qDebug() << "Connecting to WebSocket:" << wsUrl;
     m_webSocket->open(QUrl(wsUrl));
