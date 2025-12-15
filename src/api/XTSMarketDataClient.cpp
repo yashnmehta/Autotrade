@@ -37,7 +37,7 @@ XTSMarketDataClient::~XTSMarketDataClient()
 
 void XTSMarketDataClient::login(std::function<void(bool, const QString&)> callback)
 {
-    QUrl url(m_baseURL + "/marketdata/auth/login");
+    QUrl url(m_baseURL + "/auth/login");
     QNetworkRequest request(url);
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
 
