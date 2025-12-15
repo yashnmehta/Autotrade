@@ -97,7 +97,9 @@ int main(int argc, char *argv[])
                     });
                     
                     // Create main window (but don't show yet)
-                    MainWindow *mainWindow = new MainWindow();
+                    // Use new with QApplication as parent to ensure proper lifecycle
+                    MainWindow *mainWindow = new MainWindow(nullptr);
+                    mainWindow->hide(); // Explicitly hide initially
                     
                     loginService->setCompleteCallback([loginWindow, mainWindow, loginService]() {
                         qDebug() << "✅ Login complete! Showing main window...";
@@ -153,9 +155,20 @@ int main(int argc, char *argv[])
                     // Setup continue button callback
                     loginWindow->setOnContinueClicked([loginWindow, mainWindow]() {
                         qDebug() << "Continue button clicked - showing main window";
+                        
+                        // First show the main window
+                        if (mainWindow != nullptr) {
+                            qDebug() << "MainWindow pointer is valid, showing window...";
+                            mainWindow->show();
+                            mainWindow->raise();
+                            mainWindow->activateWindow();
+                        } else {
+                            qCritical() << "ERROR: MainWindow pointer is NULL!";
+                        }
+                        
+                        // Then close and delete login window
                         loginWindow->accept();
-                        delete loginWindow;
-                        mainWindow->show();
+                        loginWindow->deleteLater(); // Use deleteLater instead of delete for safer cleanup
                     });
                     
                     // Show login window
@@ -164,8 +177,11 @@ int main(int argc, char *argv[])
                     if (result == QDialog::Rejected) {
                         // User clicked Exit or closed window
                         qDebug() << "Login cancelled by user";
-                        delete loginWindow;
-                        delete mainWindow;
+                        loginWindow->deleteLater();
+                        if (mainWindow != nullptr) {
+                            mainWindow->close();
+                            mainWindow->deleteLater();
+                        }
                         QApplication::quit();
                     }
                 });
