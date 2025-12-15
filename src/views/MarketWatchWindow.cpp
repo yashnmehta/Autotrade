@@ -1,0 +1,1186 @@
+#include "views/MarketWatchWindow.h"
+#include "models/MarketWatchModel.h"
+#include "models/TokenAddressBook.h"
+#include "services/TokenSubscriptionManager.h"
+#include <QHeaderView>
+#include <QShortcut>
+#include <QKeyEvent>
+#include <QMouseEvent>
+#include <QDrag>
+#include <QMimeData>
+#include <QClipboard>
+#include <QApplication>
+#include <QCursor>
+#include <QDebug>
+#include <algorithm>
+
+MarketWatchWindow::MarketWatchWindow(QWidget *parent)
+    : QWidget(parent)
+    , m_layout(nullptr)
+    , m_tableView(nullptr)
+    , m_model(nullptr)
+    , m_proxyModel(nullptr)
+    , m_tokenAddressBook(nullptr)
+    , m_highlightTimer(nullptr)
+    , m_isDragging(false)
+    , m_selectionAnchor(-1)
+{
+    setupUI();
+    setupConnections();
+    setupKeyboardShortcuts();
+    m_draggedRows.clear();
+    m_draggedTokens.clear();
+}
+
+MarketWatchWindow::~MarketWatchWindow()
+{
+    // Unsubscribe all tokens from this watch
+    if (m_model) {
+        for (int row = 0; row < m_model->rowCount(); ++row) {
+            const ScripData &scrip = m_model->getScripAt(row);
+            if (scrip.isValid()) {
+                TokenSubscriptionManager::instance()->unsubscribe(scrip.exchange, scrip.token);
+            }
+        }
+    }
+}
+
+void MarketWatchWindow::setupUI()
+{
+    m_layout = new QVBoxLayout(this);
+    m_layout->setContentsMargins(0, 0, 0, 0);
+    m_layout->setSpacing(0);
+
+    // Create model
+    m_model = new MarketWatchModel(this);
+    
+    // Create proxy model for sorting
+    m_proxyModel = new QSortFilterProxyModel(this);
+    m_proxyModel->setSourceModel(m_model);
+    m_proxyModel->setSortRole(Qt::UserRole);  // Use raw numeric data for sorting
+    
+    // Create token address book
+    m_tokenAddressBook = new TokenAddressBook(this);
+
+    // Create table view
+    m_tableView = new QTableView(this);
+    m_tableView->setModel(m_proxyModel);  // Use proxy model instead of direct model
+    m_tableView->setSelectionBehavior(QAbstractItemView::SelectRows);
+    // START with SingleSelection - will switch to ExtendedSelection when Ctrl/Shift pressed
+    m_tableView->setSelectionMode(QAbstractItemView::SingleSelection);
+    
+    // Disable rubber band selection - require Ctrl/Shift for multi-select
+    m_tableView->setDragEnabled(false);  // Disable built-in drag (we use custom)
+    
+    m_tableView->setAlternatingRowColors(false);
+    m_tableView->verticalHeader()->setVisible(false);
+    m_tableView->setShowGrid(true);
+    m_tableView->setContextMenuPolicy(Qt::CustomContextMenu);
+    
+    // Enable sorting AFTER setting the model
+    m_tableView->setSortingEnabled(true);
+    m_proxyModel->setDynamicSortFilter(false);  // Manual sorting only when header clicked
+    
+    // Install event filter for custom row drag & drop (viewport for mouse, view for keyboard)
+    m_tableView->viewport()->installEventFilter(this);
+    m_tableView->installEventFilter(this);
+    m_tableView->setAcceptDrops(true);
+    m_tableView->setDropIndicatorShown(true);
+    
+    // Enable column drag & drop
+    m_tableView->horizontalHeader()->setSectionsMovable(true);
+    m_tableView->horizontalHeader()->setDragEnabled(true);
+    m_tableView->horizontalHeader()->setDragDropMode(QAbstractItemView::InternalMove);
+    
+    // Resize columns to content
+    m_tableView->horizontalHeader()->setSectionResizeMode(QHeaderView::Interactive);
+    m_tableView->horizontalHeader()->setStretchLastSection(false);
+
+    m_layout->addWidget(m_tableView);
+
+    // Dark theme styling
+    setStyleSheet(
+        "QTableView {"
+        "    background-color: #1e1e1e;"
+        "    color: #ffffff;"
+        "    gridline-color: #3f3f46;"
+        "    selection-background-color: #094771;"
+        "    selection-color: #ffffff;"
+        "}"
+        "QHeaderView::section {"
+        "    background-color: #2d2d30;"
+        "    color: #ffffff;"
+        "    padding: 4px;"
+        "    border: 1px solid #3f3f46;"
+        "    font-weight: bold;"
+        "}"
+        "QHeaderView::section:hover {"
+        "    background-color: #3e3e42;"
+        "}"
+    );
+    
+    // Highlight timer for row flashing
+    m_highlightTimer = new QTimer(this);
+    m_highlightTimer->setSingleShot(true);
+}
+
+void MarketWatchWindow::setupConnections()
+{
+    // Connect model signals to address book
+    connect(m_model, &MarketWatchModel::rowsInserted,
+            this, [this](const QModelIndex &, int first, int last) {
+        m_tokenAddressBook->onRowsInserted(first, last - first + 1);
+    });
+    
+    connect(m_model, &MarketWatchModel::rowsRemoved,
+            this, [this](const QModelIndex &, int first, int last) {
+        m_tokenAddressBook->onRowsRemoved(first, last - first + 1);
+    });
+    
+    // Context menu
+    connect(m_tableView, &QTableView::customContextMenuRequested,
+            this, &MarketWatchWindow::showContextMenu);
+}
+
+void MarketWatchWindow::setupKeyboardShortcuts()
+{
+    // Copy shortcut
+    QShortcut *copyShortcut = new QShortcut(QKeySequence::Copy, this);
+    connect(copyShortcut, &QShortcut::activated, this, &MarketWatchWindow::copyToClipboard);
+    
+    // Cut shortcut
+    QShortcut *cutShortcut = new QShortcut(QKeySequence::Cut, this);
+    connect(cutShortcut, &QShortcut::activated, this, &MarketWatchWindow::cutToClipboard);
+    
+    // Paste shortcut
+    QShortcut *pasteShortcut = new QShortcut(QKeySequence::Paste, this);
+    connect(pasteShortcut, &QShortcut::activated, this, &MarketWatchWindow::pasteFromClipboard);
+    
+    // Select All
+    QShortcut *selectAllShortcut = new QShortcut(QKeySequence::SelectAll, this);
+    connect(selectAllShortcut, &QShortcut::activated, m_tableView, &QTableView::selectAll);
+}
+
+bool MarketWatchWindow::addScrip(const QString &symbol, const QString &exchange, int token)
+{
+    // Validate token
+    if (token <= 0) {
+        QMessageBox::warning(this, "Invalid Token", 
+                           QString("Cannot add scrip '%1': Invalid token ID (%2).")
+                           .arg(symbol).arg(token));
+        return false;
+    }
+    
+    // Check for duplicate
+    if (hasDuplicate(token)) {
+        int existingRow = findTokenRow(token);
+        
+        QMessageBox msgBox(this);
+        msgBox.setWindowTitle("Duplicate Scrip");
+        msgBox.setText(QString("Scrip '%1' is already in this watch list.").arg(symbol));
+        msgBox.setInformativeText(QString("Token: %1\nRow: %2\n\nWould you like to view the existing entry?")
+                                  .arg(token).arg(existingRow + 1));
+        msgBox.setIcon(QMessageBox::Information);
+        msgBox.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
+        msgBox.setDefaultButton(QMessageBox::Yes);
+        
+        if (msgBox.exec() == QMessageBox::Yes) {
+            highlightRow(existingRow);
+        }
+        
+        return false;
+    }
+    
+    // Create scrip data
+    ScripData scrip;
+    scrip.symbol = symbol;
+    scrip.exchange = exchange;
+    scrip.token = token;
+    scrip.isBlankRow = false;
+    
+    // Mock data for now (will be replaced by real price feed)
+    scrip.ltp = 0.0;
+    scrip.change = 0.0;
+    scrip.changePercent = 0.0;
+    scrip.volume = 0;
+    scrip.bid = 0.0;
+    scrip.ask = 0.0;
+    scrip.high = 0.0;
+    scrip.low = 0.0;
+    scrip.open = 0.0;
+    scrip.openInterest = 0;
+    
+    int newRow = m_model->rowCount();
+    
+    // Add to model
+    m_model->addScrip(scrip);
+    
+    // Subscribe to price updates
+    TokenSubscriptionManager::instance()->subscribe(exchange, token);
+    
+    // Register in address book
+    m_tokenAddressBook->addToken(token, newRow);
+    
+    qDebug() << "[MarketWatchWindow] Added scrip" << symbol << "with token" << token << "at row" << newRow;
+    
+    emit scripAdded(symbol, exchange, token);
+    
+    return true;
+}
+
+void MarketWatchWindow::removeScrip(int row)
+{
+    if (row < 0 || row >= m_model->rowCount()) {
+        return;
+    }
+    
+    const ScripData &scrip = m_model->getScripAt(row);
+    
+    if (!scrip.isBlankRow && scrip.isValid()) {
+        // Unsubscribe from price updates
+        TokenSubscriptionManager::instance()->unsubscribe(scrip.exchange, scrip.token);
+        
+        // Remove from address book
+        m_tokenAddressBook->removeToken(scrip.token, row);
+        
+        emit scripRemoved(scrip.token);
+    }
+    
+    // Remove from model
+    m_model->removeScrip(row);
+    
+    qDebug() << "[MarketWatchWindow] Removed scrip at row" << row;
+}
+
+void MarketWatchWindow::removeScripByToken(int token)
+{
+    int row = findTokenRow(token);
+    if (row >= 0) {
+        removeScrip(row);
+    }
+}
+
+void MarketWatchWindow::clearAll()
+{
+    // Unsubscribe all tokens
+    for (int row = 0; row < m_model->rowCount(); ++row) {
+        const ScripData &scrip = m_model->getScripAt(row);
+        if (scrip.isValid()) {
+            TokenSubscriptionManager::instance()->unsubscribe(scrip.exchange, scrip.token);
+            emit scripRemoved(scrip.token);
+        }
+    }
+    
+    // Clear address book
+    m_tokenAddressBook->clear();
+    
+    // Clear model
+    m_model->clearAll();
+    
+    qDebug() << "[MarketWatchWindow] Cleared all scrips";
+}
+
+void MarketWatchWindow::insertBlankRow(int position)
+{
+    m_model->insertBlankRow(position);
+    qDebug() << "[MarketWatchWindow] Inserted blank row at position" << position;
+}
+
+bool MarketWatchWindow::hasDuplicate(int token) const
+{
+    return m_tokenAddressBook->hasToken(token);
+}
+
+int MarketWatchWindow::findTokenRow(int token) const
+{
+    QList<int> rows = m_tokenAddressBook->getRowsForToken(token);
+    return rows.isEmpty() ? -1 : rows.first();
+}
+
+void MarketWatchWindow::updatePrice(int token, double ltp, double change, double changePercent)
+{
+    QList<int> rows = m_tokenAddressBook->getRowsForToken(token);
+    
+    for (int row : rows) {
+        m_model->updatePrice(row, ltp, change, changePercent);
+    }
+}
+
+void MarketWatchWindow::updateVolume(int token, qint64 volume)
+{
+    QList<int> rows = m_tokenAddressBook->getRowsForToken(token);
+    
+    for (int row : rows) {
+        m_model->updateVolume(row, volume);
+    }
+}
+
+void MarketWatchWindow::updateBidAsk(int token, double bid, double ask)
+{
+    QList<int> rows = m_tokenAddressBook->getRowsForToken(token);
+    
+    for (int row : rows) {
+        m_model->updateBidAsk(row, bid, ask);
+    }
+}
+
+void MarketWatchWindow::deleteSelectedRows()
+{
+    QModelIndexList selected = m_tableView->selectionModel()->selectedRows();
+    if (selected.isEmpty()) {
+        return;
+    }
+    
+    // Map proxy rows to source rows and sort in descending order to avoid index shifting
+    QList<int> sourceRows;
+    for (const QModelIndex &proxyIndex : selected) {
+        int sourceRow = mapToSource(proxyIndex.row());
+        if (sourceRow >= 0) {
+            sourceRows.append(sourceRow);
+        }
+    }
+    std::sort(sourceRows.begin(), sourceRows.end(), std::greater<int>());
+    
+    // Remove rows from source model
+    for (int sourceRow : sourceRows) {
+        removeScrip(sourceRow);
+    }
+    
+    qDebug() << "[MarketWatchWindow] Deleted" << sourceRows.size() << "rows";
+}
+
+void MarketWatchWindow::copyToClipboard()
+{
+    QModelIndexList selected = m_tableView->selectionModel()->selectedRows();
+    if (selected.isEmpty()) {
+        return;
+    }
+    
+    QString text;
+    for (const QModelIndex &proxyIndex : selected) {
+        // Get source row to access the actual data with token
+        int sourceRow = mapToSource(proxyIndex.row());
+        if (sourceRow < 0) continue;
+        
+        const ScripData &scrip = m_model->getScripAt(sourceRow);
+        
+        // Format: Symbol\tExchange\tToken\tLTP\tChange\t%Change\tVolume\t...
+        text += QString("%1\t%2\t%3\t%4\t%5\t%6\t%7\t%8\t%9\t%10\t%11\t%12\n")
+                .arg(scrip.symbol)
+                .arg(scrip.exchange)
+                .arg(scrip.token)
+                .arg(scrip.ltp, 0, 'f', 2)
+                .arg(scrip.change, 0, 'f', 2)
+                .arg(scrip.changePercent, 0, 'f', 2)
+                .arg(scrip.volume)
+                .arg(scrip.bid, 0, 'f', 2)
+                .arg(scrip.ask, 0, 'f', 2)
+                .arg(scrip.high, 0, 'f', 2)
+                .arg(scrip.low, 0, 'f', 2)
+                .arg(scrip.open, 0, 'f', 2);
+    }
+    
+    QClipboard *clipboard = QApplication::clipboard();
+    clipboard->setText(text);
+    
+    qDebug() << "[MarketWatchWindow] Copied" << selected.size() << "rows to clipboard (with token data)";
+}
+
+void MarketWatchWindow::cutToClipboard()
+{
+    copyToClipboard();
+    deleteSelectedRows();
+}
+
+void MarketWatchWindow::pasteFromClipboard()
+{
+    QClipboard *clipboard = QApplication::clipboard();
+    QString text = clipboard->text();
+    
+    if (text.isEmpty()) {
+        return;
+    }
+    
+    // Get insertion position (current row or end)
+    int insertPosition = m_model->rowCount();  // Default: end
+    QModelIndex currentProxyIndex = m_tableView->currentIndex();
+    if (currentProxyIndex.isValid()) {
+        int sourceRow = mapToSource(currentProxyIndex.row());
+        if (sourceRow >= 0) {
+            insertPosition = sourceRow + 1;  // Insert after current row
+        }
+    }
+    
+    // Parse TSV format with token data
+    // Expected format: Symbol\tExchange\tToken\tLTP\tChange\t%Change\tVolume\t...
+    QStringList lines = text.split('\n', Qt::SkipEmptyParts);
+    int addedCount = 0;
+    int skippedCount = 0;
+    int currentInsertPos = insertPosition;
+    
+    // Temporarily collect scrips to insert
+    QList<ScripData> scripsToInsert;
+    
+    for (const QString &line : lines) {
+        QStringList fields = line.split('\t');
+        if (fields.size() < 3) {  // Need at least Symbol, Exchange, Token
+            skippedCount++;
+            continue;
+        }
+        
+        QString symbol = fields.at(0).trimmed();
+        QString exchange = fields.at(1).trimmed();
+        bool ok;
+        int token = fields.at(2).toInt(&ok);
+        
+        if (symbol.isEmpty() || symbol.startsWith("─") || !ok || token <= 0) {
+            // Skip blank rows, separators, or invalid tokens
+            skippedCount++;
+            continue;
+        }
+        
+        // Check for duplicates
+        if (hasDuplicate(token)) {
+            skippedCount++;
+            continue;
+        }
+        
+        // Create scrip data
+        ScripData scrip;
+        scrip.symbol = symbol;
+        scrip.exchange = exchange;
+        scrip.token = token;
+        scrip.isBlankRow = false;
+        
+        // Parse price data if available
+        if (fields.size() >= 7) {
+            scrip.ltp = fields.at(3).toDouble();
+            scrip.change = fields.at(4).toDouble();
+            scrip.changePercent = fields.at(5).toDouble();
+            scrip.volume = fields.at(6).toLongLong();
+        }
+        if (fields.size() >= 11) {
+            scrip.bid = fields.at(7).toDouble();
+            scrip.ask = fields.at(8).toDouble();
+            scrip.high = fields.at(9).toDouble();
+            scrip.low = fields.at(10).toDouble();
+        }
+        if (fields.size() >= 12) {
+            scrip.open = fields.at(11).toDouble();
+        }
+        
+        scripsToInsert.append(scrip);
+    }
+    
+    // Insert scrips at the specified position
+    for (const ScripData &scrip : scripsToInsert) {
+        // Insert at position
+        m_model->insertScrip(currentInsertPos, scrip);
+        
+        // Subscribe to updates
+        TokenSubscriptionManager::instance()->subscribe(scrip.exchange, scrip.token);
+        
+        // Register in address book
+        m_tokenAddressBook->addToken(scrip.token, currentInsertPos);
+        
+        emit scripAdded(scrip.symbol, scrip.exchange, scrip.token);
+        
+        addedCount++;
+        currentInsertPos++;
+        
+        qDebug() << "[MarketWatchWindow] Pasted scrip" << scrip.symbol << "at position" << currentInsertPos - 1;
+    }
+    
+    skippedCount = lines.size() - addedCount;
+    
+    QString message;
+    if (addedCount > 0) {
+        message = QString("Successfully pasted %1 scrip(s) at position %2.").arg(addedCount).arg(insertPosition + 1);
+        if (skippedCount > 0) {
+            message += QString("\n%1 scrip(s) were skipped (duplicates or invalid).").arg(skippedCount);
+        }
+        qDebug() << "[MarketWatchWindow] Pasted" << addedCount << "scrips at position" << insertPosition;
+    } else {
+        message = "No scrips were pasted. ";
+        if (skippedCount > 0) {
+            message += QString("All %1 scrip(s) were duplicates or invalid.").arg(skippedCount);
+        } else {
+            message += "Clipboard data format is invalid.\n\n"
+                      "Expected format: Symbol\\tExchange\\tToken\\t...\n"
+                      "Tip: Copy rows from another Market Watch window.";
+        }
+    }
+    
+    if (addedCount > 0) {
+        QMessageBox::information(this, "Paste Scrips", message);
+    }
+}
+
+void MarketWatchWindow::highlightRow(int row)
+{
+    if (row < 0 || row >= m_model->rowCount()) {
+        return;
+    }
+    
+    // Select and scroll to the row
+    m_tableView->selectRow(row);
+    m_tableView->scrollTo(m_model->index(row, 0), QAbstractItemView::PositionAtCenter);
+    
+    // Flash effect
+    m_highlightTimer->stop();
+    m_highlightTimer->start(150);
+    
+    connect(m_highlightTimer, &QTimer::timeout, this, [this, row]() {
+        m_tableView->clearSelection();
+        
+        QTimer::singleShot(150, this, [this, row]() {
+            m_tableView->selectRow(row);
+        });
+    });
+}
+
+void MarketWatchWindow::keyPressEvent(QKeyEvent *event)
+{
+    if (event->key() == Qt::Key_Delete) {
+        deleteSelectedRows();
+        event->accept();
+        return;
+    }
+    
+    QWidget::keyPressEvent(event);
+}
+
+void MarketWatchWindow::showContextMenu(const QPoint &pos)
+{
+    QModelIndex proxyIndex = m_tableView->indexAt(pos);
+    int sourceRow = mapToSource(proxyIndex.row());
+    
+    QMenu menu(this);
+    menu.setStyleSheet(
+        "QMenu {"
+        "    background-color: #252526;"
+        "    color: #ffffff;"
+        "    border: 1px solid #3e3e42;"
+        "}"
+        "QMenu::item {"
+        "    padding: 6px 20px;"
+        "}"
+        "QMenu::item:selected {"
+        "    background-color: #094771;"
+        "}"
+        "QMenu::separator {"
+        "    height: 1px;"
+        "    background: #3e3e42;"
+        "    margin: 4px 0px;"
+        "}"
+    );
+    
+    // Trading actions (if valid row selected)
+    if (proxyIndex.isValid() && sourceRow >= 0 && !m_model->isBlankRow(sourceRow)) {
+        menu.addAction("Buy (F1)", this, &MarketWatchWindow::onBuyAction);
+        menu.addAction("Sell (F2)", this, &MarketWatchWindow::onSellAction);
+        menu.addSeparator();
+    }
+    
+    // Add scrip
+    menu.addAction("Add Scrip", this, &MarketWatchWindow::onAddScripAction);
+    
+    // Blank row insertion
+    menu.addSeparator();
+    if (proxyIndex.isValid() && sourceRow >= 0) {
+        menu.addAction("Insert Blank Row Above", this, [this, sourceRow]() {
+            insertBlankRow(sourceRow);
+        });
+        menu.addAction("Insert Blank Row Below", this, [this, sourceRow]() {
+            insertBlankRow(sourceRow + 1);
+        });
+    } else {
+        menu.addAction("Insert Blank Row", this, [this]() {
+            insertBlankRow(m_model->rowCount());
+        });
+    }
+    
+    // Delete and clipboard operations
+    if (proxyIndex.isValid()) {
+        menu.addSeparator();
+        menu.addAction("Delete (Del)", this, &MarketWatchWindow::deleteSelectedRows);
+        menu.addSeparator();
+        menu.addAction("Copy (Ctrl+C)", this, &MarketWatchWindow::copyToClipboard);
+        menu.addAction("Cut (Ctrl+X)", this, &MarketWatchWindow::cutToClipboard);
+    }
+    
+    menu.addAction("Paste (Ctrl+V)", this, &MarketWatchWindow::pasteFromClipboard);
+    
+    menu.exec(m_tableView->viewport()->mapToGlobal(pos));
+}
+
+void MarketWatchWindow::onBuyAction()
+{
+    QModelIndex proxyIndex = m_tableView->currentIndex();
+    if (!proxyIndex.isValid()) {
+        return;
+    }
+    
+    int sourceRow = mapToSource(proxyIndex.row());
+    if (sourceRow < 0) return;
+    
+    const ScripData &scrip = m_model->getScripAt(sourceRow);
+    if (scrip.isValid()) {
+        emit buyRequested(scrip.symbol, scrip.token);
+        qDebug() << "[MarketWatchWindow] Buy requested for" << scrip.symbol;
+    }
+}
+
+void MarketWatchWindow::onSellAction()
+{
+    QModelIndex proxyIndex = m_tableView->currentIndex();
+    if (!proxyIndex.isValid()) {
+        return;
+    }
+    
+    int sourceRow = mapToSource(proxyIndex.row());
+    if (sourceRow < 0) return;
+    
+    const ScripData &scrip = m_model->getScripAt(sourceRow);
+    if (scrip.isValid()) {
+        emit sellRequested(scrip.symbol, scrip.token);
+        qDebug() << "[MarketWatchWindow] Sell requested for" << scrip.symbol;
+    }
+}
+
+void MarketWatchWindow::onAddScripAction()
+{
+    // This would typically open the ScripBar or a scrip selection dialog
+    qDebug() << "[MarketWatchWindow] Add scrip requested - use ScripBar";
+    
+    QMessageBox::information(this, "Add Scrip",
+                           "Use the ScripBar (above the Market Watch area) to search and add scrips.\n\n"
+                           "Press Ctrl+S to focus the ScripBar.");
+}
+
+bool MarketWatchWindow::eventFilter(QObject *obj, QEvent *event)
+{
+    // Handle keyboard navigation (Shift+Arrow) on the view itself
+    if (obj == m_tableView) {
+        if (event->type() == QEvent::KeyPress) {
+            QKeyEvent *keyEvent = static_cast<QKeyEvent*>(event);
+            int key = keyEvent->key();
+            bool shift = keyEvent->modifiers() & Qt::ShiftModifier;
+            bool ctrl = keyEvent->modifiers() & Qt::ControlModifier;
+
+            if (key == Qt::Key_Up || key == Qt::Key_Down) {
+                // Get current proxy index
+                QModelIndex cur = m_tableView->currentIndex();
+                int curRow = cur.isValid() ? cur.row() : 0;
+                int maxRow = m_proxyModel->rowCount() - 1;
+                int newRow = (key == Qt::Key_Down) ? qMin(maxRow, curRow + 1) : qMax(0, curRow - 1);
+
+                // Move current index
+                QModelIndex newIndex = m_proxyModel->index(newRow, 0);
+                m_tableView->setCurrentIndex(newIndex);
+
+                if (shift) {
+                    // Ensure we have an anchor; if not, set it to previous current
+                    if (m_selectionAnchor < 0) m_selectionAnchor = curRow;
+
+                    // Select range from anchor to newRow
+                    int start = qMin(m_selectionAnchor, newRow);
+                    int end = qMax(m_selectionAnchor, newRow);
+
+                    if (!ctrl) {
+                        m_tableView->selectionModel()->clearSelection();
+                    }
+                    for (int r = start; r <= end; ++r) {
+                        QModelIndex idx = m_proxyModel->index(r, 0);
+                        m_tableView->selectionModel()->select(idx, QItemSelectionModel::Select | QItemSelectionModel::Rows);
+                    }
+
+                } else if (ctrl) {
+                    // Ctrl + arrow - move current but keep existing selection (anchor unchanged)
+                    // Do nothing special here; current is moved above.
+                } else {
+                    // No modifiers: single selection and update anchor
+                    m_tableView->selectionModel()->clearSelection();
+                    m_tableView->selectionModel()->select(newIndex, QItemSelectionModel::Select | QItemSelectionModel::Rows);
+                    m_selectionAnchor = newRow;
+                }
+
+                return true; // consume navigation key
+            }
+        }
+    }
+
+    if (obj == m_tableView->viewport()) {
+        if (event->type() == QEvent::MouseButtonPress) {
+            QMouseEvent *mouseEvent = static_cast<QMouseEvent*>(event);
+            if (mouseEvent->button() == Qt::LeftButton) {
+                QModelIndex index = m_tableView->indexAt(mouseEvent->pos());
+                bool hasModifiers = (mouseEvent->modifiers() & (Qt::ControlModifier | Qt::ShiftModifier));
+                
+                qDebug() << "[EventFilter] MousePress at row:" << (index.isValid() ? index.row() : -1) 
+                         << "isSelected:" << (index.isValid() ? m_tableView->selectionModel()->isSelected(index) : false)
+                         << "modifiers:" << (hasModifiers ? "YES" : "NO");
+                
+                // CRITICAL: Switch selection mode based on modifiers
+                if (hasModifiers) {
+                    // Enable multi-select when Ctrl/Shift pressed
+                    if (m_tableView->selectionMode() != QAbstractItemView::ExtendedSelection) {
+                        qDebug() << "[EventFilter] Switching to ExtendedSelection (modifiers detected)";
+                        m_tableView->setSelectionMode(QAbstractItemView::ExtendedSelection);
+                    }
+                    
+                    // SPECIAL: If SHIFT (but not Ctrl) is pressed, handle range selection
+                    if ((mouseEvent->modifiers() & Qt::ShiftModifier) && 
+                        !(mouseEvent->modifiers() & Qt::ControlModifier) &&
+                        index.isValid()) {
+                        
+                        // Use the stored anchor, or use clicked row if no anchor
+                        int anchorRow = (m_selectionAnchor >= 0) ? m_selectionAnchor : index.row();
+                        
+                        qDebug() << "[EventFilter] Shift-only pressed: selecting range from anchor" << anchorRow << "to" << index.row();
+                        
+                        // Clear and select new range
+                        m_tableView->selectionModel()->clearSelection();
+                        
+                        // Select range from anchor to clicked row
+                        int startRow = qMin(anchorRow, index.row());
+                        int endRow = qMax(anchorRow, index.row());
+                        for (int r = startRow; r <= endRow; ++r) {
+                            QModelIndex idx = m_tableView->model()->index(r, 0);
+                            m_tableView->selectionModel()->select(idx, QItemSelectionModel::Select | QItemSelectionModel::Rows);
+                        }
+                        
+                        // Keep the same anchor for next Shift-click
+                        // (anchor doesn't change until non-Shift click)
+                        return true; // Block default Qt behavior
+                    }
+                    
+                    // Check if clicking on already-selected row (for multi-row drag)
+                    if (index.isValid() && m_tableView->selectionModel()->isSelected(index)) {
+                        m_dragStartPos = mouseEvent->pos();
+                        m_isDragging = false;
+                        m_draggedRows.clear();
+                        // Will capture all selected rows when drag actually starts (in MouseMove)
+                        qDebug() << "[EventFilter] Multi-select drag prep (will capture rows on move)";
+                        return true; // Block default to enable drag
+                    } else {
+                        // Let Qt handle multi-select with modifiers (Ctrl behavior)
+                        m_dragStartPos = QPoint();
+                        m_draggedRows.clear();
+                        
+                        // If Ctrl pressed, don't update anchor
+                        // (allows adding to selection without changing anchor)
+                    }
+                } else {
+                    // NO modifiers - ensure SingleSelection mode
+                    if (m_tableView->selectionMode() != QAbstractItemView::SingleSelection) {
+                        qDebug() << "[EventFilter] Switching to SingleSelection (no modifiers)";
+                        m_tableView->setSelectionMode(QAbstractItemView::SingleSelection);
+                    }
+                    
+                    // If clicking on valid row without modifiers
+                    if (index.isValid()) {
+                        // Set this row as the new anchor for future Shift-selections
+                        m_selectionAnchor = index.row();
+                        qDebug() << "[EventFilter] Set selection anchor to row" << m_selectionAnchor;
+                        
+                        // If clicking on already selected row, prepare for potential drag
+                        if (m_tableView->selectionModel()->isSelected(index)) {
+                            m_dragStartPos = mouseEvent->pos();
+                            m_isDragging = false;
+                            m_draggedRows.clear();
+                            m_draggedTokens.clear();
+
+                            // If multiple rows are currently selected, capture tokens for all of them
+                            QModelIndexList selected = m_tableView->selectionModel()->selectedRows();
+                            if (selected.size() > 1) {
+                                for (const QModelIndex &idx : selected) {
+                                    int src = mapToSource(idx.row());
+                                    if (src >= 0 && src < m_model->rowCount()) {
+                                        const ScripData &scrip = m_model->getScripAt(src);
+                                        if (scrip.isValid()) {
+                                            m_draggedTokens.append(scrip.token);
+                                        }
+                                    }
+                                }
+                                qDebug() << "[EventFilter] Multi-select drag prep: tokens:" << m_draggedTokens.size();
+                            } else {
+                                // Single selected row: store stable TOKEN instead of row number (tokens survive reorders)
+                                int sourceRow = mapToSource(index.row());
+                                if (sourceRow >= 0 && sourceRow < m_model->rowCount()) {
+                                    const ScripData &scrip = m_model->getScripAt(sourceRow);
+                                    if (scrip.isValid()) {
+                                        m_draggedTokens.append(scrip.token);
+                                        qDebug() << "[EventFilter] Drag prep: token" << scrip.token << "(" << scrip.symbol << ")";
+                                    }
+                                }
+                            }
+
+                            // Return true to block default selection behavior during drag prep
+                            return true;
+                        } else {
+                            // Clicking on unselected row without modifiers = normal single selection
+                            m_dragStartPos = QPoint();
+                            m_draggedRows.clear();
+                            qDebug() << "[EventFilter] Normal single selection";
+                            // Let Qt handle it
+                        }
+                    } else {
+                        // Clicked outside valid area - clear anchor
+                        m_selectionAnchor = -1;
+                    }
+                }
+            }
+        }
+        else if (event->type() == QEvent::MouseMove) {
+            QMouseEvent *mouseEvent = static_cast<QMouseEvent*>(event);
+            if ((mouseEvent->buttons() & Qt::LeftButton) && !m_isDragging && !m_dragStartPos.isNull()) {
+                int distance = (mouseEvent->pos() - m_dragStartPos).manhattanLength();
+                // Require more movement to distinguish from click
+                if (distance >= QApplication::startDragDistance() * 2) {
+                    // Capture TOKENS of selected rows (stable across reorders)
+                    // CRITICAL FIX: Only clear and recapture for multi-select mode
+                    // For single-select, tokens already captured at mouse press
+                    
+                    if (m_tableView->selectionMode() == QAbstractItemView::ExtendedSelection) {
+                        // Multi-select mode: capture ALL currently selected rows as tokens
+                        m_draggedTokens.clear();
+                        QModelIndexList selected = m_tableView->selectionModel()->selectedRows();
+                        for (const QModelIndex &idx : selected) {
+                            int sourceRow = mapToSource(idx.row());
+                            if (sourceRow >= 0 && sourceRow < m_model->rowCount()) {
+                                const ScripData &scrip = m_model->getScripAt(sourceRow);
+                                if (scrip.isValid()) {
+                                    m_draggedTokens.append(scrip.token);
+                                }
+                            }
+                        }
+                        qDebug() << "[EventFilter] Starting multi-drag - distance:" << distance << "tokens:" << m_draggedTokens.size();
+                    } else {
+                        // Single-select mode: tokens already captured at mouse press - DON'T clear them!
+                        qDebug() << "[EventFilter] Starting single-drag - distance:" << distance << "tokens:" << m_draggedTokens.size();
+                    }
+                    m_isDragging = true;
+                    m_tableView->setCursor(Qt::ClosedHandCursor);
+                }
+            }
+            // Visual feedback during drag
+            if (m_isDragging) {
+                m_tableView->viewport()->update();
+            }
+        }
+        else if (event->type() == QEvent::MouseButtonRelease) {
+            QMouseEvent *mouseEvent = static_cast<QMouseEvent*>(event);
+            qDebug() << "[EventFilter] MouseRelease - isDragging:" << m_isDragging;
+            
+            if (m_isDragging && mouseEvent->button() == Qt::LeftButton) {
+                // Perform the drop using TOKENS (resolve to fresh rows at drop time)
+                QModelIndex dropIndex = m_tableView->indexAt(mouseEvent->pos());
+                int targetSourceRow = getDropRow(mouseEvent->pos());
+                
+                qDebug() << "[EventFilter] Drop detected, target source row:" << targetSourceRow;
+                
+                if (targetSourceRow >= 0 && !m_draggedTokens.isEmpty()) {
+                    performRowMoveByTokens(m_draggedTokens, targetSourceRow);
+                }
+            }
+            
+            m_tableView->unsetCursor();
+            m_dragStartPos = QPoint();
+            m_isDragging = false;
+            m_draggedRows.clear();
+            m_draggedTokens.clear();
+        }
+    }
+    
+    return QWidget::eventFilter(obj, event);
+}
+
+void MarketWatchWindow::startRowDrag(const QPoint &pos)
+{
+    // This function is no longer used - drag is now handled entirely in eventFilter
+    // Kept for potential future use
+    qDebug() << "[StartDrag] Function deprecated - drag handled in eventFilter";
+}
+
+int MarketWatchWindow::getDropRow(const QPoint &pos) const
+{
+    QModelIndex index = m_tableView->indexAt(pos);
+    
+    qDebug() << "[GetDropRow] Mouse pos:" << pos << "indexAt valid:" << index.isValid();
+    
+    if (index.isValid()) {
+        // Get source row
+        int proxyRow = index.row();
+        int targetRow = mapToSource(proxyRow);
+        
+        qDebug() << "[GetDropRow] Proxy row:" << proxyRow << "Source row:" << targetRow;
+        
+        // Determine if we should insert before or after
+        QRect rect = m_tableView->visualRect(index);
+        bool insertAfter = (pos.y() > rect.center().y());
+        
+        qDebug() << "[GetDropRow] Visual rect:" << rect << "center.y:" << rect.center().y() 
+                 << "mouse.y:" << pos.y() << "insertAfter:" << insertAfter;
+        
+        if (insertAfter) {
+            targetRow++;  // Insert after
+        }
+        
+        qDebug() << "[GetDropRow] Final target row:" << targetRow;
+        return targetRow;
+    }
+    
+    // Drop at the end
+    int endRow = m_model->rowCount();
+    qDebug() << "[GetDropRow] Dropping at end, row:" << endRow;
+    return endRow;
+}
+
+void MarketWatchWindow::performRowMove(const QList<int> &sourceRows, int targetRow)
+{
+    if (sourceRows.isEmpty()) {
+        qDebug() << "[PerformMove] No source rows, aborting";
+        return;
+    }
+    
+    qDebug() << "[PerformMove] === Moving" << sourceRows.size() << "row(s) to target" << targetRow << "===";
+    
+    // For now, only support single row drag (multi-row is complex with address book sync)
+    if (sourceRows.size() == 1) {
+        int sourceRow = sourceRows.first();
+        qDebug() << "[PerformMove] Single row move: source=" << sourceRow << "target=" << targetRow;
+        
+        if (sourceRow < 0 || sourceRow >= m_model->rowCount()) {
+            qDebug() << "[PerformMove] Invalid source row, aborting";
+            return;
+        }
+        if (sourceRow == targetRow || sourceRow == targetRow - 1) {
+            qDebug() << "[PerformMove] No-op move (same position), aborting";
+            return;
+        }
+        
+        // Get the token before moving
+        const ScripData &scrip = m_model->getScripAt(sourceRow);
+        int token = scrip.token;
+        qDebug() << "[PerformMove] Moving scrip:" << scrip.symbol << "token:" << token;
+        
+        // Notify address book BEFORE the move
+        qDebug() << "[PerformMove] Notifying address book: removing row" << sourceRow;
+        m_tokenAddressBook->onRowsRemoved(sourceRow, 1);
+        
+        // Perform the move in the model
+        qDebug() << "[PerformMove] Calling model->moveRow(" << sourceRow << "," << targetRow << ")";
+        m_model->moveRow(sourceRow, targetRow);
+        
+        // Calculate final position
+        int finalPos = targetRow;
+        if (sourceRow < targetRow) {
+            finalPos = targetRow - 1;
+        }
+        qDebug() << "[PerformMove] Final position calculated:" << finalPos;
+        
+        // Notify address book AFTER the move
+        qDebug() << "[PerformMove] Notifying address book: inserting at row" << finalPos;
+        m_tokenAddressBook->onRowsInserted(finalPos, 1);
+        
+        qDebug() << "[PerformMove] Move complete: row from" << sourceRow << "to" << finalPos;
+        
+        // Update selection/current index to the moved row so future operations use fresh indices
+        int proxyPos = mapToProxy(finalPos);
+        if (proxyPos >= 0) {
+            QModelIndex proxyIndex = m_proxyModel->index(proxyPos, 0);
+            m_tableView->selectionModel()->clearSelection();
+            m_tableView->selectionModel()->select(proxyIndex, QItemSelectionModel::Select | QItemSelectionModel::Rows);
+            m_tableView->setCurrentIndex(proxyIndex);
+            m_selectionAnchor = proxyPos; // keep anchor in proxy-coordinates
+            qDebug() << "[PerformMove] Selection updated to proxy row" << proxyPos << "(source" << finalPos << ")";
+        }
+    } else {
+        // Multi-row drag: collect, remove, insert
+        QList<ScripData> scripsToMove;
+        QList<int> tokens;
+        
+        for (int sourceRow : sourceRows) {
+            if (sourceRow >= 0 && sourceRow < m_model->rowCount()) {
+                const ScripData &scrip = m_model->getScripAt(sourceRow);
+                scripsToMove.append(scrip);
+                tokens.append(scrip.token);
+            }
+        }
+        
+        // Remove from old positions (in reverse order)
+        QList<int> sortedRows = sourceRows;
+        std::sort(sortedRows.begin(), sortedRows.end(), std::greater<int>());
+        
+        int adjustment = 0;
+        for (int sourceRow : sortedRows) {
+            if (sourceRow < targetRow) {
+                adjustment++;
+            }
+            removeScrip(sourceRow);  // This handles address book removal
+        }
+        
+        // Adjust target
+        int adjustedTarget = targetRow - adjustment;
+        if (adjustedTarget < 0) adjustedTarget = 0;
+        if (adjustedTarget > m_model->rowCount()) adjustedTarget = m_model->rowCount();
+        
+        // Insert at new position
+        for (int i = 0; i < scripsToMove.size(); ++i) {
+            m_model->insertScrip(adjustedTarget + i, scripsToMove[i]);
+            m_tokenAddressBook->addToken(tokens[i], adjustedTarget + i);
+        }
+        
+        qDebug() << "[MarketWatchWindow] Moved" << scripsToMove.size() << "rows to position" << adjustedTarget;
+        // Update selection to the moved block in proxy coordinates
+        int proxyStart = mapToProxy(adjustedTarget);
+        if (proxyStart >= 0) {
+            m_tableView->selectionModel()->clearSelection();
+            for (int i = 0; i < scripsToMove.size(); ++i) {
+                QModelIndex pidx = m_proxyModel->index(proxyStart + i, 0);
+                m_tableView->selectionModel()->select(pidx, QItemSelectionModel::Select | QItemSelectionModel::Rows);
+            }
+            QModelIndex firstIdx = m_proxyModel->index(proxyStart, 0);
+            m_tableView->setCurrentIndex(firstIdx);
+            m_selectionAnchor = proxyStart;
+            qDebug() << "[PerformMove] Selection updated to proxy range" << proxyStart << ".." << proxyStart + scripsToMove.size() - 1;
+        }
+    }
+}
+
+void MarketWatchWindow::performRowMoveByTokens(const QList<int> &tokens, int targetSourceRow)
+{
+    if (tokens.isEmpty()) {
+        qDebug() << "[PerformMoveByTokens] No tokens, aborting";
+        return;
+    }
+    
+    // CRITICAL FIX: Clear sort indicator during manual reorder
+    // This shows the user that data is no longer sorted
+    // Sorting remains enabled - user can re-sort by clicking headers
+    int currentSortColumn = m_tableView->horizontalHeader()->sortIndicatorSection();
+    if (currentSortColumn >= 0) {
+        qDebug() << "[PerformMoveByTokens] Clearing sort indicator (was column" << currentSortColumn << ") - manual reorder in progress";
+        m_tableView->horizontalHeader()->setSortIndicator(-1, Qt::AscendingOrder);
+    }
+    
+    // Resolve tokens to CURRENT source rows (fresh lookups avoid stale indices)
+    QList<int> sourceRows;
+    QList<ScripData> scrips;
+    for (int token : tokens) {
+        int row = m_model->findScripByToken(token);
+        if (row >= 0) {
+            sourceRows.append(row);
+            scrips.append(m_model->getScripAt(row));
+            qDebug() << "[PerformMoveByTokens] Token" << token << "-> source row" << row;
+        } else {
+            qDebug() << "[PerformMoveByTokens] WARNING: token" << token << "not found in model!";
+        }
+    }
+    
+    if (sourceRows.isEmpty()) {
+        qDebug() << "[PerformMoveByTokens] No valid source rows resolved, aborting";
+        return;
+    }
+    
+    qDebug() << "[PerformMoveByTokens] === Moving" << sourceRows.size() << "token(s) to target source row" << targetSourceRow << "===";
+    
+    // Single row move (most common case)
+    if (sourceRows.size() == 1) {
+        int sourceRow = sourceRows.first();
+        const ScripData &scrip = scrips.first();
+        
+        if (sourceRow == targetSourceRow || sourceRow == targetSourceRow - 1) {
+            qDebug() << "[PerformMoveByTokens] No-op move (same position), aborting";
+            return;
+        }
+        
+        qDebug() << "[PerformMoveByTokens] Single row move: source=" << sourceRow << "target=" << targetSourceRow;
+        qDebug() << "[PerformMoveByTokens] Moving scrip:" << scrip.symbol << "token:" << scrip.token;
+        
+        // Notify address book BEFORE the move
+        m_tokenAddressBook->onRowsRemoved(sourceRow, 1);
+        
+        // Perform the move in the model
+        m_model->moveRow(sourceRow, targetSourceRow);
+        
+        // Calculate final position
+        int finalPos = targetSourceRow;
+        if (sourceRow < targetSourceRow) {
+            finalPos = targetSourceRow - 1;
+        }
+        qDebug() << "[PerformMoveByTokens] Final source position:" << finalPos;
+        
+        // Notify address book AFTER the move
+        m_tokenAddressBook->onRowsInserted(finalPos, 1);
+        
+        // Update selection/current index to the moved row (in proxy coordinates)
+        // With sorting disabled, proxy row == source row
+        int proxyPos = mapToProxy(finalPos);
+        if (proxyPos >= 0) {
+            QModelIndex proxyIndex = m_proxyModel->index(proxyPos, 0);
+            m_tableView->selectionModel()->clearSelection();
+            m_tableView->selectionModel()->select(proxyIndex, QItemSelectionModel::Select | QItemSelectionModel::Rows);
+            m_tableView->setCurrentIndex(proxyIndex);
+            m_selectionAnchor = proxyPos;
+            qDebug() << "[PerformMoveByTokens] Selection updated to proxy row" << proxyPos << "(source" << finalPos << ")";
+        }
+    } else {
+        // Multi-row move
+        qDebug() << "[PerformMoveByTokens] Multi-row move not fully implemented yet, using remove/insert";
+        
+        // Sort rows in descending order for removal
+        QList<int> sortedRows = sourceRows;
+        std::sort(sortedRows.begin(), sortedRows.end(), std::greater<int>());
+        
+        int adjustment = 0;
+        for (int sourceRow : sortedRows) {
+            if (sourceRow < targetSourceRow) {
+                adjustment++;
+            }
+            removeScrip(sourceRow);
+        }
+        
+        // Adjust target
+        int adjustedTarget = targetSourceRow - adjustment;
+        if (adjustedTarget < 0) adjustedTarget = 0;
+        if (adjustedTarget > m_model->rowCount()) adjustedTarget = m_model->rowCount();
+        
+        // Insert at new position
+        for (int i = 0; i < scrips.size(); ++i) {
+            m_model->insertScrip(adjustedTarget + i, scrips[i]);
+            m_tokenAddressBook->addToken(scrips[i].token, adjustedTarget + i);
+        }
+        
+        // Update selection
+        int proxyStart = mapToProxy(adjustedTarget);
+        if (proxyStart >= 0) {
+            m_tableView->selectionModel()->clearSelection();
+            for (int i = 0; i < scrips.size(); ++i) {
+                QModelIndex pidx = m_proxyModel->index(proxyStart + i, 0);
+                m_tableView->selectionModel()->select(pidx, QItemSelectionModel::Select | QItemSelectionModel::Rows);
+            }
+            QModelIndex firstIdx = m_proxyModel->index(proxyStart, 0);
+            m_tableView->setCurrentIndex(firstIdx);
+            m_selectionAnchor = proxyStart;
+            qDebug() << "[PerformMoveByTokens] Selection updated to proxy range" << proxyStart << ".." << proxyStart + scrips.size() - 1;
+        }
+    }
+}
+
+int MarketWatchWindow::mapToSource(int proxyRow) const
+{
+    if (proxyRow < 0) return -1;
+    QModelIndex proxyIndex = m_proxyModel->index(proxyRow, 0);
+    QModelIndex sourceIndex = m_proxyModel->mapToSource(proxyIndex);
+    return sourceIndex.row();
+}
+
+int MarketWatchWindow::mapToProxy(int sourceRow) const
+{
+    if (sourceRow < 0) return -1;
+    QModelIndex sourceIndex = m_model->index(sourceRow, 0);
+    QModelIndex proxyIndex = m_proxyModel->mapFromSource(sourceIndex);
+    return proxyIndex.row();
+}

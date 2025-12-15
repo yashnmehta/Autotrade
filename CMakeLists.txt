@@ -15,62 +15,144 @@ set(CMAKE_AUTOUIC_SEARCH_PATHS ${CMAKE_SOURCE_DIR}/resources/forms)
 # Find Qt5 components
 find_package(Qt5 COMPONENTS Widgets Network WebSockets UiTools REQUIRED)
 
-# Include directories
+# Include directories - New Structured Architecture
 include_directories(
     ${CMAKE_SOURCE_DIR}/include
-    ${CMAKE_SOURCE_DIR}/include/ui
-    ${CMAKE_SOURCE_DIR}/include/api
-    ${CMAKE_SOURCE_DIR}/include/data
+    ${CMAKE_SOURCE_DIR}/include/core
+    ${CMAKE_SOURCE_DIR}/include/core/widgets
+    ${CMAKE_SOURCE_DIR}/include/core/base
+    ${CMAKE_SOURCE_DIR}/include/app
+    ${CMAKE_SOURCE_DIR}/include/views
+    ${CMAKE_SOURCE_DIR}/include/models
+    ${CMAKE_SOURCE_DIR}/include/services
+    ${CMAKE_SOURCE_DIR}/include/services/xts
+    ${CMAKE_SOURCE_DIR}/include/repository
+    ${CMAKE_SOURCE_DIR}/include/utils
 )
 
-# Source files
-set(SOURCES
+# ========================================
+# STABLE FRAMEWORK - Custom Qt Widgets
+# ⚠️ These are tested and should rarely change
+# ========================================
+set(CORE_WIDGET_SOURCES
+    src/core/widgets/CustomMainWindow.cpp
+    src/core/widgets/CustomMDIArea.cpp
+    src/core/widgets/CustomMDISubWindow.cpp
+    src/core/widgets/CustomMDIChild.cpp
+    src/core/widgets/CustomTitleBar.cpp
+    src/core/widgets/CustomScripComboBox.cpp
+    src/core/widgets/MDITaskBar.cpp
+    src/core/widgets/InfoBar.cpp
+    src/core/widgets/CustomMarketWatch.cpp
+    src/core/widgets/CustomNetPosition.cpp
+)
+
+set(CORE_WIDGET_HEADERS
+    include/core/widgets/CustomMainWindow.h
+    include/core/widgets/CustomMDIArea.h
+    include/core/widgets/CustomMDISubWindow.h
+    include/core/widgets/CustomMDIChild.h
+    include/core/widgets/CustomTitleBar.h
+    include/core/widgets/CustomScripComboBox.h
+    include/core/widgets/MDITaskBar.h
+    include/core/widgets/InfoBar.h
+    include/core/widgets/CustomMarketWatch.h
+    include/core/widgets/CustomNetPosition.h
+)
+
+# ========================================
+# APPLICATION LAYER
+# ✅ Main application logic
+# ========================================
+set(APP_SOURCES
     src/main.cpp
-    src/ui/CustomMainWindow.cpp
-    src/ui/MainWindow.cpp
-    src/widgets/CustomTitleBar.cpp
-    src/widgets/CustomMDIArea.cpp
-    src/widgets/CustomMDISubWindow.cpp
-    src/widgets/MDITaskBar.cpp
-    src/ui/ScripBar.cpp
-    src/ui/CustomScripComboBox.cpp
-    src/ui/InfoBar.cpp
-    src/data/Greeks.cpp
-    # Market Watch components
-    src/ui/MarketWatchModel.cpp
-    src/ui/MarketWatchWindow.cpp
-    src/ui/TokenAddressBook.cpp
-    src/api/TokenSubscriptionManager.cpp
-    # Order and Quote windows
-    src/ui/BuyWindow.cpp
-    src/ui/SellWindow.cpp
-    src/ui/SnapQuoteWindow.cpp
-    src/ui/PositionWindow.cpp
+    src/app/MainWindow.cpp
+    src/app/ScripBar.cpp
 )
 
-# Header files (for MOC)
+set(APP_HEADERS
+    include/app/MainWindow.h
+    include/app/ScripBar.h
+)
+
+# ========================================
+# VIEWS LAYER - Trading Windows
+# ✅ Actively developed
+# ========================================
+set(VIEW_SOURCES
+    src/views/BuyWindow.cpp
+    src/views/SellWindow.cpp
+    src/views/MarketWatchWindow.cpp
+    src/views/SnapQuoteWindow.cpp
+    src/views/PositionWindow.cpp
+)
+
+set(VIEW_HEADERS
+    include/views/BuyWindow.h
+    include/views/SellWindow.h
+    include/views/MarketWatchWindow.h
+    include/views/SnapQuoteWindow.h
+    include/views/PositionWindow.h
+)
+
+# ========================================
+# MODELS LAYER - Data Models
+# ✅ Actively developed
+# ========================================
+set(MODEL_SOURCES
+    src/models/MarketWatchModel.cpp
+    src/models/TokenAddressBook.cpp
+)
+
+set(MODEL_HEADERS
+    include/models/MarketWatchModel.h
+    include/models/TokenAddressBook.h
+)
+
+# ========================================
+# SERVICES LAYER - Business Logic
+# ✅ Actively developed (Future: XTS API integration)
+# ========================================
+set(SERVICE_SOURCES
+    src/services/TokenSubscriptionManager.cpp
+)
+
+set(SERVICE_HEADERS
+    include/services/TokenSubscriptionManager.h
+)
+
+# ========================================
+# REPOSITORY LAYER - Data Access
+# ✅ Actively developed
+# ========================================
+set(REPOSITORY_SOURCES
+    src/repository/Greeks.cpp
+)
+
+set(REPOSITORY_HEADERS
+    include/repository/Greeks.h
+    include/repository/ScripMaster.h
+)
+
+# ========================================
+# COMBINE ALL SOURCES
+# ========================================
+set(SOURCES
+    ${CORE_WIDGET_SOURCES}
+    ${APP_SOURCES}
+    ${VIEW_SOURCES}
+    ${MODEL_SOURCES}
+    ${SERVICE_SOURCES}
+    ${REPOSITORY_SOURCES}
+)
+
 set(HEADERS
-    include/ui/CustomMainWindow.h
-    include/ui/MainWindow.h
-    include/ui/CustomTitleBar.h
-    include/ui/CustomMDIArea.h
-    include/ui/CustomMDISubWindow.h
-    include/ui/MDITaskBar.h
-    include/ui/ScripBar.h
-    include/ui/CustomScripComboBox.h
-    include/ui/InfoBar.h
-    include/data/Greeks.h
-    include/data/ScripMaster.h
-    # Market Watch components
-    include/ui/MarketWatchModel.h
-    include/ui/MarketWatchWindow.h
-    include/ui/TokenAddressBook.h
-    include/api/TokenSubscriptionManager.h
-    # Order and Quote windows
-    include/ui/BuyWindow.h
-    include/ui/SellWindow.h
-    include/ui/SnapQuoteWindow.h
-    include/ui/PositionWindow.h
+    ${CORE_WIDGET_HEADERS}
+    ${APP_HEADERS}
+    ${VIEW_HEADERS}
+    ${MODEL_HEADERS}
+    ${SERVICE_HEADERS}
+    ${REPOSITORY_HEADERS}
 )
 
 # UI files
