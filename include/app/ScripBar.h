@@ -20,6 +20,7 @@ struct InstrumentData {
     double strikePrice;
     QString optionType;
     int exchangeSegment;
+    QString scripCode;  // BSE scrip code (BSE only)
 };
 
 class ScripBar : public QWidget
@@ -59,6 +60,8 @@ private:
     void populateStrikes(const QString &expiry);
     void populateOptionTypes(const QString &strike);
     void setupShortcuts();
+    void updateBseScripCodeVisibility();
+    void updateTokenDisplay();
     
     QString getCurrentExchange() const;
     QString getCurrentSegment() const;
@@ -79,10 +82,12 @@ private:
     CustomScripComboBox *m_exchangeCombo;
     CustomScripComboBox *m_segmentCombo;
     CustomScripComboBox *m_instrumentCombo;
+    CustomScripComboBox *m_bseScripCodeCombo;  // Only visible for BSE + E segment
     CustomScripComboBox *m_symbolCombo;
     CustomScripComboBox *m_expiryCombo;
     CustomScripComboBox *m_strikeCombo;
     CustomScripComboBox *m_optionTypeCombo;
+    CustomScripComboBox *m_tokenCombo;  // Shows selected token
 
     // Current selection state
     QString m_currentExchange;

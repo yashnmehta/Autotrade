@@ -57,6 +57,20 @@ void ScripBar::setupUI()
     connect(m_instrumentCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &ScripBar::onInstrumentChanged);
 
+    // BSE Scrip Code combo (only visible for BSE + E segment)
+    m_bseScripCodeCombo = new CustomScripComboBox(this);
+    m_bseScripCodeCombo->setSortMode(CustomScripComboBox::AlphabeticalSort);
+    m_bseScripCodeCombo->setMinimumWidth(100);
+    m_bseScripCodeCombo->setPlaceholderText("BSE Code");
+    m_layout->addWidget(m_bseScripCodeCombo);
+    m_bseScripCodeCombo->setVisible(false);  // Hidden by default
+    connect(m_bseScripCodeCombo, &CustomScripComboBox::itemSelected,
+            this, [this](const QString &text) {
+                Q_UNUSED(text);
+                // When BSE code is selected, populate symbols based on it
+                populateSymbols(m_instrumentCombo->currentText());
+            });
+
     // Symbol combo (custom)
     m_symbolCombo = new CustomScripComboBox(this);
     m_symbolCombo->setSortMode(CustomScripComboBox::AlphabeticalSort);
@@ -88,6 +102,18 @@ void ScripBar::setupUI()
     connect(m_optionTypeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &ScripBar::onOptionTypeChanged);
 
+    // Token combo (read-only display of selected token)
+    m_tokenCombo = new CustomScripComboBox(this);
+    m_tokenCombo->setSortMode(CustomScripComboBox::NoSort);
+    m_tokenCombo->setMinimumWidth(80);
+    m_tokenCombo->setPlaceholderText("Token");
+    m_tokenCombo->setEditable(true);
+    if (m_tokenCombo->lineEdit()) {
+        m_tokenCombo->lineEdit()->setReadOnly(true);
+        m_tokenCombo->lineEdit()->setPlaceholderText("Token");
+    }
+    m_layout->addWidget(m_tokenCombo);
+
     // Add to Watch button
     m_addToWatchButton = new QPushButton(tr("Add"), this);
     m_addToWatchButton->setMinimumWidth(64);
@@ -101,6 +127,8 @@ void ScripBar::setupUI()
             m_addToWatchButton, &QPushButton::click);
     connect(m_instrumentCombo, &CustomScripComboBox::enterPressedWhenClosed,
             m_addToWatchButton, &QPushButton::click);
+    connect(m_bseScripCodeCombo, &CustomScripComboBox::enterPressedWhenClosed,
+            m_addToWatchButton, &QPushButton::click);
     connect(m_symbolCombo, &CustomScripComboBox::enterPressedWhenClosed,
             m_addToWatchButton, &QPushButton::click);
     connect(m_expiryCombo, &CustomScripComboBox::enterPressedWhenClosed,
@@ -108,6 +136,8 @@ void ScripBar::setupUI()
     connect(m_strikeCombo, &CustomScripComboBox::enterPressedWhenClosed,
             m_addToWatchButton, &QPushButton::click);
     connect(m_optionTypeCombo, &CustomScripComboBox::enterPressedWhenClosed,
+            m_addToWatchButton, &QPushButton::click);
+    connect(m_tokenCombo, &CustomScripComboBox::enterPressedWhenClosed,
             m_addToWatchButton, &QPushButton::click);
 
     m_layout->addStretch();
@@ -237,6 +267,9 @@ void ScripBar::populateSymbols(const QString &instrument)
         m_instrumentCache.append(inst);
     }
     
+    // Update BSE scrip code visibility and populate if needed
+    updateBseScripCodeVisibility();
+    
     // Populate combo box
     m_symbolCombo->addItems(symbols);
     
@@ -319,12 +352,14 @@ void ScripBar::onExchangeChanged(const QString &text)
 {
     m_currentExchange = text;
     populateSegments(text);
+    updateBseScripCodeVisibility();
 }
 
 void ScripBar::onSegmentChanged(const QString &text)
 {
     m_currentSegment = text;
     populateInstruments(text);
+    updateBseScripCodeVisibility();
 }
 
 void ScripBar::onInstrumentChanged(int index)
@@ -337,6 +372,7 @@ void ScripBar::onInstrumentChanged(int index)
 void ScripBar::onSymbolChanged(const QString &text)
 {
     populateExpiries(text);
+    updateTokenDisplay();
 }
 
 void ScripBar::onExpiryChanged(int index)
@@ -354,7 +390,7 @@ void ScripBar::onStrikeChanged(int index)
 void ScripBar::onOptionTypeChanged(int index)
 {
     Q_UNUSED(index)
-    // No cascading needed after option type
+    updateTokenDisplay();
 }
 
 void ScripBar::onAddToWatchClicked()
@@ -369,6 +405,81 @@ void ScripBar::onAddToWatchClicked()
     
     emit addToWatchRequested(exchange, segment, instrument, symbol, expiry, strike, optionType);
     qDebug() << "Add to watch requested:" << symbol << expiry << strike << optionType;
+}
+
+void ScripBar::updateBseScripCodeVisibility()
+{
+    // Show BSE Scrip Code combo only when exchange=BSE and segment=E
+    bool showBseCode = (m_currentExchange == "BSE" && m_currentSegment == "E");
+    m_bseScripCodeCombo->setVisible(showBseCode);
+    
+    if (showBseCode) {
+        // Populate BSE scrip codes from repository
+        m_bseScripCodeCombo->clearItems();
+        
+        RepositoryManager* repo = RepositoryManager::getInstance();
+        if (repo->isLoaded()) {
+            QString instrument = m_instrumentCombo->currentText();
+            QVector<ContractData> contracts = repo->getScrips("BSE", "E", instrument);
+            
+            // Extract unique scrip codes
+            QSet<QString> uniqueCodes;
+            for (const ContractData& contract : contracts) {
+                if (!contract.scripCode.isEmpty()) {
+                    uniqueCodes.insert(contract.scripCode);
+                }
+            }
+            
+            QStringList codes = uniqueCodes.values();
+            codes.sort();
+            
+            if (!codes.isEmpty()) {
+                m_bseScripCodeCombo->addItems(codes);
+            }
+        }
+    }
+}
+
+void ScripBar::updateTokenDisplay()
+{
+    // Find the matching contract and display its token
+    QString symbol = m_symbolCombo->currentText();
+    QString expiry = m_expiryCombo->currentText();
+    QString strike = m_strikeCombo->currentText();
+    QString optionType = m_optionTypeCombo->currentText();
+    
+    if (symbol.isEmpty()) {
+        if (m_tokenCombo->lineEdit()) {
+            m_tokenCombo->lineEdit()->clear();
+        }
+        return;
+    }
+    
+    // Search in instrument cache for matching contract
+    for (const auto &inst : m_instrumentCache) {
+        bool matchSymbol = (inst.symbol == symbol);
+        bool matchExpiry = (expiry == "N/A" || inst.expiryDate == expiry);
+        bool matchStrike = (strike == "N/A" || 
+                           QString::number(inst.strikePrice, 'f', 2) == strike);
+        bool matchOption = (inst.optionType == optionType || optionType.isEmpty());
+        
+        if (matchSymbol && matchExpiry && matchStrike && matchOption) {
+            if (m_tokenCombo->lineEdit()) {
+                m_tokenCombo->lineEdit()->setText(QString::number(inst.exchangeInstrumentID));
+            }
+            return;
+        }
+    }
+    
+    // If no exact match, show the first matching symbol
+    for (const auto &inst : m_instrumentCache) {
+        if (inst.symbol == symbol) {
+            if (m_tokenCombo->lineEdit()) {
+                m_tokenCombo->lineEdit()->setText(QString::number(inst.exchangeInstrumentID));
+            }
+            return;
+        }
+    }
 }
 
 void ScripBar::setupShortcuts()
