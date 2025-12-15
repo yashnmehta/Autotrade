@@ -1,6 +1,9 @@
 #include "repository/RepositoryManager.h"
+#include "repository/MasterFileParser.h"
 #include <QFile>
 #include <QDir>
+#include <QFileInfo>
+#include <QTextStream>
 #include <QDebug>
 
 // Initialize singleton
@@ -26,6 +29,28 @@ bool RepositoryManager::loadAll(const QString& mastersPath) {
     qDebug() << "[RepositoryManager] Loading all master contracts from:" << mastersPath;
     
     bool anyLoaded = false;
+    
+    // Check if there's a combined master file (from XTS download)
+    QString combinedFile = mastersPath + "/master_contracts_latest.txt";
+    if (QFile::exists(combinedFile)) {
+        qDebug() << "[RepositoryManager] Found combined master file, parsing segments...";
+        if (loadCombinedMasterFile(combinedFile)) {
+            anyLoaded = true;
+            m_loaded = true;
+            
+            // Log summary
+            SegmentStats stats = getSegmentStats();
+            qDebug() << "[RepositoryManager] Loading complete:";
+            qDebug() << "  NSE F&O:" << stats.nsefo << "contracts";
+            qDebug() << "  NSE CM:" << stats.nsecm << "contracts";
+            qDebug() << "  Total:" << getTotalContractCount() << "contracts";
+            
+            return true;
+        }
+    }
+    
+    // Fall back to individual segment files
+    qDebug() << "[RepositoryManager] No combined file, trying individual segment files...";
     
     // Load NSE F&O (try CSV first, fall back to master file)
     if (loadNSEFO(mastersPath, true)) {
@@ -99,6 +124,124 @@ bool RepositoryManager::loadNSECM(const QString& mastersPath, bool preferCSV) {
     
     qWarning() << "[RepositoryManager] NSE CM master file not found:" << masterFile;
     return false;
+}
+
+bool RepositoryManager::loadCombinedMasterFile(const QString& filePath) {
+    qDebug() << "[RepositoryManager] Loading combined master file:" << filePath;
+    
+    QFile file(filePath);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        qWarning() << "[RepositoryManager] Failed to open combined master file";
+        return false;
+    }
+    
+    // Parse file and split by segment
+    QTextStream in(&file);
+    
+    QVector<MasterContract> nsefoContracts;
+    QVector<MasterContract> nsecmContracts;
+    QVector<MasterContract> bsefoContracts;
+    QVector<MasterContract> bsecmContracts;
+    
+    int lineCount = 0;
+    while (!in.atEnd()) {
+        QString line = in.readLine().trimmed();
+        lineCount++;
+        
+        if (line.isEmpty()) {
+            continue;
+        }
+        
+        // Check segment prefix (first field before |)
+        QString segment = line.section('|', 0, 0);
+        
+        MasterContract contract;
+        bool parsed = false;
+        
+        if (segment == "NSEFO") {
+            parsed = MasterFileParser::parseLine(line, "NSEFO", contract);
+            if (parsed) nsefoContracts.append(contract);
+        }
+        else if (segment == "NSECM") {
+            parsed = MasterFileParser::parseLine(line, "NSECM", contract);
+            if (parsed) nsecmContracts.append(contract);
+        }
+        else if (segment == "BSEFO") {
+            parsed = MasterFileParser::parseLine(line, "BSEFO", contract);
+            if (parsed) bsefoContracts.append(contract);
+        }
+        else if (segment == "BSECM") {
+            parsed = MasterFileParser::parseLine(line, "BSECM", contract);
+            if (parsed) bsecmContracts.append(contract);
+        }
+    }
+    
+    file.close();
+    
+    qDebug() << "[RepositoryManager] Parsed" << lineCount << "lines:";
+    qDebug() << "  NSE FO:" << nsefoContracts.size();
+    qDebug() << "  NSE CM:" << nsecmContracts.size();
+    qDebug() << "  BSE FO:" << bsefoContracts.size();
+    qDebug() << "  BSE CM:" << bsecmContracts.size();
+    
+    // Load into repositories (implement direct loading from vector)
+    // For now, we'll create temporary files - TODO: add loadFromVector() methods
+    bool anyLoaded = false;
+    
+    // Write temporary segment files and load them
+    QString tempDir = QFileInfo(filePath).absolutePath();
+    
+    if (!nsefoContracts.isEmpty()) {
+        QString tempFile = tempDir + "/temp_nsefo.txt";
+        QFile f(tempFile);
+        if (f.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            QTextStream out(&f);
+            // Re-read and write NSEFO lines
+            file.open(QIODevice::ReadOnly | QIODevice::Text);
+            QTextStream in2(&file);
+            while (!in2.atEnd()) {
+                QString line = in2.readLine();
+                if (line.startsWith("NSEFO|")) {
+                    out << line << "\n";
+                }
+            }
+            file.close();
+            f.close();
+            
+            if (m_nsefo->loadMasterFile(tempFile)) {
+                anyLoaded = true;
+                qDebug() << "[RepositoryManager] NSE FO loaded successfully";
+            }
+            QFile::remove(tempFile);
+        }
+    }
+    
+    if (!nsecmContracts.isEmpty()) {
+        QString tempFile = tempDir + "/temp_nsecm.txt";
+        QFile f(tempFile);
+        if (f.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            QTextStream out(&f);
+            // Re-read and write NSECM lines
+            file.open(QIODevice::ReadOnly | QIODevice::Text);
+            QTextStream in2(&file);
+            while (!in2.atEnd()) {
+                QString line = in2.readLine();
+                if (line.startsWith("NSECM|")) {
+                    out << line << "\n";
+                }
+            }
+            file.close();
+            f.close();
+            
+            if (m_nsecm->loadMasterFile(tempFile)) {
+                anyLoaded = true;
+                qDebug() << "[RepositoryManager] NSE CM loaded successfully";
+            }
+            QFile::remove(tempFile);
+        }
+    }
+    
+    return anyLoaded;
 }
 
 QVector<ContractData> RepositoryManager::searchScrips(

@@ -57,6 +57,13 @@ public:
      */
     bool loadNSECM(const QString& mastersPath, bool preferCSV = true);
     
+    /**
+     * @brief Load combined master file (all segments in one file from XTS)
+     * @param filePath Path to combined master file
+     * @return true if at least one segment loaded successfully
+     */
+    bool loadCombinedMasterFile(const QString& filePath);
+    
     // ===== SEARCH METHODS (Array-Based, No API Calls) =====
     
     /**
