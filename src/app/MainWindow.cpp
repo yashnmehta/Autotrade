@@ -10,6 +10,8 @@
 #include "views/SnapQuoteWindow.h"
 #include "views/PositionWindow.h"
 #include "repository/Greeks.h"
+#include "api/XTSMarketDataClient.h"
+#include "api/XTSInteractiveClient.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -34,6 +36,8 @@
 
 MainWindow::MainWindow(QWidget *parent)
     : CustomMainWindow(parent)
+    , m_xtsMarketDataClient(nullptr)
+    , m_xtsInteractiveClient(nullptr)
 {
     setTitle("Trading Terminal");
     resize(1600, 900);
@@ -52,6 +56,18 @@ MainWindow::MainWindow(QWidget *parent)
 
 MainWindow::~MainWindow()
 {
+}
+
+void MainWindow::setXTSClients(XTSMarketDataClient *mdClient, XTSInteractiveClient *iaClient)
+{
+    m_xtsMarketDataClient = mdClient;
+    m_xtsInteractiveClient = iaClient;
+    
+    // Pass to ScripBar if it exists
+    if (m_scripBar && m_xtsMarketDataClient) {
+        m_scripBar->setXTSClient(m_xtsMarketDataClient);
+        qDebug() << "[MainWindow] XTS clients set and passed to ScripBar";
+    }
 }
 
 void MainWindow::setupContent()

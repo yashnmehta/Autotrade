@@ -94,8 +94,14 @@ int main(int argc, char *argv[])
                     // Create main window (but don't show yet)
                     MainWindow *mainWindow = new MainWindow();
                     
-                    loginService->setCompleteCallback([loginWindow, mainWindow]() {
+                    loginService->setCompleteCallback([loginWindow, mainWindow, loginService]() {
                         qDebug() << "✅ Login complete! Showing main window...";
+                        
+                        // Pass XTS clients to main window
+                        mainWindow->setXTSClients(
+                            loginService->getMarketDataClient(),
+                            loginService->getInteractiveClient()
+                        );
                         
                         // Show continue button
                         loginWindow->showContinueButton();

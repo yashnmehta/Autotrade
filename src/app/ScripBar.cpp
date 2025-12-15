@@ -182,47 +182,65 @@ void ScripBar::populateSymbols(const QString &instrument)
 {
     m_symbolCombo->clearItems();
     
-    // TODO: Replace with real XTS API search when m_xtsClient is available
     if (m_xtsClient && m_xtsClient->isLoggedIn()) {
-        // Future: Call XTS search API
-        // searchInstrumentsAsync(getCurrentExchange() + " " + instrument);
-        qDebug() << "XTS search would be called here for:" << instrument;
-    }
-    
-    // Demo data for now
-    if (instrument == "EQUITY")
-    {
-        QStringList symbols = {
-            "RELIANCE", "TCS", "INFY", "HDFCBANK", "ICICIBANK",
-            "HINDUNILVR", "ITC", "SBIN", "BHARTIARTL", "KOTAKBANK",
-            "LT", "AXISBANK", "ASIANPAINT", "MARUTI", "TITAN"
-        };
-        m_symbolCombo->addItems(symbols);
-    }
-    else
-    {
-        QStringList symbols = {
-            "NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY"
-        };
-        m_symbolCombo->addItems(symbols);
-    }
-    
-    if (m_symbolCombo->count() > 0) {
-        onSymbolChanged(m_symbolCombo->currentText());
+        qDebug() << "[ScripBar] Calling XTS getInstruments for:" << getCurrentExchange() << getCurrentSegment() << instrument;
+        
+        // Get exchange segment code
+        int exchangeSegment = getCurrentExchangeSegmentCode();
+        
+        // Call XTS API to get instruments
+        m_xtsClient->getInstruments(exchangeSegment,
+            [this, instrument](bool success, const QVector<XTS::Instrument> &instruments, const QString &error) {
+                if (success) {
+                    qDebug() << "[ScripBar] Received" << instruments.size() << "instruments from XTS";
+                    
+                    // Filter by instrument type and extract unique symbols
+                    QStringList symbols;
+                    for (const auto &inst : instruments) {
+                        // Basic filtering - you may need to adjust based on your needs
+                        if (!symbols.contains(inst.instrumentName)) {
+                            symbols.append(inst.instrumentName);
+                        }
+                    }
+                    
+                    qDebug() << "[ScripBar] Filtered to" << symbols.size() << "unique symbols";
+                    m_symbolCombo->addItems(symbols);
+                    
+                    if (m_symbolCombo->count() > 0) {
+                        onSymbolChanged(m_symbolCombo->currentText());
+                    }
+                } else {
+                    qWarning() << "[ScripBar] Failed to get instruments:" << error;
+                    m_symbolCombo->addItem("Error loading instruments");
+                }
+            }
+        );
+    } else {
+        qWarning() << "[ScripBar] XTS client not available or not logged in";
+        m_symbolCombo->addItem("Please login first");
     }
 }
 
 void ScripBar::populateExpiries(const QString &symbol)
 {
-    Q_UNUSED(symbol)
     m_expiryCombo->clearItems();
     
-    // Demo data - in production, fetch from XTS based on symbol
-    QStringList expiries = {
-        "19-Dec-2024", "26-Dec-2024", "02-Jan-2025", "09-Jan-2025",
-        "16-Jan-2025", "23-Jan-2025", "30-Jan-2025", "06-Feb-2025",
-        "13-Feb-2025", "27-Feb-2025"
-    };
+    // TODO: Parse expiry dates from instrument cache based on symbol
+    // For now, check if we have cached instruments with this symbol
+    QStringList expiries;
+    for (const auto &inst : m_instrumentCache) {
+        if (inst.symbol == symbol && !inst.expiryDate.isEmpty()) {
+            if (!expiries.contains(inst.expiryDate)) {
+                expiries.append(inst.expiryDate);
+            }
+        }
+    }
+    
+    if (expiries.isEmpty()) {
+        // For equity or if no expiry data, add N/A
+        expiries << "N/A";
+    }
+    
     m_expiryCombo->addItems(expiries);
     
     if (m_expiryCombo->count() > 0) {
@@ -232,15 +250,26 @@ void ScripBar::populateExpiries(const QString &symbol)
 
 void ScripBar::populateStrikes(const QString &expiry)
 {
-    Q_UNUSED(expiry)
     m_strikeCombo->clearItems();
     
-    // Demo data - in production, fetch from XTS based on symbol + expiry
-    QStringList strikes = {
-        "17000", "17500", "18000", "18500", "19000", "19500",
-        "20000", "20500", "21000", "21500", "22000", "22500",
-        "23000", "23500", "24000", "24500", "25000"
-    };
+    // TODO: Parse strike prices from instrument cache based on symbol + expiry
+    QString currentSymbol = m_symbolCombo->currentText();
+    QStringList strikes;
+    
+    for (const auto &inst : m_instrumentCache) {
+        if (inst.symbol == currentSymbol && inst.expiryDate == expiry && inst.strikePrice > 0) {
+            QString strikeStr = QString::number(inst.strikePrice, 'f', 2);
+            if (!strikes.contains(strikeStr)) {
+                strikes.append(strikeStr);
+            }
+        }
+    }
+    
+    if (strikes.isEmpty()) {
+        // For equity/futures or if no strike data, add N/A
+        strikes << "N/A";
+    }
+    
     m_strikeCombo->addItems(strikes);
     
     if (m_strikeCombo->count() > 0) {

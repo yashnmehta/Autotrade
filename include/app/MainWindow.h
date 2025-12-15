@@ -11,6 +11,8 @@ class ScripBar;
 class QLabel;
 class InfoBar;
 class QDockWidget;
+class XTSMarketDataClient;
+class XTSInteractiveClient;
 
 /**
  * @brief Trading Terminal Main Window
@@ -28,6 +30,9 @@ public:
     ~MainWindow();
 
     CustomMDIArea *mdiArea() const { return m_mdiArea; }
+    
+    // XTS API clients
+    void setXTSClients(XTSMarketDataClient *mdClient, XTSInteractiveClient *iaClient);
 
 private slots:
     // Window actions
@@ -68,6 +73,10 @@ private:
     QAction *m_infoBarAction;
     ScripBar *m_scripBar;
     QToolBar *m_scripToolBar;
+    
+    // XTS API clients
+    XTSMarketDataClient *m_xtsMarketDataClient;
+    XTSInteractiveClient *m_xtsInteractiveClient;
 };
 
 #endif // MAINWINDOW_H
