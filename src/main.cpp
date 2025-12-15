@@ -136,12 +136,17 @@ int main(int argc, char *argv[])
                             baseURL = "https://ttblaze.iifl.com";
                         }
                         
+                        // Market Data API needs /apimarketdata suffix
+                        QString mdBaseURL = baseURL + "/apimarketdata";
+                        // Interactive API uses base URL directly
+                        QString iaBaseURL = baseURL;
+                        
                         // Execute login flow
                         loginService->executeLogin(
                             mdAppKey, mdSecretKey,
                             iaAppKey, iaSecretKey,
                             loginID, downloadMasters,
-                            baseURL
+                            baseURL  // Will be split into MD and IA URLs in service
                         );
                     });
                     

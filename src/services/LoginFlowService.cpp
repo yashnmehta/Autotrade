@@ -47,9 +47,14 @@ void LoginFlowService::executeLogin(
 {
     updateStatus("init", "Starting login process...", 0);
 
-    // Create API clients
-    m_mdClient = new XTSMarketDataClient(baseURL, mdAppKey, mdSecretKey, this);
-    m_iaClient = new XTSInteractiveClient(baseURL, iaAppKey, iaSecretKey, "WEBAPI", this);
+    // Create API clients with correct base URLs
+    // Market Data API needs /apimarketdata suffix
+    QString mdBaseURL = baseURL + "/apimarketdata";
+    // Interactive API uses base URL directly
+    QString iaBaseURL = baseURL;
+    
+    m_mdClient = new XTSMarketDataClient(mdBaseURL, mdAppKey, mdSecretKey, this);
+    m_iaClient = new XTSInteractiveClient(iaBaseURL, iaAppKey, iaSecretKey, "TWSAPI", this);
 
     // Phase 1: Market Data API Login
     updateStatus("md_login", "Connecting to Market Data API...", 10);

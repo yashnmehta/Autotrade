@@ -371,7 +371,7 @@ void XTSMarketDataClient::downloadMasterContracts(const QStringList &exchangeSeg
     QJsonDocument requestDoc(requestObj);
     QByteArray requestData = requestDoc.toJson();
 
-    QNetworkRequest request = createRequest("/marketdata/instruments/master");
+    QNetworkRequest request = createRequest("/instruments/master");
     
     QNetworkReply *reply = m_networkManager->post(request, requestData);
     
