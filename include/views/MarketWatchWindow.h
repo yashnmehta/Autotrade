@@ -1,13 +1,11 @@
 #ifndef MARKETWATCHWINDOW_H
 #define MARKETWATCHWINDOW_H
 
-#include <QWidget>
-#include <QTableView>
+#include "core/widgets/CustomMarketWatch.h"
 #include <QVBoxLayout>
 #include <QMenu>
 #include <QMessageBox>
 #include <QTimer>
-#include <QSortFilterProxyModel>
 
 class MarketWatchModel;
 class TokenAddressBook;
@@ -15,8 +13,10 @@ class TokenAddressBook;
 /**
  * @brief Professional Market Watch window with real-time updates
  * 
+ * Inherits from CustomMarketWatch for table view behavior.
+ * Adds market data management and scrip subscription logic.
+ * 
  * Features:
- * - QTableView with custom model for efficient updates
  * - Token-based duplicate prevention
  * - Blank row separators for organization
  * - Context menu with trading actions
@@ -24,7 +24,7 @@ class TokenAddressBook;
  * - Auto-subscription management
  * - Fast O(1) price updates
  */
-class MarketWatchWindow : public QWidget
+class MarketWatchWindow : public CustomMarketWatch
 {
     Q_OBJECT
 
@@ -166,14 +166,24 @@ signals:
 
 protected:
     /**
-     * @brief Handle keyboard events
+     * @brief Handle keyboard events (Delete key)
      */
     void keyPressEvent(QKeyEvent *event) override;
     
     /**
-     * @brief Handle mouse press for drag initiation
+     * @brief Override to provide token for drag-and-drop
      */
-    bool eventFilter(QObject *obj, QEvent *event) override;
+    int getTokenForRow(int sourceRow) const override;
+    
+    /**
+     * @brief Override to check if row is blank
+     */
+    bool isBlankRow(int sourceRow) const override;
+    
+    /**
+     * @brief Override to handle row moves
+     */
+    void performRowMoveByTokens(const QList<int> &tokens, int targetSourceRow) override;
 
 private slots:
     void showContextMenu(const QPoint &pos);
@@ -185,38 +195,10 @@ private:
     void setupUI();
     void setupConnections();
     void setupKeyboardShortcuts();
-    void highlightRow(int row);
-    
-    // Helper methods for proxy model index mapping
-    int mapToSource(int proxyRow) const;
-    int mapToProxy(int sourceRow) const;
-    
-    // Drag & drop helpers
-    void startRowDrag(const QPoint &pos);
-    int getDropRow(const QPoint &pos) const;
-    void performRowMove(const QList<int> &sourceRows, int targetRow);  // DEPRECATED: use token-based version
-    void performRowMoveByTokens(const QList<int> &tokens, int targetSourceRow);  // NEW: token-based drag
-    
-    // UI Components
-    QVBoxLayout *m_layout;
-    QTableView *m_tableView;
     
     // Data Components
     MarketWatchModel *m_model;
-    QSortFilterProxyModel *m_proxyModel;
     TokenAddressBook *m_tokenAddressBook;
-    
-    // UI State
-    QTimer *m_highlightTimer;
-    
-    // Drag & drop state
-    QPoint m_dragStartPos;
-    bool m_isDragging;
-    QList<int> m_draggedRows;  // DEPRECATED: kept for compatibility, use m_draggedTokens
-    QList<int> m_draggedTokens;  // Stable token IDs of scrips being dragged
-    
-    // Selection state
-    int m_selectionAnchor;  // Anchor row for Shift-selection (proxy row)
 };
 
 #endif // MARKETWATCHWINDOW_H

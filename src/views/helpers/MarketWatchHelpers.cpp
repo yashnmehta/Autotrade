@@ -1,0 +1,117 @@
+#include "views/helpers/MarketWatchHelpers.h"
+#include "models/MarketWatchModel.h"  // For ScripData struct
+#include <QDebug>
+
+bool MarketWatchHelpers::parseScripFromTSV(const QString &line, ScripData &scrip)
+{
+    QStringList fields = line.split('\t');
+    
+    // Need at least Symbol, Exchange, Token
+    if (fields.size() < 3) {
+        return false;
+    }
+    
+    QString symbol = fields.at(0).trimmed();
+    QString exchange = fields.at(1).trimmed();
+    bool ok;
+    int token = fields.at(2).toInt(&ok);
+    
+    // Validate basic fields
+    if (symbol.isEmpty() || symbol.startsWith("─") || !ok || token <= 0) {
+        return false;
+    }
+    
+    // Populate basic fields
+    scrip.symbol = symbol;
+    scrip.exchange = exchange;
+    scrip.token = token;
+    scrip.isBlankRow = false;
+    
+    // Parse optional price data (fields 3-11)
+    if (fields.size() >= 7) {
+        scrip.ltp = fields.at(3).toDouble();
+        scrip.change = fields.at(4).toDouble();
+        scrip.changePercent = fields.at(5).toDouble();
+        scrip.volume = fields.at(6).toLongLong();
+    } else {
+        scrip.ltp = 0.0;
+        scrip.change = 0.0;
+        scrip.changePercent = 0.0;
+        scrip.volume = 0;
+    }
+    
+    if (fields.size() >= 11) {
+        scrip.bid = fields.at(7).toDouble();
+        scrip.ask = fields.at(8).toDouble();
+        scrip.high = fields.at(9).toDouble();
+        scrip.low = fields.at(10).toDouble();
+    } else {
+        scrip.bid = 0.0;
+        scrip.ask = 0.0;
+        scrip.high = 0.0;
+        scrip.low = 0.0;
+    }
+    
+    if (fields.size() >= 12) {
+        scrip.open = fields.at(11).toDouble();
+    } else {
+        scrip.open = 0.0;
+    }
+    
+    scrip.openInterest = 0;  // Not in clipboard format
+    
+    qDebug() << "[MarketWatchHelpers] Parsed scrip:" << symbol << "token:" << token;
+    return true;
+}
+
+QString MarketWatchHelpers::formatScripToTSV(const ScripData &scrip)
+{
+    // Format: Symbol\tExchange\tToken\tLTP\tChange\t%Change\tVolume\tBid\tAsk\tHigh\tLow\tOpen
+    return QString("%1\t%2\t%3\t%4\t%5\t%6\t%7\t%8\t%9\t%10\t%11\t%12")
+            .arg(scrip.symbol)
+            .arg(scrip.exchange)
+            .arg(scrip.token)
+            .arg(scrip.ltp, 0, 'f', 2)
+            .arg(scrip.change, 0, 'f', 2)
+            .arg(scrip.changePercent, 0, 'f', 2)
+            .arg(scrip.volume)
+            .arg(scrip.bid, 0, 'f', 2)
+            .arg(scrip.ask, 0, 'f', 2)
+            .arg(scrip.high, 0, 'f', 2)
+            .arg(scrip.low, 0, 'f', 2)
+            .arg(scrip.open, 0, 'f', 2);
+}
+
+bool MarketWatchHelpers::isValidScrip(const ScripData &scrip)
+{
+    return !scrip.symbol.isEmpty() 
+           && !scrip.exchange.isEmpty() 
+           && scrip.token > 0
+           && !scrip.isBlankRow;
+}
+
+bool MarketWatchHelpers::isBlankLine(const QString &line)
+{
+    QString trimmed = line.trimmed();
+    
+    // Check for empty or separator patterns
+    if (trimmed.isEmpty() || trimmed.startsWith("─") || trimmed.startsWith("--")) {
+        return true;
+    }
+    
+    return false;
+}
+
+int MarketWatchHelpers::extractToken(const QString &line)
+{
+    QStringList fields = line.split('\t');
+    
+    if (fields.size() < 3) {
+        return -1;
+    }
+    
+    bool ok;
+    int token = fields.at(2).toInt(&ok);
+    
+    return ok ? token : -1;
+}

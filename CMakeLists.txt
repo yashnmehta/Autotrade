@@ -135,6 +135,32 @@ set(REPOSITORY_HEADERS
 )
 
 # ========================================
+# UTILITIES LAYER - Helper Functions
+# ✅ Reusable utilities
+# ========================================
+set(UTILS_SOURCES
+    src/utils/ClipboardHelpers.cpp
+    src/utils/SelectionHelpers.cpp
+)
+
+set(UTILS_HEADERS
+    include/utils/ClipboardHelpers.h
+    include/utils/SelectionHelpers.h
+)
+
+# ========================================
+# VIEW HELPERS - View-specific utilities
+# ✅ Domain-specific helper functions
+# ========================================
+set(VIEW_HELPER_SOURCES
+    src/views/helpers/MarketWatchHelpers.cpp
+)
+
+set(VIEW_HELPER_HEADERS
+    include/views/helpers/MarketWatchHelpers.h
+)
+
+# ========================================
 # COMBINE ALL SOURCES
 # ========================================
 set(SOURCES
@@ -144,6 +170,8 @@ set(SOURCES
     ${MODEL_SOURCES}
     ${SERVICE_SOURCES}
     ${REPOSITORY_SOURCES}
+    ${UTILS_SOURCES}
+    ${VIEW_HELPER_SOURCES}
 )
 
 set(HEADERS
@@ -151,6 +179,8 @@ set(HEADERS
     ${APP_HEADERS}
     ${VIEW_HEADERS}
     ${MODEL_HEADERS}
+    ${UTILS_HEADERS}
+    ${VIEW_HELPER_HEADERS}
     ${SERVICE_HEADERS}
     ${REPOSITORY_HEADERS}
 )
