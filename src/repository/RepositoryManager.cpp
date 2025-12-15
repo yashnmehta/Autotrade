@@ -427,11 +427,14 @@ bool RepositoryManager::isLoaded() const {
 QString RepositoryManager::getSegmentKey(const QString& exchange, const QString& segment) {
     QString key = exchange.toUpper() + segment.toUpper();
     
-    // Normalize segment names
+    // Normalize segment names (E=Equity/CM, F=F&O, O=Currency/CD)
     if (key == "NSECM" || key == "NSEE") return "NSECM";
-    if (key == "NSEFO" || key == "NSEF" || key == "NSEO") return "NSEFO";
+    if (key == "NSEFO" || key == "NSEF") return "NSEFO";
+    if (key == "NSEO") return "NSEFO";  // Currency derivatives mapped to FO for now
     if (key == "BSECM" || key == "BSEE") return "BSECM";
-    if (key == "BSEFO" || key == "BSEF" || key == "BSEO") return "BSEFO";
+    if (key == "BSEFO" || key == "BSEF") return "BSEFO";
+    if (key == "BSEO") return "BSEFO";
+    if (key == "MCXF") return "MCXFO";
     
     return key;
 }
@@ -440,10 +443,11 @@ int RepositoryManager::getExchangeSegmentID(const QString& exchange, const QStri
     QString segmentKey = getSegmentKey(exchange, segment);
     
     // XTS API exchange segment IDs
-    if (segmentKey == "NSECM") return 1;
-    if (segmentKey == "NSEFO") return 2;
-    if (segmentKey == "BSECM") return 11;
-    if (segmentKey == "BSEFO") return 12;
+    // E = Equity/CM, F = F&O, O = Currency/CD
+    if (segmentKey == "NSECM") return 1;  // NSE Cash Market (E)
+    if (segmentKey == "NSEFO") return 2;  // NSE F&O (F)
+    if (segmentKey == "BSECM") return 11; // BSE Cash Market (E)
+    if (segmentKey == "BSEFO") return 12; // BSE F&O (F)
     
     return -1;
 }

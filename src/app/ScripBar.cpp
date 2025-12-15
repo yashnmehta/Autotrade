@@ -139,13 +139,13 @@ void ScripBar::populateSegments(const QString &exchange)
     m_segmentCombo->clearItems();
     QStringList segs;
     if (exchange == "NSE")
-        segs << "CM" << "FO" << "CD";
+        segs << "E" << "F" << "O";  // E=Equity/CM, F=F&O, O=Currency/CD
     else if (exchange == "BSE")
-        segs << "CM" << "FO";
+        segs << "E" << "F";
     else if (exchange == "MCX")
-        segs << "FO";
+        segs << "F";
     else
-        segs << "CM";
+        segs << "E";
 
     m_segmentCombo->addItems(segs);
 
@@ -161,11 +161,11 @@ void ScripBar::populateInstruments(const QString &segment)
 {
     m_instrumentCombo->clearItems();
     QStringList instruments;
-    if (segment == "CM")
+    if (segment == "E")
         instruments << "EQUITY";
-    else if (segment == "FO")
+    else if (segment == "F")
         instruments << "FUTIDX" << "FUTSTK" << "OPTIDX" << "OPTSTK";
-    else if (segment == "CD")
+    else if (segment == "O")
         instruments << "FUTCUR" << "OPTCUR";
     else
         instruments << "EQUITY";

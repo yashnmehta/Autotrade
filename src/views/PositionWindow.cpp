@@ -71,7 +71,7 @@ void PositionWindow::setupFilterBar()
     QLabel* lblSegment = new QLabel("Mkt Segment:", this);
     m_cbSegment = new QComboBox(this);
     m_cbSegment->addItem("(ALL)");
-    m_cbSegment->addItems({"CM", "FO", "CD"});
+    m_cbSegment->addItems({"E", "F", "O"});
     m_cbSegment->setMinimumWidth(80);
     connect(m_cbSegment, QOverload<int>::of(&QComboBox::currentIndexChanged), 
             this, &PositionWindow::onFilterChanged);

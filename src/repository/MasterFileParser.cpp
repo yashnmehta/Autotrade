@@ -128,7 +128,7 @@ bool MasterFileParser::parseNSEFO(const QStringList& fields, MasterContract& con
     contract.multiplier = fields[13].toInt();
     contract.assetToken = fields[14].toLongLong();
     // field[15] = UnderlyingInstrumentID (not stored)
-    contract.expiryDate = fields[16];  // ISO format YYYYMMDD
+    contract.expiryDate = fields[16].trimmed();  // ISO format YYYYMMDD
     contract.strikePrice = fields[17].toDouble();
     contract.optionType = fields[18].toInt();
     
@@ -145,19 +145,37 @@ bool MasterFileParser::parseNSEFO(const QStringList& fields, MasterContract& con
         contract.priceDenominator = fields[22].toInt();
     }
     
-    // Convert expiry date from YYYYMMDD to DDMMMYYYY format
-    // Example: "20241226" -> "26DEC2024"
-    if (contract.expiryDate.length() == 8) {
-        QString year = contract.expiryDate.mid(0, 4);
-        QString month = contract.expiryDate.mid(4, 2);
-        QString day = contract.expiryDate.mid(6, 2);
+    // Convert expiry date to DDMMMYYYY format
+    // Handles both YYYYMMDD ("20241226") and ISO ("2024-12-26T14:30:00") formats
+    if (!contract.expiryDate.isEmpty()) {
+        QString year, month, day;
         
-        // Convert month number to abbreviation
-        QStringList months = {"", "JAN", "FEB", "MAR", "APR", "MAY", "JUN",
-                             "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"};
-        int monthNum = month.toInt();
-        if (monthNum >= 1 && monthNum <= 12) {
-            contract.expiryDate = day + months[monthNum] + year;
+        if (contract.expiryDate.contains('T')) {
+            // ISO datetime format: 2024-12-26T14:30:00
+            QStringList parts = contract.expiryDate.split('T');
+            if (!parts.isEmpty()) {
+                QStringList dateParts = parts[0].split('-');
+                if (dateParts.size() == 3) {
+                    year = dateParts[0];
+                    month = dateParts[1];
+                    day = dateParts[2];
+                }
+            }
+        } else if (contract.expiryDate.length() == 8 && contract.expiryDate.at(0).isDigit()) {
+            // YYYYMMDD format: 20241226
+            year = contract.expiryDate.mid(0, 4);
+            month = contract.expiryDate.mid(4, 2);
+            day = contract.expiryDate.mid(6, 2);
+        }
+        
+        // Convert to DDMMMYYYY
+        if (!year.isEmpty() && !month.isEmpty() && !day.isEmpty()) {
+            QStringList months = {"", "JAN", "FEB", "MAR", "APR", "MAY", "JUN",
+                                 "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"};
+            int monthNum = month.toInt();
+            if (monthNum >= 1 && monthNum <= 12) {
+                contract.expiryDate = day + months[monthNum] + year;
+            }
         }
     }
     
@@ -268,7 +286,7 @@ bool MasterFileParser::parseBSEFO(const QStringList& fields, MasterContract& con
     contract.multiplier = fields[13].toInt();
     contract.assetToken = fields[14].toLongLong();
     // field[15] = UnderlyingInstrumentID (not stored)
-    contract.expiryDate = fields[16];  // ISO format YYYYMMDD
+    contract.expiryDate = fields[16].trimmed();  // ISO format YYYYMMDD
     contract.strikePrice = fields[17].toDouble();
     contract.optionType = fields[18].toInt();
     
@@ -279,17 +297,37 @@ bool MasterFileParser::parseBSEFO(const QStringList& fields, MasterContract& con
         contract.isin = fields[20];
     }
     
-    // Convert expiry date from YYYYMMDD to DDMMMYYYY format
-    if (contract.expiryDate.length() == 8) {
-        QString year = contract.expiryDate.mid(0, 4);
-        QString month = contract.expiryDate.mid(4, 2);
-        QString day = contract.expiryDate.mid(6, 2);
+    // Convert expiry date to DDMMMYYYY format
+    // Handles both YYYYMMDD ("20241226") and ISO ("2024-12-26T14:30:00") formats
+    if (!contract.expiryDate.isEmpty()) {
+        QString year, month, day;
         
-        QStringList months = {"", "JAN", "FEB", "MAR", "APR", "MAY", "JUN",
-                             "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"};
-        int monthNum = month.toInt();
-        if (monthNum >= 1 && monthNum <= 12) {
-            contract.expiryDate = day + months[monthNum] + year;
+        if (contract.expiryDate.contains('T')) {
+            // ISO datetime format: 2024-12-26T14:30:00
+            QStringList parts = contract.expiryDate.split('T');
+            if (!parts.isEmpty()) {
+                QStringList dateParts = parts[0].split('-');
+                if (dateParts.size() == 3) {
+                    year = dateParts[0];
+                    month = dateParts[1];
+                    day = dateParts[2];
+                }
+            }
+        } else if (contract.expiryDate.length() == 8 && contract.expiryDate.at(0).isDigit()) {
+            // YYYYMMDD format: 20241226
+            year = contract.expiryDate.mid(0, 4);
+            month = contract.expiryDate.mid(4, 2);
+            day = contract.expiryDate.mid(6, 2);
+        }
+        
+        // Convert to DDMMMYYYY
+        if (!year.isEmpty() && !month.isEmpty() && !day.isEmpty()) {
+            QStringList months = {"", "JAN", "FEB", "MAR", "APR", "MAY", "JUN",
+                                 "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"};
+            int monthNum = month.toInt();
+            if (monthNum >= 1 && monthNum <= 12) {
+                contract.expiryDate = day + months[monthNum] + year;
+            }
         }
     }
     

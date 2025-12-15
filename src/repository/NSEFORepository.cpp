@@ -165,6 +165,20 @@ bool NSEFORepository::loadMasterFile(const QString& filename) {
              << "Spread:" << m_spreadCount
              << "Total:" << getTotalCount();
     
+    // Debug: Show first 5 valid contracts to verify expiry date format
+    qDebug() << "[NSE FO] First 5 contracts with expiry dates:";
+    int shown = 0;
+    for (int32_t idx = 0; idx < ARRAY_SIZE && shown < 5; ++idx) {
+        if (m_valid[idx] && !m_expiryDate[idx].isEmpty()) {
+            qDebug() << "  Token:" << (MIN_TOKEN + idx)
+                     << "Symbol:" << m_name[idx]
+                     << "Expiry:" << m_expiryDate[idx]
+                     << "Strike:" << m_strikePrice[idx]
+                     << "Type:" << m_optionType[idx];
+            shown++;
+        }
+    }
+    
     return true;
 }
 
