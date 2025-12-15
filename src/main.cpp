@@ -8,6 +8,7 @@
 #include <QTimer>
 #include <QDebug>
 #include <QFile>
+#include <QFileInfo>
 
 int main(int argc, char *argv[])
 {
@@ -50,9 +51,10 @@ int main(int argc, char *argv[])
                     ConfigLoader *config = new ConfigLoader();
                     // Get application directory and construct config path
                     QString appDir = QCoreApplication::applicationDirPath();
-                    QString configPath = appDir + "/../../configs/config.ini"; // Go up from .app/Contents/MacOS
+                    // Go up from build/TradingTerminal.app/Contents/MacOS to project root
+                    QString configPath = appDir + "/../../../../../configs/config.ini";
                     
-                    qDebug() << "Looking for config at:" << configPath;
+                    qDebug() << "Looking for config at:" << QFileInfo(configPath).absoluteFilePath();
                     if (QFile::exists(configPath) && config->load(configPath)) {
                         qDebug() << "Loading credentials from config file";
                         loginWindow->setMarketDataAppKey(config->getMarketDataAppKey());
