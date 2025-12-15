@@ -263,3 +263,6 @@ if(APPLE)
         MACOSX_BUNDLE_INFO_STRING "Professional Trading Terminal"
     )
 endif()
+
+# Add tests subdirectory
+add_subdirectory(tests)
