@@ -4,6 +4,7 @@
 #include <QWidget>
 #include <QHBoxLayout>
 #include <QPushButton>
+#include <QLineEdit>
 #include <QMap>
 #include <QVector>
 #include "core/widgets/CustomScripComboBox.h"
@@ -82,12 +83,12 @@ private:
     CustomScripComboBox *m_exchangeCombo;
     CustomScripComboBox *m_segmentCombo;
     CustomScripComboBox *m_instrumentCombo;
-    CustomScripComboBox *m_bseScripCodeCombo;  // Only visible for BSE + E segment
+    QLineEdit *m_bseScripCodeEdit;  // Only visible for BSE + E segment
     CustomScripComboBox *m_symbolCombo;
     CustomScripComboBox *m_expiryCombo;
     CustomScripComboBox *m_strikeCombo;
     CustomScripComboBox *m_optionTypeCombo;
-    CustomScripComboBox *m_tokenCombo;  // Shows selected token
+    QLineEdit *m_tokenEdit;  // Shows selected token
 
     // Current selection state
     QString m_currentExchange;
