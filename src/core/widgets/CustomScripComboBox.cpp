@@ -7,7 +7,7 @@
 #include <algorithm>
 
 // Debug logging control
-#define DEBUG_COMBOBOX 1
+#define DEBUG_COMBOBOX 0
 
 #if DEBUG_COMBOBOX
 #define COMBO_DEBUG(msg) qDebug() << "[CustomScripComboBox]" << msg
@@ -127,7 +127,7 @@ void CustomScripComboBox::addItem(const QString &text, const QVariant &userData)
         return;
     }
     
-    COMBO_DEBUG("addItem:" << text);
+    // COMBO_DEBUG("addItem:" << text);
     m_allItems.append(text);
     
     QStandardItem *item = new QStandardItem(text);
@@ -140,8 +140,29 @@ void CustomScripComboBox::addItem(const QString &text, const QVariant &userData)
 void CustomScripComboBox::addItems(const QStringList &texts)
 {
     COMBO_DEBUG("addItems: count =" << texts.count());
+    
+    if (texts.isEmpty()) {
+        return;
+    }
+    
+    // Disable sorting temporarily for better performance
+    bool needsSort = false;
+    
+    // Bulk add items without sorting each time
     for (const QString &text : texts) {
-        addItem(text);
+        if (text.isEmpty() || m_allItems.contains(text)) {
+            continue;
+        }
+        
+        m_allItems.append(text);
+        QStandardItem *item = new QStandardItem(text);
+        m_sourceModel->appendRow(item);
+        needsSort = true;
+    }
+    
+    // Sort once after all items are added
+    if (needsSort) {
+        sortItems();
     }
 }
 
@@ -338,9 +359,11 @@ void CustomScripComboBox::sortItems()
 
 QDateTime CustomScripComboBox::parseDate(const QString &dateStr) const
 {
-    // Try common date formats used in trading
+    // Try common date formats used in trading (most common first)
     QStringList formats = {
+        "ddMMMMyyyy",   // 16DEC2025 (repository format - most common)
         "dd-MMM-yyyy",  // 26-Dec-2024
+        "ddMMMyyyy",    // 26DEC2024
         "dd-MM-yyyy",   // 26-12-2024
         "yyyy-MM-dd",   // 2024-12-26
         "dd/MM/yyyy",   // 26/12/2024

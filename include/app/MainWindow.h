@@ -2,6 +2,7 @@
 #define MAINWINDOW_H
 
 #include "core/widgets/CustomMainWindow.h"
+#include "api/XTSMarketDataClient.h"
 
 class CustomMDIArea;
 class QToolBar;
@@ -11,8 +12,8 @@ class ScripBar;
 class QLabel;
 class InfoBar;
 class QDockWidget;
-class XTSMarketDataClient;
 class XTSInteractiveClient;
+struct InstrumentData;
 
 /**
  * @brief Trading Terminal Main Window
@@ -33,6 +34,9 @@ public:
     
     // XTS API clients
     void setXTSClients(XTSMarketDataClient *mdClient, XTSInteractiveClient *iaClient);
+    
+    // ScripBar refresh
+    void refreshScripBar();
 
 private slots:
     // Window actions
@@ -41,11 +45,11 @@ private slots:
     void createSellWindow();
     void createSnapQuoteWindow();
     void createPositionWindow();
-    void onAddToWatchRequested(const QString &exchange, const QString &segment,
-                               const QString &instrument, const QString &symbol,
-                               const QString &expiry, const QString &strike,
-                               const QString &optionType);
+    void onAddToWatchRequested(const InstrumentData &instrument);
     void resetLayout();
+    
+    // Market data updates
+    void onTickReceived(const XTS::Tick &tick);
 
     // Workspace management
     void saveCurrentWorkspace();

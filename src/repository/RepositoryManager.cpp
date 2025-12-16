@@ -427,14 +427,18 @@ bool RepositoryManager::isLoaded() const {
 QString RepositoryManager::getSegmentKey(const QString& exchange, const QString& segment) {
     QString key = exchange.toUpper() + segment.toUpper();
     
-    // Normalize segment names (E=Equity/CM, F=F&O, O=Currency/CD)
+    // Normalize segment names per reference image mapping:
+    // NSE E=NSECM, NSE F/O=NSEFO
+    // NSECDS F/O=NSECD
+    // BSE E=BSECM, BSE F=BSEFO
+    // MCX F/O=MCXFO
+    
     if (key == "NSECM" || key == "NSEE") return "NSECM";
-    if (key == "NSEFO" || key == "NSEF") return "NSEFO";
-    if (key == "NSEO") return "NSEFO";  // Currency derivatives mapped to FO for now
+    if (key == "NSEFO" || key == "NSEF" || key == "NSEO") return "NSEFO";  // Both F and O map to NSEFO
+    if (key == "NSECDSF" || key == "NSECDSO") return "NSECD";  // NSECDS F and O map to NSECD
     if (key == "BSECM" || key == "BSEE") return "BSECM";
     if (key == "BSEFO" || key == "BSEF") return "BSEFO";
-    if (key == "BSEO") return "BSEFO";
-    if (key == "MCXF") return "MCXFO";
+    if (key == "MCXF" || key == "MCXO") return "MCXFO";  // Both F and O map to MCXFO
     
     return key;
 }

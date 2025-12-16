@@ -9,6 +9,8 @@
 #include <QDebug>
 #include <QFile>
 #include <QFileInfo>
+#include <QStandardPaths>
+#include <QDir>
 
 int main(int argc, char *argv[])
 {
@@ -49,13 +51,46 @@ int main(int argc, char *argv[])
                     
                     // Load credentials from config file
                     ConfigLoader *config = new ConfigLoader();
-                    // Get application directory and construct config path
+                    // Determine a list of candidate config locations that work
+                    // across development builds, Linux, and macOS application bundles.
                     QString appDir = QCoreApplication::applicationDirPath();
-                    // Go up from build/TradingTerminal.app/Contents/MacOS to project root
-                    QString configPath = appDir + "/../../../../../configs/config.ini";
-                    
-                    qDebug() << "Looking for config at:" << QFileInfo(configPath).absoluteFilePath();
-                    if (QFile::exists(configPath) && config->load(configPath)) {
+
+                    QStringList candidates;
+                    // 1) Standard application config location (per-platform)
+                    QString appConfigDir = QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation);
+                    if (!appConfigDir.isEmpty()) {
+                        candidates << QDir(appConfigDir).filePath("config.ini");
+                    }
+
+                    // 2) User-specific config in ~/.config/<AppName>/config.ini
+                    QString homeConfig = QDir::home().filePath(QString(".config/%1/config.ini").arg(QCoreApplication::applicationName().replace(' ', "")));
+                    candidates << homeConfig;
+
+                    // 3) Common developer/project locations relative to the binary
+                    // Keep the original project-relative fallback for dev builds
+                    candidates << QDir(appDir).filePath("../../../../../configs/config.ini");
+                    candidates << QDir(appDir).filePath("../configs/config.ini");
+                    candidates << QDir(appDir).filePath("configs/config.ini");
+
+                    // 4) macOS specific: inside app bundle Resources (if bundled)
+                    candidates << QDir(appDir).filePath("../Resources/config.ini");
+
+                    QString foundPath;
+                    for (const QString &cand : candidates) {
+                        QString abs = QFileInfo(cand).absoluteFilePath();
+                        qDebug() << "Checking config candidate:" << abs;
+                        if (QFile::exists(abs)) {
+                            qDebug() << "Found config at:" << abs;
+                            if (config->load(abs)) {
+                                foundPath = abs;
+                                break;
+                            } else {
+                                qWarning() << "Found config but failed to load:" << abs;
+                            }
+                        }
+                    }
+
+                    if (!foundPath.isEmpty()) {
                         qDebug() << "Loading credentials from config file";
                         loginWindow->setMarketDataAppKey(config->getMarketDataAppKey());
                         loginWindow->setMarketDataSecretKey(config->getMarketDataSecretKey());
@@ -100,6 +135,12 @@ int main(int argc, char *argv[])
                     // Use new with QApplication as parent to ensure proper lifecycle
                     MainWindow *mainWindow = new MainWindow(nullptr);
                     mainWindow->hide(); // Explicitly hide initially
+                    
+                    // Connect mastersLoaded signal to refresh ScripBar
+                    QObject::connect(loginService, &LoginFlowService::mastersLoaded, mainWindow, [mainWindow]() {
+                        qDebug() << "[Main] Masters loaded, refreshing ScripBar symbols...";
+                        mainWindow->refreshScripBar();
+                    });
                     
                     loginService->setCompleteCallback([loginWindow, mainWindow, loginService]() {
                         qDebug() << "✅ Login complete! Showing main window...";

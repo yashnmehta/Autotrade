@@ -273,9 +273,22 @@ void MarketWatchModel::updateVolume(int row, qint64 volume)
 void MarketWatchModel::updateBidAsk(int row, double bid, double ask)
 {
     if (row >= 0 && row < m_scrips.count() && !m_scrips.at(row).isBlankRow) {
-        m_scrips[row].bid = bid;
-        m_scrips[row].ask = ask;
-        emit dataChanged(index(row, COL_BID), index(row, COL_ASK));
+        ScripData &scrip = m_scrips[row];
+        scrip.bid = bid;
+        scrip.ask = ask;
+        scrip.buyPrice = bid;   // Buy Price = Bid
+        scrip.sellPrice = ask;  // Sell Price = Ask
+        
+        // Notify all affected columns
+        QList<MarketWatchColumn> visibleCols = m_columnProfile.visibleColumns();
+        for (const MarketWatchColumn &col : visibleCols) {
+            if (col == MarketWatchColumn::BUY_PRICE || col == MarketWatchColumn::SELL_PRICE) {
+                int colIndex = m_columnProfile.visibleColumns().indexOf(col);
+                if (colIndex >= 0) {
+                    emit dataChanged(index(row, colIndex), index(row, colIndex));
+                }
+            }
+        }
     }
 }
 
@@ -293,6 +306,86 @@ void MarketWatchModel::updateOpenInterest(int row, qint64 oi)
     if (row >= 0 && row < m_scrips.count() && !m_scrips.at(row).isBlankRow) {
         m_scrips[row].openInterest = oi;
         emitCellChanged(row, COL_OPEN_INTEREST);
+    }
+}
+
+void MarketWatchModel::updateOHLC(int row, double open, double high, double low, double close)
+{
+    if (row >= 0 && row < m_scrips.count() && !m_scrips.at(row).isBlankRow) {
+        ScripData &scrip = m_scrips[row];
+        scrip.open = open;
+        scrip.high = high;
+        scrip.low = low;
+        scrip.close = close;
+        
+        // Emit data changed for OHLC columns
+        QList<MarketWatchColumn> visibleCols = m_columnProfile.visibleColumns();
+        int firstCol = -1, lastCol = -1;
+        
+        // Find the range of OHLC columns to update
+        for (int i = 0; i < visibleCols.size(); ++i) {
+            MarketWatchColumn col = visibleCols.at(i);
+            if (col == MarketWatchColumn::OPEN || col == MarketWatchColumn::HIGH ||
+                col == MarketWatchColumn::LOW || col == MarketWatchColumn::CLOSE) {
+                if (firstCol == -1) firstCol = i;
+                lastCol = i;
+            }
+        }
+        
+        if (firstCol != -1 && lastCol != -1) {
+            emit dataChanged(index(row, firstCol), index(row, lastCol));
+        }
+    }
+}
+
+void MarketWatchModel::updateBidAskQuantities(int row, int bidQty, int askQty)
+{
+    if (row >= 0 && row < m_scrips.count() && !m_scrips.at(row).isBlankRow) {
+        m_scrips[row].buyQty = bidQty;
+        m_scrips[row].sellQty = askQty;
+        
+        // Emit data changed for bid/ask quantity columns
+        QList<MarketWatchColumn> visibleCols = m_columnProfile.visibleColumns();
+        for (int i = 0; i < visibleCols.size(); ++i) {
+            if (visibleCols.at(i) == MarketWatchColumn::BUY_QTY || 
+                visibleCols.at(i) == MarketWatchColumn::SELL_QTY) {
+                emitCellChanged(row, i);
+            }
+        }
+    }
+}
+
+void MarketWatchModel::updateTotalBuySellQty(int row, int totalBuyQty, int totalSellQty)
+{
+    if (row >= 0 && row < m_scrips.count() && !m_scrips.at(row).isBlankRow) {
+        m_scrips[row].totalBuyQty = totalBuyQty;
+        m_scrips[row].totalSellQty = totalSellQty;
+        
+        // Emit data changed for total buy/sell quantity columns
+        QList<MarketWatchColumn> visibleCols = m_columnProfile.visibleColumns();
+        for (int i = 0; i < visibleCols.size(); ++i) {
+            if (visibleCols.at(i) == MarketWatchColumn::TOTAL_BUY_QTY || 
+                visibleCols.at(i) == MarketWatchColumn::TOTAL_SELL_QTY) {
+                emitCellChanged(row, i);
+            }
+        }
+    }
+}
+
+void MarketWatchModel::updateOpenInterestWithChange(int row, qint64 oi, double oiChangePercent)
+{
+    if (row >= 0 && row < m_scrips.count() && !m_scrips.at(row).isBlankRow) {
+        m_scrips[row].openInterest = oi;
+        m_scrips[row].oiChangePercent = oiChangePercent;
+        
+        // Emit data changed for OI columns
+        QList<MarketWatchColumn> visibleCols = m_columnProfile.visibleColumns();
+        for (int i = 0; i < visibleCols.size(); ++i) {
+            if (visibleCols.at(i) == MarketWatchColumn::OPEN_INTEREST || 
+                visibleCols.at(i) == MarketWatchColumn::OI_CHANGE_PERCENT) {
+                emitCellChanged(row, i);
+            }
+        }
     }
 }
 
@@ -428,12 +521,26 @@ QString MarketWatchModel::formatColumnData(const ScripData& scrip, MarketWatchCo
         case MarketWatchColumn::MARKET_TYPE:
         case MarketWatchColumn::EXCHANGE:
         case MarketWatchColumn::OPTION_TYPE:
-        case MarketWatchColumn::SERIES_EXPIRY:
         case MarketWatchColumn::ISIN_CODE:
         case MarketWatchColumn::DPR:
         case MarketWatchColumn::TREND_INDICATOR:
         case MarketWatchColumn::TRADE_EXECUTION_RANGE:
             return getColumnData(scrip, column).toString();
+            
+        case MarketWatchColumn::SERIES_EXPIRY: {
+            // For F&O instruments, show expiry date
+            // For equity, show series (EQ, BE, etc.)
+            QString seriesExpiry = getColumnData(scrip, column).toString();
+            if (seriesExpiry.isEmpty() || seriesExpiry == "N/A") return "-";
+            
+            // Check if it's F&O instrument (has expiry date format like "26DEC2024")
+            if (scrip.instrumentType.contains("FUT") || scrip.instrumentType.contains("OPT")) {
+                return seriesExpiry;  // Show expiry for F&O
+            } else {
+                // For equity, extract series part only (before any date)
+                return seriesExpiry.left(2);  // "EQ", "BE", etc.
+            }
+        }
             
         case MarketWatchColumn::STRIKE_PRICE:
         case MarketWatchColumn::LAST_TRADED_PRICE:

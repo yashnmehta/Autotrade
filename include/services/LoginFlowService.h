@@ -39,6 +39,7 @@ signals:
     void statusUpdate(const QString &phase, const QString &message, int progress);
     void errorOccurred(const QString &phase, const QString &error);
     void loginComplete();
+    void mastersLoaded();
 
 private:
     void updateStatus(const QString &phase, const QString &message, int progress);

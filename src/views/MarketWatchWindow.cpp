@@ -311,6 +311,42 @@ void MarketWatchWindow::updateBidAsk(int token, double bid, double ask)
     }
 }
 
+void MarketWatchWindow::updateOHLC(int token, double open, double high, double low, double close)
+{
+    QList<int> rows = m_tokenAddressBook->getRowsForToken(token);
+    
+    for (int row : rows) {
+        m_model->updateOHLC(row, open, high, low, close);
+    }
+}
+
+void MarketWatchWindow::updateBidAskQuantities(int token, int bidQty, int askQty)
+{
+    QList<int> rows = m_tokenAddressBook->getRowsForToken(token);
+    
+    for (int row : rows) {
+        m_model->updateBidAskQuantities(row, bidQty, askQty);
+    }
+}
+
+void MarketWatchWindow::updateTotalBuySellQty(int token, int totalBuyQty, int totalSellQty)
+{
+    QList<int> rows = m_tokenAddressBook->getRowsForToken(token);
+    
+    for (int row : rows) {
+        m_model->updateTotalBuySellQty(row, totalBuyQty, totalSellQty);
+    }
+}
+
+void MarketWatchWindow::updateOpenInterest(int token, qint64 oi, double oiChangePercent)
+{
+    QList<int> rows = m_tokenAddressBook->getRowsForToken(token);
+    
+    for (int row : rows) {
+        m_model->updateOpenInterestWithChange(row, oi, oiChangePercent);
+    }
+}
+
 void MarketWatchWindow::deleteSelectedRows()
 {
     QModelIndexList selected = this->selectionModel()->selectedRows();

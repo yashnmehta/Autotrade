@@ -136,11 +136,13 @@ set(MODEL_HEADERS
 set(SERVICE_SOURCES
     src/services/TokenSubscriptionManager.cpp
     src/services/LoginFlowService.cpp
+    src/services/PriceCache.cpp
 )
 
 set(SERVICE_HEADERS
     include/services/TokenSubscriptionManager.h
     include/services/LoginFlowService.h
+    include/services/PriceCache.h
 )
 
 # ========================================
@@ -279,3 +281,8 @@ endif()
 
 # Add tests subdirectory
 add_subdirectory(tests)
+
+# XTS API Test Program
+add_executable(test_xts_api test_xts_api.cpp)
+target_link_libraries(test_xts_api Qt5::Core Qt5::Network)
+set_target_properties(test_xts_api PROPERTIES AUTOMOC ON)

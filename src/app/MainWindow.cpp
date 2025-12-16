@@ -12,6 +12,7 @@
 #include "repository/Greeks.h"
 #include "api/XTSMarketDataClient.h"
 #include "api/XTSInteractiveClient.h"
+#include "services/PriceCache.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -63,10 +64,25 @@ void MainWindow::setXTSClients(XTSMarketDataClient *mdClient, XTSInteractiveClie
     m_xtsMarketDataClient = mdClient;
     m_xtsInteractiveClient = iaClient;
     
+    // Connect to market data tick updates
+    if (m_xtsMarketDataClient) {
+        connect(m_xtsMarketDataClient, &XTSMarketDataClient::tickReceived, 
+                this, &MainWindow::onTickReceived);
+        qDebug() << "[MainWindow] Connected to XTS tickReceived signal";
+    }
+    
     // Pass to ScripBar if it exists
     if (m_scripBar && m_xtsMarketDataClient) {
         m_scripBar->setXTSClient(m_xtsMarketDataClient);
         qDebug() << "[MainWindow] XTS clients set and passed to ScripBar";
+    }
+}
+
+void MainWindow::refreshScripBar()
+{
+    if (m_scripBar) {
+        m_scripBar->refreshSymbols();
+        qDebug() << "[MainWindow] ScripBar symbols refreshed after masters loaded";
     }
 }
 
@@ -754,12 +770,9 @@ void MainWindow::createPositionWindow()
     qDebug() << "[MainWindow] Position Window created";
 }
 
-void MainWindow::onAddToWatchRequested(const QString &exchange, const QString &segment,
-                                       const QString &instrument, const QString &symbol,
-                                       const QString &expiry, const QString &strike,
-                                       const QString &optionType)
+void MainWindow::onAddToWatchRequested(const InstrumentData &instrument)
 {
-    qDebug() << "Adding to watch:" << symbol << "from" << exchange << segment << instrument;
+    qDebug() << "Adding to watch:" << instrument.symbol << "token:" << instrument.exchangeInstrumentID;
 
     // Find active market watch window
     CustomMDISubWindow *activeWindow = m_mdiArea->activeWindow();
@@ -795,25 +808,105 @@ void MainWindow::onAddToWatchRequested(const QString &exchange, const QString &s
     }
     
     if (marketWatch) {
-        // Build exchange segment identifier (e.g., "NSEFO", "NSECM")
-        QString exchangeSegment = exchange;
-        if (segment == "F") {
-            exchangeSegment += "FO";  // NSE+F = NSEFO, BSE+F = BSEFO
-        } else if (segment == "E") {
-            exchangeSegment += "CM";  // NSE+E = NSECM, BSE+E = BSECM
-        } else if (segment == "O") {
-            exchangeSegment += "CD";  // Currency derivatives
+        // Map exchangeSegment code to exchange string
+        QString exchangeStr;
+        switch(instrument.exchangeSegment) {
+            case 1:  exchangeStr = "NSECM"; break;
+            case 2:  exchangeStr = "NSEFO"; break;
+            case 13: exchangeStr = "NSECD"; break;
+            case 11: exchangeStr = "BSECM"; break;
+            case 12: exchangeStr = "BSEFO"; break;
+            case 61: exchangeStr = "BSECD"; break;
+            case 51: exchangeStr = "MCXFO"; break;
+            default: exchangeStr = "NSEFO"; break;
         }
         
-        // TODO: Get real token from ScripMaster
-        // For now, use a mock token based on symbol hash
-        int mockToken = qHash(symbol + exchangeSegment) % 100000;
+        // Build complete ScripData with all fields from InstrumentData
+        ScripData scripData;
+        scripData.symbol = instrument.symbol;
+        scripData.scripName = instrument.name;
+        scripData.instrumentName = instrument.name;
+        scripData.instrumentType = instrument.instrumentType;  // FUTIDX, FUTSTK, OPTSTK, EQUITY, etc.
+        scripData.exchange = exchangeStr;
+        scripData.token = (int)instrument.exchangeInstrumentID;
+        scripData.code = (int)instrument.exchangeInstrumentID;
         
-        bool added = marketWatch->addScrip(symbol, exchangeSegment, mockToken);
+        // Series (from instrument series field)
+        if (!instrument.series.isEmpty()) {
+            scripData.seriesExpiry = instrument.series;
+        }
+        
+        // Expiry date
+        if (!instrument.expiryDate.isEmpty() && instrument.expiryDate != "N/A") {
+            scripData.seriesExpiry = instrument.expiryDate;
+        }
+        
+        // Strike price
+        if (instrument.strikePrice > 0) {
+            scripData.strikePrice = instrument.strikePrice;
+        }
+        
+        // Option type (CE/PE)
+        if (!instrument.optionType.isEmpty() && instrument.optionType != "N/A") {
+            scripData.optionType = instrument.optionType;
+        }
+        
+        // BSE scrip code (if BSE)
+        if (!instrument.scripCode.isEmpty()) {
+            scripData.isinCode = instrument.scripCode;  // Store BSE code in isinCode field
+        }
+        
+        // Initialize price fields to zero (will be updated by tick data and getQuote)
+        scripData.ltp = 0.0;
+        scripData.change = 0.0;
+        scripData.changePercent = 0.0;
+        scripData.isBlankRow = false;
+        
+        // Use addScripFromContract to pass all fields
+        bool added = marketWatch->addScripFromContract(scripData);
         if (added) {
-            qDebug() << "Successfully added" << symbol << "to market watch with token" << mockToken;
+            qDebug() << "Successfully added" << instrument.symbol << "to market watch with token" << instrument.exchangeInstrumentID;
+            
+            // Check if we have a cached price BEFORE subscribing
+            auto cachedPrice = PriceCache::instance()->getPrice(instrument.exchangeInstrumentID);
+            if (cachedPrice.has_value()) {
+                qDebug() << "📦 Applying cached price for token" << instrument.exchangeInstrumentID;
+                
+                // Calculate price change
+                double change = cachedPrice->lastTradedPrice - cachedPrice->close;
+                double changePercent = (cachedPrice->close != 0) ? (change / cachedPrice->close) * 100.0 : 0.0;
+                
+                // Update the market watch with cached price immediately
+                marketWatch->updatePrice(instrument.exchangeInstrumentID,
+                                       cachedPrice->lastTradedPrice,
+                                       change,
+                                       changePercent);
+                
+                qDebug() << "✅ Applied cached price - LTP:" << cachedPrice->lastTradedPrice 
+                        << "Change:" << change << "(" << changePercent << "%)";
+            } else {
+                qDebug() << "ℹ️ No cached price for token" << instrument.exchangeInstrumentID << "- will wait for subscription/WebSocket";
+            }
+            
+            // If XTS market data client is available, subscribe to get both initial snapshot and live updates
+            if (m_xtsMarketDataClient) {
+                int64_t instrumentID = instrument.exchangeInstrumentID;
+                
+                // Subscribe API returns initial snapshot (if not already subscribed) + enables live updates
+                // If token is already subscribed (e.g., in another market watch), we get success but no snapshot
+                // In that case, live updates via WebSocket will still work for this window
+                QVector<int64_t> ids;
+                ids.append(instrumentID);
+                m_xtsMarketDataClient->subscribe(ids, instrument.exchangeSegment, [instrumentID](bool ok, const QString &info){
+                    if (ok) {
+                        qDebug() << "[MainWindow] Subscribed instrument" << instrumentID << "- will receive live updates";
+                    } else {
+                        qWarning() << "[MainWindow] Failed to subscribe instrument" << instrumentID << ":" << info;
+                    }
+                });
+            }
         } else {
-            qDebug() << "Failed to add" << symbol << "to market watch (duplicate or invalid)";
+            qDebug() << "Failed to add" << instrument.symbol << "to market watch (duplicate or invalid)";
         }
     } else {
         qWarning() << "Failed to get MarketWatchWindow instance";
@@ -919,4 +1012,57 @@ void MainWindow::manageWorkspaces()
     connect(closeBtn, &QPushButton::clicked, &dialog, &QDialog::accept);
 
     dialog.exec();
+}
+
+void MainWindow::onTickReceived(const XTS::Tick &tick)
+{
+    // Update all market watch windows with this tick data
+    QList<CustomMDISubWindow*> windows = m_mdiArea->windowList();
+    for (CustomMDISubWindow *win : windows) {
+        if (win->windowType() == "MarketWatch") {
+            MarketWatchWindow *marketWatch = qobject_cast<MarketWatchWindow*>(win->contentWidget());
+            if (marketWatch) {
+                // Calculate change and change%
+                double change = tick.lastTradedPrice - tick.close;
+                double changePercent = (tick.close != 0) ? (change / tick.close) * 100.0 : 0.0;
+                
+                // Update price (LTP, change, change%)
+                marketWatch->updatePrice((int)tick.exchangeInstrumentID, 
+                                        tick.lastTradedPrice, 
+                                        change, 
+                                        changePercent);
+                
+                // Update OHLC data
+                marketWatch->updateOHLC((int)tick.exchangeInstrumentID,
+                                       tick.open,
+                                       tick.high,
+                                       tick.low,
+                                       tick.close);
+                
+                // Update volume
+                if (tick.volume > 0) {
+                    marketWatch->updateVolume((int)tick.exchangeInstrumentID, tick.volume);
+                }
+                
+                // Update bid/ask (market depth)
+                if (tick.bidPrice > 0 || tick.askPrice > 0) {
+                    marketWatch->updateBidAsk((int)tick.exchangeInstrumentID,
+                                             tick.bidPrice,
+                                             tick.askPrice);
+                    
+                    // Update bid/ask quantities
+                    marketWatch->updateBidAskQuantities((int)tick.exchangeInstrumentID,
+                                                       tick.bidQuantity,
+                                                       tick.askQuantity);
+                }
+                
+                // Update total buy/sell quantities
+                if (tick.totalBuyQuantity > 0 || tick.totalSellQuantity > 0) {
+                    marketWatch->updateTotalBuySellQty((int)tick.exchangeInstrumentID,
+                                                      tick.totalBuyQuantity,
+                                                      tick.totalSellQuantity);
+                }
+            }
+        }
+    }
 }

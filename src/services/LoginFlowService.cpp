@@ -105,6 +105,7 @@ void LoginFlowService::executeLogin(
                             RepositoryManager* repo = RepositoryManager::getInstance();
                             if (repo->loadAll(mastersDir)) {
                                 qDebug() << "[LoginFlow] RepositoryManager loaded successfully";
+                                emit mastersLoaded();
                             } else {
                                 qWarning() << "[LoginFlow] Failed to load RepositoryManager";
                             }

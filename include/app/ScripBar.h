@@ -34,12 +34,15 @@ public:
 
     // Set XTS client for instrument search
     void setXTSClient(XTSMarketDataClient *client);
+    
+    // Get currently selected instrument data
+    InstrumentData getCurrentInstrument() const;
+    
+    // Refresh symbols when repository loads
+    void refreshSymbols();
 
 signals:
-    void addToWatchRequested(const QString &exchange, const QString &segment,
-                             const QString &instrument, const QString &symbol,
-                             const QString &expiry, const QString &strike,
-                             const QString &optionType);
+    void addToWatchRequested(const InstrumentData &instrument);
 
 private slots:
     void onExchangeChanged(const QString &text);
@@ -67,6 +70,7 @@ private:
     QString getCurrentExchange() const;
     QString getCurrentSegment() const;
     int getCurrentExchangeSegmentCode() const;
+    QString mapInstrumentToSeries(const QString &instrument) const;
     
     // Async search from XTS (future implementation)
     void searchInstrumentsAsync(const QString &searchText);

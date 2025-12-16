@@ -175,6 +175,10 @@ public:
     void updateBidAsk(int row, double bid, double ask);
     void updateHighLow(int row, double high, double low);
     void updateOpenInterest(int row, qint64 oi);
+    void updateOHLC(int row, double open, double high, double low, double close);
+    void updateBidAskQuantities(int row, int bidQty, int askQty);
+    void updateTotalBuySellQty(int row, int totalBuyQty, int totalSellQty);
+    void updateOpenInterestWithChange(int row, qint64 oi, double oiChangePercent);
     
     // Batch updates for efficiency
     void updateScripData(int row, const ScripData &scrip);

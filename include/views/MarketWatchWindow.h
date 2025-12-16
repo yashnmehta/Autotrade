@@ -128,6 +128,40 @@ public:
      * @param ask Ask price
      */
     void updateBidAsk(int token, double bid, double ask);
+    
+    /**
+     * @brief Update OHLC data for a token
+     * @param token Token ID
+     * @param open Open price
+     * @param high High price
+     * @param low Low price
+     * @param close Close price
+     */
+    void updateOHLC(int token, double open, double high, double low, double close);
+    
+    /**
+     * @brief Update bid/ask quantities for a token
+     * @param token Token ID
+     * @param bidQty Bid quantity
+     * @param askQty Ask quantity
+     */
+    void updateBidAskQuantities(int token, int bidQty, int askQty);
+    
+    /**
+     * @brief Update total buy/sell quantities for a token
+     * @param token Token ID
+     * @param totalBuyQty Total buy quantity
+     * @param totalSellQty Total sell quantity
+     */
+    void updateTotalBuySellQty(int token, int totalBuyQty, int totalSellQty);
+    
+    /**
+     * @brief Update open interest for a token
+     * @param token Token ID
+     * @param oi Open interest
+     * @param oiChangePercent OI change percentage
+     */
+    void updateOpenInterest(int token, qint64 oi, double oiChangePercent);
 
 public slots:
     /**

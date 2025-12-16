@@ -75,7 +75,7 @@ void ScripBar::setupUI()
     // Expiry combo (custom with date sorting)
     m_expiryCombo = new CustomScripComboBox(this);
     m_expiryCombo->setSortMode(CustomScripComboBox::ChronologicalSort);
-    m_expiryCombo->setMinimumWidth(80);
+    m_expiryCombo->setMinimumWidth(125);
     m_layout->addWidget(m_expiryCombo);
     connect(m_expiryCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &ScripBar::onExpiryChanged);
@@ -83,7 +83,7 @@ void ScripBar::setupUI()
     // Strike combo (custom with numeric sorting)
     m_strikeCombo = new CustomScripComboBox(this);
     m_strikeCombo->setSortMode(CustomScripComboBox::NumericSort);
-    m_strikeCombo->setMinimumWidth(64);
+    m_strikeCombo->setMinimumWidth(80);
     m_layout->addWidget(m_strikeCombo);
     connect(m_strikeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &ScripBar::onStrikeChanged);
@@ -99,6 +99,7 @@ void ScripBar::setupUI()
     // Token line edit (read-only display of selected token)
     m_tokenEdit = new QLineEdit(this);
     m_tokenEdit->setMinimumWidth(80);
+    m_tokenEdit->setMaximumWidth(120);
     m_tokenEdit->setPlaceholderText("Token");
     m_tokenEdit->setReadOnly(true);
     m_tokenEdit->setAlignment(Qt::AlignCenter);
@@ -139,7 +140,7 @@ void ScripBar::setupUI()
 void ScripBar::populateExchanges()
 {
     m_exchangeCombo->clearItems();
-    QStringList exchanges = {"NSE", "BSE", "MCX"};
+    QStringList exchanges = {"NSE", "NSECDS", "BSE", "MCX"};
     m_exchangeCombo->addItems(exchanges);
 
     // Set default
@@ -155,11 +156,13 @@ void ScripBar::populateSegments(const QString &exchange)
     m_segmentCombo->clearItems();
     QStringList segs;
     if (exchange == "NSE")
-        segs << "E" << "F" << "O";  // E=Equity/CM, F=F&O, O=Currency/CD
+        segs << "E" << "F" << "O";  // E=NSECM, F=NSEFO, O=NSEFO
+    else if (exchange == "NSECDS")
+        segs << "F" << "O";  // F=NSECD, O=NSECD
     else if (exchange == "BSE")
         segs << "E" << "F";
     else if (exchange == "MCX")
-        segs << "F";
+        segs << "F" << "O";  // F=MCX, O=MCX
     else
         segs << "E";
 
@@ -177,14 +180,27 @@ void ScripBar::populateInstruments(const QString &segment)
 {
     m_instrumentCombo->clearItems();
     QStringList instruments;
-    if (segment == "E")
+    
+    QString exchange = getCurrentExchange();
+    
+    if (segment == "E") {
         instruments << "EQUITY";
-    else if (segment == "F")
-        instruments << "FUTIDX" << "FUTSTK" << "OPTIDX" << "OPTSTK";
-    else if (segment == "O")
-        instruments << "FUTCUR" << "OPTCUR";
-    else
+    } else if (segment == "F" || segment == "O") {
+        // For NSE: Both F and O show F&O instruments (NSEFO)
+        // For NSECDS: Both F and O show currency instruments (NSECD)
+        // For MCX: Both F and O show commodity instruments (MCX)
+        if (exchange == "NSE") {
+            instruments << "FUTIDX" << "FUTSTK" << "OPTIDX" << "OPTSTK";
+        } else if (exchange == "NSECDS") {
+            instruments << "FUTCUR" << "OPTCUR";
+        } else if (exchange == "MCX") {
+            instruments << "FUTCOM" << "OPTFUT";
+        } else {
+            instruments << "FUTIDX" << "FUTSTK" << "OPTIDX" << "OPTSTK";
+        }
+    } else {
         instruments << "EQUITY";
+    }
 
     m_instrumentCombo->addItems(instruments);
 
@@ -211,10 +227,13 @@ void ScripBar::populateSymbols(const QString &instrument)
     QString exchange = getCurrentExchange();
     QString segment = getCurrentSegment();
     
-    qDebug() << "[ScripBar] Array-based search:" << exchange << segment << instrument;
+    // Map instrument dropdown value to ContractData series field
+    QString seriesFilter = mapInstrumentToSeries(instrument);
+    
+    qDebug() << "[ScripBar] Array-based search:" << exchange << segment << "instrument:" << instrument << "-> series:" << seriesFilter;
     
     // Get all scrips for this segment and series
-    QVector<ContractData> contracts = repo->getScrips(exchange, segment, instrument);
+    QVector<ContractData> contracts = repo->getScrips(exchange, segment, seriesFilter);
     
     qDebug() << "[ScripBar] Found" << contracts.size() << "contracts in local array";
     
@@ -223,41 +242,43 @@ void ScripBar::populateSymbols(const QString &instrument)
         return;
     }
     
-    // Extract unique symbols
+    // Pre-allocate cache for better performance
+    m_instrumentCache.clear();
+    m_instrumentCache.reserve(contracts.size());
+    
+    // Extract unique symbols and build cache in single pass
     QSet<QString> uniqueSymbols;
+    int exchangeSegmentId = RepositoryManager::getExchangeSegmentID(exchange, segment);
+    
     for (const ContractData& contract : contracts) {
         if (!contract.name.isEmpty()) {
             uniqueSymbols.insert(contract.name);
         }
+        
+        InstrumentData inst;
+        inst.exchangeInstrumentID = contract.exchangeInstrumentID;
+        inst.name = contract.name;
+        inst.symbol = contract.name;
+        inst.series = contract.series;
+        inst.instrumentType = instrument;  // Use dropdown value (FUTIDX, OPTSTK, EQUITY, etc.)
+        inst.expiryDate = contract.expiryDate;
+        inst.strikePrice = contract.strikePrice;
+        inst.optionType = contract.optionType;
+        inst.exchangeSegment = exchangeSegmentId;
+        inst.scripCode = contract.scripCode;  // Store BSE scrip code
+        m_instrumentCache.append(inst);
     }
     
     // Convert to sorted list
     QStringList symbols = uniqueSymbols.values();
     symbols.sort();
     
-    qDebug() << "[ScripBar] Found" << symbols.size() << "unique symbols";
-    
-    // Update cache with full contracts for later use
-    m_instrumentCache.clear();
-    for (const ContractData& contract : contracts) {
-        InstrumentData inst;
-        inst.exchangeInstrumentID = contract.exchangeInstrumentID;
-        inst.name = contract.name;
-        inst.symbol = contract.name;
-        inst.series = contract.series;
-        inst.instrumentType = contract.series;
-        inst.expiryDate = contract.expiryDate;
-        inst.strikePrice = contract.strikePrice;
-        inst.optionType = contract.optionType;
-        inst.exchangeSegment = RepositoryManager::getExchangeSegmentID(exchange, segment);
-        inst.scripCode = contract.scripCode;  // Store BSE scrip code
-        m_instrumentCache.append(inst);
-    }
+    qDebug() << "[ScripBar] Found" << symbols.size() << "unique symbols from" << contracts.size() << "contracts";
     
     // Update BSE scrip code visibility
     updateBseScripCodeVisibility();
     
-    // Populate combo box
+    // Populate combo box with all symbols at once (prevents UI freeze)
     m_symbolCombo->addItems(symbols);
     
     if (m_symbolCombo->count() > 0) {
@@ -269,11 +290,19 @@ void ScripBar::populateExpiries(const QString &symbol)
 {
     m_expiryCombo->clearItems();
     
-    // TODO: Parse expiry dates from instrument cache based on symbol
-    // For now, check if we have cached instruments with this symbol
+    QString currentInstrument = m_instrumentCombo->currentText();
+    bool isEquity = (currentInstrument == "EQUITY");
+    
+    // For equity, skip expiry logic entirely
+    if (isEquity) {
+        updateTokenDisplay();
+        return;
+    }
+    
+    // For F&O instruments, extract expiry dates from cache
     QStringList expiries;
     for (const auto &inst : m_instrumentCache) {
-        if (inst.symbol == symbol && !inst.expiryDate.isEmpty()) {
+        if (inst.symbol == symbol && !inst.expiryDate.isEmpty() && inst.expiryDate != "N/A") {
             if (!expiries.contains(inst.expiryDate)) {
                 expiries.append(inst.expiryDate);
             }
@@ -281,9 +310,10 @@ void ScripBar::populateExpiries(const QString &symbol)
     }
     
     if (expiries.isEmpty()) {
-        // For equity or if no expiry data, add N/A
         expiries << "N/A";
     }
+    
+    qDebug() << "[ScripBar] populateExpiries: Found" << expiries.size() << "expiry dates for symbol" << symbol;
     
     m_expiryCombo->addItems(expiries);
     
@@ -296,7 +326,17 @@ void ScripBar::populateStrikes(const QString &expiry)
 {
     m_strikeCombo->clearItems();
     
-    // TODO: Parse strike prices from instrument cache based on symbol + expiry
+    QString currentInstrument = m_instrumentCombo->currentText();
+    bool isFuture = (currentInstrument == "FUTIDX" || currentInstrument == "FUTSTK" || currentInstrument == "FUTCUR");
+    bool isOption = (currentInstrument == "OPTIDX" || currentInstrument == "OPTSTK" || currentInstrument == "OPTCUR");
+    
+    // For futures or equity, skip strike logic and update token directly
+    if (isFuture || !isOption) {
+        updateTokenDisplay();
+        return;
+    }
+    
+    // For options, extract strike prices from cache
     QString currentSymbol = m_symbolCombo->currentText();
     QStringList strikes;
     
@@ -310,9 +350,10 @@ void ScripBar::populateStrikes(const QString &expiry)
     }
     
     if (strikes.isEmpty()) {
-        // For equity/futures or if no strike data, add N/A
         strikes << "N/A";
     }
+    
+    qDebug() << "[ScripBar] populateStrikes: Found" << strikes.size() << "strikes for expiry" << expiry;
     
     m_strikeCombo->addItems(strikes);
     
@@ -324,6 +365,16 @@ void ScripBar::populateStrikes(const QString &expiry)
 void ScripBar::populateOptionTypes(const QString &strike)
 {
     Q_UNUSED(strike)
+    
+    QString currentInstrument = m_instrumentCombo->currentText();
+    bool isOption = (currentInstrument == "OPTIDX" || currentInstrument == "OPTSTK" || currentInstrument == "OPTCUR");
+    
+    if (!isOption) {
+        // For non-options, skip this and update token
+        updateTokenDisplay();
+        return;
+    }
+    
     m_optionTypeCombo->clearItems();
     QStringList types = {"CE", "PE"};
     m_optionTypeCombo->addItems(types);
@@ -332,6 +383,8 @@ void ScripBar::populateOptionTypes(const QString &strike)
     if (m_optionTypeCombo->lineEdit()) {
         m_optionTypeCombo->lineEdit()->setText("CE");
     }
+    
+    updateTokenDisplay();
 }
 
 // Slot implementations
@@ -353,6 +406,21 @@ void ScripBar::onInstrumentChanged(int index)
 {
     Q_UNUSED(index)
     QString inst = m_instrumentCombo->currentText();
+    
+    // Show/hide expiry, strike, option type based on instrument
+    bool isFuture = (inst == "FUTIDX" || inst == "FUTSTK" || inst == "FUTCUR");
+    bool isOption = (inst == "OPTIDX" || inst == "OPTSTK" || inst == "OPTCUR");
+    bool isEquity = (inst == "EQUITY");
+    
+    // Expiry: Show for futures and options
+    m_expiryCombo->setVisible(isFuture || isOption);
+    
+    // Strike: Show for options only
+    m_strikeCombo->setVisible(isOption);
+    
+    // Option Type: Show for options only
+    m_optionTypeCombo->setVisible(isOption);
+    
     populateSymbols(inst);
 }
 
@@ -365,33 +433,51 @@ void ScripBar::onSymbolChanged(const QString &text)
 void ScripBar::onExpiryChanged(int index)
 {
     Q_UNUSED(index)
-    populateStrikes(m_expiryCombo->currentText());
+    QString expiry = m_expiryCombo->currentText();
+    qDebug() << "[ScripBar] onExpiryChanged: expiry =" << expiry << "(index" << index << ")";
+    populateStrikes(expiry);
+    
+    // For futures (no strikes), update token display now
+    QString currentInstrument = m_instrumentCombo->currentText();
+    bool isFuture = (currentInstrument == "FUTIDX" || currentInstrument == "FUTSTK" || currentInstrument == "FUTCUR");
+    if (isFuture) {
+        qDebug() << "[ScripBar] Future instrument - updating token display after expiry change";
+        updateTokenDisplay();
+    }
 }
 
 void ScripBar::onStrikeChanged(int index)
 {
     Q_UNUSED(index)
-    populateOptionTypes(m_strikeCombo->currentText());
+    QString strike = m_strikeCombo->currentText();
+    qDebug() << "[ScripBar] onStrikeChanged: strike =" << strike << "(index" << index << ")";
+    populateOptionTypes(strike);
 }
 
 void ScripBar::onOptionTypeChanged(int index)
 {
     Q_UNUSED(index)
+    QString optionType = m_optionTypeCombo->currentText();
+    qDebug() << "[ScripBar] onOptionTypeChanged: optionType =" << optionType << "(index" << index << ")";
     updateTokenDisplay();
 }
 
 void ScripBar::onAddToWatchClicked()
 {
-    QString exchange = m_exchangeCombo->currentText();
-    QString segment = m_segmentCombo->currentText();
-    QString instrument = m_instrumentCombo->currentText();
-    QString symbol = m_symbolCombo->currentText();
-    QString expiry = m_expiryCombo->currentText();
-    QString strike = m_strikeCombo->currentText();
-    QString optionType = m_optionTypeCombo->currentText();
-    
-    emit addToWatchRequested(exchange, segment, instrument, symbol, expiry, strike, optionType);
-    qDebug() << "Add to watch requested:" << symbol << expiry << strike << optionType;
+    InstrumentData inst = getCurrentInstrument();
+    emit addToWatchRequested(inst);
+    qDebug() << "Add to watch requested:" << inst.symbol << inst.expiryDate << inst.strikePrice 
+             << inst.optionType << "token:" << inst.exchangeInstrumentID;
+}
+
+void ScripBar::refreshSymbols()
+{
+    // Re-populate symbols based on current selections
+    QString currentInstrument = m_instrumentCombo->currentText();
+    if (!currentInstrument.isEmpty()) {
+        qDebug() << "[ScripBar] Refreshing symbols for instrument:" << currentInstrument;
+        populateSymbols(currentInstrument);
+    }
 }
 
 void ScripBar::updateBseScripCodeVisibility()
@@ -406,13 +492,118 @@ void ScripBar::updateBseScripCodeVisibility()
     }
 }
 
+InstrumentData ScripBar::getCurrentInstrument() const
+{
+    InstrumentData result;
+    
+    QString symbol = m_symbolCombo->currentText();
+    QString currentInstrument = m_instrumentCombo->currentText();
+    QString expiry = m_expiryCombo->isVisible() ? m_expiryCombo->currentText() : "N/A";
+    QString strike = m_strikeCombo->isVisible() ? m_strikeCombo->currentText() : "N/A";
+    QString optionType = m_optionTypeCombo->isVisible() ? m_optionTypeCombo->currentText() : "";
+    
+    // Normalize empty strings to "N/A" for consistent matching
+    if (expiry.isEmpty()) expiry = "N/A";
+    if (strike.isEmpty()) strike = "N/A";
+    
+    bool isEquity = (currentInstrument == "EQUITY");
+    bool isFuture = (currentInstrument == "FUTIDX" || currentInstrument == "FUTSTK" || currentInstrument == "FUTCUR");
+    bool isOption = (currentInstrument == "OPTIDX" || currentInstrument == "OPTSTK" || currentInstrument == "OPTCUR");
+    
+    // For options, if any required field is missing/empty, skip cache search and use token
+    if (isOption && (expiry == "N/A" || strike == "N/A" || optionType.isEmpty())) {
+        qDebug() << "[ScripBar] getCurrentInstrument: Incomplete option selection, using token";
+        qint64 tokenFromDisplay = m_tokenEdit->text().toLongLong();
+        if (tokenFromDisplay > 0) {
+            for (const auto &inst : m_instrumentCache) {
+                if (inst.exchangeInstrumentID == tokenFromDisplay) {
+                    return inst;
+                }
+            }
+        }
+    }
+    
+    // Search in instrument cache for exact match
+    for (const auto &inst : m_instrumentCache) {
+        bool matchSymbol = (inst.symbol == symbol);
+        
+        // For equity: only match symbol
+        if (isEquity && matchSymbol) {
+            return inst;
+        }
+        
+        // For futures: match symbol + expiry
+        if (isFuture && matchSymbol) {
+            bool matchExpiry = (expiry == "N/A" || inst.expiryDate == expiry);
+            if (matchExpiry) {
+                return inst;
+            }
+        }
+        
+        // For options: match symbol + expiry + strike + option type
+        if (isOption && matchSymbol) {
+            bool matchExpiry = (expiry == "N/A" || inst.expiryDate == expiry);
+            bool matchStrike = false;
+            if (strike == "N/A") {
+                matchStrike = true;
+            } else {
+                bool ok = false;
+                double strikeVal = strike.toDouble(&ok);
+                if (ok) {
+                    matchStrike = qAbs(inst.strikePrice - strikeVal) < 0.001;
+                } else {
+                    matchStrike = QString::number(inst.strikePrice, 'f', 2) == strike;
+                }
+            }
+
+            bool matchOption = (!optionType.isEmpty() && inst.optionType.compare(optionType, Qt::CaseInsensitive) == 0);
+            
+            if (matchExpiry && matchStrike && matchOption) {
+                return inst;
+            }
+        }
+    }
+    
+    // If no exact match in cache, try to find by token (which updateTokenDisplay already resolved)
+    qint64 tokenFromDisplay = m_tokenEdit->text().toLongLong();
+    if (tokenFromDisplay > 0) {
+        for (const auto &inst : m_instrumentCache) {
+            if (inst.exchangeInstrumentID == tokenFromDisplay) {
+                qDebug() << "[ScripBar] getCurrentInstrument: Found by token" << tokenFromDisplay;
+                return inst;
+            }
+        }
+    }
+    
+    // Final fallback: build from current UI selections (token from display field)
+    qDebug() << "[ScripBar] getCurrentInstrument: Using fallback with token" << tokenFromDisplay 
+             << "Symbol:" << symbol << "Expiry:" << expiry << "Strike:" << strike << "OptionType:" << optionType;
+    result.exchangeInstrumentID = tokenFromDisplay;
+    result.symbol = symbol;
+    result.name = symbol;
+    result.series = "";
+    result.instrumentType = currentInstrument;
+    result.expiryDate = expiry;
+    result.strikePrice = (strike != "N/A" && !strike.isEmpty()) ? strike.toDouble() : 0.0;
+    result.optionType = (isOption && !optionType.isEmpty()) ? optionType : "XX";
+    result.exchangeSegment = getCurrentExchangeSegmentCode();
+    result.scripCode = m_bseScripCodeEdit->text();
+    
+    return result;
+}
+
 void ScripBar::updateTokenDisplay()
 {
     // Find the matching contract and display its token
     QString symbol = m_symbolCombo->currentText();
-    QString expiry = m_expiryCombo->currentText();
-    QString strike = m_strikeCombo->currentText();
-    QString optionType = m_optionTypeCombo->currentText();
+    QString currentInstrument = m_instrumentCombo->currentText();
+    QString expiry = m_expiryCombo->isVisible() ? m_expiryCombo->currentText() : "N/A";
+    QString strike = m_strikeCombo->isVisible() ? m_strikeCombo->currentText() : "N/A";
+    QString optionType = m_optionTypeCombo->isVisible() ? m_optionTypeCombo->currentText() : "";
+    
+    qDebug() << "[ScripBar] updateTokenDisplay: Searching for - Symbol:" << symbol 
+             << "Instrument:" << currentInstrument << "Expiry:" << expiry 
+             << "Strike:" << strike << "OptionType:" << optionType;
     
     if (symbol.isEmpty()) {
         m_tokenEdit->clear();
@@ -420,35 +611,86 @@ void ScripBar::updateTokenDisplay()
         return;
     }
     
+    bool isEquity = (currentInstrument == "EQUITY");
+    bool isFuture = (currentInstrument == "FUTIDX" || currentInstrument == "FUTSTK" || currentInstrument == "FUTCUR");
+    bool isOption = (currentInstrument == "OPTIDX" || currentInstrument == "OPTSTK" || currentInstrument == "OPTCUR");
+    
+    // For options, require all fields to be set before updating token
+    // This prevents caching wrong token during intermediate typing states
+    if (isOption && (expiry.isEmpty() || expiry == "N/A" || 
+                     strike.isEmpty() || strike == "N/A" || 
+                     optionType.isEmpty())) {
+        qDebug() << "[ScripBar] updateTokenDisplay: Incomplete option selection - clearing token";
+        m_tokenEdit->clear();  // Clear stale token
+        return;
+    }
+    
+    // For futures, require expiry to be set
+    if (isFuture && (expiry.isEmpty() || expiry == "N/A")) {
+        qDebug() << "[ScripBar] updateTokenDisplay: Incomplete future selection - clearing token";
+        m_tokenEdit->clear();  // Clear stale token
+        return;
+    }
+    
     // Search in instrument cache for matching contract
     for (const auto &inst : m_instrumentCache) {
         bool matchSymbol = (inst.symbol == symbol);
-        bool matchExpiry = (expiry == "N/A" || inst.expiryDate == expiry);
-        bool matchStrike = (strike == "N/A" || 
-                           QString::number(inst.strikePrice, 'f', 2) == strike);
-        bool matchOption = (inst.optionType == optionType || optionType.isEmpty());
         
-        if (matchSymbol && matchExpiry && matchStrike && matchOption) {
+        // For equity: only match symbol
+        if (isEquity && matchSymbol) {
             m_tokenEdit->setText(QString::number(inst.exchangeInstrumentID));
-            // Update BSE scrip code if available
             if (m_currentExchange == "BSE" && !inst.scripCode.isEmpty()) {
                 m_bseScripCodeEdit->setText(inst.scripCode);
             }
             return;
+        }
+        
+        // For futures: match symbol + expiry (no strike or option type)
+        if (isFuture && matchSymbol) {
+            bool matchExpiry = (expiry == "N/A" || inst.expiryDate == expiry);
+            if (matchExpiry && inst.strikePrice == 0.0) {  // Futures have strike = 0
+                m_tokenEdit->setText(QString::number(inst.exchangeInstrumentID));
+                if (m_currentExchange == "BSE" && !inst.scripCode.isEmpty()) {
+                    m_bseScripCodeEdit->setText(inst.scripCode);
+                }
+                return;
+            }
+        }
+        
+        // For options: match all fields
+        if (isOption && matchSymbol) {
+            bool matchExpiry = (expiry == "N/A" || inst.expiryDate == expiry);
+            bool matchStrike = false;
+            if (strike == "N/A") {
+                matchStrike = true;
+            } else {
+                bool ok = false;
+                double strikeVal = strike.toDouble(&ok);
+                if (ok) {
+                    matchStrike = qAbs(inst.strikePrice - strikeVal) < 0.001;
+                } else {
+                    matchStrike = QString::number(inst.strikePrice, 'f', 2) == strike;
+                }
+            }
+
+            bool matchOption = inst.optionType.compare(optionType, Qt::CaseInsensitive) == 0;
+            
+            if (matchExpiry && matchStrike && matchOption) {
+                qDebug() << "[ScripBar] updateTokenDisplay: ✅ FOUND matching contract - Token:" << inst.exchangeInstrumentID
+                         << "Expiry:" << inst.expiryDate << "Strike:" << inst.strikePrice << "OptionType:" << inst.optionType;
+                m_tokenEdit->setText(QString::number(inst.exchangeInstrumentID));
+                if (m_currentExchange == "BSE" && !inst.scripCode.isEmpty()) {
+                    m_bseScripCodeEdit->setText(inst.scripCode);
+                }
+                return;
+            }
         }
     }
     
-    // If no exact match, show the first matching symbol
-    for (const auto &inst : m_instrumentCache) {
-        if (inst.symbol == symbol) {
-            m_tokenEdit->setText(QString::number(inst.exchangeInstrumentID));
-            // Update BSE scrip code if available
-            if (m_currentExchange == "BSE" && !inst.scripCode.isEmpty()) {
-                m_bseScripCodeEdit->setText(inst.scripCode);
-            }
-            return;
-        }
-    }
+    // If no exact match found, clear token (don't use fallback)
+    qDebug() << "[ScripBar] updateTokenDisplay: ❌ NO matching contract found - clearing token";
+    m_tokenEdit->clear();
+    m_bseScripCodeEdit->clear();
 }
 
 void ScripBar::setupShortcuts()
@@ -480,19 +722,57 @@ QString ScripBar::getCurrentSegment() const
 int ScripBar::getCurrentExchangeSegmentCode() const
 {
     // Map to XTS exchange segment codes
-    QString key = m_currentExchange + "_" + m_currentSegment;
+    // Per reference: NSE F/O both map to NSEFO, NSECDS F/O both map to NSECD, MCX F/O both map to MCX
+    QString exchange = m_currentExchange;
+    QString segment = m_currentSegment;
     
-    static QMap<QString, int> segmentMap = {
-        {"NSE_CM", 1},   // NSECM
-        {"NSE_FO", 2},   // NSEFO
-        {"NSE_CD", 13},  // NSECD
-        {"BSE_CM", 11},  // BSECM
-        {"BSE_FO", 12},  // BSEFO
-        {"BSE_CD", 61},  // BSECD
-        {"MCX_FO", 51}   // MCXFO
-    };
+    // NSE mappings
+    if (exchange == "NSE") {
+        if (segment == "E") return 1;   // NSECM
+        if (segment == "F" || segment == "O") return 2;  // NSEFO (both F and O)
+    }
     
-    return segmentMap.value(key, 1); // Default to NSECM
+    // NSECDS mappings
+    if (exchange == "NSECDS") {
+        if (segment == "F" || segment == "O") return 13;  // NSECD (both F and O)
+    }
+    
+    // BSE mappings
+    if (exchange == "BSE") {
+        if (segment == "E") return 11;  // BSECM
+        if (segment == "F") return 12;  // BSEFO
+    }
+    
+    // MCX mappings
+    if (exchange == "MCX") {
+        if (segment == "F" || segment == "O") return 51;  // MCXFO (both F and O)
+    }
+    
+    return 1; // Default to NSECM
+}
+
+QString ScripBar::mapInstrumentToSeries(const QString &instrument) const
+{
+    // Map dropdown instrument type to ContractData series field
+    // The dropdown shows user-friendly names like "EQUITY", "FUTIDX", etc.
+    // But ContractData.series field contains actual series codes like "EQ", "FUTIDX", etc.
+    
+    if (instrument == "EQUITY") {
+        // For NSE CM, series is "EQ", "BE", "BZ", etc.
+        // For BSE CM, series is also equity-related codes
+        // Return "EQ" as the most common equity series
+        return "EQ";
+    }
+    
+    // For F&O instruments, the series field matches the instrument type
+    // FUTIDX -> FUTIDX
+    // FUTSTK -> FUTSTK
+    // OPTIDX -> OPTIDX
+    // OPTSTK -> OPTSTK
+    // FUTCUR -> FUTCUR
+    // OPTCUR -> OPTCUR
+    
+    return instrument;
 }
 
 void ScripBar::searchInstrumentsAsync(const QString &searchText)

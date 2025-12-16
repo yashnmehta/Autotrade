@@ -75,7 +75,7 @@ void MarketWatchColumnProfile::initializeColumnMetadata()
     info.description = "Instrument Type (FUTIDX, OPTSTK, etc.)";
     info.defaultWidth = 80;
     info.alignment = Qt::AlignCenter | Qt::AlignVCenter;
-    info.visibleByDefault = false;
+    info.visibleByDefault = true;
     s_columnMetadata[MarketWatchColumn::INSTRUMENT_TYPE] = info;
     
     info = ColumnInfo();
@@ -106,7 +106,7 @@ void MarketWatchColumnProfile::initializeColumnMetadata()
     info.description = "Option Strike Price";
     info.defaultWidth = 80;
     info.alignment = Qt::AlignRight | Qt::AlignVCenter;
-    info.visibleByDefault = false;
+    info.visibleByDefault = true;
     info.format = "%.2f";
     info.isNumeric = true;
     info.isFOSpecific = true;
@@ -119,7 +119,7 @@ void MarketWatchColumnProfile::initializeColumnMetadata()
     info.description = "Option Type (CE/PE)";
     info.defaultWidth = 50;
     info.alignment = Qt::AlignCenter | Qt::AlignVCenter;
-    info.visibleByDefault = false;
+    info.visibleByDefault = true;
     info.isFOSpecific = true;
     s_columnMetadata[MarketWatchColumn::OPTION_TYPE] = info;
     
@@ -130,7 +130,7 @@ void MarketWatchColumnProfile::initializeColumnMetadata()
     info.description = "Series/Expiry Date";
     info.defaultWidth = 90;
     info.alignment = Qt::AlignCenter | Qt::AlignVCenter;
-    info.visibleByDefault = false;
+    info.visibleByDefault = true;
     info.isFOSpecific = true;
     s_columnMetadata[MarketWatchColumn::SERIES_EXPIRY] = info;
     
@@ -351,7 +351,7 @@ void MarketWatchColumnProfile::initializeColumnMetadata()
     info.description = "Buy Quantity";
     info.defaultWidth = 80;
     info.alignment = Qt::AlignRight | Qt::AlignVCenter;
-    info.visibleByDefault = false;
+    info.visibleByDefault = true;
     info.format = "%d";
     info.isNumeric = true;
     s_columnMetadata[MarketWatchColumn::BUY_QTY] = info;
@@ -389,7 +389,7 @@ void MarketWatchColumnProfile::initializeColumnMetadata()
     info.description = "Sell Quantity";
     info.defaultWidth = 80;
     info.alignment = Qt::AlignRight | Qt::AlignVCenter;
-    info.visibleByDefault = false;
+    info.visibleByDefault = true;
     info.format = "%d";
     info.isNumeric = true;
     s_columnMetadata[MarketWatchColumn::SELL_QTY] = info;
@@ -414,7 +414,7 @@ void MarketWatchColumnProfile::initializeColumnMetadata()
     info.description = "Open Interest";
     info.defaultWidth = 90;
     info.alignment = Qt::AlignRight | Qt::AlignVCenter;
-    info.visibleByDefault = false;
+    info.visibleByDefault = true;
     info.format = "%d";
     info.isNumeric = true;
     info.isFOSpecific = true;
@@ -427,7 +427,7 @@ void MarketWatchColumnProfile::initializeColumnMetadata()
     info.description = "OI Change %";
     info.defaultWidth = 70;
     info.alignment = Qt::AlignRight | Qt::AlignVCenter;
-    info.visibleByDefault = false;
+    info.visibleByDefault = true;
     info.format = "%.2f";
     info.unit = "%";
     info.isNumeric = true;

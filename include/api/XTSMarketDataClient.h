@@ -32,7 +32,7 @@ public:
     bool isConnected() const { return m_wsConnected; }
 
     // Subscription management
-    void subscribe(const QVector<int64_t> &instrumentIDs,
+    void subscribe(const QVector<int64_t> &instrumentIDs, int exchangeSegment,
                    std::function<void(bool, const QString&)> callback);
     void unsubscribe(const QVector<int64_t> &instrumentIDs,
                      std::function<void(bool, const QString&)> callback);
@@ -46,6 +46,14 @@ public:
     
     void searchInstruments(const QString &searchString, int exchangeSegment,
                            std::function<void(bool, const QVector<XTS::Instrument>&, const QString&)> callback);
+    
+    // Get snapshot quote for a single instrument (exchangeInstrumentID)
+    void getQuote(int64_t exchangeInstrumentID, int exchangeSegment,
+                  std::function<void(bool, const QJsonObject&, const QString&)> callback);
+    
+    // Get snapshot quotes for multiple instruments
+    void getQuote(const QVector<int64_t> &instrumentIDs, int exchangeSegment,
+                  std::function<void(bool, const QVector<QJsonObject>&, const QString&)> callback);
     
     // Download master contracts (returns CSV data)
     void downloadMasterContracts(const QStringList &exchangeSegments,
@@ -65,6 +73,8 @@ private slots:
 
 private:
     void processTickData(const QJsonObject &json);
+    XTS::Tick parseTickFromJson(const QJsonObject &json) const;
+    QJsonObject parsePipeDelimitedTickData(const QString &data) const;
     QNetworkRequest createRequest(const QString &endpoint) const;
 
     QString m_baseURL;

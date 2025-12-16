@@ -404,8 +404,8 @@ void ColumnProfileDialog::onMoveUp()
         }
     }
     
-    // Swap in order
-    order.swapItemsAt(visibleIndex, visibleIndex - 1);
+    // Swap in order (using swap() for Qt 5.12 compatibility)
+    order.swap(visibleIndex, visibleIndex - 1);
     m_profile.setColumnOrder(order);
     
     updateSelectedColumns();
@@ -439,7 +439,8 @@ void ColumnProfileDialog::onMoveDown()
     }
     
     if (nextVisibleIndex < order.size()) {
-        order.swapItemsAt(orderIndex, nextVisibleIndex);
+        // Use swap() for Qt 5.12 compatibility
+        order.swap(orderIndex, nextVisibleIndex);
         m_profile.setColumnOrder(order);
     }
     

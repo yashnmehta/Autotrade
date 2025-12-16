@@ -10,7 +10,7 @@ QList<QStringList> ClipboardHelpers::parseTSV(const QString &text)
         return result;
     }
     
-    QStringList lines = text.split('\n', Qt::SkipEmptyParts);
+    QStringList lines = text.split('\n', QString::SkipEmptyParts);
     
     for (const QString &line : lines) {
         if (line.trimmed().isEmpty()) {
@@ -82,7 +82,7 @@ bool ClipboardHelpers::isValidTSV(const QString &text, int minColumns)
         return false;
     }
     
-    QStringList lines = text.split('\n', Qt::SkipEmptyParts);
+    QStringList lines = text.split('\n', QString::SkipEmptyParts);
     
     if (lines.isEmpty()) {
         return false;
