@@ -153,8 +153,8 @@ void MainWindow::setupContent()
     m_scripToolBar->addWidget(m_scripBar);
     layout->addWidget(m_scripToolBar);
 #ifdef Q_OS_MAC
-    m_scripToolBar->setFixedHeight(25);
-    m_scripBar->setMaximumHeight(25);
+    m_scripToolBar->setFixedHeight(35);
+    m_scripBar->setMaximumHeight(35);
 #endif
 
     // Custom MDI Area (main content area)
@@ -487,7 +487,7 @@ void MainWindow::createConnectionBar()
     QLabel *serverLabel = new QLabel("Server: XTS API", m_connectionBar);
     layout->addWidget(serverLabel);
 
-    QLabel *userLabel = new QLabel("User: Demo", m_connectionBar);
+    QLabel *userLabel = new QLabel("User: -", m_connectionBar);
     layout->addWidget(userLabel);
 }
 
@@ -553,15 +553,6 @@ void MainWindow::createInfoBar()
             m_infoBarAction->setChecked(visible);
         QSettings s("TradingCompany", "TradingTerminal");
         s.setValue("mainwindow/info_visible", visible); });
-    // Demo: populate InfoBar with sample stats
-    QMap<QString, QString> stats;
-    stats["NSE Eq:Open"] = "0";
-    stats["NSE Eq Orders"] = "0";
-    stats["NSE Der Orders"] = "0";
-    stats["BSE Eq Orders"] = "0";
-    m_infoBar->setSegmentStats(stats);
-    m_infoBar->setTotalCounts(0, 0, 0);
-    m_infoBar->setUserId("User: demouser");
 }
 // InfoBar menu handled by InfoBar; no MainWindow callback needed
 
@@ -574,14 +565,6 @@ void MainWindow::createMarketWatch()
 
     // Create new MarketWatchWindow with token support
     MarketWatchWindow *marketWatch = new MarketWatchWindow(window);
-    
-    // Add sample scrips with mock tokens
-    // In production, these would come from ScripMaster
-    marketWatch->addScrip("NIFTY 50", "NSE", 26000);
-    marketWatch->addScrip("BANKNIFTY", "NSE", 26009);
-    marketWatch->addScrip("RELIANCE", "NSE", 2885);
-    marketWatch->addScrip("TCS", "NSE", 11536);
-    marketWatch->addScrip("HDFCBANK", "NSE", 1333);
     
     // Connect Buy/Sell signals
     connect(marketWatch, &MarketWatchWindow::buyRequested,
@@ -707,22 +690,6 @@ void MainWindow::createSnapQuoteWindow()
     
     window->setContentWidget(snapWindow);
     window->resize(860, 300);
-
-    // Set some sample data for demonstration
-    snapWindow->setScripDetails("NSE", "F", 26000, "FUTIDX", "NIFTY");
-    snapWindow->updateQuote(
-        4794.05,        // ltpPrice
-        50,             // ltpQty
-        "02:42:39 PM",  // ltpTime
-        4754.00,        // open
-        4818.00,        // high
-        4735.00,        // low
-        4764.90,        // close
-        22605150,       // volume
-        108131508973.50, // value
-        4783.49,        // atp
-        0.61            // percentChange
-    );
     
     snapWindow->updateStatistics(
         "+4742.40 - 5796.25",  // DPR
@@ -828,11 +795,21 @@ void MainWindow::onAddToWatchRequested(const QString &exchange, const QString &s
     }
     
     if (marketWatch) {
+        // Build exchange segment identifier (e.g., "NSEFO", "NSECM")
+        QString exchangeSegment = exchange;
+        if (segment == "F") {
+            exchangeSegment += "FO";  // NSE+F = NSEFO, BSE+F = BSEFO
+        } else if (segment == "E") {
+            exchangeSegment += "CM";  // NSE+E = NSECM, BSE+E = BSECM
+        } else if (segment == "O") {
+            exchangeSegment += "CD";  // Currency derivatives
+        }
+        
         // TODO: Get real token from ScripMaster
         // For now, use a mock token based on symbol hash
-        int mockToken = qHash(symbol + exchange) % 100000;
+        int mockToken = qHash(symbol + exchangeSegment) % 100000;
         
-        bool added = marketWatch->addScrip(symbol, exchange, mockToken);
+        bool added = marketWatch->addScrip(symbol, exchangeSegment, mockToken);
         if (added) {
             qDebug() << "Successfully added" << symbol << "to market watch with token" << mockToken;
         } else {

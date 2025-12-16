@@ -101,6 +101,7 @@ set(VIEW_SOURCES
     src/views/MarketWatchWindow.cpp
     src/views/SnapQuoteWindow.cpp
     src/views/PositionWindow.cpp
+    src/views/ColumnProfileDialog.cpp
 )
 
 set(VIEW_HEADERS
@@ -109,6 +110,7 @@ set(VIEW_HEADERS
     include/views/MarketWatchWindow.h
     include/views/SnapQuoteWindow.h
     include/views/PositionWindow.h
+    include/views/ColumnProfileDialog.h
 )
 
 # ========================================
@@ -117,11 +119,13 @@ set(VIEW_HEADERS
 # ========================================
 set(MODEL_SOURCES
     src/models/MarketWatchModel.cpp
+    src/models/MarketWatchColumnProfile.cpp
     src/models/TokenAddressBook.cpp
 )
 
 set(MODEL_HEADERS
     include/models/MarketWatchModel.h
+    include/models/MarketWatchColumnProfile.h
     include/models/TokenAddressBook.h
 )
 

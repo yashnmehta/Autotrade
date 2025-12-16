@@ -4,31 +4,86 @@
 #include <QAbstractTableModel>
 #include <QList>
 #include <QString>
+#include <QDateTime>
+#include "models/MarketWatchColumnProfile.h"
 
 /**
  * @brief Data structure for a single scrip (security) in the market watch
  * 
  * Supports both regular scrips and blank separator rows for organization.
+ * Contains all data fields for the extended column set.
  */
 struct ScripData
 {
-    // Identity
-    QString symbol;          // e.g., "NIFTY 50", "RELIANCE"
-    QString exchange;        // e.g., "NSE", "BSE", "NFO"
-    int token = 0;           // Unique token ID for API subscriptions
-    bool isBlankRow = false; // True for visual separator rows
+    // Identity fields
+    int code = 0;                   // Scrip code
+    QString symbol;                 // e.g., "NIFTY 50", "RELIANCE"
+    QString scripName;              // Full scrip name
+    QString instrumentName;         // Instrument name
+    QString instrumentType;         // Type of instrument
+    QString marketType;             // Market type
+    QString exchange;               // e.g., "NSE", "BSE", "NFO"
+    int token = 0;                  // Unique token ID for API subscriptions
+    bool isBlankRow = false;        // True for visual separator rows
     
-    // Price data
-    double ltp = 0.0;              // Last Traded Price
-    double change = 0.0;           // Absolute change
-    double changePercent = 0.0;    // Percentage change
-    qint64 volume = 0;             // Total volume
-    double bid = 0.0;              // Best bid price
-    double ask = 0.0;              // Best ask price
-    double high = 0.0;             // Day high
-    double low = 0.0;              // Day low
-    double open = 0.0;             // Opening price
-    qint64 openInterest = 0;       // Open interest (for F&O)
+    // F&O specific fields
+    double strikePrice = 0.0;       // Strike price for options
+    QString optionType;             // CE/PE for options
+    QString seriesExpiry;           // Series/Expiry date
+    
+    // Additional identifiers
+    QString isinCode;               // ISIN code
+    
+    // Price and trading data
+    double ltp = 0.0;               // Last Traded Price
+    qint64 ltq = 0;                 // Last Traded Quantity
+    QString ltpTime;                // Last Traded Time
+    QString lastUpdateTime;         // Last Update Time
+    
+    // OHLC data
+    double open = 0.0;              // Opening price
+    double high = 0.0;              // Day high
+    double low = 0.0;               // Day low
+    double close = 0.0;             // Previous close
+    QString dpr;                    // Daily Price Range/Band
+    
+    // Change metrics
+    double change = 0.0;            // Net Change In Rs
+    double changePercent = 0.0;     // % Change
+    QString trendIndicator;         // Trend indicator (up/down/neutral)
+    
+    // Volume and value
+    double avgTradedPrice = 0.0;    // Avg. Traded Price
+    qint64 volume = 0;              // Volume (in 000s)
+    double value = 0.0;             // Value (in lacs)
+    
+    // Market depth - Buy side
+    double buyPrice = 0.0;          // Best buy price
+    qint64 buyQty = 0;              // Best buy quantity
+    qint64 totalBuyQty = 0;         // Total buy quantity
+    
+    // Market depth - Sell side
+    double sellPrice = 0.0;         // Best sell price (ask)
+    qint64 sellQty = 0;             // Best sell quantity
+    qint64 totalSellQty = 0;        // Total sell quantity
+    
+    // Open Interest (F&O)
+    qint64 openInterest = 0;        // Open interest
+    double oiChangePercent = 0.0;   // % OI change
+    
+    // Historical data
+    double week52High = 0.0;        // 52 week high
+    double week52Low = 0.0;         // 52 week low
+    double lifetimeHigh = 0.0;      // Lifetime high
+    double lifetimeLow = 0.0;       // Lifetime low
+    
+    // Additional metrics
+    double marketCap = 0.0;         // Market capitalization
+    QString tradeExecutionRange;    // Trade execution range
+    
+    // Convenience aliases for backward compatibility
+    double bid = 0.0;               // Best bid price (alias for buyPrice)
+    double ask = 0.0;               // Best ask price (alias for sellPrice)
     
     /**
      * @brief Create a blank separator row for organizing scrips
@@ -88,6 +143,14 @@ public:
     int columnCount(const QModelIndex &parent = QModelIndex()) const override;
     QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
     QVariant headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const override;
+    
+    // Column profile management
+    void setColumnProfile(const MarketWatchColumnProfile& profile);
+    const MarketWatchColumnProfile& getColumnProfile() const { return m_columnProfile; }
+    MarketWatchColumnProfile& getColumnProfile() { return m_columnProfile; }
+    void loadProfile(const QString& profileName);
+    void saveProfile(const QString& profileName);
+    QStringList getAvailableProfiles() const;
 
     // Data management
     void addScrip(const ScripData &scrip);
@@ -127,10 +190,14 @@ signals:
 
 private:
     QList<ScripData> m_scrips;
-    QStringList m_headers;
+    MarketWatchColumnProfile m_columnProfile;
     
     // Helper to emit data changed for a specific cell
     void emitCellChanged(int row, int column);
+    
+    // Helper to get data for a specific column
+    QVariant getColumnData(const ScripData& scrip, MarketWatchColumn column) const;
+    QString formatColumnData(const ScripData& scrip, MarketWatchColumn column) const;
 };
 
 #endif // MARKETWATCHMODEL_H

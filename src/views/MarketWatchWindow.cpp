@@ -1,4 +1,5 @@
 #include "views/MarketWatchWindow.h"
+#include "views/ColumnProfileDialog.h"
 #include "models/MarketWatchModel.h"
 #include "models/TokenAddressBook.h"
 #include "services/TokenSubscriptionManager.h"
@@ -122,14 +123,16 @@ bool MarketWatchWindow::addScrip(const QString &symbol, const QString &exchange,
         return false;
     }
     
-    // Create scrip data
+    // Create scrip data with basic fields
     ScripData scrip;
     scrip.symbol = symbol;
-    scrip.exchange = exchange;
+    scrip.exchange = exchange;  // Should be NSEFO, NSECM, BSEFO, BSECM format
     scrip.token = token;
     scrip.isBlankRow = false;
     
-    // Mock this, &CustomMarketWatchplaced by real price feed)
+    // Initialize all fields to zero/empty
+    // These will be populated by real-time updates
+    scrip.code = token;  // Use token as code for now
     scrip.ltp = 0.0;
     scrip.change = 0.0;
     scrip.changePercent = 0.0;
@@ -139,7 +142,12 @@ bool MarketWatchWindow::addScrip(const QString &symbol, const QString &exchange,
     scrip.high = 0.0;
     scrip.low = 0.0;
     scrip.open = 0.0;
+    scrip.close = 0.0;
     scrip.openInterest = 0;
+    
+    // Extended fields remain empty until populated by feed
+    scrip.buyPrice = 0.0;
+    scrip.sellPrice = 0.0;
     
     int newRow = m_model->rowCount();
     
@@ -155,6 +163,54 @@ bool MarketWatchWindow::addScrip(const QString &symbol, const QString &exchange,
     qDebug() << "[MarketWatchWindow] Added scrip" << symbol << "with token" << token << "at row" << newRow;
     
     emit scripAdded(symbol, exchange, token);
+    
+    return true;
+}
+
+bool MarketWatchWindow::addScripFromContract(const ScripData &contractData)
+{
+    // Validate token
+    if (contractData.token <= 0) {
+        QMessageBox::warning(this, "Invalid Token", 
+                           QString("Cannot add scrip '%1': Invalid token ID (%2).")
+                           .arg(contractData.symbol).arg(contractData.token));
+        return false;
+    }
+    
+    // Check for duplicate
+    if (hasDuplicate(contractData.token)) {
+        int existingRow = findTokenRow(contractData.token);
+        
+        QMessageBox msgBox(this);
+        msgBox.setWindowTitle("Duplicate Scrip");
+        msgBox.setText(QString("Scrip '%1' is already in this watch list.").arg(contractData.symbol));
+        msgBox.setInformativeText(QString("Token: %1\nRow: %2\n\nWould you like to view the existing entry?")
+                                  .arg(contractData.token).arg(existingRow + 1));
+        msgBox.setIcon(QMessageBox::Information);
+        msgBox.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
+        msgBox.setDefaultButton(QMessageBox::Yes);
+        
+        if (msgBox.exec() == QMessageBox::Yes) {
+            highlightRow(existingRow);
+        }
+        
+        return false;
+    }
+    
+    int newRow = m_model->rowCount();
+    
+    // Add to model with full contract data
+    m_model->addScrip(contractData);
+    
+    // Subscribe to price updates
+    TokenSubscriptionManager::instance()->subscribe(contractData.exchange, contractData.token);
+    
+    // Register in address book
+    m_tokenAddressBook->addToken(contractData.token, newRow);
+    
+    qDebug() << "[MarketWatchWindow] Added scrip" << contractData.symbol << "with token" << contractData.token << "at row" << newRow;
+    
+    emit scripAdded(contractData.symbol, contractData.exchange, contractData.token);
     
     return true;
 }
@@ -485,6 +541,10 @@ void MarketWatchWindow::showContextMenu(const QPoint &pos)
     
     menu.addAction("Paste (Ctrl+V)", this, &MarketWatchWindow::pasteFromClipboard);
     
+    // Column profile
+    menu.addSeparator();
+    menu.addAction("Column Profile...", this, &MarketWatchWindow::showColumnProfileDialog);
+    
     menu.exec(this->viewport()->mapToGlobal(pos));
 }
 
@@ -659,6 +719,18 @@ int MarketWatchWindow::getTokenForRow(int sourceRow) const
     }
     const ScripData &scrip = m_model->getScripAt(sourceRow);
     return scrip.isValid() ? scrip.token : -1;
+}
+
+void MarketWatchWindow::showColumnProfileDialog()
+{
+    ColumnProfileDialog dialog(m_model->getColumnProfile(), this);
+    
+    if (dialog.exec() == QDialog::Accepted && dialog.wasAccepted()) {
+        MarketWatchColumnProfile newProfile = dialog.getProfile();
+        m_model->setColumnProfile(newProfile);
+        
+        qDebug() << "[MarketWatchWindow] Column profile updated to:" << newProfile.name();
+    }
 }
 
 bool MarketWatchWindow::isBlankRow(int sourceRow) const

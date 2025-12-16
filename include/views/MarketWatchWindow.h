@@ -2,12 +2,12 @@
 #define MARKETWATCHWINDOW_H
 
 #include "core/widgets/CustomMarketWatch.h"
+#include "models/MarketWatchModel.h"  // For ScripData
 #include <QVBoxLayout>
 #include <QMenu>
 #include <QMessageBox>
 #include <QTimer>
 
-class MarketWatchModel;
 class TokenAddressBook;
 
 /**
@@ -35,13 +35,20 @@ public:
     // === Core Operations ===
     
     /**
-     * @brief Add a scrip to the market watch
+     * @brief Add a scrip to the market watch (basic method)
      * @param symbol Symbol name (e.g., "NIFTY 50")
-     * @param exchange Exchange name (e.g., "NSE")
+     * @param exchange Exchange segment (e.g., "NSEFO", "NSECM", "BSEFO", "BSECM")
      * @param token Unique token ID for API
      * @return true if added, false if duplicate or invalid
      */
     bool addScrip(const QString &symbol, const QString &exchange, int token);
+    
+    /**
+     * @brief Add a scrip with full contract information
+     * @param contractData Complete contract data from repository
+     * @return true if added, false if duplicate or invalid
+     */
+    bool addScripFromContract(const ScripData &contractData);
     
     /**
      * @brief Remove a scrip by row index
@@ -187,6 +194,7 @@ protected:
 
 private slots:
     void showContextMenu(const QPoint &pos);
+    void showColumnProfileDialog();
     void onBuyAction();
     void onSellAction();
     void onAddScripAction();

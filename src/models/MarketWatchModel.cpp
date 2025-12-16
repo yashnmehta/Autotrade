@@ -1,4 +1,5 @@
 #include "models/MarketWatchModel.h"
+#include "models/MarketWatchColumnProfile.h"
 #include <QColor>
 #include <QFont>
 #include <QDebug>
@@ -6,9 +7,8 @@
 MarketWatchModel::MarketWatchModel(QObject *parent)
     : QAbstractTableModel(parent)
 {
-    // Initialize column headers
-    m_headers << "Symbol" << "LTP" << "Change" << "%Change" << "Volume"
-              << "Bid" << "Ask" << "High" << "Low" << "Open" << "OI";
+    // Initialize with default column profile
+    m_columnProfile = MarketWatchColumnProfile::createDefaultProfile();
 }
 
 int MarketWatchModel::rowCount(const QModelIndex &parent) const
@@ -18,7 +18,7 @@ int MarketWatchModel::rowCount(const QModelIndex &parent) const
 
 int MarketWatchModel::columnCount(const QModelIndex &parent) const
 {
-    return parent.isValid() ? 0 : COL_COUNT;
+    return parent.isValid() ? 0 : m_columnProfile.visibleColumnCount();
 }
 
 QVariant MarketWatchModel::data(const QModelIndex &index, int role) const
@@ -30,8 +30,8 @@ QVariant MarketWatchModel::data(const QModelIndex &index, int role) const
     
     // Special handling for blank rows
     if (scrip.isBlankRow) {
-        if (role == Qt::DisplayRole && index.column() == COL_SYMBOL) {
-            return scrip.symbol;  // Show separator
+        if (role == Qt::DisplayRole && index.column() == 0) {
+            return "───────────────";  // Show separator
         }
         if (role == Qt::UserRole + 100) {
             return true;  // Mark as blank row for delegate
@@ -39,59 +39,27 @@ QVariant MarketWatchModel::data(const QModelIndex &index, int role) const
         return QVariant();
     }
 
+    // Get the column enum for this index
+    QList<MarketWatchColumn> visibleCols = m_columnProfile.visibleColumns();
+    if (index.column() < 0 || index.column() >= visibleCols.size())
+        return QVariant();
+    
+    MarketWatchColumn column = visibleCols.at(index.column());
+
     // Display role - show formatted data
     if (role == Qt::DisplayRole) {
-        switch (index.column()) {
-            case COL_SYMBOL:
-                return scrip.symbol;
-            case COL_LTP:
-                return QString::number(scrip.ltp, 'f', 2);
-            case COL_CHANGE:
-                return QString::number(scrip.change, 'f', 2);
-            case COL_CHANGE_PERCENT:
-                return QString::number(scrip.changePercent, 'f', 2) + "%";
-            case COL_VOLUME:
-                return QString::number(scrip.volume);
-            case COL_BID:
-                return QString::number(scrip.bid, 'f', 2);
-            case COL_ASK:
-                return QString::number(scrip.ask, 'f', 2);
-            case COL_HIGH:
-                return QString::number(scrip.high, 'f', 2);
-            case COL_LOW:
-                return QString::number(scrip.low, 'f', 2);
-            case COL_OPEN:
-                return QString::number(scrip.open, 'f', 2);
-            case COL_OPEN_INTEREST:
-                return QString::number(scrip.openInterest);
-            default:
-                return QVariant();
-        }
+        return formatColumnData(scrip, column);
     }
     
     // Text alignment
     else if (role == Qt::TextAlignmentRole) {
-        if (index.column() == COL_SYMBOL)
-            return Qt::AlignLeft + Qt::AlignVCenter;
-        return Qt::AlignRight + Qt::AlignVCenter;
+        ColumnInfo info = MarketWatchColumnProfile::getColumnInfo(column);
+        return static_cast<int>(info.alignment);
     }
     
-    // User role - return raw data for sorting (including string for symbol)
+    // User role - return raw data for sorting
     else if (role == Qt::UserRole) {
-        switch (index.column()) {
-            case COL_SYMBOL: return scrip.symbol;  // Return string for alphabetic sorting
-            case COL_LTP: return scrip.ltp;
-            case COL_CHANGE: return scrip.change;
-            case COL_CHANGE_PERCENT: return scrip.changePercent;
-            case COL_VOLUME: return static_cast<qlonglong>(scrip.volume);
-            case COL_BID: return scrip.bid;
-            case COL_ASK: return scrip.ask;
-            case COL_HIGH: return scrip.high;
-            case COL_LOW: return scrip.low;
-            case COL_OPEN: return scrip.open;
-            case COL_OPEN_INTEREST: return static_cast<qlonglong>(scrip.openInterest);
-            default: return QVariant();
-        }
+        return getColumnData(scrip, column);
     }
     
     // User role + 1 - return token for lookups
@@ -109,9 +77,23 @@ QVariant MarketWatchModel::data(const QModelIndex &index, int role) const
 
 QVariant MarketWatchModel::headerData(int section, Qt::Orientation orientation, int role) const
 {
-    if (orientation == Qt::Horizontal && role == Qt::DisplayRole) {
-        if (section >= 0 && section < m_headers.count())
-            return m_headers.at(section);
+    if (orientation == Qt::Horizontal) {
+        QList<MarketWatchColumn> visibleCols = m_columnProfile.visibleColumns();
+        if (section < 0 || section >= visibleCols.size())
+            return QVariant();
+        
+        MarketWatchColumn col = visibleCols.at(section);
+        ColumnInfo info = MarketWatchColumnProfile::getColumnInfo(col);
+        
+        if (role == Qt::DisplayRole) {
+            return info.name;
+        }
+        else if (role == Qt::TextAlignmentRole) {
+            return static_cast<int>(info.alignment);
+        }
+        else if (role == Qt::ToolTipRole) {
+            return info.description;
+        }
     }
     else if (orientation == Qt::Vertical && role == Qt::DisplayRole) {
         return section + 1;  // Row numbers
@@ -337,4 +319,186 @@ void MarketWatchModel::emitCellChanged(int row, int column)
 {
     QModelIndex idx = index(row, column);
     emit dataChanged(idx, idx);
+}
+
+// ============================================================================
+// Column Profile Management
+// ============================================================================
+
+void MarketWatchModel::setColumnProfile(const MarketWatchColumnProfile& profile)
+{
+    beginResetModel();
+    m_columnProfile = profile;
+    endResetModel();
+    qDebug() << "[MarketWatchModel] Column profile updated:" << profile.name();
+}
+
+void MarketWatchModel::loadProfile(const QString& profileName)
+{
+    MarketWatchProfileManager& manager = MarketWatchProfileManager::instance();
+    
+    if (manager.hasProfile(profileName)) {
+        setColumnProfile(manager.getProfile(profileName));
+    } else {
+        qDebug() << "[MarketWatchModel] Profile not found:" << profileName;
+    }
+}
+
+void MarketWatchModel::saveProfile(const QString& profileName)
+{
+    MarketWatchProfileManager& manager = MarketWatchProfileManager::instance();
+    
+    MarketWatchColumnProfile profile = m_columnProfile;
+    profile.setName(profileName);
+    
+    manager.addProfile(profile);
+    qDebug() << "[MarketWatchModel] Profile saved:" << profileName;
+}
+
+QStringList MarketWatchModel::getAvailableProfiles() const
+{
+    return MarketWatchProfileManager::instance().profileNames();
+}
+
+// ============================================================================
+// Column Data Helpers
+// ============================================================================
+
+QVariant MarketWatchModel::getColumnData(const ScripData& scrip, MarketWatchColumn column) const
+{
+    switch (column) {
+        case MarketWatchColumn::CODE: return scrip.code;
+        case MarketWatchColumn::SYMBOL: return scrip.symbol;
+        case MarketWatchColumn::SCRIP_NAME: return scrip.scripName;
+        case MarketWatchColumn::INSTRUMENT_NAME: return scrip.instrumentName;
+        case MarketWatchColumn::INSTRUMENT_TYPE: return scrip.instrumentType;
+        case MarketWatchColumn::MARKET_TYPE: return scrip.marketType;
+        case MarketWatchColumn::EXCHANGE: return scrip.exchange;
+        case MarketWatchColumn::STRIKE_PRICE: return scrip.strikePrice;
+        case MarketWatchColumn::OPTION_TYPE: return scrip.optionType;
+        case MarketWatchColumn::SERIES_EXPIRY: return scrip.seriesExpiry;
+        case MarketWatchColumn::ISIN_CODE: return scrip.isinCode;
+        case MarketWatchColumn::LAST_TRADED_PRICE: return scrip.ltp;
+        case MarketWatchColumn::LAST_TRADED_QUANTITY: return static_cast<qlonglong>(scrip.ltq);
+        case MarketWatchColumn::LAST_TRADED_TIME: return scrip.ltpTime;
+        case MarketWatchColumn::LAST_UPDATE_TIME: return scrip.lastUpdateTime;
+        case MarketWatchColumn::OPEN: return scrip.open;
+        case MarketWatchColumn::HIGH: return scrip.high;
+        case MarketWatchColumn::LOW: return scrip.low;
+        case MarketWatchColumn::CLOSE: return scrip.close;
+        case MarketWatchColumn::DPR: return scrip.dpr;
+        case MarketWatchColumn::NET_CHANGE_RS: return scrip.change;
+        case MarketWatchColumn::PERCENT_CHANGE: return scrip.changePercent;
+        case MarketWatchColumn::TREND_INDICATOR: return scrip.trendIndicator;
+        case MarketWatchColumn::AVG_TRADED_PRICE: return scrip.avgTradedPrice;
+        case MarketWatchColumn::VOLUME: return static_cast<qlonglong>(scrip.volume);
+        case MarketWatchColumn::VALUE: return scrip.value;
+        case MarketWatchColumn::BUY_PRICE: return scrip.buyPrice;
+        case MarketWatchColumn::BUY_QTY: return static_cast<qlonglong>(scrip.buyQty);
+        case MarketWatchColumn::TOTAL_BUY_QTY: return static_cast<qlonglong>(scrip.totalBuyQty);
+        case MarketWatchColumn::SELL_PRICE: return scrip.sellPrice;
+        case MarketWatchColumn::SELL_QTY: return static_cast<qlonglong>(scrip.sellQty);
+        case MarketWatchColumn::TOTAL_SELL_QTY: return static_cast<qlonglong>(scrip.totalSellQty);
+        case MarketWatchColumn::OPEN_INTEREST: return static_cast<qlonglong>(scrip.openInterest);
+        case MarketWatchColumn::OI_CHANGE_PERCENT: return scrip.oiChangePercent;
+        case MarketWatchColumn::WEEK_52_HIGH: return scrip.week52High;
+        case MarketWatchColumn::WEEK_52_LOW: return scrip.week52Low;
+        case MarketWatchColumn::LIFETIME_HIGH: return scrip.lifetimeHigh;
+        case MarketWatchColumn::LIFETIME_LOW: return scrip.lifetimeLow;
+        case MarketWatchColumn::MARKET_CAP: return scrip.marketCap;
+        case MarketWatchColumn::TRADE_EXECUTION_RANGE: return scrip.tradeExecutionRange;
+        default: return QVariant();
+    }
+}
+
+QString MarketWatchModel::formatColumnData(const ScripData& scrip, MarketWatchColumn column) const
+{
+    ColumnInfo info = MarketWatchColumnProfile::getColumnInfo(column);
+    QString format = info.format;
+    QString units = info.unit;
+    
+    switch (column) {
+        case MarketWatchColumn::CODE:
+            return QString::number(scrip.code);
+            
+        case MarketWatchColumn::SYMBOL:
+        case MarketWatchColumn::SCRIP_NAME:
+        case MarketWatchColumn::INSTRUMENT_NAME:
+        case MarketWatchColumn::INSTRUMENT_TYPE:
+        case MarketWatchColumn::MARKET_TYPE:
+        case MarketWatchColumn::EXCHANGE:
+        case MarketWatchColumn::OPTION_TYPE:
+        case MarketWatchColumn::SERIES_EXPIRY:
+        case MarketWatchColumn::ISIN_CODE:
+        case MarketWatchColumn::DPR:
+        case MarketWatchColumn::TREND_INDICATOR:
+        case MarketWatchColumn::TRADE_EXECUTION_RANGE:
+            return getColumnData(scrip, column).toString();
+            
+        case MarketWatchColumn::STRIKE_PRICE:
+        case MarketWatchColumn::LAST_TRADED_PRICE:
+        case MarketWatchColumn::OPEN:
+        case MarketWatchColumn::HIGH:
+        case MarketWatchColumn::LOW:
+        case MarketWatchColumn::CLOSE:
+        case MarketWatchColumn::NET_CHANGE_RS:
+        case MarketWatchColumn::AVG_TRADED_PRICE:
+        case MarketWatchColumn::BUY_PRICE:
+        case MarketWatchColumn::SELL_PRICE:
+        case MarketWatchColumn::WEEK_52_HIGH:
+        case MarketWatchColumn::WEEK_52_LOW:
+        case MarketWatchColumn::LIFETIME_HIGH:
+        case MarketWatchColumn::LIFETIME_LOW: {
+            double value = getColumnData(scrip, column).toDouble();
+            if (value == 0.0) return "-";
+            return QString::number(value, 'f', 2) + (units.isEmpty() ? "" : " " + units);
+        }
+        
+        case MarketWatchColumn::PERCENT_CHANGE:
+        case MarketWatchColumn::OI_CHANGE_PERCENT: {
+            double value = getColumnData(scrip, column).toDouble();
+            if (value == 0.0) return "-";
+            QString sign = (value > 0) ? "+" : "";
+            return sign + QString::number(value, 'f', 2) + "%";
+        }
+        
+        case MarketWatchColumn::VOLUME: {
+            qint64 vol = getColumnData(scrip, column).toLongLong();
+            if (vol == 0) return "-";
+            return QString::number(vol / 1000.0, 'f', 2) + " K";  // in 000s
+        }
+        
+        case MarketWatchColumn::VALUE: {
+            double val = getColumnData(scrip, column).toDouble();
+            if (val == 0.0) return "-";
+            return QString::number(val / 100000.0, 'f', 2) + " L";  // in lacs
+        }
+        
+        case MarketWatchColumn::MARKET_CAP: {
+            double cap = getColumnData(scrip, column).toDouble();
+            if (cap == 0.0) return "-";
+            if (cap >= 10000000.0) {
+                return QString::number(cap / 10000000.0, 'f', 2) + " Cr";
+            }
+            return QString::number(cap / 100000.0, 'f', 2) + " L";
+        }
+        
+        case MarketWatchColumn::LAST_TRADED_QUANTITY:
+        case MarketWatchColumn::BUY_QTY:
+        case MarketWatchColumn::SELL_QTY:
+        case MarketWatchColumn::TOTAL_BUY_QTY:
+        case MarketWatchColumn::TOTAL_SELL_QTY:
+        case MarketWatchColumn::OPEN_INTEREST: {
+            qint64 value = getColumnData(scrip, column).toLongLong();
+            if (value == 0) return "-";
+            return QString::number(value) + (units.isEmpty() ? "" : " " + units);
+        }
+        
+        case MarketWatchColumn::LAST_TRADED_TIME:
+        case MarketWatchColumn::LAST_UPDATE_TIME:
+            return getColumnData(scrip, column).toString();
+            
+        default:
+            return "-";
+    }
 }

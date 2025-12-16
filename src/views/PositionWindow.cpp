@@ -23,7 +23,6 @@ PositionWindow::PositionWindow(QWidget *parent)
     , m_filterShortcut(nullptr)
 {
     setupUI();
-    loadSampleData();
     
     // Setup Ctrl+F shortcut for filter toggle
     m_filterShortcut = new QShortcut(QKeySequence("Ctrl+F"), this);
@@ -436,74 +435,7 @@ void PositionWindow::onExportClicked()
     QMessageBox::information(this, "Export", "Export functionality will be implemented.");
 }
 
-void PositionWindow::loadSampleData()
-{
-    // Sample data matching the image
-    Position p1;
-    p1.symbol = "BAHINDOA"; p1.seriesExpiry = "EQ"; p1.buyQty = 15; p1.sellQty = 15;
-    p1.netPrice = 0.0; p1.markPrice = 345.40; p1.mtmGainLoss = -3.00;
-    p1.mtmMargin = 0.00; p1.buyValue = 5182.50; p1.sellValue = 5179.50;
-    p1.exchange = "NSE"; p1.segment = "CM"; p1.user = "MEMBER"; p1.client = "CLIENT001";
-    m_allPositions.append(p1);
 
-    Position p2;
-    p2.symbol = "CANEX"; p2.seriesExpiry = "EQ"; p2.buyQty = 5; p2.sellQty = 5;
-    p2.netPrice = 0.0; p2.markPrice = 427.00; p2.mtmGainLoss = -1.25;
-    p2.mtmMargin = 0.00; p2.buyValue = 2121.00; p2.sellValue = 2119.25;
-    p2.exchange = "NSE"; p2.segment = "CM"; p2.user = "MEMBER"; p2.client = "CLIENT001";
-    m_allPositions.append(p2);
-
-    Position p3;
-    p3.symbol = "DCB"; p3.seriesExpiry = "EQ"; p3.buyQty = 25; p3.sellQty = 20;
-    p3.netPrice = 44.60; p3.markPrice = 44.45; p3.mtmGainLoss = -0.75;
-    p3.mtmMargin = 222.25; p3.buyValue = 1110.00; p3.sellValue = 887.00;
-    p3.exchange = "NSE"; p3.segment = "CM"; p3.user = "MEMBER"; p3.client = "CLIENT002";
-    m_allPositions.append(p3);
-
-    Position p4;
-    p4.symbol = "CORIBANK"; p4.seriesExpiry = "EQ"; p4.buyQty = 50; p4.sellQty = 40;
-    p4.netPrice = 100.55; p4.markPrice = 99.10; p4.mtmGainLoss = -7.50;
-    p4.mtmMargin = 990.00; p4.buyValue = 5007.50; p4.sellValue = 4002.00;
-    p4.exchange = "NSE"; p4.segment = "CM"; p4.user = "MEMBER"; p4.client = "CLIENT002";
-    m_allPositions.append(p4);
-
-    Position p5;
-    p5.symbol = "HDPCBANK"; p5.seriesExpiry = "EQ"; p5.buyQty = 15; p5.sellQty = 10;
-    p5.netPrice = 570.90; p5.markPrice = 577.90; p5.mtmGainLoss = 35.00;
-    p5.mtmMargin = 2889.50; p5.buyValue = 8642.00; p5.sellValue = 5707.50;
-    p5.exchange = "NSE"; p5.segment = "CM"; p5.user = "MEMBER"; p5.client = "CLIENT003";
-    m_allPositions.append(p5);
-
-    Position p6;
-    p6.symbol = "INDYSTACK"; p6.seriesExpiry = "EQ"; p6.buyQty = 1; p6.sellQty = 1;
-    p6.netPrice = 0.0; p6.markPrice = 372.05; p6.mtmGainLoss = -0.60;
-    p6.mtmMargin = 0.00; p6.buyValue = 374.85; p6.sellValue = 374.25;
-    p6.exchange = "NSE"; p6.segment = "CM"; p6.user = "MEMBER"; p6.client = "CLIENT003";
-    m_allPositions.append(p6);
-
-    Position p7;
-    p7.symbol = "RELGOLD"; p7.seriesExpiry = "EQ"; p7.buyQty = 30; p7.sellQty = 10;
-    p7.netPrice = 2065.35; p7.markPrice = 2757.75; p7.mtmGainLoss = 13848.00;
-    p7.mtmMargin = 55155.00; p7.buyValue = 41307.00; p7.sellValue = 0.00;
-    p7.exchange = "BSE"; p7.segment = "CM"; p7.user = "MEMBER"; p7.client = "CLIENT001";
-    m_allPositions.append(p7);
-
-    Position p8;
-    p8.symbol = "SSBJ"; p8.seriesExpiry = "EQ"; p8.buyQty = 0; p8.sellQty = 15;
-    p8.netPrice = 0.00; p8.markPrice = 384.90; p8.mtmGainLoss = -5773.50;
-    p8.mtmMargin = -5773.50; p8.buyValue = 0.00; p8.sellValue = 0.00;
-    p8.exchange = "BSE"; p8.segment = "CM"; p8.user = "MEMBER"; p8.client = "CLIENT002";
-    m_allPositions.append(p8);
-
-    Position p9;
-    p9.symbol = "SBIN"; p9.seriesExpiry = "EQ"; p9.buyQty = 25; p9.sellQty = 10;
-    p9.netPrice = 2203.95; p9.markPrice = 2208.60; p9.mtmGainLoss = 69.75;
-    p9.mtmMargin = 33129.00; p9.buyValue = 55098.75; p9.sellValue = 22039.50;
-    p9.exchange = "NSE"; p9.segment = "CM"; p9.user = "MEMBER"; p9.client = "CLIENT003";
-    m_allPositions.append(p9);
-
-    applyFilters();
-}
 
 // ============================================================================
 // PositionModel Implementation

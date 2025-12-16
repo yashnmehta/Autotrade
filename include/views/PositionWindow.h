@@ -49,7 +49,6 @@ public:
     void addPosition(const Position& position);
     void updatePosition(const QString& symbol, const Position& position);
     void clearPositions();
-    void loadSampleData();
 
 private slots:
     void onFilterChanged();

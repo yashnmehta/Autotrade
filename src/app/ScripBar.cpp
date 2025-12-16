@@ -32,7 +32,7 @@ void ScripBar::setupUI()
     m_layout->setAlignment(Qt::AlignVCenter);
 
     setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
-    setMaximumHeight(28);
+    setMaximumHeight(40);
 
     // Exchange combo (custom)
     m_exchangeCombo = new CustomScripComboBox(this);
@@ -132,7 +132,7 @@ void ScripBar::setupUI()
     setStyleSheet(
         "QWidget { background-color: #2d2d30; }"
         "QToolButton, QComboBox, QPushButton { color: #ffffff; background: #1e1e1e; border: none; padding: 2px 6px; }"
-        "QComboBox QAbstractItemView { background: #1e1e1e; color: #ffffff; selection-background-color: #094771; }"
+        "QComboBox QAbstractItemView { background: #1e1e1e; color: #ffffff; selection-background-color: #094771; selection-color: #ffffff; }"
         "QPushButton { background: #0e639c; border-radius: 2px; }");
 }
 
