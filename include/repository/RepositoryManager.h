@@ -64,6 +64,13 @@ public:
      */
     bool loadCombinedMasterFile(const QString& filePath);
     
+    /**
+     * @brief Save processed CSVs for faster loading
+     * @param mastersPath Path to Masters directory
+     * @return true if at least one segment saved successfully
+     */
+    bool saveProcessedCSVs(const QString& mastersPath = "Masters");
+    
     // ===== SEARCH METHODS (Array-Based, No API Calls) =====
     
     /**

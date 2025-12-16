@@ -105,6 +105,14 @@ void LoginFlowService::executeLogin(
                             RepositoryManager* repo = RepositoryManager::getInstance();
                             if (repo->loadAll(mastersDir)) {
                                 qDebug() << "[LoginFlow] RepositoryManager loaded successfully";
+                                
+                                // Save processed data to CSV for faster loading next time
+                                if (repo->saveProcessedCSVs(mastersDir)) {
+                                    qDebug() << "[LoginFlow] Processed CSVs saved for faster future loading";
+                                } else {
+                                    qWarning() << "[LoginFlow] Failed to save processed CSVs";
+                                }
+                                
                                 emit mastersLoaded();
                             } else {
                                 qWarning() << "[LoginFlow] Failed to load RepositoryManager";

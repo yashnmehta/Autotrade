@@ -114,9 +114,15 @@ bool NSEFORepository::loadMasterFile(const QString& filename) {
             m_assetToken[idx] = contract.assetToken;
             
             // Convert optionType from int to string
-            if (contract.optionType == 1) {
+            // Based on actual data: 3=CE, 4=PE, others=XX
+            if (loadedCount < 10 && contract.series == "OPTIDX") {
+                qDebug() << "  [DEBUG] Token:" << token << "Symbol:" << contract.name 
+                         << "Raw optionType:" << contract.optionType;
+            }
+            
+            if (contract.optionType == 3) {
                 m_optionType[idx] = "CE";
-            } else if (contract.optionType == 2) {
+            } else if (contract.optionType == 4) {
                 m_optionType[idx] = "PE";
             } else {
                 m_optionType[idx] = "XX";
@@ -552,4 +558,65 @@ QVector<ContractData> NSEFORepository::getContractsBySymbol(const QString& symbo
     }
     
     return contracts;
+}
+
+bool NSEFORepository::saveProcessedCSV(const QString& filename) const {
+    QFile file(filename);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        qWarning() << "Failed to open file for writing:" << filename;
+        return false;
+    }
+    
+    QTextStream out(&file);
+    
+    // Write header
+    out << "Token,Symbol,DisplayName,Description,Series,LotSize,TickSize,ExpiryDate,StrikePrice,OptionType,UnderlyingSymbol,AssetToken,PriceBandHigh,PriceBandLow,LTP,Open,High,Low,Close,PrevClose,Volume,IV,Delta,Gamma,Vega,Theta\n";
+    
+    // Write regular contracts
+    for (int32_t idx = 0; idx < ARRAY_SIZE; ++idx) {
+        if (!m_valid[idx]) continue;
+        
+        int64_t token = MIN_TOKEN + idx;
+        out << token << ","
+            << m_name[idx] << ","
+            << m_displayName[idx] << ","
+            << m_description[idx] << ","
+            << m_series[idx] << ","
+            << m_lotSize[idx] << ","
+            << m_tickSize[idx] << ","
+            << m_expiryDate[idx] << ","
+            << m_strikePrice[idx] << ","
+            << m_optionType[idx] << ","
+            << m_name[idx] << ","  // UnderlyingSymbol (same as name)
+            << m_assetToken[idx] << ","
+            << m_priceBandHigh[idx] << ","
+            << m_priceBandLow[idx] << ","
+            << "0,0,0,0,0,0,0,"  // Live data (not persisted)
+            << "0,0,0,0,0\n";    // Greeks (not persisted)
+    }
+    
+    // Write spread contracts
+    for (auto it = m_spreadContracts.constBegin(); it != m_spreadContracts.constEnd(); ++it) {
+        const ContractData* contract = it.value().get();
+        out << contract->exchangeInstrumentID << ","
+            << contract->name << ","
+            << contract->displayName << ","
+            << contract->description << ","
+            << contract->series << ","
+            << contract->lotSize << ","
+            << contract->tickSize << ","
+            << contract->expiryDate << ","
+            << contract->strikePrice << ","
+            << contract->optionType << ","
+            << contract->name << ","
+            << contract->assetToken << ","
+            << contract->priceBandHigh << ","
+            << contract->priceBandLow << ","
+            << "0,0,0,0,0,0,0,"  // Live data
+            << "0,0,0,0,0\n";    // Greeks
+    }
+    
+    file.close();
+    qDebug() << "NSE FO Repository saved to CSV:" << filename << "Regular:" << m_regularCount << "Spread:" << m_spreadCount;
+    return true;
 }

@@ -341,3 +341,36 @@ QVector<ContractData> NSECMRepository::getContractsBySymbol(const QString& symbo
     
     return contracts;
 }
+
+bool NSECMRepository::saveProcessedCSV(const QString& filename) const {
+    QReadLocker locker(&m_mutex);
+    
+    QFile file(filename);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        qWarning() << "Failed to open file for writing:" << filename;
+        return false;
+    }
+    
+    QTextStream out(&file);
+    
+    // Write header
+    out << "Token,Symbol,DisplayName,Description,Series,LotSize,TickSize,PriceBandHigh,PriceBandLow,LTP,Open,High,Low,Close,PrevClose,Volume\n";
+    
+    // Write all contracts
+    for (int32_t idx = 0; idx < m_contractCount; ++idx) {
+        out << m_token[idx] << ","
+            << m_name[idx] << ","
+            << m_displayName[idx] << ","
+            << m_description[idx] << ","
+            << m_series[idx] << ","
+            << m_lotSize[idx] << ","
+            << m_tickSize[idx] << ","
+            << m_priceBandHigh[idx] << ","
+            << m_priceBandLow[idx] << ","
+            << "0,0,0,0,0,0,0\n";  // Live data not persisted
+    }
+    
+    file.close();
+    qDebug() << "NSE CM Repository saved to CSV:" << filename << m_contractCount << "contracts";
+    return true;
+}

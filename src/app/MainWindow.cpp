@@ -31,6 +31,7 @@
 #include <QDialog>
 #include <QListWidget>
 #include <QShortcut>
+#include <QComboBox>
 #include <QSettings>
 #include <QCloseEvent>
 #include <QDebug>
@@ -46,6 +47,9 @@ MainWindow::MainWindow(QWidget *parent)
 
     // Setup content FIRST (creates layout and widgets)
     setupContent();
+    
+    // Setup keyboard shortcuts
+    setupShortcuts();
 
     // Restore visibility preferences
     QSettings s("TradingCompany", "TradingTerminal");
@@ -185,6 +189,69 @@ void MainWindow::setupContent()
     createInfoBar();
 }
 
+void MainWindow::setupShortcuts()
+{
+    qDebug() << "[MainWindow] Setting up keyboard shortcuts...";
+    
+    // F1: Open Buy Window
+    QShortcut *buyShortcut = new QShortcut(QKeySequence(Qt::Key_F1), this);
+    connect(buyShortcut, &QShortcut::activated, this, &MainWindow::createBuyWindow);
+    qDebug() << "  F1 -> Buy Window";
+    
+    // F2: Open Sell Window
+    QShortcut *sellShortcut = new QShortcut(QKeySequence(Qt::Key_F2), this);
+    connect(sellShortcut, &QShortcut::activated, this, &MainWindow::createSellWindow);
+    qDebug() << "  F2 -> Sell Window";
+    
+    // F3: Open Order Book (filtered) - TODO: implement createOrderBook method
+    QShortcut *orderBookShortcut = new QShortcut(QKeySequence(Qt::Key_F3), this);
+    connect(orderBookShortcut, &QShortcut::activated, this, []() {
+        qDebug() << "[MainWindow] F3 pressed - Order Book not yet implemented";
+    });
+    qDebug() << "  F3 -> Order Book (not yet implemented)";
+    
+    // F4: New Market Watch
+    QShortcut *marketWatchShortcut = new QShortcut(QKeySequence(Qt::Key_F4), this);
+    connect(marketWatchShortcut, &QShortcut::activated, this, &MainWindow::createMarketWatch);
+    qDebug() << "  F4 -> Market Watch";
+    
+    // F5: Open SnapQuote Window
+    QShortcut *snapQuoteShortcut = new QShortcut(QKeySequence(Qt::Key_F5), this);
+    connect(snapQuoteShortcut, &QShortcut::activated, this, &MainWindow::createSnapQuoteWindow);
+    qDebug() << "  F5 -> SnapQuote Window";
+    
+    // F8: Open Tradebook - TODO: implement createTradebook method
+    QShortcut *tradebookShortcut = new QShortcut(QKeySequence(Qt::Key_F8), this);
+    connect(tradebookShortcut, &QShortcut::activated, this, []() {
+        qDebug() << "[MainWindow] F8 pressed - Tradebook not yet implemented";
+    });
+    qDebug() << "  F8 -> Tradebook (not yet implemented)";
+    
+    // Alt+F6: Open Net Position Window
+    QShortcut *positionShortcut = new QShortcut(QKeySequence(Qt::ALT | Qt::Key_F6), this);
+    connect(positionShortcut, &QShortcut::activated, this, &MainWindow::createPositionWindow);
+    qDebug() << "  Alt+F6 -> Net Position Window";
+    
+    // Alt+S: Focus on Exchange combobox (cbExch) in ScripBar
+    QShortcut *focusExchangeShortcut = new QShortcut(QKeySequence(Qt::ALT | Qt::Key_S), this);
+    connect(focusExchangeShortcut, &QShortcut::activated, this, [this]() {
+        if (m_scripBar) {
+            // Find the exchange combobox by object name
+            QComboBox *exchangeCombo = m_scripBar->findChild<QComboBox*>("cbExchange");
+            if (exchangeCombo) {
+                exchangeCombo->setFocus();
+                exchangeCombo->showPopup(); // Auto-open dropdown for quick selection
+                qDebug() << "[MainWindow] Alt+S: Focused on exchange combobox";
+            } else {
+                qWarning() << "[MainWindow] Alt+S: Exchange combobox not found";
+            }
+        }
+    });
+    qDebug() << "  Alt+S -> Focus Exchange Combobox";
+    
+    qDebug() << "[MainWindow] Keyboard shortcuts setup complete";
+}
+
 void MainWindow::closeEvent(QCloseEvent *event)
 {
     // Save user preferences
@@ -295,11 +362,6 @@ void MainWindow::createMenuBar()
 
     // Window Menu
     QMenu *windowMenu = menuBar->addMenu("&Window");
-    QAction *marketWatchAction = windowMenu->addAction("New &Market Watch", this, &MainWindow::createMarketWatch, QKeySequence("Ctrl+M"));
-    QAction *buyWindowAction = windowMenu->addAction("New &Buy Window", this, &MainWindow::createBuyWindow, QKeySequence("Ctrl+B"));
-    QAction *sellWindowAction = windowMenu->addAction("New &Sell Window", this, &MainWindow::createSellWindow, QKeySequence("Ctrl+S"));
-    QAction *snapQuoteAction = windowMenu->addAction("New S&nap Quote", this, &MainWindow::createSnapQuoteWindow, QKeySequence("Ctrl+Q"));
-    QAction *positionAction = windowMenu->addAction("New &Position Window", this, &MainWindow::createPositionWindow, QKeySequence("Ctrl+P"));
     windowMenu->addSeparator();
 
     // Window Arrangement

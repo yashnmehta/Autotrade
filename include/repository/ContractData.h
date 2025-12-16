@@ -159,9 +159,10 @@ struct MasterContract {
         data.assetToken = assetToken;
         
         // Convert optionType from int to string
-        if (optionType == 1) {
+        // Based on actual data: 3=CE, 4=PE, others=XX
+        if (optionType == 3) {
             data.optionType = "CE";
-        } else if (optionType == 2) {
+        } else if (optionType == 4) {
             data.optionType = "PE";
         } else {
             data.optionType = "XX";

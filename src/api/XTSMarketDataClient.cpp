@@ -5,6 +5,7 @@
 #include <QJsonArray>
 #include <QNetworkRequest>
 #include <QUrlQuery>
+#include <QtMath>
 #include <QDebug>
 
 XTSMarketDataClient::XTSMarketDataClient(const QString &baseURL,
@@ -20,6 +21,10 @@ XTSMarketDataClient::XTSMarketDataClient(const QString &baseURL,
     , m_wsConnected(false)
     , m_tickHandler(nullptr)
     , m_wsConnectCallback(nullptr)
+    , m_reconnectTimer(new QTimer(this))
+    , m_reconnectAttempts(0)
+    , m_maxReconnectAttempts(10)
+    , m_shouldReconnect(false)
 {
     // Connect WebSocket signals
     connect(m_webSocket, &QWebSocket::connected, this, &XTSMarketDataClient::onWSConnected);
@@ -28,6 +33,10 @@ XTSMarketDataClient::XTSMarketDataClient(const QString &baseURL,
             this, &XTSMarketDataClient::onWSError);
     connect(m_webSocket, &QWebSocket::textMessageReceived, this, &XTSMarketDataClient::onWSTextMessageReceived);
     connect(m_webSocket, &QWebSocket::binaryMessageReceived, this, &XTSMarketDataClient::onWSBinaryMessageReceived);
+    
+    // Connect reconnect timer
+    m_reconnectTimer->setSingleShot(true);
+    connect(m_reconnectTimer, &QTimer::timeout, this, &XTSMarketDataClient::attemptReconnect);
 }
 
 XTSMarketDataClient::~XTSMarketDataClient()
@@ -96,6 +105,8 @@ void XTSMarketDataClient::connectWebSocket(std::function<void(bool, const QStrin
     // Full URL: ws://host:port/apimarketdata/socket.io/?EIO=3&transport=websocket&token=xxx&userID=xxx&publishFormat=JSON&broadcastMode=Partial
     
     m_wsConnectCallback = callback;
+    m_shouldReconnect = true;  // Enable auto-reconnect
+    m_reconnectAttempts = 0;   // Reset counter
 
     // Extract base URL (protocol + host + port)
     QString wsUrl = m_baseURL;
@@ -122,6 +133,9 @@ void XTSMarketDataClient::connectWebSocket(std::function<void(bool, const QStrin
 
 void XTSMarketDataClient::disconnectWebSocket()
 {
+    m_shouldReconnect = false;  // Disable auto-reconnect
+    m_reconnectTimer->stop();   // Stop any pending reconnection
+    
     if (m_webSocket && m_wsConnected) {
         m_webSocket->close();
     }
@@ -503,8 +517,14 @@ void XTSMarketDataClient::getQuote(const QVector<int64_t> &instrumentIDs, int ex
 void XTSMarketDataClient::onWSConnected()
 {
     m_wsConnected = true;
+    m_reconnectAttempts = 0;  // Reset reconnect counter
     qDebug() << "✅ WebSocket connected";
     emit connectionStatusChanged(true);
+    
+    // Send Socket.IO namespace connection to root namespace
+    // Try "40/" (explicit root namespace) instead of just "40" for better compatibility
+    qDebug() << "📤 Sending namespace connection: 40/";
+    m_webSocket->sendTextMessage("40/");
     
     if (m_wsConnectCallback) {
         m_wsConnectCallback(true, "Connected");
@@ -517,6 +537,23 @@ void XTSMarketDataClient::onWSDisconnected()
     m_wsConnected = false;
     qDebug() << "❌ WebSocket disconnected";
     emit connectionStatusChanged(false);
+    
+    // Attempt reconnection if enabled
+    if (m_shouldReconnect && m_reconnectAttempts < m_maxReconnectAttempts) {
+        // Exponential backoff: 2^attempt seconds (max 60s)
+        int delayMs = qMin(static_cast<int>(qPow(2, m_reconnectAttempts)) * 1000, 60000);
+        
+        qDebug() << QString("🔄 Attempting reconnection in %1 seconds (attempt %2/%3)")
+                       .arg(delayMs / 1000)
+                       .arg(m_reconnectAttempts + 1)
+                       .arg(m_maxReconnectAttempts);
+        
+        m_reconnectAttempts++;
+        m_reconnectTimer->start(delayMs);
+    } else if (m_reconnectAttempts >= m_maxReconnectAttempts) {
+        qCritical() << "❌ Max reconnection attempts reached. Please check connection and restart application.";
+        emit errorOccurred("WebSocket disconnected after max reconnection attempts");
+    }
 }
 
 void XTSMarketDataClient::onWSError(QAbstractSocket::SocketError error)
@@ -536,6 +573,15 @@ void XTSMarketDataClient::onWSTextMessageReceived(const QString &message)
     // Socket.IO messages are prefixed with packet type codes:
     // 0 = open, 2 = ping, 3 = pong, 4 = message, 40 = connect, 41 = disconnect, 42 = event
     
+    // Log ALL WebSocket messages for debugging
+    qDebug() << "📨 WebSocket message:" << message;
+    
+    // Log message "41" disconnect to understand why server is disconnecting
+    if (message.startsWith("41")) {
+        qWarning() << "⚠️ Server sent disconnect (41) - full message:" << message;
+        // Don't return - let it fall through to handle as unknown message
+    }
+    
     if (message.startsWith("0")) {
         // Socket.IO handshake: 0{"sid":"xxx","upgrades":[],"pingInterval":25000,"pingTimeout":20000}
         qDebug() << "Socket.IO handshake received:" << message.mid(1);
@@ -544,6 +590,7 @@ void XTSMarketDataClient::onWSTextMessageReceived(const QString &message)
     
     if (message.startsWith("2")) {
         // Ping - respond with pong (3)
+        qDebug() << "⬅️ Received ping, sending pong...";
         m_webSocket->sendTextMessage("3");
         return;
     }
@@ -886,4 +933,35 @@ void XTSMarketDataClient::downloadMasterContracts(const QStringList &exchangeSeg
 
         callback(true, csvData, QString());
     });
+}
+
+void XTSMarketDataClient::attemptReconnect()
+{
+    if (!m_shouldReconnect || m_token.isEmpty()) {
+        qDebug() << "Reconnection cancelled (shouldReconnect=" << m_shouldReconnect << ", hasToken=" << !m_token.isEmpty() << ")";
+        return;
+    }
+    
+    qDebug() << "🔄 Attempting to reconnect WebSocket...";
+    
+    // Extract base URL (protocol + host + port)
+    QString wsUrl = m_baseURL;
+    wsUrl.replace("https://", "wss://").replace("http://", "ws://");
+    
+    // Remove any existing path (like /apimarketdata) to get clean base
+    QUrl baseUrl(wsUrl);
+    wsUrl = QString("%1://%2:%3").arg(baseUrl.scheme()).arg(baseUrl.host()).arg(baseUrl.port(3000));
+    
+    // Add Socket.IO path and query parameters
+    wsUrl += "/apimarketdata/socket.io/?EIO=3&transport=websocket";
+    wsUrl += "&token=" + m_token;
+    
+    if (!m_userID.isEmpty()) {
+        wsUrl += "&userID=" + m_userID;
+    }
+    
+    // Use Partial mode for efficiency (only changed fields sent)
+    wsUrl += "&publishFormat=JSON&broadcastMode=Partial";
+    
+    m_webSocket->open(QUrl(wsUrl));
 }

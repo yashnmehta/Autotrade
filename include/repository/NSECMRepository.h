@@ -51,6 +51,13 @@ public:
      */
     bool loadProcessedCSV(const QString& filename);
     
+    /**
+     * @brief Save contracts to processed CSV file
+     * @param filename Path to save CSV file
+     * @return true if successful
+     */
+    bool saveProcessedCSV(const QString& filename) const;
+    
     // ===== QUERY METHODS =====
     
     /**

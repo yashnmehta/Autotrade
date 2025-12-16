@@ -83,7 +83,7 @@ void ScripBar::setupUI()
     // Strike combo (custom with numeric sorting)
     m_strikeCombo = new CustomScripComboBox(this);
     m_strikeCombo->setSortMode(CustomScripComboBox::NumericSort);
-    m_strikeCombo->setMinimumWidth(80);
+    m_strikeCombo->setMinimumWidth(140);
     m_layout->addWidget(m_strikeCombo);
     connect(m_strikeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &ScripBar::onStrikeChanged);
@@ -130,11 +130,15 @@ void ScripBar::setupUI()
     m_layout->addStretch();
 
     // Compact flat styling (matches existing toolbar)
+    //add lineEdit style sheet in this
+
     setStyleSheet(
         "QWidget { background-color: #2d2d30; }"
         "QToolButton, QComboBox, QPushButton { color: #ffffff; background: #1e1e1e; border: none; padding: 2px 6px; }"
         "QComboBox QAbstractItemView { background: #1e1e1e; color: #ffffff; selection-background-color: #094771; selection-color: #ffffff; }"
-        "QPushButton { background: #0e639c; border-radius: 2px; }");
+        "QPushButton { background: #0e639c; border-radius: 2px; }"
+        "QLineEdit { background: #1e1e1e; color: #ffffff; border: 1px solid #3f3f46; border-radius: 2px; padding: 2px 4px; }"
+        );
 }
 
 void ScripBar::populateExchanges()

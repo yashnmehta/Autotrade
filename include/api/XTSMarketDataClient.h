@@ -7,6 +7,7 @@
 #include <QNetworkReply>
 #include <QWebSocket>
 #include <QJsonDocument>
+#include <QTimer>
 #include <functional>
 
 class XTSMarketDataClient : public QObject
@@ -70,6 +71,7 @@ private slots:
     void onWSError(QAbstractSocket::SocketError error);
     void onWSTextMessageReceived(const QString &message);
     void onWSBinaryMessageReceived(const QByteArray &message);
+    void attemptReconnect();
 
 private:
     void processTickData(const QJsonObject &json);
@@ -89,6 +91,12 @@ private:
 
     std::function<void(const XTS::Tick&)> m_tickHandler;
     std::function<void(bool, const QString&)> m_wsConnectCallback;
+    
+    // Auto-reconnect
+    QTimer *m_reconnectTimer;
+    int m_reconnectAttempts;
+    int m_maxReconnectAttempts;
+    bool m_shouldReconnect;
 };
 
 #endif // XTSMARKETDATACLIENT_H

@@ -30,7 +30,47 @@ bool RepositoryManager::loadAll(const QString& mastersPath) {
     
     bool anyLoaded = false;
     
-    // Check if there's a combined master file (from XTS download)
+    // FAST PATH: Check for processed CSV files first (10x faster loading)
+    QString nsefoCSV = mastersPath + "/processed_csv/nsefo_processed.csv";
+    QString nsecmCSV = mastersPath + "/processed_csv/nsecm_processed.csv";
+    
+    if (QFile::exists(nsefoCSV) && QFile::exists(nsecmCSV)) {
+        qDebug() << "[RepositoryManager] Found processed CSV files, loading from cache...";
+        
+        bool nsefoLoaded = false;
+        bool nsecmLoaded = false;
+        
+        if (m_nsefo->loadProcessedCSV(nsefoCSV)) {
+            nsefoLoaded = true;
+            anyLoaded = true;
+        } else {
+            qWarning() << "[RepositoryManager] Failed to load NSE F&O CSV";
+        }
+        
+        if (m_nsecm->loadProcessedCSV(nsecmCSV)) {
+            nsecmLoaded = true;
+            anyLoaded = true;
+        } else {
+            qWarning() << "[RepositoryManager] Failed to load NSE CM CSV";
+        }
+        
+        if (nsefoLoaded && nsecmLoaded) {
+            m_loaded = true;
+            
+            // Log summary
+            SegmentStats stats = getSegmentStats();
+            qDebug() << "[RepositoryManager] CSV loading complete (FAST PATH):";
+            qDebug() << "  NSE F&O:" << stats.nsefo << "contracts";
+            qDebug() << "  NSE CM:" << stats.nsecm << "contracts";
+            qDebug() << "  Total:" << getTotalContractCount() << "contracts";
+            
+            return true;
+        }
+        // If CSV loading partially failed, fall through to master file loading
+        qDebug() << "[RepositoryManager] CSV loading incomplete, falling back to master file...";
+    }
+    
+    // SLOW PATH: Check if there's a combined master file (from XTS download)
     QString combinedFile = mastersPath + "/master_contracts_latest.txt";
     if (QFile::exists(combinedFile)) {
         qDebug() << "[RepositoryManager] Found combined master file, parsing segments...";
@@ -454,4 +494,38 @@ int RepositoryManager::getExchangeSegmentID(const QString& exchange, const QStri
     if (segmentKey == "BSEFO") return 12; // BSE F&O (F)
     
     return -1;
+}
+
+bool RepositoryManager::saveProcessedCSVs(const QString& mastersPath) {
+    bool anySaved = false;
+    
+    // Create processed_csv directory if it doesn't exist
+    QDir dir(mastersPath);
+    if (!dir.exists("processed_csv")) {
+        dir.mkpath("processed_csv");
+    }
+    
+    QString csvDir = mastersPath + "/processed_csv";
+    
+    // Save NSE FO
+    if (m_nsefo->isLoaded()) {
+        QString csvFile = csvDir + "/nsefo_processed.csv";
+        if (m_nsefo->saveProcessedCSV(csvFile)) {
+            anySaved = true;
+        }
+    }
+    
+    // Save NSE CM
+    if (m_nsecm->isLoaded()) {
+        QString csvFile = csvDir + "/nsecm_processed.csv";
+        if (m_nsecm->saveProcessedCSV(csvFile)) {
+            anySaved = true;
+        }
+    }
+    
+    if (anySaved) {
+        qDebug() << "[RepositoryManager] Processed CSVs saved to:" << csvDir;
+    }
+    
+    return anySaved;
 }

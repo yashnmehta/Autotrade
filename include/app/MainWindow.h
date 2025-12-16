@@ -58,6 +58,7 @@ private slots:
 
 private:
     void setupContent();
+    void setupShortcuts();
     void createMenuBar();
     void createToolBar();
     void createConnectionBar();
