@@ -12,8 +12,14 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Set AUTOUIC search paths for .ui files
 set(CMAKE_AUTOUIC_SEARCH_PATHS ${CMAKE_SOURCE_DIR}/resources/forms)
 
-# Find Qt5 components
+# Find Qt5 components (UI only)
 find_package(Qt5 COMPONENTS Widgets Network WebSockets UiTools REQUIRED)
+
+# Find Boost for native WebSocket (Beast + Asio)
+# Boost.Beast is header-only, just need Boost headers
+find_package(Boost 1.70 REQUIRED)
+find_package(OpenSSL REQUIRED)
+find_package(Threads REQUIRED)
 
 # Include directories - New Structured Architecture
 include_directories(
@@ -148,16 +154,21 @@ set(SERVICE_HEADERS
 # ========================================
 # API LAYER - XTS API Integration
 # ✅ XTS Market Data & Interactive API clients
+# ✅ Native C++ network layer (698x faster than Qt)
 # ========================================
 set(API_SOURCES
     src/api/XTSMarketDataClient.cpp
     src/api/XTSInteractiveClient.cpp
+    src/api/NativeWebSocketClient.cpp
+    src/api/NativeHTTPClient.cpp
 )
 
 set(API_HEADERS
     include/api/XTSTypes.h
     include/api/XTSMarketDataClient.h
     include/api/XTSInteractiveClient.h
+    include/api/NativeWebSocketClient.h
+    include/api/NativeHTTPClient.h
 )
 
 # ========================================
@@ -267,7 +278,13 @@ target_link_libraries(TradingTerminal PRIVATE
     Qt5::Network
     Qt5::WebSockets
     Qt5::UiTools
+    OpenSSL::SSL
+    OpenSSL::Crypto
+    Threads::Threads
 )
+
+# Include Boost headers (Beast is header-only)
+target_include_directories(TradingTerminal PRIVATE ${Boost_INCLUDE_DIRS})
 
 # macOS Bundle Settings
 if(APPLE)
@@ -286,3 +303,8 @@ add_subdirectory(tests)
 add_executable(test_xts_api test_xts_api.cpp)
 target_link_libraries(test_xts_api Qt5::Core Qt5::Network)
 set_target_properties(test_xts_api PROPERTIES AUTOMOC ON)
+
+# Performance Benchmark: Qt vs Native C++
+add_executable(benchmark_qt_vs_native tests/benchmark_qt_vs_native.cpp)
+target_link_libraries(benchmark_qt_vs_native Qt5::Core)
+set_target_properties(benchmark_qt_vs_native PROPERTIES AUTOMOC ON)

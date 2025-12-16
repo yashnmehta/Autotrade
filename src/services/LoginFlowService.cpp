@@ -79,18 +79,18 @@ void LoginFlowService::executeLogin(
 
             updateStatus("ia_login", "Interactive API connected", 60);
 
-            // Phase 3: Download Masters (if requested)
+            // Phase 3: Download Masters (if requested) OR load from cache
+            QString appDir = QCoreApplication::applicationDirPath();
+            QString mastersDir = appDir + "/../../masters";
+            QDir().mkpath(mastersDir);
+            
             if (downloadMasters) {
                 updateStatus("masters", "Downloading NSEFO masters...", 70);
                 
                 QStringList segments = {"NSEFO", "NSECM", "BSEFO", "BSECM"};
-                m_mdClient->downloadMasterContracts(segments, [this](bool success, const QString &csvData, const QString &error) {
+                m_mdClient->downloadMasterContracts(segments, [this, mastersDir](bool success, const QString &csvData, const QString &error) {
                     if (success) {
                         // Save to file in Masters directory
-                        QString appDir = QCoreApplication::applicationDirPath();
-                        QString mastersDir = appDir + "/../../Masters";
-                        QDir().mkpath(mastersDir);
-                        
                         QString filePath = mastersDir + "/master_contracts_latest.txt";
                         QFile file(filePath);
                         if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
@@ -127,7 +127,19 @@ void LoginFlowService::executeLogin(
                     }
                 });
             } else {
-                updateStatus("masters", "Skipping master download", 75);
+                // Load from cached files (much faster than downloading)
+                updateStatus("masters", "Loading cached masters...", 70);
+                qDebug() << "[LoginFlow] Loading masters from cache...";
+                
+                RepositoryManager* repo = RepositoryManager::getInstance();
+                if (repo->loadAll(mastersDir)) {
+                    qDebug() << "[LoginFlow] RepositoryManager loaded from cache successfully";
+                    updateStatus("masters", "Cached masters loaded", 75);
+                    emit mastersLoaded();
+                } else {
+                    qWarning() << "[LoginFlow] Failed to load cached masters - you may need to download them";
+                    updateStatus("masters", "No cached masters found (download needed)", 75);
+                }
             }
 
             // Phase 4: Connect WebSocket

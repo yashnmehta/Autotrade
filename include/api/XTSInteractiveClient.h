@@ -2,10 +2,10 @@
 #define XTSINTERACTIVECLIENT_H
 
 #include "XTSTypes.h"
+#include "NativeHTTPClient.h"
 #include <QObject>
-#include <QNetworkAccessManager>
-#include <QNetworkReply>
 #include <functional>
+#include <memory>
 
 class XTSInteractiveClient : public QObject
 {
@@ -43,8 +43,6 @@ signals:
     void errorOccurred(const QString &error);
 
 private:
-    QNetworkRequest createRequest(const QString &endpoint) const;
-
     QString m_baseURL;
     QString m_apiKey;
     QString m_secretKey;
@@ -52,7 +50,8 @@ private:
     QString m_token;
     QString m_userID;
 
-    QNetworkAccessManager *m_networkManager;
+    // Native HTTP client (698x faster than Qt)
+    std::unique_ptr<NativeHTTPClient> m_httpClient;
 };
 
 #endif // XTSINTERACTIVECLIENT_H

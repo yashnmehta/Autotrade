@@ -2,7 +2,6 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
-#include <QNetworkRequest>
 #include <QDebug>
 
 XTSInteractiveClient::XTSInteractiveClient(const QString &baseURL,
@@ -15,7 +14,7 @@ XTSInteractiveClient::XTSInteractiveClient(const QString &baseURL,
     , m_apiKey(apiKey)
     , m_secretKey(secretKey)
     , m_source(source)
-    , m_networkManager(new QNetworkAccessManager(this))
+    , m_httpClient(std::make_unique<NativeHTTPClient>())
 {
 }
 
@@ -25,50 +24,46 @@ XTSInteractiveClient::~XTSInteractiveClient()
 
 void XTSInteractiveClient::login(std::function<void(bool, const QString&)> callback)
 {
-    QUrl url(m_baseURL + "/interactive/user/session");
-    QNetworkRequest request(url);
-    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
-
+    std::string url = (m_baseURL + "/interactive/user/session").toStdString();
+    
     QJsonObject loginData;
     loginData["appKey"] = m_apiKey;
     loginData["secretKey"] = m_secretKey;
     loginData["source"] = m_source;
-
+    
     QJsonDocument doc(loginData);
-    QByteArray data = doc.toJson();
-
-    QNetworkReply *reply = m_networkManager->post(request, data);
-
-    connect(reply, &QNetworkReply::finished, this, [this, reply, callback]() {
-        reply->deleteLater();
-
-        if (reply->error() != QNetworkReply::NoError) {
-            QString error = QString("Interactive login failed: %1").arg(reply->errorString());
-            qWarning() << error;
-            if (callback) callback(false, error);
-            return;
-        }
-
-        QByteArray response = reply->readAll();
-        QJsonDocument doc = QJsonDocument::fromJson(response);
-        QJsonObject obj = doc.object();
-
-        QString type = obj["type"].toString();
-        if (type == "success") {
-            QJsonObject result = obj["result"].toObject();
-            m_token = result["token"].toString();
-            m_userID = result["userID"].toString();
-
-            qDebug() << "✅ Interactive API login successful. UserID:" << m_userID;
-            if (callback) callback(true, "Login successful");
-        } else {
-            QString error = QString("Interactive login failed: %1 - %2")
-                                .arg(obj["code"].toString())
-                                .arg(obj["description"].toString());
-            qWarning() << error;
-            if (callback) callback(false, error);
-        }
-    });
+    std::string body = doc.toJson().toStdString();
+    
+    std::map<std::string, std::string> headers;
+    headers["Content-Type"] = "application/json";
+    
+    auto response = m_httpClient->post(url, body, headers);
+    
+    if (!response.success) {
+        QString error = QString("Interactive login failed: %1").arg(QString::fromStdString(response.error));
+        qWarning() << error;
+        if (callback) callback(false, error);
+        return;
+    }
+    
+    QJsonDocument responseDoc = QJsonDocument::fromJson(QByteArray::fromStdString(response.body));
+    QJsonObject obj = responseDoc.object();
+    
+    QString type = obj["type"].toString();
+    if (type == "success") {
+        QJsonObject result = obj["result"].toObject();
+        m_token = result["token"].toString();
+        m_userID = result["userID"].toString();
+        
+        qDebug() << "✅ Interactive API login successful. UserID:" << m_userID;
+        if (callback) callback(true, "Login successful");
+    } else {
+        QString error = QString("Interactive login failed: %1 - %2")
+                            .arg(obj["code"].toString())
+                            .arg(obj["description"].toString());
+        qWarning() << error;
+        if (callback) callback(false, error);
+    }
 }
 
 void XTSInteractiveClient::getPositions(const QString &dayOrNet,
@@ -79,22 +74,21 @@ void XTSInteractiveClient::getPositions(const QString &dayOrNet,
         return;
     }
 
-    QString endpoint = QString("/interactive/portfolio/positions?dayOrNet=%1").arg(dayOrNet);
-    QNetworkRequest request = createRequest(endpoint);
-
-    QNetworkReply *reply = m_networkManager->get(request);
-
-    connect(reply, &QNetworkReply::finished, this, [reply, callback]() {
-        reply->deleteLater();
-
-        if (reply->error() != QNetworkReply::NoError) {
-            if (callback) callback(false, QVector<XTS::Position>(), reply->errorString());
-            return;
-        }
-
-        QByteArray response = reply->readAll();
-        QJsonDocument doc = QJsonDocument::fromJson(response);
-        QJsonObject obj = doc.object();
+    std::string url = (m_baseURL + "/interactive/portfolio/positions?dayOrNet=" + dayOrNet).toStdString();
+    
+    std::map<std::string, std::string> headers;
+    headers["Authorization"] = m_token.toStdString();
+    headers["Content-Type"] = "application/json";
+    
+    auto response = m_httpClient->get(url, headers);
+    
+    if (!response.success) {
+        if (callback) callback(false, QVector<XTS::Position>(), QString::fromStdString(response.error));
+        return;
+    }
+    
+    QJsonDocument doc = QJsonDocument::fromJson(QByteArray::fromStdString(response.body));
+    QJsonObject obj = doc.object();
 
         if (obj["type"].toString() == "success") {
             QJsonObject result = obj["result"].toObject();
@@ -122,7 +116,6 @@ void XTSInteractiveClient::getPositions(const QString &dayOrNet,
         } else {
             if (callback) callback(false, QVector<XTS::Position>(), obj["description"].toString());
         }
-    });
 }
 
 void XTSInteractiveClient::getOrders(std::function<void(bool, const QVector<XTS::Order>&, const QString&)> callback)
@@ -132,20 +125,21 @@ void XTSInteractiveClient::getOrders(std::function<void(bool, const QVector<XTS:
         return;
     }
 
-    QNetworkRequest request = createRequest("/interactive/orders");
-    QNetworkReply *reply = m_networkManager->get(request);
-
-    connect(reply, &QNetworkReply::finished, this, [reply, callback]() {
-        reply->deleteLater();
-
-        if (reply->error() != QNetworkReply::NoError) {
-            if (callback) callback(false, QVector<XTS::Order>(), reply->errorString());
-            return;
-        }
-
-        QByteArray response = reply->readAll();
-        QJsonDocument doc = QJsonDocument::fromJson(response);
-        QJsonObject obj = doc.object();
+    std::string url = (m_baseURL + "/interactive/orders").toStdString();
+    
+    std::map<std::string, std::string> headers;
+    headers["Authorization"] = m_token.toStdString();
+    headers["Content-Type"] = "application/json";
+    
+    auto response = m_httpClient->get(url, headers);
+    
+    if (!response.success) {
+        if (callback) callback(false, QVector<XTS::Order>(), QString::fromStdString(response.error));
+        return;
+    }
+    
+    QJsonDocument doc = QJsonDocument::fromJson(QByteArray::fromStdString(response.body));
+    QJsonObject obj = doc.object();
 
         if (obj["type"].toString() == "success") {
             QJsonArray ordersArray = obj["result"].toArray();
@@ -173,7 +167,6 @@ void XTSInteractiveClient::getOrders(std::function<void(bool, const QVector<XTS:
         } else {
             if (callback) callback(false, QVector<XTS::Order>(), obj["description"].toString());
         }
-    });
 }
 
 void XTSInteractiveClient::getTrades(std::function<void(bool, const QVector<XTS::Trade>&, const QString&)> callback)
@@ -183,20 +176,21 @@ void XTSInteractiveClient::getTrades(std::function<void(bool, const QVector<XTS:
         return;
     }
 
-    QNetworkRequest request = createRequest("/interactive/orders/trades");
-    QNetworkReply *reply = m_networkManager->get(request);
-
-    connect(reply, &QNetworkReply::finished, this, [reply, callback]() {
-        reply->deleteLater();
-
-        if (reply->error() != QNetworkReply::NoError) {
-            if (callback) callback(false, QVector<XTS::Trade>(), reply->errorString());
-            return;
-        }
-
-        QByteArray response = reply->readAll();
-        QJsonDocument doc = QJsonDocument::fromJson(response);
-        QJsonObject obj = doc.object();
+    std::string url = (m_baseURL + "/interactive/orders/trades").toStdString();
+    
+    std::map<std::string, std::string> headers;
+    headers["Authorization"] = m_token.toStdString();
+    headers["Content-Type"] = "application/json";
+    
+    auto response = m_httpClient->get(url, headers);
+    
+    if (!response.success) {
+        if (callback) callback(false, QVector<XTS::Trade>(), QString::fromStdString(response.error));
+        return;
+    }
+    
+    QJsonDocument doc = QJsonDocument::fromJson(QByteArray::fromStdString(response.body));
+    QJsonObject obj = doc.object();
 
         if (obj["type"].toString() == "success") {
             QJsonArray tradesArray = obj["result"].toArray();
@@ -220,7 +214,6 @@ void XTSInteractiveClient::getTrades(std::function<void(bool, const QVector<XTS:
         } else {
             if (callback) callback(false, QVector<XTS::Trade>(), obj["description"].toString());
         }
-    });
 }
 
 void XTSInteractiveClient::placeOrder(const QJsonObject &orderParams,
@@ -231,36 +224,30 @@ void XTSInteractiveClient::placeOrder(const QJsonObject &orderParams,
         return;
     }
 
-    QNetworkRequest request = createRequest("/interactive/orders");
+    std::string url = (m_baseURL + "/interactive/orders").toStdString();
+    
     QJsonDocument doc(orderParams);
-    QNetworkReply *reply = m_networkManager->post(request, doc.toJson());
-
-    connect(reply, &QNetworkReply::finished, this, [reply, callback]() {
-        reply->deleteLater();
-
-        if (reply->error() != QNetworkReply::NoError) {
-            if (callback) callback(false, "", reply->errorString());
-            return;
-        }
-
-        QByteArray response = reply->readAll();
-        QJsonDocument doc = QJsonDocument::fromJson(response);
-        QJsonObject obj = doc.object();
-
-        if (obj["type"].toString() == "success") {
-            QJsonObject result = obj["result"].toObject();
-            QString orderID = result["AppOrderID"].toString();
-            if (callback) callback(true, orderID, "Order placed successfully");
-        } else {
-            if (callback) callback(false, "", obj["description"].toString());
-        }
-    });
-}
-
-QNetworkRequest XTSInteractiveClient::createRequest(const QString &endpoint) const
-{
-    QNetworkRequest request(QUrl(m_baseURL + endpoint));
-    request.setRawHeader("Authorization", m_token.toUtf8());
-    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
-    return request;
+    std::string body = doc.toJson().toStdString();
+    
+    std::map<std::string, std::string> headers;
+    headers["Content-Type"] = "application/json";
+    headers["Authorization"] = m_token.toStdString();
+    
+    auto response = m_httpClient->post(url, body, headers);
+    
+    if (!response.success) {
+        if (callback) callback(false, "", QString::fromStdString(response.error));
+        return;
+    }
+    
+    QJsonDocument responseDoc = QJsonDocument::fromJson(QByteArray::fromStdString(response.body));
+    QJsonObject obj = responseDoc.object();
+    
+    if (obj["type"].toString() == "success") {
+        QJsonObject result = obj["result"].toObject();
+        QString orderID = result["AppOrderID"].toString();
+        if (callback) callback(true, orderID, "Order placed successfully");
+    } else {
+        if (callback) callback(false, "", obj["description"].toString());
+    }
 }

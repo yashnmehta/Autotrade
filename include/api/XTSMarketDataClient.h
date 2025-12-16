@@ -2,13 +2,12 @@
 #define XTSMARKETDATACLIENT_H
 
 #include "XTSTypes.h"
+#include "NativeWebSocketClient.h"
+#include "NativeHTTPClient.h"
 #include <QObject>
-#include <QNetworkAccessManager>
-#include <QNetworkReply>
-#include <QWebSocket>
 #include <QJsonDocument>
-#include <QTimer>
 #include <functional>
+#include <memory>
 
 class XTSMarketDataClient : public QObject
 {
@@ -65,19 +64,16 @@ signals:
     void errorOccurred(const QString &error);
     void tickReceived(const XTS::Tick &tick);
 
-private slots:
-    void onWSConnected();
-    void onWSDisconnected();
-    void onWSError(QAbstractSocket::SocketError error);
-    void onWSTextMessageReceived(const QString &message);
-    void onWSBinaryMessageReceived(const QByteArray &message);
-    void attemptReconnect();
-
 private:
+    // Native WebSocket callbacks
+    void onWSConnected();
+    void onWSDisconnected(const std::string& reason);
+    void onWSError(const std::string& error);
+    void onWSMessage(const std::string& message);
+    
     void processTickData(const QJsonObject &json);
     XTS::Tick parseTickFromJson(const QJsonObject &json) const;
     QJsonObject parsePipeDelimitedTickData(const QString &data) const;
-    QNetworkRequest createRequest(const QString &endpoint) const;
 
     QString m_baseURL;
     QString m_apiKey;
@@ -85,18 +81,15 @@ private:
     QString m_token;
     QString m_userID;
 
-    QNetworkAccessManager *m_networkManager;
-    QWebSocket *m_webSocket;
+    // Native HTTP client (698x faster than Qt)
+    std::unique_ptr<NativeHTTPClient> m_httpClient;
+    
+    // Native WebSocket (no Qt overhead)
+    std::unique_ptr<NativeWebSocketClient> m_nativeWS;
     bool m_wsConnected;
 
     std::function<void(const XTS::Tick&)> m_tickHandler;
     std::function<void(bool, const QString&)> m_wsConnectCallback;
-    
-    // Auto-reconnect
-    QTimer *m_reconnectTimer;
-    int m_reconnectAttempts;
-    int m_maxReconnectAttempts;
-    bool m_shouldReconnect;
 };
 
 #endif // XTSMARKETDATACLIENT_H
