@@ -8,6 +8,15 @@
 #include <string>
 #include <iostream>
 
+// Helper function to remove surrounding quotes from CSV field values
+static QString trimQuotes(const QString &str) {
+    QString trimmed = str.trimmed();
+    if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
+        return trimmed.mid(1, trimmed.length() - 2);
+    }
+    return trimmed;
+}
+
 NSECMRepository::NSECMRepository()
     : m_contractCount(0)
     , m_loaded(false)
@@ -180,10 +189,10 @@ bool NSECMRepository::loadProcessedCSV(const QString& filename) {
         
         m_tokenToIndex[token] = idx;
         m_token[idx] = token;
-        m_name[idx] = fields[1];             // Symbol
-        m_displayName[idx] = fields[2];      // DisplayName
-        m_description[idx] = fields[3];      // Description
-        m_series[idx] = fields[4];           // Series
+        m_name[idx] = trimQuotes(fields[1]);             // Symbol
+        m_displayName[idx] = trimQuotes(fields[2]);      // DisplayName
+        m_description[idx] = trimQuotes(fields[3]);      // Description
+        m_series[idx] = trimQuotes(fields[4]);           // Series
         m_lotSize[idx] = fields[5].toInt();
         m_tickSize[idx] = fields[6].toDouble();
         // fields[7] = ISIN (not stored separately)
@@ -206,6 +215,13 @@ bool NSECMRepository::loadProcessedCSV(const QString& filename) {
     }
     
     m_contractCount = count;
+    
+    // Return false if no contracts loaded (empty CSV file)
+    if (count == 0) {
+        qWarning() << "NSE CM Repository CSV file is empty, will fall back to master file";
+        return false;
+    }
+    
     m_loaded = true;
     
     qDebug() << "NSE CM Repository loaded from CSV:" << m_contractCount << "contracts";

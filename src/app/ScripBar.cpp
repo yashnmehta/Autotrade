@@ -234,6 +234,7 @@ void ScripBar::populateSymbols(const QString &instrument)
     // Map instrument dropdown value to ContractData series field
     QString seriesFilter = mapInstrumentToSeries(instrument);
     
+    qDebug() << "[ScripBar] ========== populateSymbols DEBUG ==========";
     qDebug() << "[ScripBar] Array-based search:" << exchange << segment << "instrument:" << instrument << "-> series:" << seriesFilter;
     
     // Get all scrips for this segment and series
@@ -241,7 +242,19 @@ void ScripBar::populateSymbols(const QString &instrument)
     
     qDebug() << "[ScripBar] Found" << contracts.size() << "contracts in local array";
     
+    // Debug: Show first 3 contracts from repository
+    if (contracts.size() > 0) {
+        qDebug() << "[ScripBar] First 3 contracts from repository:";
+        for (int i = 0; i < qMin(3, contracts.size()); i++) {
+            qDebug() << "  [" << i << "] Token:" << contracts[i].exchangeInstrumentID 
+                     << "Name:'" << contracts[i].name << "' Series:'" << contracts[i].series << "'"
+                     << "Expiry:'" << contracts[i].expiryDate << "' Strike:" << contracts[i].strikePrice 
+                     << "Opt:'" << contracts[i].optionType << "'";
+        }
+    }
+    
     if (contracts.isEmpty()) {
+        qDebug() << "[ScripBar] ❌ NO contracts found - adding placeholder";
         m_symbolCombo->addItem("No instruments found");
         return;
     }
@@ -278,6 +291,8 @@ void ScripBar::populateSymbols(const QString &instrument)
     symbols.sort();
     
     qDebug() << "[ScripBar] Found" << symbols.size() << "unique symbols from" << contracts.size() << "contracts";
+    qDebug() << "[ScripBar] Cache now has" << m_instrumentCache.size() << "entries";
+    qDebug() << "[ScripBar] ============================================";
     
     // Update BSE scrip code visibility
     updateBseScripCodeVisibility();
@@ -637,8 +652,39 @@ void ScripBar::updateTokenDisplay()
     }
     
     // Search in instrument cache for matching contract
+    // Debug: Show actual cached symbols to diagnose mismatch
+    static int debugCallCount = 0;
+    debugCallCount++;
+    
+    if (debugCallCount == 1 && m_instrumentCache.size() > 0) {
+        qDebug() << "[ScripBar] ===== CACHE DEBUG (call #1) =====";
+        qDebug() << "[ScripBar] Cache has" << m_instrumentCache.size() << "contracts";
+        qDebug() << "[ScripBar] First 5 cached entries:";
+        for (int i = 0; i < qMin(5, (int)m_instrumentCache.size()); i++) {
+            const auto& inst = m_instrumentCache[i];
+            qDebug() << "  [" << i << "] Symbol='" << inst.symbol << "' Exp='" << inst.expiryDate 
+                     << "' Strike=" << inst.strikePrice << " Opt='" << inst.optionType << "'";
+        }
+        qDebug() << "[ScripBar] ===================================";
+    }
+    
+    if (debugCallCount <= 3 && isOption && !expiry.isEmpty() && !strike.isEmpty() && !optionType.isEmpty()) {
+        qDebug() << "[ScripBar] DEBUG: Option search #" << debugCallCount 
+                 << " - Looking for Symbol='" << symbol << "' (length=" << symbol.length() << ")";
+    }
+    
     for (const auto &inst : m_instrumentCache) {
         bool matchSymbol = (inst.symbol == symbol);
+        
+        // Debug first few symbol comparisons
+        if (debugCallCount <= 3 && isOption) {
+            static int compCount = 0;
+            if (compCount < 3) {
+                qDebug() << "  Compare: cached='" << inst.symbol << "' (len=" << inst.symbol.length() 
+                         << ") vs search='" << symbol << "' (len=" << symbol.length() << ") match=" << matchSymbol;
+                compCount++;
+            }
+        }
         
         // For equity: only match symbol
         if (isEquity && matchSymbol) {
@@ -679,6 +725,15 @@ void ScripBar::updateTokenDisplay()
 
             bool matchOption = inst.optionType.compare(optionType, Qt::CaseInsensitive) == 0;
             
+            // Debug first matching symbol to see cache data format
+            static int debugCount = 0;
+            if (debugCount < 2 && matchSymbol) {
+                qDebug() << "[ScripBar] Cache entry for" << symbol << "- Exp:" << inst.expiryDate << "vs" << expiry << "="<<matchExpiry
+                         << "Strike:" << inst.strikePrice << "vs" << strike << "="<<matchStrike
+                         << "Opt:'" << inst.optionType << "' vs '" << optionType << "' ="<<matchOption;
+                debugCount++;
+            }
+            
             if (matchExpiry && matchStrike && matchOption) {
                 qDebug() << "[ScripBar] updateTokenDisplay: ✅ FOUND matching contract - Token:" << inst.exchangeInstrumentID
                          << "Expiry:" << inst.expiryDate << "Strike:" << inst.strikePrice << "OptionType:" << inst.optionType;
@@ -693,6 +748,7 @@ void ScripBar::updateTokenDisplay()
     
     // If no exact match found, clear token (don't use fallback)
     qDebug() << "[ScripBar] updateTokenDisplay: ❌ NO matching contract found - clearing token";
+    qDebug() << "[ScripBar] Cache size:" << m_instrumentCache.size() << "contracts";
     m_tokenEdit->clear();
     m_bseScripCodeEdit->clear();
 }

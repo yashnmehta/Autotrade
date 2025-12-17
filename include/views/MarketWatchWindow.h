@@ -3,10 +3,11 @@
 
 #include "core/widgets/CustomMarketWatch.h"
 #include "models/MarketWatchModel.h"  // For ScripData
+#include "services/FeedHandler.h"  // Phase 2: Direct callback-based updates
 #include <QVBoxLayout>
 #include <QMenu>
 #include <QMessageBox>
-#include <QTimer>
+#include <unordered_map>
 
 class TokenAddressBook;
 
@@ -238,9 +239,15 @@ private:
     void setupConnections();
     void setupKeyboardShortcuts();
     
+    // Phase 2: FeedHandler callback for direct tick updates
+    void onTickUpdate(const XTS::Tick& tick);
+    
     // Data Components
     MarketWatchModel *m_model;
     TokenAddressBook *m_tokenAddressBook;
+    
+    // Phase 2: Track FeedHandler subscriptions (token -> SubscriptionID)
+    std::unordered_map<int, FeedHandler::SubscriptionID> m_feedSubscriptions;
 };
 
 #endif // MARKETWATCHWINDOW_H

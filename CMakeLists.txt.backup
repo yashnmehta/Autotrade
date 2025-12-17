@@ -154,18 +154,6 @@ set(SERVICE_HEADERS
 )
 
 # ========================================
-# UTILS LAYER - Helper utilities
-# ========================================
-set(UTILS_SOURCES
-    src/utils/PreferencesManager.cpp
-)
-
-set(UTILS_HEADERS
-    include/utils/PreferencesManager.h
-    include/models/WindowContext.h
-)
-
-# ========================================
 # API LAYER - XTS API Integration
 # ✅ XTS Market Data & Interactive API clients
 # ✅ Native C++ network layer (698x faster than Qt)
@@ -175,6 +163,8 @@ set(API_SOURCES
     src/api/XTSInteractiveClient.cpp
     src/api/NativeWebSocketClient.cpp
     src/api/NativeHTTPClient.cpp
+    src/api/UDPBroadcastProvider.cpp
+    src/api/minilzo.c
 )
 
 set(API_HEADERS
@@ -183,149 +173,15 @@ set(API_HEADERS
     include/api/XTSInteractiveClient.h
     include/api/NativeWebSocketClient.h
     include/api/NativeHTTPClient.h
+    include/api/IMarketDataProvider.h
+    include/api/UDPBroadcastProvider.h
+    include/api/minilzo.h
 )
 
-# ========================================
-# REPOSITORY LAYER - Data Access
-# ✅ Master contract repositories with array-based search
-# ========================================
-set(REPOSITORY_SOURCES
-    src/repository/Greeks.cpp
-    src/repository/MasterFileParser.cpp
-    src/repository/NSEFORepository.cpp
-    src/repository/NSECMRepository.cpp
-    src/repository/BSEFORepository.cpp
-    src/repository/BSECMRepository.cpp
-    src/repository/RepositoryManager.cpp
-)
+# ... (omitted)
 
-set(REPOSITORY_HEADERS
-    include/repository/Greeks.h
-    include/repository/ScripMaster.h
-    include/repository/ContractData.h
-    include/repository/MasterFileParser.h
-    include/repository/NSEFORepository.h
-    include/repository/NSECMRepository.h
-    include/repository/BSEFORepository.h
-    include/repository/BSECMRepository.h
-    include/repository/RepositoryManager.h
-)
-
-# ========================================
-# UTILITIES LAYER - Helper Functions
-# ✅ Reusable utilities, preferences
-# ========================================
-set(UTILS_SOURCES
-    src/utils/ClipboardHelpers.cpp
-    src/utils/SelectionHelpers.cpp
-    src/utils/ConfigLoader.cpp
-    src/utils/PreferencesManager.cpp
-)
-
-set(UTILS_HEADERS
-    include/utils/ClipboardHelpers.h
-    include/utils/SelectionHelpers.h
-    include/utils/ConfigLoader.h
-    include/utils/PreferencesManager.h
-    include/models/WindowContext.h
-)
-
-# ========================================
-# VIEW HELPERS - View-specific utilities
-# ✅ Domain-specific helper functions
-# ========================================
-set(VIEW_HELPER_SOURCES
-    src/views/helpers/MarketWatchHelpers.cpp
-    src/views/helpers/PositionHelpers.cpp
-)
-
-set(VIEW_HELPER_HEADERS
-    include/views/helpers/MarketWatchHelpers.h
-    include/views/helpers/PositionHelpers.h
-)
-
-# ========================================
-# COMBINE ALL SOURCES
-# ========================================
-set(SOURCES
-    ${CORE_WIDGET_SOURCES}
-    ${APP_SOURCES}
-    ${UI_SOURCES}
-    ${VIEW_SOURCES}
-    ${MODEL_SOURCES}
-    ${SERVICE_SOURCES}
-    ${API_SOURCES}
-    ${REPOSITORY_SOURCES}
-    ${UTILS_SOURCES}
-    ${VIEW_HELPER_SOURCES}
-)
-
-set(HEADERS
-    ${CORE_WIDGET_HEADERS}
-    ${APP_HEADERS}
-    ${UI_HEADERS}
-    ${VIEW_HEADERS}
-    ${MODEL_HEADERS}
-    ${UTILS_HEADERS}
-    ${VIEW_HELPER_HEADERS}
-    ${SERVICE_HEADERS}
-    ${API_HEADERS}
-    ${REPOSITORY_HEADERS}
-)
-
-# UI files
-set(FORMS
-    resources/forms/InfoBar.ui
-    resources/forms/SplashScreen.ui
-    resources/forms/LoginWindow.ui
-)
-
-# Resource files
-set(RESOURCES
-    resources/resources.qrc
-)
-
-# Add executable
-add_executable(TradingTerminal
-    ${SOURCES}
-    ${HEADERS}
-    ${FORMS}
-    ${RESOURCES}
-)
-
-# Link libraries
-target_link_libraries(TradingTerminal PRIVATE
-    Qt5::Widgets
-    Qt5::Network
-    Qt5::WebSockets
-    Qt5::UiTools
-    OpenSSL::SSL
-    OpenSSL::Crypto
-    Threads::Threads
-)
-
-# Include Boost headers (Beast is header-only)
-target_include_directories(TradingTerminal PRIVATE ${Boost_INCLUDE_DIRS})
-
-# macOS Bundle Settings
-if(APPLE)
-    set_target_properties(TradingTerminal PROPERTIES
-        MACOSX_BUNDLE TRUE
-        MACOSX_BUNDLE_BUNDLE_NAME "TradingTerminal"
-        MACOSX_BUNDLE_GUI_IDENTIFIER "com.trading.terminal"
-        MACOSX_BUNDLE_INFO_STRING "Professional Trading Terminal"
-    )
-endif()
-
-# Add tests subdirectory
-add_subdirectory(tests)
-
-# XTS API Test Program
-add_executable(test_xts_api test_xts_api.cpp)
-target_link_libraries(test_xts_api Qt5::Core Qt5::Network)
-set_target_properties(test_xts_api PROPERTIES AUTOMOC ON)
-
-# Performance Benchmark: Qt vs Native C++
-add_executable(benchmark_qt_vs_native tests/benchmark_qt_vs_native.cpp)
-target_link_libraries(benchmark_qt_vs_native Qt5::Core)
-set_target_properties(benchmark_qt_vs_native PROPERTIES AUTOMOC ON)
+# UDP Broadcast Test
+add_executable(test_udp_broadcast tests/test_udp_broadcast.cpp ${CMAKE_SOURCE_DIR}/src/api/UDPBroadcastProvider.cpp ${CMAKE_SOURCE_DIR}/src/api/minilzo.c)
+target_link_libraries(test_udp_broadcast Qt5::Core Threads::Threads)
+target_include_directories(test_udp_broadcast PRIVATE ${CMAKE_SOURCE_DIR}/include)
+set_target_properties(test_udp_broadcast PROPERTIES AUTOMOC ON)

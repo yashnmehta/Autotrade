@@ -1,6 +1,15 @@
 #include "repository/MasterFileParser.h"
 #include <QDebug>
 
+// Helper function to remove surrounding quotes from field values
+static QString trimQuotes(const QString &str) {
+    QString trimmed = str.trimmed();
+    if (trimmed.startsWith('"') && trimmed.endsWith('"') && trimmed.length() >= 2) {
+        return trimmed.mid(1, trimmed.length() - 2);
+    }
+    return trimmed;
+}
+
 bool MasterFileParser::parseLine(const QString& line, const QString& exchange, 
                                  MasterContract& contract) {
     // Split by pipe delimiter
@@ -55,19 +64,19 @@ bool MasterFileParser::parseNSECM(const QStringList& fields, MasterContract& con
     if (!ok) return false;
     
     contract.instrumentType = fields[2].toInt();
-    contract.name = fields[3];
-    contract.description = fields[4];
-    contract.series = fields[5];
-    contract.nameWithSeries = fields[6];
-    contract.instrumentID = fields[7];
+    contract.name = trimQuotes(fields[3]);
+    contract.description = trimQuotes(fields[4]);
+    contract.series = trimQuotes(fields[5]);
+    contract.nameWithSeries = trimQuotes(fields[6]);
+    contract.instrumentID = trimQuotes(fields[7]);
     contract.priceBandHigh = fields[8].toDouble();
     contract.priceBandLow = fields[9].toDouble();
     contract.freezeQty = fields[10].toInt();
     contract.tickSize = fields[11].toDouble();
     contract.lotSize = fields[12].toInt();
     contract.multiplier = fields[13].toInt();
-    contract.displayName = fields[14];
-    contract.isin = fields[15];
+    contract.displayName = trimQuotes(fields[14]);
+    contract.isin = trimQuotes(fields[15]);
     
     if (fields.size() >= 17) {
         contract.priceNumerator = fields[16].toInt();
@@ -98,11 +107,11 @@ bool MasterFileParser::parseNSEFO(const QStringList& fields, MasterContract& con
     if (!ok) return false;
     
     contract.instrumentType = fields[2].toInt();
-    contract.name = fields[3];
-    contract.description = fields[4];
-    contract.series = fields[5];
-    contract.nameWithSeries = fields[6];
-    contract.instrumentID = fields[7];
+    contract.name = trimQuotes(fields[3]);
+    contract.description = trimQuotes(fields[4]);
+    contract.series = trimQuotes(fields[5]);
+    contract.nameWithSeries = trimQuotes(fields[6]);
+    contract.instrumentID = trimQuotes(fields[7]);
     contract.priceBandHigh = fields[8].toDouble();
     contract.priceBandLow = fields[9].toDouble();
     contract.freezeQty = fields[10].toInt();
@@ -111,7 +120,7 @@ bool MasterFileParser::parseNSEFO(const QStringList& fields, MasterContract& con
     contract.multiplier = fields[13].toInt();
     contract.assetToken = fields[14].toLongLong();
     // field[15] = UnderlyingName/InstrumentID (not stored)
-    contract.expiryDate = fields[16].trimmed();
+    contract.expiryDate = trimQuotes(fields[16]);
     
     // Check if this is OPTIONS or FUTURES
     bool isOption = contract.series.startsWith("OPT");
@@ -121,18 +130,18 @@ bool MasterFileParser::parseNSEFO(const QStringList& fields, MasterContract& con
         contract.strikePrice = fields[17].toDouble();
         contract.optionType = fields[18].toInt();
         if (fields.size() >= 20) {
-            contract.displayName = fields[19];
+            contract.displayName = trimQuotes(fields[19]);
         }
         if (fields.size() >= 21) {
-            contract.isin = fields[20];
+            contract.isin = trimQuotes(fields[20]);
         }
     } else {
         // FUTURES: field 17=DisplayName, no strike price (0), optionType=0
         contract.strikePrice = 0.0;
         contract.optionType = 0;  // 0 for futures
-        contract.displayName = fields[17];
+        contract.displayName = trimQuotes(fields[17]);
         if (fields.size() >= 19) {
-            contract.isin = fields[18];
+            contract.isin = trimQuotes(fields[18]);
         }
     }
     

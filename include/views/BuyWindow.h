@@ -8,6 +8,7 @@
 #include <QLineEdit>
 #include <QPushButton>
 #include <QDebug>
+#include "models/WindowContext.h"
 
 class BuyWindow : public QWidget
 {
@@ -15,6 +16,7 @@ class BuyWindow : public QWidget
 
 public:
     explicit BuyWindow(QWidget *parent = nullptr);
+    explicit BuyWindow(const WindowContext &context, QWidget *parent = nullptr);
     ~BuyWindow();
 
     // Access to form widgets
@@ -27,6 +29,9 @@ public:
 
     // Set scrip details
     void setScripDetails(const QString &exchange, int token, const QString &symbol);
+    
+    // Load from context (called from constructor or externally)
+    void loadFromContext(const WindowContext &context);
 
 signals:
     void orderSubmitted(const QString &exchange, int token, const QString &symbol, 
@@ -43,6 +48,10 @@ private slots:
 private:
     void setupConnections();
     void populateComboBoxes();
+    void loadPreferences();
+    void calculateDefaultPrice(const WindowContext &context);
+    
+    WindowContext m_context;
 
     // UI widgets loaded from .ui file
     QWidget *m_formWidget;

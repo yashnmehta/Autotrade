@@ -9,6 +9,52 @@
 #include <string_view>
 #include <iostream>
 
+// Helper function to remove surrounding quotes from CSV field values
+static QString trimQuotes(const QString &str) {
+    QString trimmed = str.trimmed();
+    if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
+        return trimmed.mid(1, trimmed.length() - 2);
+    }
+    return trimmed;
+}
+
+// Helper function to get underlying asset token for indices
+// XTS master file has -1 for indices, but we need actual index tokens
+// For stocks, XTS provides tokens with prefix (e.g., 1100100002885 for RELIANCE)
+// We need to extract the last 4-5 digits (2885 for RELIANCE)
+static int64_t getUnderlyingAssetToken(const QString& symbolName, int64_t masterFileToken) {
+    // For indices with -1, map to actual index tokens
+    if (masterFileToken == -1) {
+        // Map index names to their underlying tokens
+        // These are the spot index tokens used for options/futures settlement
+        static const QHash<QString, int64_t> indexTokens = {
+            {"BANKNIFTY", 26009},    // Nifty Bank index
+            {"NIFTY", 26000},        // Nifty 50 index
+            {"FINNIFTY", 26037},     // Nifty Financial Services
+            {"MIDCPNIFTY", 26074},   // Nifty Midcap Select
+            {"NIFTYNXT50", 26013},   // Nifty Next 50
+            {"SENSEX", -1},          // BSE Sensex (placeholder)
+            {"BANKEX", -1}           // BSE Bankex (placeholder)
+        };
+        
+        return indexTokens.value(symbolName, -1);
+    }
+    
+    // For stocks, XTS provides tokens like 1100100002885
+    // The actual stock token is the last part after removing segment prefix
+    // Format: [segment_prefix][stock_token]
+    // NSE CM: 11001000xxxxx -> xxxxx
+    // BSE CM: similar pattern
+    if (masterFileToken > 1000000000) {
+        // Extract last 5 digits (stock token)
+        // Example: 1100100002885 -> 2885
+        int64_t stockToken = masterFileToken % 100000;
+        return stockToken;
+    }
+    
+    return masterFileToken;
+}
+
 NSEFORepository::NSEFORepository()
     : m_regularCount(0)
     , m_spreadCount(0)
@@ -110,6 +156,17 @@ bool NSEFORepository::loadMasterFile(const QString& filename) {
             continue;
         }
         
+        // Debug: Show first 3 parsed contracts to check for quotes
+        static int debugCount = 0;
+        if (debugCount < 3 && contract.series == "FUTIDX") {
+            qDebug() << "[NSEFORepo] Parsed contract:" << debugCount 
+                     << "Token:" << contract.exchangeInstrumentID
+                     << "Name bytes:" << contract.name.toUtf8().toHex()
+                     << "Name:'" << contract.name << "'"
+                     << "Series:'" << contract.series << "'";
+            debugCount++;
+        }
+        
         int64_t token = contract.exchangeInstrumentID;
         
         if (isRegularContract(token)) {
@@ -128,7 +185,7 @@ bool NSEFORepository::loadMasterFile(const QString& filename) {
             m_priceBandLow[idx] = contract.priceBandLow;
             m_expiryDate[idx] = contract.expiryDate;
             m_strikePrice[idx] = contract.strikePrice;
-            m_assetToken[idx] = contract.assetToken;
+            m_assetToken[idx] = getUnderlyingAssetToken(contract.name, contract.assetToken);
             
             // Convert optionType from int to string
             // Based on actual data: 3=CE, 4=PE, others=XX
@@ -234,7 +291,7 @@ bool NSEFORepository::loadProcessedCSV(const QString& filename) {
         QString qLine = QString::fromStdString(line);
         QStringList fields = qLine.split(',');
         
-        if (fields.size() < 26) {  // NSEFO CSV has 26 columns
+        if (fields.size() < 27) {  // NSEFO CSV now has 27 columns (added FreezeQty)
             continue;
         }
         
@@ -249,35 +306,36 @@ bool NSEFORepository::loadProcessedCSV(const QString& filename) {
             int32_t idx = getArrayIndex(token);
             
             m_valid[idx] = true;
-            m_name[idx] = fields[1];             // Symbol
-            m_displayName[idx] = fields[2];      // DisplayName
-            m_description[idx] = fields[3];      // Description
-            m_series[idx] = fields[4];           // Series
+            m_name[idx] = trimQuotes(fields[1]);             // Symbol
+            m_displayName[idx] = trimQuotes(fields[2]);      // DisplayName
+            m_description[idx] = trimQuotes(fields[3]);      // Description
+            m_series[idx] = trimQuotes(fields[4]);           // Series
             m_lotSize[idx] = fields[5].toInt();
             m_tickSize[idx] = fields[6].toDouble();
-            m_expiryDate[idx] = fields[7];       // DDMMMYYYY format
+            m_expiryDate[idx] = trimQuotes(fields[7]);       // DDMMMYYYY format
             m_strikePrice[idx] = fields[8].toDouble();
-            m_optionType[idx] = fields[9];       // CE/PE/XX
+            m_optionType[idx] = trimQuotes(fields[9]);       // CE/PE/XX
             // fields[10] = UnderlyingSymbol (not stored separately)
             m_assetToken[idx] = fields[11].toLongLong();
-            m_priceBandHigh[idx] = fields[12].toDouble();
-            m_priceBandLow[idx] = fields[13].toDouble();
+            m_freezeQty[idx] = fields[12].toInt();
+            m_priceBandHigh[idx] = fields[13].toDouble();
+            m_priceBandLow[idx] = fields[14].toDouble();
             
             // Live market data (initialized to 0 in CSV)
-            m_ltp[idx] = fields[14].toDouble();
-            m_open[idx] = fields[15].toDouble();
-            m_high[idx] = fields[16].toDouble();
-            m_low[idx] = fields[17].toDouble();
-            m_close[idx] = fields[18].toDouble();
-            m_prevClose[idx] = fields[19].toDouble();
-            m_volume[idx] = fields[20].toLongLong();
+            m_ltp[idx] = fields[15].toDouble();
+            m_open[idx] = fields[16].toDouble();
+            m_high[idx] = fields[17].toDouble();
+            m_low[idx] = fields[18].toDouble();
+            m_close[idx] = fields[19].toDouble();
+            m_prevClose[idx] = fields[20].toDouble();
+            m_volume[idx] = fields[21].toLongLong();
             
             // Greeks (initialized to 0 in CSV)
-            m_iv[idx] = fields[21].toDouble();
-            m_delta[idx] = fields[22].toDouble();
-            m_gamma[idx] = fields[23].toDouble();
-            m_vega[idx] = fields[24].toDouble();
-            m_theta[idx] = fields[25].toDouble();
+            m_iv[idx] = fields[22].toDouble();
+            m_delta[idx] = fields[23].toDouble();
+            m_gamma[idx] = fields[24].toDouble();
+            m_vega[idx] = fields[25].toDouble();
+            m_theta[idx] = fields[26].toDouble();
             
             // Initialize bid/ask and margins to zero
             m_bidPrice[idx] = 0.0;
@@ -285,37 +343,37 @@ bool NSEFORepository::loadProcessedCSV(const QString& filename) {
             m_rho[idx] = 0.0;
             m_spanMargin[idx] = 0.0;
             m_aelMargin[idx] = 0.0;
-            m_freezeQty[idx] = 0;  // Not in CSV
             
             loadedCount++;
         } else if (token >= SPREAD_THRESHOLD) {
             // Create ContractData for spread contract
             auto contractData = std::make_shared<ContractData>();
             contractData->exchangeInstrumentID = token;
-            contractData->name = fields[1];
-            contractData->displayName = fields[2];
-            contractData->description = fields[3];
-            contractData->series = fields[4];
+            contractData->name = trimQuotes(fields[1]);
+            contractData->displayName = trimQuotes(fields[2]);
+            contractData->description = trimQuotes(fields[3]);
+            contractData->series = trimQuotes(fields[4]);
             contractData->lotSize = fields[5].toInt();
             contractData->tickSize = fields[6].toDouble();
-            contractData->expiryDate = fields[7];
+            contractData->expiryDate = trimQuotes(fields[7]);
             contractData->strikePrice = fields[8].toDouble();
-            contractData->optionType = fields[9];
+            contractData->optionType = trimQuotes(fields[9]);
             contractData->assetToken = fields[11].toLongLong();
-            contractData->priceBandHigh = fields[12].toDouble();
-            contractData->priceBandLow = fields[13].toDouble();
-            contractData->ltp = fields[14].toDouble();
-            contractData->open = fields[15].toDouble();
-            contractData->high = fields[16].toDouble();
-            contractData->low = fields[17].toDouble();
-            contractData->close = fields[18].toDouble();
-            contractData->prevClose = fields[19].toDouble();
-            contractData->volume = fields[20].toLongLong();
-            contractData->iv = fields[21].toDouble();
-            contractData->delta = fields[22].toDouble();
-            contractData->gamma = fields[23].toDouble();
-            contractData->vega = fields[24].toDouble();
-            contractData->theta = fields[25].toDouble();
+            contractData->freezeQty = fields[12].toInt();
+            contractData->priceBandHigh = fields[13].toDouble();
+            contractData->priceBandLow = fields[14].toDouble();
+            contractData->ltp = fields[15].toDouble();
+            contractData->open = fields[16].toDouble();
+            contractData->high = fields[17].toDouble();
+            contractData->low = fields[18].toDouble();
+            contractData->close = fields[19].toDouble();
+            contractData->prevClose = fields[20].toDouble();
+            contractData->volume = fields[21].toLongLong();
+            contractData->iv = fields[22].toDouble();
+            contractData->delta = fields[23].toDouble();
+            contractData->gamma = fields[24].toDouble();
+            contractData->vega = fields[25].toDouble();
+            contractData->theta = fields[26].toDouble();
             
             m_spreadContracts[token] = contractData;
             spreadLoadedCount++;
@@ -326,6 +384,13 @@ bool NSEFORepository::loadProcessedCSV(const QString& filename) {
     
     m_regularCount = loadedCount;
     m_spreadCount = spreadLoadedCount;
+    
+    // Return false if no contracts loaded (empty CSV file)
+    if (loadedCount == 0 && spreadLoadedCount == 0) {
+        qWarning() << "NSE FO Repository CSV file is empty, will fall back to master file";
+        return false;
+    }
+    
     m_loaded = true;
     
     qDebug() << "NSE FO Repository loaded from CSV:"
@@ -619,10 +684,28 @@ bool NSEFORepository::loadFromContracts(const QVector<MasterContract>& contracts
             m_tickSize[idx] = contract.tickSize;
             m_expiryDate[idx] = contract.expiryDate;
             m_strikePrice[idx] = contract.strikePrice;
-            m_optionType[idx] = contract.optionType;
-            m_assetToken[idx] = 0;  // Not in master file
-            m_priceBandHigh[idx] = contract.freezeQty;
-            m_priceBandLow[idx] = 0;
+            
+            // Convert optionType from int to string (3=CE, 4=PE)
+            if (contract.optionType == 3) {
+                m_optionType[idx] = "CE";
+            } else if (contract.optionType == 4) {
+                m_optionType[idx] = "PE";
+            } else {
+                m_optionType[idx] = "XX";
+            }
+            
+            m_assetToken[idx] = getUnderlyingAssetToken(contract.name, contract.assetToken);
+            // why we are using freezeQty for priceBandHigh???
+            // freezeQty is one of the most important trading parameter why arent we saving it properly???
+            // It seems like a bug in the original code, correcting it here
+            // also we missed tickSize 
+            //we also missed lotSize
+            m_lotSize[idx] = contract.lotSize;
+            m_tickSize[idx] = contract.tickSize;
+            m_freezeQty[idx] = contract.freezeQty;
+
+            m_priceBandHigh[idx] = contract.priceBandHigh;
+            m_priceBandLow[idx] = contract.priceBandLow;
             
             // Initialize live data
             m_ltp[idx] = 0.0;
@@ -684,7 +767,7 @@ bool NSEFORepository::saveProcessedCSV(const QString& filename) const {
     QTextStream out(&file);
     
     // Write header
-    out << "Token,Symbol,DisplayName,Description,Series,LotSize,TickSize,ExpiryDate,StrikePrice,OptionType,UnderlyingSymbol,AssetToken,PriceBandHigh,PriceBandLow,LTP,Open,High,Low,Close,PrevClose,Volume,IV,Delta,Gamma,Vega,Theta\n";
+    out << "Token,Symbol,DisplayName,Description,Series,LotSize,TickSize,ExpiryDate,StrikePrice,OptionType,UnderlyingSymbol,AssetToken,FreezeQty,PriceBandHigh,PriceBandLow,LTP,Open,High,Low,Close,PrevClose,Volume,IV,Delta,Gamma,Vega,Theta\n";
     
     // Write regular contracts
     for (int32_t idx = 0; idx < ARRAY_SIZE; ++idx) {
@@ -703,6 +786,7 @@ bool NSEFORepository::saveProcessedCSV(const QString& filename) const {
             << m_optionType[idx] << ","
             << m_name[idx] << ","  // UnderlyingSymbol (same as name)
             << m_assetToken[idx] << ","
+            << m_freezeQty[idx] << ","
             << m_priceBandHigh[idx] << ","
             << m_priceBandLow[idx] << ","
             << "0,0,0,0,0,0,0,"  // Live data (not persisted)
@@ -724,6 +808,7 @@ bool NSEFORepository::saveProcessedCSV(const QString& filename) const {
             << contract->optionType << ","
             << contract->name << ","
             << contract->assetToken << ","
+            << contract->freezeQty << ","
             << contract->priceBandHigh << ","
             << contract->priceBandLow << ","
             << "0,0,0,0,0,0,0,"  // Live data

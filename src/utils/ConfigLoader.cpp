@@ -166,3 +166,47 @@ QString ConfigLoader::getMDToken() const
 {
     return getValue("MDTOKEN", "token");
 }
+
+QJsonObject ConfigLoader::getUDPConfig() const
+{
+    QJsonObject config;
+    QJsonObject exchanges;
+    
+    // NSE FO Config
+    QJsonObject nseFo;
+    nseFo["enabled"] = true;
+    nseFo["multicastGroup"] = "233.1.2.5";
+    nseFo["port"] = getInt("UDP", "udp_fo", 34330);
+    nseFo["protocol"] = "binary";
+    exchanges["NSEFO"] = nseFo;
+    
+    // NSE CM Config 
+    QJsonObject nseCm;
+    nseCm["enabled"] = true;
+    nseCm["multicastGroup"] = "233.1.2.5";
+    nseCm["port"] = getInt("UDP", "udp_cash", 8270);
+    nseCm["protocol"] = "binary";
+    exchanges["NSECM"] = nseCm;
+
+    // BSE FO Config (Placeholder)
+    QJsonObject bseFo;
+    bseFo["enabled"] = false; // Default false until we have IPs/Ports
+    bseFo["multicastGroup"] = "0.0.0.0";
+    bseFo["port"] = 0;
+    bseFo["protocol"] = "binary";
+    exchanges["BSEFO"] = bseFo;
+
+    // BSE CM Config (Placeholder)
+    QJsonObject bseCm;
+    bseCm["enabled"] = false;
+    bseCm["multicastGroup"] = "0.0.0.0";
+    bseCm["port"] = 0;
+    bseCm["protocol"] = "binary";
+    exchanges["BSECM"] = bseCm;
+    
+    config["exchanges"] = exchanges;
+    
+    QJsonObject root;
+    root["udp"] = config;
+    return root;
+}

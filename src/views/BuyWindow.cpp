@@ -1,7 +1,10 @@
 #include "views/BuyWindow.h"
+#include "utils/PreferencesManager.h"
+#include "repository/RepositoryManager.h"
 #include <QVBoxLayout>
 #include <QMessageBox>
 #include <QApplication>
+#include <cmath>
 
 BuyWindow::BuyWindow(QWidget *parent)
     : QWidget(parent), m_formWidget(nullptr)
@@ -65,8 +68,17 @@ BuyWindow::BuyWindow(QWidget *parent)
 
     populateComboBoxes();
     setupConnections();
+    loadPreferences();
 
     qDebug() << "[BuyWindow] Created successfully";
+}
+
+BuyWindow::BuyWindow(const WindowContext &context, QWidget *parent)
+    : BuyWindow(parent)  // Delegate to default constructor
+{
+    // Load context after UI is initialized
+    loadFromContext(context);
+    qDebug() << "[BuyWindow] Created with context:" << context.toString();
 }
 
 BuyWindow::~BuyWindow()
@@ -302,4 +314,163 @@ bool BuyWindow::focusNextPrevChild(bool next)
              << "from index" << currentIndex << "to" << nextIndex;
 
     return true; // We handled the focus change
+}
+
+void BuyWindow::loadPreferences()
+{
+    PreferencesManager &prefs = PreferencesManager::instance();
+    
+    // Apply default order type
+    if (m_cbOrdType) {
+        QString orderType = prefs.getDefaultOrderType();
+        int idx = m_cbOrdType->findText(orderType);
+        if (idx >= 0) {
+            m_cbOrdType->setCurrentIndex(idx);
+        }
+    }
+    
+    // Apply default product
+    if (m_cbProduct) {
+        QString product = prefs.getDefaultProduct();
+        int idx = m_cbProduct->findText(product);
+        if (idx >= 0) {
+            m_cbProduct->setCurrentIndex(idx);
+        }
+    }
+    
+    // Apply default validity
+    if (m_cbValidity) {
+        QString validity = prefs.getDefaultValidity();
+        int idx = m_cbValidity->findText(validity);
+        if (idx >= 0) {
+            m_cbValidity->setCurrentIndex(idx);
+        }
+    }
+    
+    qDebug() << "[BuyWindow] Loaded preferences: Order=" << prefs.getDefaultOrderType()
+             << "Product=" << prefs.getDefaultProduct()
+             << "Validity=" << prefs.getDefaultValidity();
+}
+
+void BuyWindow::loadFromContext(const WindowContext &context)
+{
+    if (!context.isValid()) {
+        qWarning() << "[BuyWindow] Invalid context provided";
+        return;
+    }
+    
+    m_context = context;
+    
+    // Set exchange
+    if (m_cbEx) {
+        QString exchange = context.exchange.left(3);  // NSEFO -> NSE
+        int idx = m_cbEx->findText(exchange, Qt::MatchStartsWith);
+        if (idx >= 0) {
+            m_cbEx->setCurrentIndex(idx);
+        }
+    }
+    
+    // Set token
+    if (m_leToken) {
+        m_leToken->setText(QString::number(context.token));
+    }
+    
+    // Set symbol
+    if (m_leSymbol) {
+        m_leSymbol->setText(context.displayName.isEmpty() ? context.symbol : context.displayName);
+    }
+    
+    // Set instrument type
+    if (m_leInsType) {
+        m_leInsType->setText(context.instrumentType);
+    }
+    
+    // Set instrument name (segment-based)
+    if (m_cbInstrName && !context.instrumentType.isEmpty()) {
+        int idx = m_cbInstrName->findText(context.instrumentType, Qt::MatchStartsWith);
+        if (idx >= 0) {
+            m_cbInstrName->setCurrentIndex(idx);
+        }
+    }
+    
+    // Set option details if applicable
+    if (!context.expiry.isEmpty() && m_cbExp) {
+        m_cbExp->clear();
+        m_cbExp->addItem(context.expiry);
+        m_cbExp->setCurrentIndex(0);
+    }
+    
+    if (context.strikePrice > 0.0 && m_cbStrike) {
+        m_cbStrike->clear();
+        m_cbStrike->addItem(QString::number(context.strikePrice, 'f', 2));
+        m_cbStrike->setCurrentIndex(0);
+    }
+    
+    if (!context.optionType.isEmpty() && context.optionType != "XX" && m_cbOptType) {
+        int idx = m_cbOptType->findText(context.optionType);
+        if (idx >= 0) {
+            m_cbOptType->setCurrentIndex(idx);
+        }
+    }
+    
+    // Auto-fill quantity from preferences
+    PreferencesManager &prefs = PreferencesManager::instance();
+    if (prefs.getAutoFillQuantity() && m_leQty) {
+        int defaultQty = prefs.getDefaultQuantity(context.segment);
+        if (defaultQty <= 0) {
+            defaultQty = context.lotSize;  // Use lot size if no preference
+        }
+        m_leQty->setText(QString::number(defaultQty));
+    }
+    
+    // Auto-calculate price
+    if (prefs.getAutoFillPrice()) {
+        calculateDefaultPrice(context);
+    }
+    
+    qDebug() << "[BuyWindow] Loaded from context:" << context.exchange << context.symbol 
+             << "Token:" << context.token << "LTP:" << context.ltp;
+}
+
+void BuyWindow::calculateDefaultPrice(const WindowContext &context)
+{
+    if (!m_leRate) return;
+    
+    PreferencesManager &prefs = PreferencesManager::instance();
+    QString orderType = m_cbOrdType ? m_cbOrdType->currentText() : "LIMIT";
+    
+    if (orderType == "MARKET") {
+        m_leRate->clear();  // Market orders don't need price
+        m_leRate->setEnabled(false);
+        return;
+    }
+    
+    m_leRate->setEnabled(true);
+    
+    // For limit orders, use ask price + offset for buying
+    double price = 0.0;
+    
+    if (context.ask > 0.0) {
+        // Use ask price (seller's price)
+        price = context.ask;
+    } else if (context.ltp > 0.0) {
+        // Fallback to LTP
+        price = context.ltp;
+    } else {
+        // No price data available
+        return;
+    }
+    
+    if (prefs.getAutoCalculatePrice()) {
+        double offset = prefs.getBuyPriceOffset();
+        price += offset;
+        
+        // Round to tick size
+        if (context.tickSize > 0.0) {
+            price = std::round(price / context.tickSize) * context.tickSize;
+        }
+    }
+    
+    m_leRate->setText(QString::number(price, 'f', 2));
+    qDebug() << "[BuyWindow] Calculated buy price:" << price << "(Ask:" << context.ask << "Offset:" << prefs.getBuyPriceOffset() << ")";
 }

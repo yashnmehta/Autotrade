@@ -4,6 +4,7 @@
 #include <QString>
 #include <QMap>
 #include <QSettings>
+#include <QJsonObject>
 
 class ConfigLoader
 {
@@ -43,6 +44,9 @@ public:
     // Tokens (if stored)
     QString getIAToken() const;
     QString getMDToken() const;
+
+    // UDP Config
+    QJsonObject getUDPConfig() const;
 
 private:
     bool m_loaded;

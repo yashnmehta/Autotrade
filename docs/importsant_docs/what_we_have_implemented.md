@@ -7,4 +7,4 @@
 - remove dummy and test data from masters while master proceessing 
 - save master at download master 
 - load master at splash screen 
-
+- indow context initialization and preferences.

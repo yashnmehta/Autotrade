@@ -4,6 +4,15 @@
 #include <QFile>
 #include <QTextStream>
 
+// Helper function to remove surrounding quotes from CSV field values
+static QString trimQuotes(const QString &str) {
+    QString trimmed = str.trimmed();
+    if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
+        return trimmed.mid(1, trimmed.length() - 2);
+    }
+    return trimmed;
+}
+
 BSECMRepository::BSECMRepository()
     : m_contractCount(0)
     , m_loaded(false)
@@ -62,10 +71,10 @@ bool BSECMRepository::loadProcessedCSV(const QString& filename) {
         MasterContract contract;
         contract.exchange = "BSECM";
         contract.exchangeInstrumentID = fields[0].toLongLong();
-        contract.name = fields[1];
-        contract.displayName = fields[2];
-        contract.description = fields[3];
-        contract.series = fields[4];
+        contract.name = trimQuotes(fields[1]);
+        contract.displayName = trimQuotes(fields[2]);
+        contract.description = trimQuotes(fields[3]);
+        contract.series = trimQuotes(fields[4]);
         contract.lotSize = fields[5].toInt();
         contract.tickSize = fields[6].toDouble();
         contract.priceBandHigh = fields[7].toDouble();
