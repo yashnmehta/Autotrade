@@ -80,32 +80,15 @@ bool MasterFileParser::parseNSECM(const QStringList& fields, MasterContract& con
 }
 
 bool MasterFileParser::parseNSEFO(const QStringList& fields, MasterContract& contract) {
-    // NSEFO format (19+ fields):
-    // 0: ExchangeSegment (2 for NSEFO)
-    // 1: ExchangeInstrumentID (token)
-    // 2: InstrumentType
-    // 3: Name (underlying symbol)
-    // 4: Description
-    // 5: Series (OPTSTK, OPTIDX, FUTSTK, FUTIDX)
-    // 6: NameWithSeries
-    // 7: InstrumentID
-    // 8: PriceBandHigh
-    // 9: PriceBandLow
-    // 10: FreezeQty
-    // 11: TickSize
-    // 12: LotSize
-    // 13: Multiplier
-    // 14: UnderlyingToken (AssetToken)
-    // 15: UnderlyingInstrumentID
-    // 16: ExpiryDate (ISO format: YYYYMMDD)
-    // 17: StrikePrice
-    // 18: OptionType (1=CE, 2=PE, 3/4=XX)
-    // 19: DisplayName
-    // 20: ISIN (optional)
-    // 21: PriceNumerator (optional)
-    // 22: PriceDenominator (optional)
+    // NSEFO format has TWO different layouts:
+    // 
+    // OPTIONS (OPTSTK, OPTIDX): 19+ fields
+    // 14: AssetToken, 15: UnderlyingName, 16: Expiry, 17: StrikePrice, 18: OptionType, 19: DisplayName
+    //
+    // FUTURES (FUTSTK, FUTIDX): 17+ fields (NO strike price field!)
+    // 14: AssetToken (-1 typically), 15: UnderlyingName, 16: Expiry, 17: DisplayName, 18-19: Other
     
-    if (fields.size() < 19) {
+    if (fields.size() < 17) {
         return false;
     }
     
@@ -127,22 +110,30 @@ bool MasterFileParser::parseNSEFO(const QStringList& fields, MasterContract& con
     contract.lotSize = fields[12].toInt();
     contract.multiplier = fields[13].toInt();
     contract.assetToken = fields[14].toLongLong();
-    // field[15] = UnderlyingInstrumentID (not stored)
-    contract.expiryDate = fields[16].trimmed();  // ISO format YYYYMMDD
-    contract.strikePrice = fields[17].toDouble();
-    contract.optionType = fields[18].toInt();
+    // field[15] = UnderlyingName/InstrumentID (not stored)
+    contract.expiryDate = fields[16].trimmed();
     
-    if (fields.size() >= 20) {
-        contract.displayName = fields[19];
-    }
-    if (fields.size() >= 21) {
-        contract.isin = fields[20];
-    }
-    if (fields.size() >= 22) {
-        contract.priceNumerator = fields[21].toInt();
-    }
-    if (fields.size() >= 23) {
-        contract.priceDenominator = fields[22].toInt();
+    // Check if this is OPTIONS or FUTURES
+    bool isOption = contract.series.startsWith("OPT");
+    
+    if (isOption && fields.size() >= 19) {
+        // OPTIONS: fields 17=Strike, 18=OptionType, 19=DisplayName
+        contract.strikePrice = fields[17].toDouble();
+        contract.optionType = fields[18].toInt();
+        if (fields.size() >= 20) {
+            contract.displayName = fields[19];
+        }
+        if (fields.size() >= 21) {
+            contract.isin = fields[20];
+        }
+    } else {
+        // FUTURES: field 17=DisplayName, no strike price (0), optionType=0
+        contract.strikePrice = 0.0;
+        contract.optionType = 0;  // 0 for futures
+        contract.displayName = fields[17];
+        if (fields.size() >= 19) {
+            contract.isin = fields[18];
+        }
     }
     
     // Convert expiry date to DDMMMYYYY format
@@ -240,30 +231,15 @@ bool MasterFileParser::parseBSECM(const QStringList& fields, MasterContract& con
 }
 
 bool MasterFileParser::parseBSEFO(const QStringList& fields, MasterContract& contract) {
-    // BSEFO format (similar to NSEFO):
-    // 0: ExchangeSegment (12 for BSEFO)
-    // 1: ExchangeInstrumentID (token)
-    // 2: InstrumentType
-    // 3: Name (underlying symbol)
-    // 4: Description
-    // 5: Series
-    // 6: NameWithSeries
-    // 7: InstrumentID
-    // 8: PriceBandHigh
-    // 9: PriceBandLow
-    // 10: FreezeQty
-    // 11: TickSize
-    // 12: LotSize
-    // 13: Multiplier
-    // 14: UnderlyingToken (AssetToken)
-    // 15: UnderlyingInstrumentID
-    // 16: ExpiryDate (ISO format: YYYYMMDD)
-    // 17: StrikePrice
-    // 18: OptionType (1=CE, 2=PE, 3/4=XX)
-    // 19: DisplayName
-    // 20: ISIN (optional)
+    // BSEFO format has TWO different layouts (same as NSEFO):
+    // 
+    // OPTIONS (IO, SO, etc): 19+ fields
+    // 14: AssetToken, 15: UnderlyingName, 16: Expiry, 17: DisplayName, 18: StrikePrice, 19: OptionType
+    //
+    // FUTURES (IF, etc): 17+ fields (NO strike price field!)
+    // 14: AssetToken (-1 typically), 15: UnderlyingName, 16: Expiry, 17: DisplayName, 18-19: Other
     
-    if (fields.size() < 19) {
+    if (fields.size() < 17) {
         return false;
     }
     
@@ -285,16 +261,29 @@ bool MasterFileParser::parseBSEFO(const QStringList& fields, MasterContract& con
     contract.lotSize = fields[12].toInt();
     contract.multiplier = fields[13].toInt();
     contract.assetToken = fields[14].toLongLong();
-    // field[15] = UnderlyingInstrumentID (not stored)
-    contract.expiryDate = fields[16].trimmed();  // ISO format YYYYMMDD
-    contract.strikePrice = fields[17].toDouble();
-    contract.optionType = fields[18].toInt();
+    // field[15] = UnderlyingName/InstrumentID (not stored)
+    contract.expiryDate = fields[16].trimmed();
     
-    if (fields.size() >= 20) {
-        contract.displayName = fields[19];
-    }
-    if (fields.size() >= 21) {
-        contract.isin = fields[20];
+    // Check if this is OPTIONS or FUTURES
+    // BSE: IF=Index Futures, IO=Index Options, SO=Stock Options, etc.
+    bool isOption = (contract.series.contains("O"));  // IO, SO, etc. contain 'O'
+    
+    if (isOption && fields.size() >= 20) {
+        // OPTIONS: field 17=DisplayName, 18=StrikePrice, 19=OptionType
+        contract.displayName = fields[17];
+        contract.strikePrice = fields[18].toDouble();
+        contract.optionType = fields[19].toInt();
+        if (fields.size() >= 21) {
+            contract.isin = fields[20];
+        }
+    } else {
+        // FUTURES: field 17=DisplayName, no strike price (0), optionType=0
+        contract.strikePrice = 0.0;
+        contract.optionType = 0;  // 0 for futures
+        contract.displayName = fields[17];
+        if (fields.size() >= 19) {
+            contract.isin = fields[18];
+        }
     }
     
     // Convert expiry date to DDMMMYYYY format

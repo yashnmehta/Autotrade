@@ -3,6 +3,8 @@
 
 #include "NSEFORepository.h"
 #include "NSECMRepository.h"
+#include "BSEFORepository.h"
+#include "BSECMRepository.h"
 #include "ContractData.h"
 #include <QString>
 #include <QVector>
@@ -220,7 +222,8 @@ private:
     // Segment repositories
     std::unique_ptr<NSEFORepository> m_nsefo;
     std::unique_ptr<NSECMRepository> m_nsecm;
-    // BSE repositories would go here (TODO)
+    std::unique_ptr<BSEFORepository> m_bsefo;
+    std::unique_ptr<BSECMRepository> m_bsecm;
     
     bool m_loaded;
 };

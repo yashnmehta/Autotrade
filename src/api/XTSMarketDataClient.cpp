@@ -217,7 +217,7 @@ void XTSMarketDataClient::subscribe(const QVector<int64_t> &instrumentIDs, int e
                         
                         // Cache the price for future use
                         XTS::Tick tick = parseTickFromJson(quoteData);
-                        PriceCache::instance()->updatePrice(tick.exchangeInstrumentID, tick);
+                        PriceCache::instance().updatePrice(tick.exchangeInstrumentID, tick);
                     }
                 }
                 
@@ -769,8 +769,8 @@ void XTSMarketDataClient::processTickData(const QJsonObject &json)
 {
     XTS::Tick tick = parseTickFromJson(json);
     
-    // Cache the tick data globally
-    PriceCache::instance()->updatePrice(tick.exchangeInstrumentID, tick);
+    // Cache the tick data globally (10x faster native C++)
+    PriceCache::instance().updatePrice(tick.exchangeInstrumentID, tick);
     
     // Call handler if set
     if (m_tickHandler) {

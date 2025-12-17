@@ -180,6 +180,8 @@ set(REPOSITORY_SOURCES
     src/repository/MasterFileParser.cpp
     src/repository/NSEFORepository.cpp
     src/repository/NSECMRepository.cpp
+    src/repository/BSEFORepository.cpp
+    src/repository/BSECMRepository.cpp
     src/repository/RepositoryManager.cpp
 )
 
@@ -190,6 +192,8 @@ set(REPOSITORY_HEADERS
     include/repository/MasterFileParser.h
     include/repository/NSEFORepository.h
     include/repository/NSECMRepository.h
+    include/repository/BSEFORepository.h
+    include/repository/BSECMRepository.h
     include/repository/RepositoryManager.h
 )
 

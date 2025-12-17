@@ -56,6 +56,13 @@ public:
     bool loadProcessedCSV(const QString& filename);
     
     /**
+     * @brief Load contracts directly from parsed QVector (fastest)
+     * @param contracts Pre-parsed contracts from combined master file
+     * @return true if successful
+     */
+    bool loadFromContracts(const QVector<MasterContract>& contracts);
+    
+    /**
      * @brief Save contracts to processed CSV file
      * @param filename Path to save CSV file
      * @return true if successful

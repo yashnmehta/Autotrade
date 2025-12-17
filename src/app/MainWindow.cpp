@@ -930,7 +930,7 @@ void MainWindow::onAddToWatchRequested(const InstrumentData &instrument)
             qDebug() << "Successfully added" << instrument.symbol << "to market watch with token" << instrument.exchangeInstrumentID;
             
             // Check if we have a cached price BEFORE subscribing
-            auto cachedPrice = PriceCache::instance()->getPrice(instrument.exchangeInstrumentID);
+            auto cachedPrice = PriceCache::instance().getPrice(instrument.exchangeInstrumentID);
             if (cachedPrice.has_value()) {
                 qDebug() << "📦 Applying cached price for token" << instrument.exchangeInstrumentID;
                 

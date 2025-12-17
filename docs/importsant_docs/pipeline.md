@@ -15,4 +15,22 @@ Timers (std::chrono + std::thread)
 Network I/O (direct sockets)
 Data processing (std::string, not QString
 
+threading architecture
+ui thread 
+io threading 
+socket thread 
+udp reader thread 
 
+
+token adreesbook 
+feed handler
+
+greeks implementation
+
+ui customisations
+shortcut workings
+tradebook 
+order book
+
+threading  architecture
+multi processing
