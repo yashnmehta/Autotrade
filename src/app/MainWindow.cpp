@@ -687,7 +687,17 @@ void MainWindow::createBuyWindow()
     window->setWindowType("BuyWindow");
 
     // Check if there's an active Market Watch with valid selection
+ 
+    //it should be getActiveSubwindow insted of getActiveMarketWatch as buy window can be initiated 
+    //from snapquote/sell window/ netposition window also and its type should be subwindow not 
+    //marketwatch but if we assign type to be sub window then how will we differentiate between 
+    //buy/sell/netposition/snapquote window  and also how we will get context from those windows 
+
     MarketWatchWindow *activeMarketWatch = getActiveMarketWatch();
+    // MarketWatchWindow *activeMarketWatch = getActiveMarketWatch();
+
+
+
     BuyWindow *buyWindow = nullptr;
     
     if (activeMarketWatch && activeMarketWatch->hasValidSelection()) {
@@ -1204,7 +1214,31 @@ void MainWindow::manageWorkspaces()
     dialog.exec();
 }
 
-MarketWatchWindow* MainWindow::getActiveMarketWatch() const
+
+
+// i think there is a bug here when where snapquote or any other subwindow is active other than marketwatch
+// it will return that as active marketwatch which is wrong
+// kindly fix it
+
+//it should be getActiveSubwindow insted of getActiveMarketWatch as buy window can be initiated 
+//from snapquote/sell window/ netposition window also and its type should be subwindow not 
+//marketwatch but if we assign type to be sub window then how will we differentiate between 
+//buy/sell/netposition/snapquote window  and also how we will get context from those windows
+
+
+MarketWatchWindow* MainWindow::getActiveMarketWatch() const                    
+// {
+//     // Get the currently active MDI sub-window
+//     CustomMDISubWindow *activeSubWindow = m_mdiArea ? m_mdiArea->activeWindow() : nullptr;
+//     if (!activeSubWindow) {
+//         return nullptr;
+//     }
+    
+//     // Try to cast the content widget to MarketWatchWindow
+//     QWidget *widget = activeSubWindow->contentWidget();
+//     return qobject_cast<MarketWatchWindow*>(widget);
+// }
+
 {
     // Get the currently active MDI sub-window
     CustomMDISubWindow *activeSubWindow = m_mdiArea ? m_mdiArea->activeWindow() : nullptr;
@@ -1212,10 +1246,26 @@ MarketWatchWindow* MainWindow::getActiveMarketWatch() const
         return nullptr;
     }
     
-    // Try to cast the content widget to MarketWatchWindow
-    QWidget *widget = activeSubWindow->contentWidget();
-    return qobject_cast<MarketWatchWindow*>(widget);
+    // Check if the active sub-window is a MarketWatch
+    if (activeSubWindow->windowType() == "MarketWatch") {
+        QWidget *widget = activeSubWindow->contentWidget();
+        return qobject_cast<MarketWatchWindow*>(widget);
+    }
+    
+    // If not, search through all MDI windows for the first MarketWatch
+    QList<CustomMDISubWindow*> windows = m_mdiArea->windowList();
+    for (CustomMDISubWindow *win : windows) {
+        if (win->windowType() == "MarketWatch") {
+            QWidget *widget = win->contentWidget();
+            return qobject_cast<MarketWatchWindow*>(widget);
+        }
+    }
+    
+    // No MarketWatch found
+    return nullptr;
 }
+
+
 
 
 void MainWindow::onTickReceived(const XTS::Tick &tick)

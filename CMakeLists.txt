@@ -36,6 +36,11 @@ include_directories(
     ${CMAKE_SOURCE_DIR}/include/api
     ${CMAKE_SOURCE_DIR}/include/repository
     ${CMAKE_SOURCE_DIR}/include/utils
+    ${CMAKE_SOURCE_DIR}/include/data
+    ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/include
+    ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_nsecm/include
+    ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_bsefo/include
+    ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_bsecm/include
 )
 
 # ========================================
@@ -212,6 +217,18 @@ set(REPOSITORY_HEADERS
 )
 
 # ========================================
+# DATA LAYER - Market Data Aggregation
+# ✅ Real-time UDP broadcast integration
+# ========================================
+set(DATA_SOURCES
+    src/data/MarketDataAggregator.cpp
+)
+
+set(DATA_HEADERS
+    include/data/MarketDataAggregator.h
+)
+
+# ========================================
 # UTILITIES LAYER - Helper Functions
 # ✅ Reusable utilities, preferences
 # ========================================
@@ -256,6 +273,7 @@ set(SOURCES
     ${SERVICE_SOURCES}
     ${API_SOURCES}
     ${REPOSITORY_SOURCES}
+    ${DATA_SOURCES}
     ${UTILS_SOURCES}
     ${VIEW_HELPER_SOURCES}
 )
@@ -271,6 +289,7 @@ set(HEADERS
     ${SERVICE_HEADERS}
     ${API_HEADERS}
     ${REPOSITORY_HEADERS}
+    ${DATA_HEADERS}
 )
 
 # UI files
@@ -285,12 +304,31 @@ set(RESOURCES
     resources/resources.qrc
 )
 
+# ========================================
+# BROADCAST RECEIVER LIBRARIES
+# ✅ Native C++ UDP multicast receivers
+# ========================================
+
+# NSE FO Broadcast Library
+set(NSEFO_BROADCAST_SOURCES
+    ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/multicast_receiver.cpp
+    ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/udp_receiver.cpp
+    ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/nse_parsers.cpp
+    ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/lzo_decompress.cpp
+    ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/lzo1z_decompress_lib.cpp
+    ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/config.cpp
+    ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/logger.cpp
+    ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/utils/parse_compressed_message.cpp
+    ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/utils/parse_uncompressed_message.cpp
+)
+
 # Add executable
 add_executable(TradingTerminal
     ${SOURCES}
     ${HEADERS}
     ${FORMS}
     ${RESOURCES}
+    ${NSEFO_BROADCAST_SOURCES}
 )
 
 # Link libraries

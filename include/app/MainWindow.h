@@ -55,6 +55,10 @@ private slots:
     void saveCurrentWorkspace();
     void loadWorkspace();
     void manageWorkspaces();
+    
+    // UDP Broadcast receivers
+    void startBroadcastReceivers();
+    void stopBroadcastReceivers();
 
 private:
     void setupContent();
