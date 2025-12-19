@@ -64,6 +64,10 @@ private:
     void createConnectionBar();
     void createStatusBar();
     void createInfoBar();
+    
+    // Helper to get active MarketWatch for context
+    class MarketWatchWindow* getActiveMarketWatch() const;
+    
     // Persist state
     void closeEvent(QCloseEvent *event) override;
 

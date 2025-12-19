@@ -8,6 +8,8 @@
 #include <QLineEdit>
 #include <QPushButton>
 #include <QDebug>
+#include "models/WindowContext.h"
+#include <QKeyEvent>
 
 class SellWindow : public QWidget
 {
@@ -15,6 +17,7 @@ class SellWindow : public QWidget
 
 public:
     explicit SellWindow(QWidget *parent = nullptr);
+    explicit SellWindow(const WindowContext &context, QWidget *parent = nullptr);
     ~SellWindow();
 
     // Access to form widgets
@@ -27,14 +30,23 @@ public:
 
     // Set scrip details
     void setScripDetails(const QString &exchange, int token, const QString &symbol);
+    
+    // Context-aware loading
+    void loadFromContext(const WindowContext &context);
+    void loadPreferences();
+    void calculateDefaultPrice(const WindowContext &context);
 
 signals:
     void orderSubmitted(const QString &exchange, int token, const QString &symbol, 
                        int quantity, double price, const QString &orderType);
+    // Request MainWindow to open BuyWindow for same contract and close this one
+    void requestBuyWithContext(const WindowContext &context);
 
 protected:
     // Override to keep focus within the window (prevent tab escape)
     bool focusNextPrevChild(bool next) override;
+    // Handle key events: Esc (close), Enter (submit), F2 (switch to Buy), Up/Down (qty/price)
+    void keyPressEvent(QKeyEvent *event) override;
 
 private slots:
     void onSubmitClicked();
@@ -71,6 +83,9 @@ private:
     QLineEdit *m_leRemarks;
     QPushButton *m_pbSubmit;
     QPushButton *m_pbClear;
+    
+    // Context data
+    WindowContext m_context;
 };
 
 #endif // SELLWINDOW_H

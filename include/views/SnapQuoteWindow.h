@@ -9,6 +9,9 @@
 #include <QComboBox>
 #include <QPushButton>
 #include <QDebug>
+#include "models/WindowContext.h"
+
+class XTSMarketDataClient;
 
 class SnapQuoteWindow : public QWidget
 {
@@ -16,11 +19,23 @@ class SnapQuoteWindow : public QWidget
 
 public:
     explicit SnapQuoteWindow(QWidget *parent = nullptr);
+    explicit SnapQuoteWindow(const WindowContext &context, QWidget *parent = nullptr);
     ~SnapQuoteWindow();
 
     // Set scrip details
     void setScripDetails(const QString &exchange, const QString &segment, 
                         int token, const QString &instType, const QString &symbol);
+    
+    // Context-aware loading
+    void loadFromContext(const WindowContext &context);
+    // Return last loaded context
+    WindowContext getContext() const { return m_context; }
+    
+    // Set XTS client for market data
+    void setXTSClient(XTSMarketDataClient *client) { m_xtsClient = client; }
+    
+    // Fetch current quote from API
+    void fetchQuote();
     
     // Update quote data
     void updateQuote(double ltpPrice, int ltpQty, const QString &ltpTime,
@@ -32,7 +47,7 @@ public:
                          double gainLoss, double mtmValue, double mtmPos);
     
     // Update bid depth (level: 1-5)
-    void updateBidDepth(int level, int qty, double price);
+    void updateBidDepth(int level, int qty, double price, int orders = 0);
     
     // Update ask depth (level: 1-5)
     void updateAskDepth(int level, double price, int qty, int orders);
@@ -96,6 +111,7 @@ private:
     // Bid Depth (5 levels)
     QLabel *m_lbBidQty1, *m_lbBidQty2, *m_lbBidQty3, *m_lbBidQty4, *m_lbBidQty5;
     QLabel *m_lbBidPrice1, *m_lbBidPrice2, *m_lbBidPrice3, *m_lbBidPrice4, *m_lbBidPrice5;
+    QLabel *m_lbBidOrders1, *m_lbBidOrders2, *m_lbBidOrders3, *m_lbBidOrders4, *m_lbBidOrders5;
     
     // Ask Depth (5 levels)
     QLabel *m_lbAskPrice1, *m_lbAskPrice2, *m_lbAskPrice3, *m_lbAskPrice4, *m_lbAskPrice5;
@@ -107,6 +123,12 @@ private:
     QString m_segment;
     QString m_symbol;
     int m_token;
+    
+    // Context data
+    WindowContext m_context;
+    
+    // Market data client
+    XTSMarketDataClient *m_xtsClient;
 };
 
 #endif // SNAPQUOTEWINDOW_H

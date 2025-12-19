@@ -1,7 +1,12 @@
 #include "views/SellWindow.h"
+#include "utils/PreferencesManager.h"
+#include "core/widgets/CustomMDISubWindow.h"
 #include <QVBoxLayout>
 #include <QMessageBox>
 #include <QApplication>
+#include <QKeyEvent>
+#include <cmath>
+#include <cmath>
 
 SellWindow::SellWindow(QWidget *parent)
     : QWidget(parent), m_formWidget(nullptr)
@@ -65,8 +70,71 @@ SellWindow::SellWindow(QWidget *parent)
 
     populateComboBoxes();
     setupConnections();
+    loadPreferences();
 
     qDebug() << "[SellWindow] Created successfully";
+}
+
+SellWindow::SellWindow(const WindowContext &context, QWidget *parent)
+    : QWidget(parent), m_formWidget(nullptr), m_context(context)
+{
+    // Load UI file
+    QUiLoader loader;
+    QFile file(":/forms/SellWindow.ui");
+
+    if (!file.open(QFile::ReadOnly))
+    {
+        qWarning() << "[SellWindow] Failed to open UI file";
+        return;
+    }
+
+    m_formWidget = loader.load(&file, this);
+    file.close();
+
+    if (!m_formWidget)
+    {
+        qWarning() << "[SellWindow] Failed to load UI";
+        return;
+    }
+
+    setMinimumWidth(1000);
+    setFocusPolicy(Qt::StrongFocus);
+    m_formWidget->setFocusPolicy(Qt::StrongFocus);
+
+    QVBoxLayout *layout = new QVBoxLayout(this);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(0);
+    layout->addWidget(m_formWidget);
+
+    // Find all widgets
+    m_cbEx = m_formWidget->findChild<QComboBox *>("cbEx");
+    m_cbInstrName = m_formWidget->findChild<QComboBox *>("cbInstrName");
+    m_cbOrdType = m_formWidget->findChild<QComboBox *>("cbOrdType");
+    m_leToken = m_formWidget->findChild<QLineEdit *>("leToken");
+    m_leInsType = m_formWidget->findChild<QLineEdit *>("leInsType");
+    m_leSymbol = m_formWidget->findChild<QLineEdit *>("leSymbol");
+    m_cbExp = m_formWidget->findChild<QComboBox *>("cbExp");
+    m_cbStrike = m_formWidget->findChild<QComboBox *>("cbStrike");
+    m_cbOptType = m_formWidget->findChild<QComboBox *>("cbOptType");
+    m_leQty = m_formWidget->findChild<QLineEdit *>("leQty");
+    m_leDiscloseQty = m_formWidget->findChild<QLineEdit *>("leDiscloseQty");
+    m_leRate = m_formWidget->findChild<QLineEdit *>("leRate");
+    m_leSetflor = m_formWidget->findChild<QLineEdit *>("leSetflor");
+    m_leTrigPrice = m_formWidget->findChild<QLineEdit *>("leTrigPrice");
+    m_cbMFAON = m_formWidget->findChild<QComboBox *>("cbMFAON");
+    m_leMFQty = m_formWidget->findChild<QLineEdit *>("leMFQty");
+    m_cbProduct = m_formWidget->findChild<QComboBox *>("cbProduct");
+    m_cbValidity = m_formWidget->findChild<QComboBox *>("cbValidity");
+    m_leRemarks = m_formWidget->findChild<QLineEdit *>("leRemarks");
+    m_pbSubmit = m_formWidget->findChild<QPushButton *>("pbSubmit");
+    m_pbClear = m_formWidget->findChild<QPushButton *>("pbClear");
+
+    populateComboBoxes();
+    setupConnections();
+    loadPreferences();
+    loadFromContext(context);
+
+    qDebug() << "[SellWindow] Created with context successfully";
 }
 
 SellWindow::~SellWindow()
@@ -146,6 +214,142 @@ void SellWindow::setScripDetails(const QString &exchange, int token, const QStri
     qDebug() << "[SellWindow] Set scrip details:" << exchange << token << symbol;
 }
 
+void SellWindow::loadPreferences()
+{
+    PreferencesManager &prefs = PreferencesManager::instance();
+    
+    // Load default order type
+    QString orderType = prefs.getDefaultOrderType();
+    if (m_cbOrdType) {
+        int idx = m_cbOrdType->findText(orderType);
+        if (idx >= 0) m_cbOrdType->setCurrentIndex(idx);
+    }
+    
+    // Load default product
+    QString product = prefs.getDefaultProduct();
+    if (m_cbProduct) {
+        // Map MIS->INTRADAY, NRML->DELIVERY for UI compatibility
+        QString uiProduct = (product == "MIS") ? "INTRADAY" : 
+                           (product == "NRML") ? "DELIVERY" : product;
+        int idx = m_cbProduct->findText(uiProduct);
+        if (idx >= 0) m_cbProduct->setCurrentIndex(idx);
+    }
+    
+    // Load default validity
+    QString validity = prefs.getDefaultValidity();
+    if (m_cbValidity) {
+        int idx = m_cbValidity->findText(validity);
+        if (idx >= 0) m_cbValidity->setCurrentIndex(idx);
+    }
+    
+    qDebug() << "[SellWindow] Loaded preferences: Order=" << orderType 
+             << "Product=" << product << "Validity=" << validity;
+}
+
+void SellWindow::loadFromContext(const WindowContext &context)
+{
+    if (!context.isValid()) {
+        qDebug() << "[SellWindow] Invalid context, skipping load";
+        return;
+    }
+    
+    m_context = context;
+    
+    // Set exchange
+    if (m_cbEx && !context.exchange.isEmpty()) {
+        QString exchange = context.exchange.left(3); // "NSE" from "NSEFO"
+        int idx = m_cbEx->findText(exchange);
+        if (idx >= 0) m_cbEx->setCurrentIndex(idx);
+    }
+    
+    // Set token
+    if (m_leToken && context.token > 0) {
+        m_leToken->setText(QString::number(context.token));
+    }
+    
+    // Set symbol
+    if (m_leSymbol && !context.symbol.isEmpty()) {
+        m_leSymbol->setText(context.symbol);
+    }
+    
+    // Set instrument type
+    if (m_leInsType && !context.instrumentType.isEmpty()) {
+        m_leInsType->setText(context.instrumentType);
+    }
+    
+    // Set instrument name (series)
+    if (m_cbInstrName && !context.instrumentType.isEmpty()) {
+        int idx = m_cbInstrName->findText(context.instrumentType);
+        if (idx >= 0) m_cbInstrName->setCurrentIndex(idx);
+    }
+    
+    // Set expiry for F&O
+    if (m_cbExp && !context.expiry.isEmpty()) {
+        m_cbExp->setCurrentText(context.expiry);
+    }
+    
+    // Set strike price for options
+    if (m_cbStrike && context.strikePrice > 0) {
+        m_cbStrike->setCurrentText(QString::number(context.strikePrice));
+    }
+    
+    // Set option type
+    if (m_cbOptType && !context.optionType.isEmpty()) {
+        int idx = m_cbOptType->findText(context.optionType);
+        if (idx >= 0) m_cbOptType->setCurrentIndex(idx);
+    }
+    
+    // Initialize quantity to lotSize (always)
+    if (m_leQty) {
+        PreferencesManager &prefs = PreferencesManager::instance();
+        int qty = context.lotSize;
+        if (qty <= 0) {
+            qty = prefs.getDefaultQuantity(context.segment);
+        }
+        if (qty <= 0) {
+            qty = 1;  // Absolute fallback
+        }
+        m_leQty->setText(QString::number(qty));
+    }
+    
+    // Calculate and set smart price for SELL (bid - offset)
+    calculateDefaultPrice(context);
+    
+    qDebug() << "[SellWindow] Loaded context:" << context.exchange << context.symbol
+             << "Token:" << context.token << "Qty:" << (m_leQty ? m_leQty->text() : "N/A");
+}
+
+void SellWindow::calculateDefaultPrice(const WindowContext &context)
+{
+    PreferencesManager &prefs = PreferencesManager::instance();
+    QString orderType = m_cbOrdType ? m_cbOrdType->currentText() : "LIMIT";
+    
+    // Only calculate for LIMIT orders
+    if (orderType != "LIMIT" || !m_leRate) {
+        return;
+    }
+    
+    // For SELL: Use bid price minus offset (sell below market)
+    double price = 0.0;
+    if (context.bid > 0) {
+        double offset = prefs.getSellPriceOffset();
+        price = context.bid - offset;
+    } else if (context.ltp > 0) {
+        // Fallback to LTP if bid not available
+        double offset = prefs.getSellPriceOffset();
+        price = context.ltp - offset;
+    }
+    
+    // Round to tick size
+    if (price > 0 && context.tickSize > 0) {
+        price = std::round(price / context.tickSize) * context.tickSize;
+        m_leRate->setText(QString::number(price, 'f', 2));
+        
+        qDebug() << "[SellWindow] Smart price:" << price 
+                 << "(bid=" << context.bid << "- offset=" << prefs.getSellPriceOffset() << ")";
+    }
+}
+
 void SellWindow::onSubmitClicked()
 {
     if (!m_leQty || !m_leRate || !m_cbOrdType)
@@ -167,6 +371,15 @@ void SellWindow::onSubmitClicked()
     if (!priceOk || price <= 0)
     {
         QMessageBox::warning(this, "Sell Order", "Invalid price");
+        return;
+    }
+
+    // Validate quantity is multiple of lot size
+    PreferencesManager &prefs = PreferencesManager::instance();
+    int lotSize = (m_context.lotSize > 0) ? m_context.lotSize : prefs.getDefaultQuantity(m_context.exchange);
+    if (lotSize <= 0) lotSize = 1;
+    if ((quantity % lotSize) != 0) {
+        QMessageBox::warning(this, "Sell Order", QString("Quantity must be a multiple of lot size (%1)").arg(lotSize));
         return;
     }
 
@@ -302,4 +515,77 @@ bool SellWindow::focusNextPrevChild(bool next)
              << "from index" << currentIndex << "to" << nextIndex;
 
     return true; // We handled the focus change
+}
+
+void SellWindow::keyPressEvent(QKeyEvent *event)
+{
+    if (!event) return;
+
+    int key = event->key();
+
+    // ESC -> close parent MDI subwindow (if any)
+    if (key == Qt::Key_Escape) {
+        CustomMDISubWindow *parentWin = qobject_cast<CustomMDISubWindow*>(parent());
+        if (parentWin) parentWin->close();
+        else close();
+        event->accept();
+        return;
+    }
+
+    // Enter -> submit order
+    if (key == Qt::Key_Return || key == Qt::Key_Enter) {
+        onSubmitClicked();
+        event->accept();
+        return;
+    }
+
+    // F2 -> request BuyWindow for same contract
+    if (key == Qt::Key_F2) {
+        if (m_context.isValid()) {
+            emit requestBuyWithContext(m_context);
+        }
+        // Close this window
+        CustomMDISubWindow *parentWin = qobject_cast<CustomMDISubWindow*>(parent());
+        if (parentWin) parentWin->close();
+        else close();
+        event->accept();
+        return;
+    }
+
+    // Up / Down arrows: when focus on qty or price, adjust by lotSize/tickSize
+    QWidget *fw = QApplication::focusWidget();
+    if (key == Qt::Key_Up || key == Qt::Key_Down) {
+        int direction = (key == Qt::Key_Up) ? 1 : -1;
+
+        // Quantity adjustment
+        if (fw == m_leQty) {
+            PreferencesManager &prefs = PreferencesManager::instance();
+            int lot = (m_context.lotSize > 0) ? m_context.lotSize : prefs.getDefaultQuantity(m_context.exchange);
+            if (lot <= 0) lot = 1;
+            bool ok; int cur = m_leQty->text().toInt(&ok);
+            if (!ok) cur = lot;
+            int next = cur + direction * lot;
+            if (next < lot) next = lot;
+            m_leQty->setText(QString::number(next));
+            event->accept();
+            return;
+        }
+
+        // Price adjustment
+        if (fw == m_leRate) {
+            double tick = (m_context.tickSize > 0.0) ? m_context.tickSize : 1.0;
+            bool ok; double cur = m_leRate->text().toDouble(&ok);
+            if (!ok) cur = (m_context.ltp > 0) ? m_context.ltp : 0.0;
+            double next = cur + direction * tick;
+            if (m_context.tickSize > 0.0) {
+                next = std::round(next / m_context.tickSize) * m_context.tickSize;
+            }
+            m_leRate->setText(QString::number(next, 'f', 2));
+            event->accept();
+            return;
+        }
+    }
+
+    // Default handling
+    QWidget::keyPressEvent(event);
 }

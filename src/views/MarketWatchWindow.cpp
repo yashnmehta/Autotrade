@@ -7,6 +7,11 @@
 #include "utils/ClipboardHelpers.h"
 #include "utils/SelectionHelpers.h"
 #include "views/helpers/MarketWatchHelpers.h"
+#include "repository/RepositoryManager.h"
+#include "repository/NSEFORepository.h"
+#include "repository/NSECMRepository.h"
+#include "repository/BSEFORepository.h"
+#include "repository/BSECMRepository.h"
 #include <QHeaderView>
 #include <QShortcut>
 #include <QKeyEvent>
@@ -841,4 +846,94 @@ bool MarketWatchWindow::isBlankRow(int sourceRow) const
         return false;
     }
     return m_model->isBlankRow(sourceRow);
+}
+
+WindowContext MarketWatchWindow::getSelectedContractContext() const
+{
+    WindowContext context;
+    context.sourceWindow = "MarketWatch";
+    
+    QModelIndexList selection = selectionModel()->selectedRows();
+    if (selection.isEmpty()) {
+        return context;  // Invalid context
+    }
+    
+    // Use last selected row (most recent selection)
+    QModelIndex lastIndex = selection.last();
+    int proxyRow = lastIndex.row();
+    int sourceRow = mapToSource(proxyRow);
+    
+    if (sourceRow < 0 || sourceRow >= m_model->rowCount()) {
+        return context;  // Invalid
+    }
+    
+    context.sourceRow = sourceRow;
+    const ScripData &scrip = m_model->getScripAt(sourceRow);
+    
+    if (!scrip.isValid() || scrip.isBlankRow) {
+        return context;  // Don't create context for blank rows
+    }
+    
+    // Basic scrip data
+    context.exchange = scrip.exchange;
+    context.token = scrip.token;
+    context.symbol = scrip.symbol;
+    context.displayName = scrip.symbol;  // Could enhance with description
+    // Note: series will be filled from repository data below
+    
+    // Market data from model
+    context.ltp = scrip.ltp;
+    context.bid = scrip.bid;
+    context.ask = scrip.ask;
+    context.high = scrip.high;
+    context.low = scrip.low;
+    context.close = scrip.close;
+    context.volume = scrip.volume;
+    
+    // Fetch contract specifications from repository using unified interface
+    RepositoryManager *repo = RepositoryManager::getInstance();
+    
+    // Determine segment for repository lookup
+    QString segment = (context.exchange == "NSEFO" || context.exchange == "BSEFO") ? "FO" : "CM";
+    QString exchangeName = context.exchange.left(3);  // "NSE" or "BSE"
+    
+    const ContractData *contract = repo->getContractByToken(exchangeName, segment, scrip.token);
+    if (contract) {
+        // Fill contract specifications
+        context.lotSize = contract->lotSize;
+        context.tickSize = contract->tickSize;
+        context.freezeQty = contract->freezeQty;
+        context.expiry = contract->expiryDate;
+        context.strikePrice = contract->strikePrice;
+        context.optionType = contract->optionType;
+        context.instrumentType = contract->series;
+        context.segment = (segment == "FO") ? "F" : "E";
+        
+        qDebug() << "[MarketWatch] Created context for" << context.exchange
+                 << context.symbol << "Token:" << context.token 
+                 << "LTP:" << context.ltp << "Lot:" << context.lotSize;
+    }
+    
+    return context;
+}
+
+bool MarketWatchWindow::hasValidSelection() const
+{
+    QModelIndexList selection = selectionModel()->selectedRows();
+    if (selection.isEmpty()) {
+        return false;
+    }
+    
+    // Check if any selected row is valid (not blank)
+    for (const QModelIndex &index : selection) {
+        int sourceRow = mapToSource(index.row());
+        if (sourceRow >= 0 && sourceRow < m_model->rowCount()) {
+            const ScripData &scrip = m_model->getScripAt(sourceRow);
+            if (scrip.isValid() && !scrip.isBlankRow) {
+                return true;
+            }
+        }
+    }
+    
+    return false;
 }

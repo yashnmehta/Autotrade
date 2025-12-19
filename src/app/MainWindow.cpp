@@ -672,6 +672,11 @@ void MainWindow::createMarketWatch()
 
     // Add to MDI area
     m_mdiArea->addWindow(window);
+    
+    // Set focus to newly created window
+    window->setFocus();
+    window->raise();
+    window->activateWindow();
 
     qDebug() << "Market Watch created with token support";
 }
@@ -681,8 +686,38 @@ void MainWindow::createBuyWindow()
     CustomMDISubWindow *window = new CustomMDISubWindow("Buy Order", m_mdiArea);
     window->setWindowType("BuyWindow");
 
-    // Create BuyWindow with UI file
-    BuyWindow *buyWindow = new BuyWindow(window);
+    // Check if there's an active Market Watch with valid selection
+    MarketWatchWindow *activeMarketWatch = getActiveMarketWatch();
+    BuyWindow *buyWindow = nullptr;
+    
+    if (activeMarketWatch && activeMarketWatch->hasValidSelection()) {
+        // Get context from selected scrip
+        WindowContext context = activeMarketWatch->getSelectedContractContext();
+        if (context.isValid()) {
+            // Create BuyWindow with context (auto-fills contract details)
+            buyWindow = new BuyWindow(context, window);
+            qDebug() << "[MainWindow] Buy Window created with context:" << context.toString();
+        } else {
+            // Fallback to empty window
+            buyWindow = new BuyWindow(window);
+        }
+    } else {
+        // If active window is SnapQuote, try to use its context
+        CustomMDISubWindow *activeSub = m_mdiArea ? m_mdiArea->activeWindow() : nullptr;
+        if (activeSub) {
+            SnapQuoteWindow *snap = qobject_cast<SnapQuoteWindow*>(activeSub->contentWidget());
+            if (snap) {
+                WindowContext ctx = snap->getContext();
+                if (ctx.isValid()) {
+                    buyWindow = new BuyWindow(ctx, window);
+                    qDebug() << "[MainWindow] Buy Window created with SnapQuote context:" << ctx.toString();
+                }
+            }
+        }
+
+        // No selection or context - create empty BuyWindow
+        if (!buyWindow) buyWindow = new BuyWindow(window);
+    }
     
     window->setContentWidget(buyWindow);
     window->setMinimumWidth(1200);
@@ -704,6 +739,24 @@ void MainWindow::createBuyWindow()
         // TODO: Connect to order management system
     });
 
+    // Connect request to switch to SellWindow (F2)
+    connect(buyWindow, &BuyWindow::requestSellWithContext, this,
+            [this](const WindowContext &context) {
+                // Create a sell window for the same contract
+                CustomMDISubWindow *sellSub = new CustomMDISubWindow("Sell Order", m_mdiArea);
+                sellSub->setWindowType("SellWindow");
+                SellWindow *swin = new SellWindow(context, sellSub);
+                sellSub->setContentWidget(swin);
+                sellSub->resize(600, 250);
+                // Connect MDI signals
+                connect(sellSub, &CustomMDISubWindow::closeRequested, sellSub, &QWidget::close);
+                connect(sellSub, &CustomMDISubWindow::minimizeRequested, [this, sellSub]() { m_mdiArea->minimizeWindow(sellSub); });
+                connect(sellSub, &CustomMDISubWindow::maximizeRequested, [sellSub]() { sellSub->maximize(); });
+                connect(sellSub, &CustomMDISubWindow::windowActivated, [this, sellSub]() { m_mdiArea->activateWindow(sellSub); });
+                m_mdiArea->addWindow(sellSub);
+                qDebug() << "[MainWindow] Switched Buy->Sell for token:" << context.token;
+            });
+
     // Connect MDI signals
     connect(window, &CustomMDISubWindow::closeRequested, window, &QWidget::close);
     connect(window, &CustomMDISubWindow::minimizeRequested, [this, window]()
@@ -715,6 +768,11 @@ void MainWindow::createBuyWindow()
 
     // Add to MDI area
     m_mdiArea->addWindow(window);
+    
+    // Set focus to newly created window
+    window->setFocus();
+    window->raise();
+    window->activateWindow();
 
     qDebug() << "[MainWindow] Buy Window created";
 }
@@ -724,8 +782,23 @@ void MainWindow::createSellWindow()
     CustomMDISubWindow *window = new CustomMDISubWindow("Sell Order", m_mdiArea);
     window->setWindowType("SellWindow");
 
-    // Create SellWindow with UI file
-    SellWindow *sellWindow = new SellWindow(window);
+    // Try to get context from active MarketWatch
+    MarketWatchWindow *activeMarketWatch = getActiveMarketWatch();
+    SellWindow *sellWindow = nullptr;
+    
+    if (activeMarketWatch && activeMarketWatch->hasValidSelection()) {
+        WindowContext context = activeMarketWatch->getSelectedContractContext();
+        if (context.isValid()) {
+            sellWindow = new SellWindow(context, window);
+            qDebug() << "[MainWindow] Sell window created with context:" << context.symbol;
+        }
+    }
+    
+    // Fallback to empty window if no context
+    if (!sellWindow) {
+        sellWindow = new SellWindow(window);
+        qDebug() << "[MainWindow] Sell window created without context";
+    }
     
     window->setContentWidget(sellWindow);
     window->resize(600, 250);
@@ -744,6 +817,41 @@ void MainWindow::createSellWindow()
         // TODO: Connect to order management system
     });
 
+    // Connect request to switch to BuyWindow (F2)
+    connect(sellWindow, &SellWindow::requestBuyWithContext, this,
+            [this](const WindowContext &context) {
+                // Create a buy window for the same contract
+                CustomMDISubWindow *buySub = new CustomMDISubWindow("Buy Order", m_mdiArea);
+                buySub->setWindowType("BuyWindow");
+                BuyWindow *bwin = new BuyWindow(context, buySub);
+                buySub->setContentWidget(bwin);
+                buySub->resize(1200, 250);
+                // Connect MDI signals
+                connect(buySub, &CustomMDISubWindow::closeRequested, buySub, &QWidget::close);
+                connect(buySub, &CustomMDISubWindow::minimizeRequested, [this, buySub]() { m_mdiArea->minimizeWindow(buySub); });
+                connect(buySub, &CustomMDISubWindow::maximizeRequested, [buySub]() { buySub->maximize(); });
+                connect(buySub, &CustomMDISubWindow::windowActivated, [this, buySub]() { m_mdiArea->activateWindow(buySub); });
+                // Connect order signal
+                connect(bwin, &BuyWindow::orderSubmitted, [](const QString &ex, int tok, const QString &sym, int q, double p, const QString &ot) {
+                    qDebug() << "[MainWindow] Buy Order Submitted:" << ex << tok << sym << q << "@" << p << ot;
+                });
+                // Connect F2 switch back to Sell
+                connect(bwin, &BuyWindow::requestSellWithContext, this, [this](const WindowContext &ctx) {
+                    CustomMDISubWindow *sellSub = new CustomMDISubWindow("Sell Order", m_mdiArea);
+                    sellSub->setWindowType("SellWindow");
+                    SellWindow *swin = new SellWindow(ctx, sellSub);
+                    sellSub->setContentWidget(swin);
+                    sellSub->resize(1200, 250);
+                    connect(sellSub, &CustomMDISubWindow::closeRequested, sellSub, &QWidget::close);
+                    connect(sellSub, &CustomMDISubWindow::minimizeRequested, [this, sellSub]() { m_mdiArea->minimizeWindow(sellSub); });
+                    connect(sellSub, &CustomMDISubWindow::maximizeRequested, [sellSub]() { sellSub->maximize(); });
+                    connect(sellSub, &CustomMDISubWindow::windowActivated, [this, sellSub]() { m_mdiArea->activateWindow(sellSub); });
+                    m_mdiArea->addWindow(sellSub);
+                });
+                // Add to MDI area
+                m_mdiArea->addWindow(buySub);
+            });
+
     // Connect MDI signals
     connect(window, &CustomMDISubWindow::closeRequested, window, &QWidget::close);
     connect(window, &CustomMDISubWindow::minimizeRequested, [this, window]()
@@ -755,6 +863,11 @@ void MainWindow::createSellWindow()
 
     // Add to MDI area
     m_mdiArea->addWindow(window);
+    
+    // Set focus to newly created window
+    window->setFocus();
+    window->raise();
+    window->activateWindow();
 
     qDebug() << "[MainWindow] Sell Window created";
 }
@@ -764,34 +877,38 @@ void MainWindow::createSnapQuoteWindow()
     CustomMDISubWindow *window = new CustomMDISubWindow("Snap Quote", m_mdiArea);
     window->setWindowType("SnapQuote");
 
-    // Create SnapQuoteWindow with UI file
-    SnapQuoteWindow *snapWindow = new SnapQuoteWindow(window);
+    // Try to get context from active MarketWatch
+    MarketWatchWindow *activeMarketWatch = getActiveMarketWatch();
+    SnapQuoteWindow *snapWindow = nullptr;
+    
+    if (activeMarketWatch && activeMarketWatch->hasValidSelection()) {
+        WindowContext context = activeMarketWatch->getSelectedContractContext();
+        if (context.isValid()) {
+            snapWindow = new SnapQuoteWindow(context, window);
+            qDebug() << "[MainWindow] SnapQuote window created with context:" << context.symbol;
+        }
+    }
+    
+    // Fallback to empty window if no context
+    if (!snapWindow) {
+        snapWindow = new SnapQuoteWindow(window);
+        qDebug() << "[MainWindow] SnapQuote window created without context";
+    }
+    
+    // Set XTS client for market data access
+    if (m_xtsMarketDataClient) {
+        snapWindow->setXTSClient(m_xtsMarketDataClient);
+        // Fetch current quote if context is valid
+        if (snapWindow->getContext().isValid()) {
+            snapWindow->fetchQuote();
+        }
+    }
     
     window->setContentWidget(snapWindow);
     window->resize(860, 300);
     
-    snapWindow->updateStatistics(
-        "+4742.40 - 5796.25",  // DPR
-        32000050,              // OI
-        2.35,                  // OI %
-        0.00,                  // Gain/Loss
-        0.00,                  // MTM Value
-        0.00                   // MTM Pos
-    );
-    
-    // Sample bid depth
-    snapWindow->updateBidDepth(1, 100, 4794.05);
-    snapWindow->updateBidDepth(2, 50, 4793.40);
-    snapWindow->updateBidDepth(3, 1500, 4793.35);
-    snapWindow->updateBidDepth(4, 50, 4793.10);
-    snapWindow->updateBidDepth(5, 4000, 4793.10);
-    
-    // Sample ask depth (price, qty, orders)
-    snapWindow->updateAskDepth(1, 4795.00, 1900, 5);
-    snapWindow->updateAskDepth(2, 4795.05, 50, 1);
-    snapWindow->updateAskDepth(3, 4795.60, 3200, 1);
-    snapWindow->updateAskDepth(4, 4796.10, 200, 1);
-    snapWindow->updateAskDepth(5, 4796.20, 200, 1);
+    // Note: Statistics and depth data are now populated by fetchQuote() API call
+    // No need for dummy data here as API provides real-time values
 
     // Connect MDI signals
     connect(window, &CustomMDISubWindow::closeRequested, window, &QWidget::close);
@@ -804,6 +921,11 @@ void MainWindow::createSnapQuoteWindow()
 
     // Add to MDI area
     m_mdiArea->addWindow(window);
+    
+    // Set focus to newly created window
+    window->setFocus();
+    window->raise();
+    window->activateWindow();
 
     qDebug() << "[MainWindow] Snap Quote Window created";
 }
@@ -829,6 +951,11 @@ void MainWindow::createPositionWindow()
 
     // Add to MDI area
     m_mdiArea->addWindow(window);
+    
+    // Set focus to newly created window
+    window->setFocus();
+    window->raise();
+    window->activateWindow();
 
     qDebug() << "[MainWindow] Position Window created";
 }
@@ -1076,6 +1203,20 @@ void MainWindow::manageWorkspaces()
 
     dialog.exec();
 }
+
+MarketWatchWindow* MainWindow::getActiveMarketWatch() const
+{
+    // Get the currently active MDI sub-window
+    CustomMDISubWindow *activeSubWindow = m_mdiArea ? m_mdiArea->activeWindow() : nullptr;
+    if (!activeSubWindow) {
+        return nullptr;
+    }
+    
+    // Try to cast the content widget to MarketWatchWindow
+    QWidget *widget = activeSubWindow->contentWidget();
+    return qobject_cast<MarketWatchWindow*>(widget);
+}
+
 
 void MainWindow::onTickReceived(const XTS::Tick &tick)
 {

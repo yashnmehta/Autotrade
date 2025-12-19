@@ -1,11 +1,15 @@
 #include "views/SnapQuoteWindow.h"
+#include "api/XTSMarketDataClient.h"
 #include <QVBoxLayout>
 #include <QMessageBox>
+#include <QJsonObject>
+#include <QJsonArray>
 
 SnapQuoteWindow::SnapQuoteWindow(QWidget *parent)
     : QWidget(parent)
     , m_formWidget(nullptr)
     , m_token(0)
+    , m_xtsClient(nullptr)
 {
     // Load UI file
     QUiLoader loader;
@@ -78,6 +82,12 @@ SnapQuoteWindow::SnapQuoteWindow(QWidget *parent)
     m_lbBidPrice4 = m_formWidget->findChild<QLabel*>("lbBidPrice4");
     m_lbBidPrice5 = m_formWidget->findChild<QLabel*>("lbBidPrice5");
     
+    m_lbBidOrders1 = m_formWidget->findChild<QLabel*>("bidAt1");
+    m_lbBidOrders2 = m_formWidget->findChild<QLabel*>("bidAt2");
+    m_lbBidOrders3 = m_formWidget->findChild<QLabel*>("bidAt3");
+    m_lbBidOrders4 = m_formWidget->findChild<QLabel*>("bidAt4");
+    m_lbBidOrders5 = m_formWidget->findChild<QLabel*>("bidAt5");
+    
     // Find ask depth widgets
     m_lbAskPrice1 = m_formWidget->findChild<QLabel*>("lbAskPrice1");
     m_lbAskPrice2 = m_formWidget->findChild<QLabel*>("lbAskPrice2");
@@ -101,6 +111,101 @@ SnapQuoteWindow::SnapQuoteWindow(QWidget *parent)
     setupConnections();
     
     qDebug() << "[SnapQuoteWindow] Created successfully";
+}
+
+SnapQuoteWindow::SnapQuoteWindow(const WindowContext &context, QWidget *parent)
+    : QWidget(parent)
+    , m_formWidget(nullptr)
+    , m_token(0)
+    , m_context(context)
+    , m_xtsClient(nullptr)
+{
+    // Load UI file
+    QUiLoader loader;
+    QFile file(":/forms/SnapQuote.ui");
+    
+    if (!file.open(QFile::ReadOnly)) {
+        qWarning() << "[SnapQuoteWindow] Failed to open UI file";
+        return;
+    }
+    
+    m_formWidget = loader.load(&file, this);
+    file.close();
+    
+    if (!m_formWidget) {
+        qWarning() << "[SnapQuoteWindow] Failed to load UI";
+        return;
+    }
+    
+    QVBoxLayout *layout = new QVBoxLayout(this);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(0);
+    layout->addWidget(m_formWidget);
+    
+    // Find all widgets
+    m_cbEx = m_formWidget->findChild<QComboBox*>("cbEx");
+    m_cbSegment = m_formWidget->findChild<QComboBox*>("cbSegment");
+    m_leToken = m_formWidget->findChild<QLineEdit*>("leToken");
+    m_leInstType = m_formWidget->findChild<QLineEdit*>("leInstType");
+    m_leSymbol = m_formWidget->findChild<QLineEdit*>("leSymbol");
+    m_cbExpiry = m_formWidget->findChild<QComboBox*>("cbExpiry");
+    m_pbRefresh = m_formWidget->findChild<QPushButton*>("pbRefresh");
+    m_lbLTPQty = m_formWidget->findChild<QLabel*>("lbLTPQty");
+    m_lbLTPPrice = m_formWidget->findChild<QLabel*>("lbLTPPrice");
+    m_lbLTPIndicator = m_formWidget->findChild<QLabel*>("lbLTPIndicator");
+    m_lbLTPTime = m_formWidget->findChild<QLabel*>("lbLTPTime");
+    m_lbVolume = m_formWidget->findChild<QLabel*>("lbVolume");
+    m_lbValue = m_formWidget->findChild<QLabel*>("lbValue");
+    m_lbATP = m_formWidget->findChild<QLabel*>("lbATP");
+    m_lbPercentChange = m_formWidget->findChild<QLabel*>("lbPercentChange");
+    m_lbOpen = m_formWidget->findChild<QLabel*>("lbOpen");
+    m_lbHigh = m_formWidget->findChild<QLabel*>("lbHigh");
+    m_lbLow = m_formWidget->findChild<QLabel*>("lbLow");
+    m_lbClose = m_formWidget->findChild<QLabel*>("lbClose");
+    m_lbDPR = m_formWidget->findChild<QLabel*>("lbDPR");
+    m_lbOI = m_formWidget->findChild<QLabel*>("lbOI");
+    m_lbOIPercent = m_formWidget->findChild<QLabel*>("lbOIPercent");
+    m_lbGainLoss = m_formWidget->findChild<QLabel*>("lbGainLoss");
+    m_lbMTMValue = m_formWidget->findChild<QLabel*>("lbMTMValue");
+    m_lbMTMPos = m_formWidget->findChild<QLabel*>("lbMTMPos");
+    m_lbBidQty1 = m_formWidget->findChild<QLabel*>("lbBidQty1");
+    m_lbBidQty2 = m_formWidget->findChild<QLabel*>("lbBidQty2");
+    m_lbBidQty3 = m_formWidget->findChild<QLabel*>("lbBidQty3");
+    m_lbBidQty4 = m_formWidget->findChild<QLabel*>("lbBidQty4");
+    m_lbBidQty5 = m_formWidget->findChild<QLabel*>("lbBidQty5");
+    m_lbBidPrice1 = m_formWidget->findChild<QLabel*>("lbBidPrice1");
+    m_lbBidPrice2 = m_formWidget->findChild<QLabel*>("lbBidPrice2");
+    m_lbBidPrice3 = m_formWidget->findChild<QLabel*>("lbBidPrice3");
+    m_lbBidPrice4 = m_formWidget->findChild<QLabel*>("lbBidPrice4");
+    m_lbBidPrice5 = m_formWidget->findChild<QLabel*>("lbBidPrice5");
+    
+    m_lbBidOrders1 = m_formWidget->findChild<QLabel*>("bidAt1");
+    m_lbBidOrders2 = m_formWidget->findChild<QLabel*>("bidAt2");
+    m_lbBidOrders3 = m_formWidget->findChild<QLabel*>("bidAt3");
+    m_lbBidOrders4 = m_formWidget->findChild<QLabel*>("bidAt4");
+    m_lbBidOrders5 = m_formWidget->findChild<QLabel*>("bidAt5");
+    
+    m_lbAskPrice1 = m_formWidget->findChild<QLabel*>("lbAskPrice1");
+    m_lbAskPrice2 = m_formWidget->findChild<QLabel*>("lbAskPrice2");
+    m_lbAskPrice3 = m_formWidget->findChild<QLabel*>("lbAskPrice3");
+    m_lbAskPrice4 = m_formWidget->findChild<QLabel*>("lbAskPrice4");
+    m_lbAskPrice5 = m_formWidget->findChild<QLabel*>("lbAskPrice5");
+    m_lbAskQty1 = m_formWidget->findChild<QLabel*>("lbAskQty1");
+    m_lbAskQty2 = m_formWidget->findChild<QLabel*>("lbAskQty2");
+    m_lbAskQty3 = m_formWidget->findChild<QLabel*>("lbAskQty3");
+    m_lbAskQty4 = m_formWidget->findChild<QLabel*>("lbAskQty4");
+    m_lbAskQty5 = m_formWidget->findChild<QLabel*>("lbAskQty5");
+    m_lbAskOrders1 = m_formWidget->findChild<QLabel*>("lbAskOrders1");
+    m_lbAskOrders2 = m_formWidget->findChild<QLabel*>("lbAskOrders2");
+    m_lbAskOrders3 = m_formWidget->findChild<QLabel*>("lbAskOrders3");
+    m_lbAskOrders4 = m_formWidget->findChild<QLabel*>("lbAskOrders4");
+    m_lbAskOrders5 = m_formWidget->findChild<QLabel*>("lbAskOrders5");
+    
+    populateComboBoxes();
+    setupConnections();
+    loadFromContext(context);
+    
+    qDebug() << "[SnapQuoteWindow] Created with context successfully";
 }
 
 SnapQuoteWindow::~SnapQuoteWindow()
@@ -167,6 +272,89 @@ void SnapQuoteWindow::setScripDetails(const QString &exchange, const QString &se
     }
     
     qDebug() << "[SnapQuoteWindow] Set scrip:" << exchange << segment << token << instType << symbol;
+}
+
+void SnapQuoteWindow::loadFromContext(const WindowContext &context)
+{
+    if (!context.isValid()) {
+        qDebug() << "[SnapQuoteWindow] Invalid context, skipping load";
+        return;
+    }
+    
+    m_context = context;
+    m_token = context.token;
+    m_exchange = context.exchange.left(3); // "NSE" from "NSEFO"
+    m_segment = context.segment; // "F" or "E"
+    m_symbol = context.symbol;
+    
+    // Set exchange
+    if (m_cbEx) {
+        int idx = m_cbEx->findText(m_exchange);
+        if (idx >= 0) m_cbEx->setCurrentIndex(idx);
+    }
+    
+    // Set segment
+    if (m_cbSegment) {
+        int idx = m_cbSegment->findText(m_segment);
+        if (idx >= 0) m_cbSegment->setCurrentIndex(idx);
+    }
+    
+    // Set token
+    if (m_leToken) {
+        m_leToken->setText(QString::number(context.token));
+    }
+    
+    // Set instrument type
+    if (m_leInstType) {
+        m_leInstType->setText(context.instrumentType);
+    }
+    
+    // Set symbol
+    if (m_leSymbol) {
+        m_leSymbol->setText(context.symbol);
+    }
+    
+    // Set expiry for F&O
+    if (m_cbExpiry && !context.expiry.isEmpty()) {
+        m_cbExpiry->setCurrentText(context.expiry);
+    }
+    
+    // Update market data if available
+    if (context.ltp > 0) {
+        if (m_lbLTPPrice) {
+            m_lbLTPPrice->setText(QString::number(context.ltp, 'f', 2));
+        }
+    }
+    
+    // Update OHLC data
+    if (m_lbOpen && context.close > 0) {
+        m_lbOpen->setText(QString::number(context.close, 'f', 2)); // Previous close as open estimate
+    }
+    if (m_lbHigh && context.high > 0) {
+        m_lbHigh->setText(QString::number(context.high, 'f', 2));
+    }
+    if (m_lbLow && context.low > 0) {
+        m_lbLow->setText(QString::number(context.low, 'f', 2));
+    }
+    if (m_lbClose && context.close > 0) {
+        m_lbClose->setText(QString::number(context.close, 'f', 2));
+    }
+    
+    // Update volume
+    if (m_lbVolume && context.volume > 0) {
+        m_lbVolume->setText(QString::number(context.volume));
+    }
+    
+    // Update bid/ask prices if available
+    if (m_lbBidPrice1 && context.bid > 0) {
+        m_lbBidPrice1->setText(QString::number(context.bid, 'f', 2));
+    }
+    if (m_lbAskPrice1 && context.ask > 0) {
+        m_lbAskPrice1->setText(QString::number(context.ask, 'f', 2));
+    }
+    
+    qDebug() << "[SnapQuoteWindow] Loaded context:" << context.exchange << context.symbol
+             << "Token:" << context.token << "LTP:" << context.ltp;
 }
 
 void SnapQuoteWindow::updateQuote(double ltpPrice, int ltpQty, const QString &ltpTime,
@@ -262,26 +450,40 @@ void SnapQuoteWindow::updateStatistics(const QString &dpr, qint64 oi, double oiP
     }
 }
 
-void SnapQuoteWindow::updateBidDepth(int level, int qty, double price)
+void SnapQuoteWindow::updateBidDepth(int level, int qty, double price, int orders)
 {
     QLabel *qtyLabel = nullptr;
     QLabel *priceLabel = nullptr;
+    QLabel *ordersLabel = nullptr;
     
     switch (level) {
-        case 1: qtyLabel = m_lbBidQty1; priceLabel = m_lbBidPrice1; break;
-        case 2: qtyLabel = m_lbBidQty2; priceLabel = m_lbBidPrice2; break;
-        case 3: qtyLabel = m_lbBidQty3; priceLabel = m_lbBidPrice3; break;
-        case 4: qtyLabel = m_lbBidQty4; priceLabel = m_lbBidPrice4; break;
-        case 5: qtyLabel = m_lbBidQty5; priceLabel = m_lbBidPrice5; break;
+        case 1: qtyLabel = m_lbBidQty1; priceLabel = m_lbBidPrice1; ordersLabel = m_lbBidOrders1; break;
+        case 2: qtyLabel = m_lbBidQty2; priceLabel = m_lbBidPrice2; ordersLabel = m_lbBidOrders2; break;
+        case 3: qtyLabel = m_lbBidQty3; priceLabel = m_lbBidPrice3; ordersLabel = m_lbBidOrders3; break;
+        case 4: qtyLabel = m_lbBidQty4; priceLabel = m_lbBidPrice4; ordersLabel = m_lbBidOrders4; break;
+        case 5: qtyLabel = m_lbBidQty5; priceLabel = m_lbBidPrice5; ordersLabel = m_lbBidOrders5; break;
         default: return;
     }
     
     if (qtyLabel) {
         qtyLabel->setText(QString::number(qty));
+        qDebug() << "[SnapQuoteWindow] Set BidQty" << level << "to" << qty;
+    } else {
+        qWarning() << "[SnapQuoteWindow] BidQty" << level << "label is NULL!";
     }
     
     if (priceLabel) {
         priceLabel->setText(QString::number(price, 'f', 2));
+        qDebug() << "[SnapQuoteWindow] Set BidPrice" << level << "to" << price;
+    } else {
+        qWarning() << "[SnapQuoteWindow] BidPrice" << level << "label is NULL!";
+    }
+    
+    if (ordersLabel) {
+        ordersLabel->setText(QString::number(orders));
+        qDebug() << "[SnapQuoteWindow] Set BidOrders" << level << "to" << orders;
+    } else {
+        qWarning() << "[SnapQuoteWindow] BidOrders" << level << "label is NULL!";
     }
 }
 
@@ -363,4 +565,134 @@ void SnapQuoteWindow::onRefreshClicked()
 {
     emit refreshRequested(m_exchange, m_token);
     qDebug() << "[SnapQuoteWindow] Refresh requested for" << m_exchange << m_token;
+}
+
+// Helper to map exchange string to segment integer
+static int getExchangeSegment(const QString &exchange)
+{
+    if (exchange == "NSECM") return 1;
+    if (exchange == "NSEFO") return 2;
+    if (exchange == "NSECD") return 13;
+    if (exchange == "BSECM") return 11;
+    if (exchange == "BSEFO") return 12;
+    if (exchange == "BSECD") return 61;
+    if (exchange == "MCXFO") return 51;
+    qWarning() << "[SnapQuoteWindow] Unknown exchange segment:" << exchange;
+    return 0;
+}
+
+void SnapQuoteWindow::fetchQuote()
+{
+    qDebug() << "[SnapQuoteWindow] fetchQuote() called";
+    qDebug() << "[SnapQuoteWindow] m_xtsClient =" << m_xtsClient;
+    qDebug() << "[SnapQuoteWindow] m_exchange =" << m_exchange;
+    qDebug() << "[SnapQuoteWindow] m_token =" << m_token;
+    qDebug() << "[SnapQuoteWindow] m_context.exchange =" << m_context.exchange;
+    
+    if (!m_xtsClient) {
+        qWarning() << "[SnapQuoteWindow] ❌ Cannot fetch quote: XTS client not set";
+        return;
+    }
+    
+    if (m_exchange.isEmpty() || m_token <= 0) {
+        qWarning() << "[SnapQuoteWindow] ❌ Cannot fetch quote: invalid exchange or token";
+        qWarning() << "[SnapQuoteWindow]    Exchange:" << m_exchange << "Token:" << m_token;
+        return;
+    }
+    
+    int segment = getExchangeSegment(m_context.exchange);  // Use full exchange from context
+    if (segment == 0) {
+        qWarning() << "[SnapQuoteWindow] ❌ Cannot fetch quote: unknown exchange" << m_context.exchange;
+        return;
+    }
+    
+    qDebug() << "[SnapQuoteWindow] ✅ Fetching quote for exchange:" << m_context.exchange 
+             << "token:" << m_token << "segment:" << segment;
+    
+    // Call API with lambda callback (success, data, error)
+    m_xtsClient->getQuote(m_token, segment, [this](bool success, const QJsonObject &quote, const QString &error) {
+        if (!success) {
+            qWarning() << "[SnapQuoteWindow] Failed to fetch quote:" << error;
+            return;
+        }
+        
+        qDebug() << "[SnapQuoteWindow] Quote received for token" << m_token;
+        
+        // Parse touchline data
+        QJsonObject touchline = quote.value("Touchline").toObject();
+        if (touchline.isEmpty()) {
+            qWarning() << "[SnapQuoteWindow] No Touchline data in quote response";
+            return;
+        }
+        
+        // Extract values with proper type conversion
+        double ltp = touchline.value("LastTradedPrice").toDouble(0.0);
+        int ltpQty = touchline.value("LastTradedQunatity").toInt(0);  // Note: API typo "Qunatity"
+        if (ltpQty == 0) ltpQty = touchline.value("LastTradedQuantity").toInt(0);  // Try correct spelling
+        QString ltpTime = touchline.value("LastTradeTime").toString();
+        if (ltpTime.isEmpty()) ltpTime = touchline.value("LastUpdateTime").toString();
+        
+        double open = touchline.value("Open").toDouble(0.0);
+        double high = touchline.value("High").toDouble(0.0);
+        double low = touchline.value("Low").toDouble(0.0);
+        double close = touchline.value("Close").toDouble(0.0);
+        qint64 volume = touchline.value("TotalTradedQuantity").toVariant().toLongLong();
+        double value = touchline.value("TotalTradedValue").toDouble(0.0);
+        if (value == 0.0) value = touchline.value("TotalBuyQuantity").toDouble(0.0);  // Fallback
+        double atp = touchline.value("AverageTradedPrice").toDouble(0.0);
+        if (atp == 0.0) atp = touchline.value("ATP").toDouble(0.0);  // Try short form
+        double percentChange = touchline.value("PercentChange").toDouble(0.0);
+        
+        qDebug() << "[SnapQuoteWindow] LTP=" << ltp << "Vol=" << volume << "Bids/Asks:" << quote.value("Bids").toArray().size() << "/" << quote.value("Asks").toArray().size();
+        
+        // Update main quote display
+        updateQuote(ltp, ltpQty, ltpTime, open, high, low, close, volume, value, atp, percentChange);
+        
+        // Parse bid depth (best 5 levels)
+        QJsonArray bids = quote.value("Bids").toArray();
+        
+        if (bids.size() > 0) {
+            for (int i = 0; i < qMin(5, bids.size()); ++i) {
+                QJsonObject bid = bids[i].toObject();
+                int qty = bid.value("Size").toInt();
+                double price = bid.value("Price").toDouble();
+                int orders = bid.value("TotalOrders").toInt();
+                updateBidDepth(i + 1, qty, price, orders);
+            }
+        } else {
+            // Fallback: Try to get single bid from Touchline
+            QJsonObject bidInfo = touchline.value("BidInfo").toObject();
+            if (!bidInfo.isEmpty()) {
+                double price = bidInfo.value("Price").toDouble();
+                int qty = bidInfo.value("Size").toInt();
+                int orders = bidInfo.value("TotalOrders").toInt();
+                qDebug() << "[SnapQuoteWindow] Using BidInfo from Touchline: Price=" << price << "Qty=" << qty;
+                updateBidDepth(1, qty, price, orders);
+            }
+        }
+        
+        // Parse ask depth (best 5 levels)
+        QJsonArray asks = quote.value("Asks").toArray();
+        
+        if (asks.size() > 0) {
+            for (int i = 0; i < qMin(5, asks.size()); ++i) {
+                QJsonObject ask = asks[i].toObject();
+                double price = ask.value("Price").toDouble();
+                int qty = ask.value("Size").toInt();
+                int orders = ask.value("TotalOrders").toInt();
+                updateAskDepth(i + 1, price, qty, orders);
+            }
+        } else {
+            // Fallback: Try to get single ask from Touchline
+            QJsonObject askInfo = touchline.value("AskInfo").toObject();
+            if (!askInfo.isEmpty()) {
+                double price = askInfo.value("Price").toDouble();
+                int qty = askInfo.value("Size").toInt();
+                qDebug() << "[SnapQuoteWindow] Using AskInfo from Touchline: Price=" << price << "Qty=" << qty;
+                updateAskDepth(1, price, qty, 0);
+            }
+        }
+        
+        qDebug() << "[SnapQuoteWindow] Quote data updated successfully";
+    });
 }

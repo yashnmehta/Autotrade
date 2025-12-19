@@ -3,6 +3,7 @@
 
 #include "core/widgets/CustomMarketWatch.h"
 #include "models/MarketWatchModel.h"  // For ScripData
+#include "models/WindowContext.h"  // For context-aware window opening
 #include "services/FeedHandler.h"  // Phase 2: Direct callback-based updates
 #include <QVBoxLayout>
 #include <QMenu>
@@ -97,6 +98,18 @@ public:
      * @return Pointer to TokenAddressBook
      */
     TokenAddressBook* getTokenAddressBook() const { return m_tokenAddressBook; }
+    
+    /**
+     * @brief Get WindowContext for selected scrip
+     * @return WindowContext with contract and market data, or invalid context if no selection
+     */
+    WindowContext getSelectedContractContext() const;
+    
+    /**
+     * @brief Check if there's a valid selection
+     * @return true if at least one non-blank row is selected
+     */
+    bool hasValidSelection() const;
     
     /**
      * @brief Get the underlying model
@@ -205,6 +218,10 @@ signals:
      * @brief Emitted when Sell action is requested
      */
     void sellRequested(const QString &symbol, int token);
+    
+    // Context-aware signals (new) - includes full contract and market data
+    void buyRequestedWithContext(const WindowContext &context);
+    void sellRequestedWithContext(const WindowContext &context);
 
 protected:
     /**

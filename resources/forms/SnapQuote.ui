@@ -136,19 +136,16 @@ QPushButton:pressed { background-color: #2A6BA8; }</string>
      </property>
      <item>
       <layout class="QGridLayout" name="gridLayout">
-       <item row="2" column="1">
-        <widget class="QLabel" name="label_4">
-         <property name="maximumSize">
-          <size>
-           <width>16777215</width>
-           <height>30</height>
-          </size>
-         </property>
+       <item row="1" column="3" colspan="2">
+        <widget class="QLabel" name="lb_lastupdatetime">
          <property name="visible">
           <bool>false</bool>
          </property>
          <property name="text">
           <string/>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignCenter</set>
          </property>
         </widget>
        </item>
@@ -168,35 +165,6 @@ QPushButton:pressed { background-color: #2A6BA8; }</string>
          </property>
         </widget>
        </item>
-       <item row="1" column="5">
-        <widget class="QLabel" name="lb_allSellers">
-         <property name="maximumSize">
-          <size>
-           <width>16777215</width>
-           <height>30</height>
-          </size>
-         </property>
-         <property name="text">
-          <string>32547326</string>
-         </property>
-         <property name="alignment">
-          <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-         </property>
-        </widget>
-       </item>
-       <item row="1" column="2">
-        <widget class="QLabel" name="lb_allBuyers">
-         <property name="maximumSize">
-          <size>
-           <width>16777215</width>
-           <height>30</height>
-          </size>
-         </property>
-         <property name="text">
-          <string>35462354</string>
-         </property>
-        </widget>
-       </item>
        <item row="2" column="7">
         <widget class="QLabel" name="label_7">
          <property name="maximumSize">
@@ -213,174 +181,20 @@ QPushButton:pressed { background-color: #2A6BA8; }</string>
          </property>
         </widget>
        </item>
-       <item row="0" column="2" colspan="2">
-        <widget class="QFrame" name="frame_2">
-         <property name="styleSheet">
-          <string notr="true">QFrame#frame_2 { background-color: #1A2F4A; border: 1px solid #2A4A6A; border-radius: 3px; }
-QLabel { color: #4A90E2; }</string>
+       <item row="2" column="1">
+        <widget class="QLabel" name="label_4">
+         <property name="maximumSize">
+          <size>
+           <width>16777215</width>
+           <height>30</height>
+          </size>
          </property>
-         <layout class="QVBoxLayout" name="verticalLayout_3">
-          <item>
-           <layout class="QGridLayout" name="bidDepthLayout">
-            <property name="horizontalSpacing">
-             <number>10</number>
-            </property>
-            <property name="verticalSpacing">
-             <number>3</number>
-            </property>
-            <item row="0" column="1">
-             <widget class="QLabel" name="bidAt1">
-              <property name="styleSheet">
-               <string notr="true">color: #B0B0B0;</string>
-              </property>
-              <property name="text">
-               <string>0</string>
-              </property>
-             </widget>
-            </item>
-            <item row="2" column="1">
-             <widget class="QLabel" name="bidAt3">
-              <property name="styleSheet">
-               <string notr="true">color: #B0B0B0;</string>
-              </property>
-              <property name="text">
-               <string>0</string>
-              </property>
-             </widget>
-            </item>
-            <item row="0" column="0">
-             <widget class="QLabel" name="lbBidQty1">
-              <property name="styleSheet">
-               <string notr="true">color: #4A90E2; font-weight: bold;</string>
-              </property>
-              <property name="text">
-               <string>0</string>
-              </property>
-             </widget>
-            </item>
-            <item row="2" column="2">
-             <widget class="QLabel" name="lbBidPrice3">
-              <property name="styleSheet">
-               <string notr="true">color: #4A90E2; font-weight: bold;</string>
-              </property>
-              <property name="text">
-               <string>0.00</string>
-              </property>
-             </widget>
-            </item>
-            <item row="3" column="0">
-             <widget class="QLabel" name="lbBidQty4">
-              <property name="styleSheet">
-               <string notr="true">color: #4A90E2; font-weight: bold;</string>
-              </property>
-              <property name="text">
-               <string>0</string>
-              </property>
-             </widget>
-            </item>
-            <item row="4" column="1">
-             <widget class="QLabel" name="bidAt5">
-              <property name="styleSheet">
-               <string notr="true">color: #B0B0B0;</string>
-              </property>
-              <property name="text">
-               <string>0</string>
-              </property>
-             </widget>
-            </item>
-            <item row="1" column="0">
-             <widget class="QLabel" name="lbBidQty2">
-              <property name="styleSheet">
-               <string notr="true">color: #4A90E2; font-weight: bold;</string>
-              </property>
-              <property name="text">
-               <string>0</string>
-              </property>
-             </widget>
-            </item>
-            <item row="2" column="0">
-             <widget class="QLabel" name="lbBidQty3">
-              <property name="styleSheet">
-               <string notr="true">color: #4A90E2; font-weight: bold;</string>
-              </property>
-              <property name="text">
-               <string>0</string>
-              </property>
-             </widget>
-            </item>
-            <item row="3" column="2">
-             <widget class="QLabel" name="lbBidPrice4">
-              <property name="styleSheet">
-               <string notr="true">color: #4A90E2; font-weight: bold;</string>
-              </property>
-              <property name="text">
-               <string>0.00</string>
-              </property>
-             </widget>
-            </item>
-            <item row="1" column="2">
-             <widget class="QLabel" name="lbBidPrice2">
-              <property name="styleSheet">
-               <string notr="true">color: #4A90E2; font-weight: bold;</string>
-              </property>
-              <property name="text">
-               <string>0.00</string>
-              </property>
-             </widget>
-            </item>
-            <item row="4" column="0">
-             <widget class="QLabel" name="lbBidQty5">
-              <property name="styleSheet">
-               <string notr="true">color: #4A90E2; font-weight: bold;</string>
-              </property>
-              <property name="text">
-               <string>0</string>
-              </property>
-             </widget>
-            </item>
-            <item row="0" column="2">
-             <widget class="QLabel" name="lbBidPrice1">
-              <property name="styleSheet">
-               <string notr="true">color: #4A90E2; font-weight: bold;</string>
-              </property>
-              <property name="text">
-               <string>0.00</string>
-              </property>
-             </widget>
-            </item>
-            <item row="1" column="1">
-             <widget class="QLabel" name="bidAt2">
-              <property name="styleSheet">
-               <string notr="true">color: #B0B0B0;</string>
-              </property>
-              <property name="text">
-               <string>0</string>
-              </property>
-             </widget>
-            </item>
-            <item row="3" column="1">
-             <widget class="QLabel" name="bidAt4">
-              <property name="styleSheet">
-               <string notr="true">color: #B0B0B0;</string>
-              </property>
-              <property name="text">
-               <string>0</string>
-              </property>
-             </widget>
-            </item>
-            <item row="4" column="2">
-             <widget class="QLabel" name="lbBidPrice5">
-              <property name="styleSheet">
-               <string notr="true">color: #4A90E2; font-weight: bold;</string>
-              </property>
-              <property name="text">
-               <string>0.00</string>
-              </property>
-             </widget>
-            </item>
-           </layout>
-          </item>
-         </layout>
+         <property name="visible">
+          <bool>false</bool>
+         </property>
+         <property name="text">
+          <string/>
+         </property>
         </widget>
        </item>
        <item row="0" column="4" colspan="2">
@@ -414,18 +228,8 @@ QLabel { color: #E74C3C; }</string>
               </property>
              </widget>
             </item>
-            <item row="2" column="0">
-             <widget class="QLabel" name="lbAskPrice2">
-              <property name="styleSheet">
-               <string notr="true">color: #E74C3C; font-weight: bold;</string>
-              </property>
-              <property name="text">
-               <string>0.00</string>
-              </property>
-             </widget>
-            </item>
-            <item row="4" column="1">
-             <widget class="QLabel" name="lbAskQty4">
+            <item row="3" column="2">
+             <widget class="QLabel" name="lbAskOrders3">
               <property name="styleSheet">
                <string notr="true">color: #E74C3C; font-weight: bold;</string>
               </property>
@@ -444,8 +248,38 @@ QLabel { color: #E74C3C; }</string>
               </property>
              </widget>
             </item>
-            <item row="4" column="0">
-             <widget class="QLabel" name="lbAskPrice4">
+            <item row="2" column="2">
+             <widget class="QLabel" name="lbAskOrders2">
+              <property name="styleSheet">
+               <string notr="true">color: #E74C3C; font-weight: bold;</string>
+              </property>
+              <property name="text">
+               <string>0</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="1">
+             <widget class="QLabel" name="lbAskPrice1">
+              <property name="styleSheet">
+               <string notr="true">color: #E74C3C; font-weight: bold;</string>
+              </property>
+              <property name="text">
+               <string>0.00</string>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="0">
+             <widget class="QLabel" name="lbAskQty2">
+              <property name="styleSheet">
+               <string notr="true">color: #E74C3C; font-weight: bold;</string>
+              </property>
+              <property name="text">
+               <string>0</string>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="1">
+             <widget class="QLabel" name="lbAskPrice2">
               <property name="styleSheet">
                <string notr="true">color: #E74C3C; font-weight: bold;</string>
               </property>
@@ -455,12 +289,72 @@ QLabel { color: #E74C3C; }</string>
              </widget>
             </item>
             <item row="3" column="0">
+             <widget class="QLabel" name="lbAskQty3">
+              <property name="styleSheet">
+               <string notr="true">color: #E74C3C; font-weight: bold;</string>
+              </property>
+              <property name="text">
+               <string>0</string>
+              </property>
+             </widget>
+            </item>
+            <item row="3" column="1">
              <widget class="QLabel" name="lbAskPrice3">
               <property name="styleSheet">
                <string notr="true">color: #E74C3C; font-weight: bold;</string>
               </property>
               <property name="text">
                <string>0.00</string>
+              </property>
+             </widget>
+            </item>
+            <item row="4" column="0">
+             <widget class="QLabel" name="lbAskQty4">
+              <property name="styleSheet">
+               <string notr="true">color: #E74C3C; font-weight: bold;</string>
+              </property>
+              <property name="text">
+               <string>0</string>
+              </property>
+             </widget>
+            </item>
+            <item row="4" column="1">
+             <widget class="QLabel" name="lbAskPrice4">
+              <property name="styleSheet">
+               <string notr="true">color: #E74C3C; font-weight: bold;</string>
+              </property>
+              <property name="text">
+               <string>0.00</string>
+              </property>
+             </widget>
+            </item>
+            <item row="5" column="0">
+             <widget class="QLabel" name="lbAskQty5">
+              <property name="styleSheet">
+               <string notr="true">color: #E74C3C; font-weight: bold;</string>
+              </property>
+              <property name="text">
+               <string>0</string>
+              </property>
+             </widget>
+            </item>
+            <item row="5" column="1">
+             <widget class="QLabel" name="lbAskPrice5">
+              <property name="styleSheet">
+               <string notr="true">color: #E74C3C; font-weight: bold;</string>
+              </property>
+              <property name="text">
+               <string>0.00</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="0">
+             <widget class="QLabel" name="lbAskQty1">
+              <property name="styleSheet">
+               <string notr="true">color: #E74C3C; font-weight: bold;</string>
+              </property>
+              <property name="text">
+               <string>0</string>
               </property>
              </widget>
             </item>
@@ -474,60 +368,40 @@ QLabel { color: #E74C3C; }</string>
               </property>
              </widget>
             </item>
-            <item row="3" column="1">
-             <widget class="QLabel" name="lbAskQty3">
+           </layout>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item row="0" column="2" colspan="2">
+        <widget class="QFrame" name="frame_2">
+         <property name="styleSheet">
+          <string notr="true">QFrame#frame_2 { background-color: #1A2F4A; border: 1px solid #2A4A6A; border-radius: 3px; }
+QLabel { color: #4A90E2; }</string>
+         </property>
+         <layout class="QVBoxLayout" name="verticalLayout_3">
+          <item>
+           <layout class="QGridLayout" name="bidDepthLayout">
+            <property name="horizontalSpacing">
+             <number>10</number>
+            </property>
+            <property name="verticalSpacing">
+             <number>3</number>
+            </property>
+            <item row="0" column="0">
+             <widget class="QLabel" name="lbBidQty1">
               <property name="styleSheet">
-               <string notr="true">color: #E74C3C; font-weight: bold;</string>
+               <string notr="true">color: #4A90E2; font-weight: bold;</string>
               </property>
               <property name="text">
                <string>0</string>
               </property>
              </widget>
             </item>
-            <item row="3" column="2">
-             <widget class="QLabel" name="lbAskOrders3">
+            <item row="3" column="0">
+             <widget class="QLabel" name="lbBidQty4">
               <property name="styleSheet">
-               <string notr="true">color: #E74C3C; font-weight: bold;</string>
-              </property>
-              <property name="text">
-               <string>0</string>
-              </property>
-             </widget>
-            </item>
-            <item row="5" column="1">
-             <widget class="QLabel" name="lbAskQty5">
-              <property name="styleSheet">
-               <string notr="true">color: #E74C3C; font-weight: bold;</string>
-              </property>
-              <property name="text">
-               <string>0</string>
-              </property>
-             </widget>
-            </item>
-            <item row="1" column="1">
-             <widget class="QLabel" name="lbAskQty1">
-              <property name="styleSheet">
-               <string notr="true">color: #E74C3C; font-weight: bold;</string>
-              </property>
-              <property name="text">
-               <string>0</string>
-              </property>
-             </widget>
-            </item>
-            <item row="5" column="0">
-             <widget class="QLabel" name="lbAskPrice5">
-              <property name="styleSheet">
-               <string notr="true">color: #E74C3C; font-weight: bold;</string>
-              </property>
-              <property name="text">
-               <string>0.00</string>
-              </property>
-             </widget>
-            </item>
-            <item row="2" column="2">
-             <widget class="QLabel" name="lbAskOrders2">
-              <property name="styleSheet">
-               <string notr="true">color: #E74C3C; font-weight: bold;</string>
+               <string notr="true">color: #4A90E2; font-weight: bold;</string>
               </property>
               <property name="text">
                <string>0</string>
@@ -535,9 +409,59 @@ QLabel { color: #E74C3C; }</string>
              </widget>
             </item>
             <item row="1" column="0">
-             <widget class="QLabel" name="lbAskPrice1">
+             <widget class="QLabel" name="lbBidQty2">
               <property name="styleSheet">
-               <string notr="true">color: #E74C3C; font-weight: bold;</string>
+               <string notr="true">color: #4A90E2; font-weight: bold;</string>
+              </property>
+              <property name="text">
+               <string>0</string>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="0">
+             <widget class="QLabel" name="lbBidQty3">
+              <property name="styleSheet">
+               <string notr="true">color: #4A90E2; font-weight: bold;</string>
+              </property>
+              <property name="text">
+               <string>0</string>
+              </property>
+             </widget>
+            </item>
+            <item row="4" column="0">
+             <widget class="QLabel" name="lbBidQty5">
+              <property name="styleSheet">
+               <string notr="true">color: #4A90E2; font-weight: bold;</string>
+              </property>
+              <property name="text">
+               <string>0</string>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="1">
+             <widget class="QLabel" name="lbBidPrice1">
+              <property name="styleSheet">
+               <string notr="true">color: #4A90E2; font-weight: bold;</string>
+              </property>
+              <property name="text">
+               <string>0.00</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="2">
+             <widget class="QLabel" name="bidAt2">
+              <property name="styleSheet">
+               <string notr="true">color: #B0B0B0;</string>
+              </property>
+              <property name="text">
+               <string>0</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="1">
+             <widget class="QLabel" name="lbBidPrice2">
+              <property name="styleSheet">
+               <string notr="true">color: #4A90E2; font-weight: bold;</string>
               </property>
               <property name="text">
                <string>0.00</string>
@@ -545,9 +469,69 @@ QLabel { color: #E74C3C; }</string>
              </widget>
             </item>
             <item row="2" column="1">
-             <widget class="QLabel" name="lbAskQty2">
+             <widget class="QLabel" name="lbBidPrice3">
               <property name="styleSheet">
-               <string notr="true">color: #E74C3C; font-weight: bold;</string>
+               <string notr="true">color: #4A90E2; font-weight: bold;</string>
+              </property>
+              <property name="text">
+               <string>0.00</string>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="2">
+             <widget class="QLabel" name="bidAt3">
+              <property name="styleSheet">
+               <string notr="true">color: #B0B0B0;</string>
+              </property>
+              <property name="text">
+               <string>0</string>
+              </property>
+             </widget>
+            </item>
+            <item row="3" column="1">
+             <widget class="QLabel" name="lbBidPrice4">
+              <property name="styleSheet">
+               <string notr="true">color: #4A90E2; font-weight: bold;</string>
+              </property>
+              <property name="text">
+               <string>0.00</string>
+              </property>
+             </widget>
+            </item>
+            <item row="3" column="2">
+             <widget class="QLabel" name="bidAt4">
+              <property name="styleSheet">
+               <string notr="true">color: #B0B0B0;</string>
+              </property>
+              <property name="text">
+               <string>0</string>
+              </property>
+             </widget>
+            </item>
+            <item row="4" column="1">
+             <widget class="QLabel" name="lbBidPrice5">
+              <property name="styleSheet">
+               <string notr="true">color: #4A90E2; font-weight: bold;</string>
+              </property>
+              <property name="text">
+               <string>0.00</string>
+              </property>
+             </widget>
+            </item>
+            <item row="4" column="2">
+             <widget class="QLabel" name="bidAt5">
+              <property name="styleSheet">
+               <string notr="true">color: #B0B0B0;</string>
+              </property>
+              <property name="text">
+               <string>0</string>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="2">
+             <widget class="QLabel" name="bidAt1">
+              <property name="styleSheet">
+               <string notr="true">color: #B0B0B0;</string>
               </property>
               <property name="text">
                <string>0</string>
@@ -559,16 +543,32 @@ QLabel { color: #E74C3C; }</string>
          </layout>
         </widget>
        </item>
-       <item row="1" column="3" colspan="2">
-        <widget class="QLabel" name="lb_lastupdatetime">
-         <property name="visible">
-          <bool>false</bool>
+       <item row="1" column="5">
+        <widget class="QLabel" name="lb_allSellers">
+         <property name="maximumSize">
+          <size>
+           <width>16777215</width>
+           <height>30</height>
+          </size>
          </property>
          <property name="text">
-          <string/>
+          <string>32547326</string>
          </property>
          <property name="alignment">
-          <set>Qt::AlignCenter</set>
+          <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="2">
+        <widget class="QLabel" name="lb_allBuyers">
+         <property name="maximumSize">
+          <size>
+           <width>16777215</width>
+           <height>30</height>
+          </size>
+         </property>
+         <property name="text">
+          <string>35462354</string>
          </property>
         </widget>
        </item>

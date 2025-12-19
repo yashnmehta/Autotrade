@@ -5,6 +5,8 @@
 #include <QMessageBox>
 #include <QApplication>
 #include <cmath>
+#include <QKeyEvent>
+#include "core/widgets/CustomMDISubWindow.h"
 
 BuyWindow::BuyWindow(QWidget *parent)
     : QWidget(parent), m_formWidget(nullptr)
@@ -176,9 +178,19 @@ void BuyWindow::onSubmitClicked()
         return;
     }
 
+    // Validate price
     if (!priceOk || price <= 0)
     {
         QMessageBox::warning(this, "Buy Order", "Invalid price");
+        return;
+    }
+
+    // Validate quantity is multiple of lot size
+    PreferencesManager &prefs = PreferencesManager::instance();
+    int lotSize = (m_context.lotSize > 0) ? m_context.lotSize : prefs.getDefaultQuantity(m_context.exchange);
+    if (lotSize <= 0) lotSize = 1;
+    if ((quantity % lotSize) != 0) {
+        QMessageBox::warning(this, "Buy Order", QString("Quantity must be a multiple of lot size (%1)").arg(lotSize));
         return;
     }
 
@@ -413,17 +425,21 @@ void BuyWindow::loadFromContext(const WindowContext &context)
         }
     }
     
-    // Auto-fill quantity from preferences
-    PreferencesManager &prefs = PreferencesManager::instance();
-    if (prefs.getAutoFillQuantity() && m_leQty) {
-        int defaultQty = prefs.getDefaultQuantity(context.segment);
-        if (defaultQty <= 0) {
-            defaultQty = context.lotSize;  // Use lot size if no preference
+    // Initialize quantity to lotSize (always)
+    if (m_leQty) {
+        PreferencesManager &prefs = PreferencesManager::instance();
+        int qty = context.lotSize;
+        if (qty <= 0) {
+            qty = prefs.getDefaultQuantity(context.segment);
         }
-        m_leQty->setText(QString::number(defaultQty));
+        if (qty <= 0) {
+            qty = 1;  // Absolute fallback
+        }
+        m_leQty->setText(QString::number(qty));
     }
     
     // Auto-calculate price
+    PreferencesManager &prefs = PreferencesManager::instance();
     if (prefs.getAutoFillPrice()) {
         calculateDefaultPrice(context);
     }
@@ -473,4 +489,77 @@ void BuyWindow::calculateDefaultPrice(const WindowContext &context)
     
     m_leRate->setText(QString::number(price, 'f', 2));
     qDebug() << "[BuyWindow] Calculated buy price:" << price << "(Ask:" << context.ask << "Offset:" << prefs.getBuyPriceOffset() << ")";
+}
+
+void BuyWindow::keyPressEvent(QKeyEvent *event)
+{
+    if (!event) return;
+
+    int key = event->key();
+
+    // ESC -> close parent MDI subwindow (if any)
+    if (key == Qt::Key_Escape) {
+        CustomMDISubWindow *parentWin = qobject_cast<CustomMDISubWindow*>(parent());
+        if (parentWin) parentWin->close();
+        else close();
+        event->accept();
+        return;
+    }
+
+    // Enter -> submit order
+    if (key == Qt::Key_Return || key == Qt::Key_Enter) {
+        onSubmitClicked();
+        event->accept();
+        return;
+    }
+
+    // F2 -> request SellWindow for same contract
+    if (key == Qt::Key_F2) {
+        if (m_context.isValid()) {
+            emit requestSellWithContext(m_context);
+        }
+        // Close this window
+        CustomMDISubWindow *parentWin = qobject_cast<CustomMDISubWindow*>(parent());
+        if (parentWin) parentWin->close();
+        else close();
+        event->accept();
+        return;
+    }
+
+    // Up / Down arrows: when focus on qty or price, adjust by lotSize/tickSize
+    QWidget *fw = QApplication::focusWidget();
+    if (key == Qt::Key_Up || key == Qt::Key_Down) {
+        int direction = (key == Qt::Key_Up) ? 1 : -1;
+
+        // Quantity adjustment
+        if (fw == m_leQty) {
+            PreferencesManager &prefs = PreferencesManager::instance();
+            int lot = (m_context.lotSize > 0) ? m_context.lotSize : prefs.getDefaultQuantity(m_context.exchange);
+            if (lot <= 0) lot = 1;
+            bool ok; int cur = m_leQty->text().toInt(&ok);
+            if (!ok) cur = lot;
+            int next = cur + direction * lot;
+            if (next < lot) next = lot;
+            m_leQty->setText(QString::number(next));
+            event->accept();
+            return;
+        }
+
+        // Price adjustment
+        if (fw == m_leRate) {
+            double tick = (m_context.tickSize > 0.0) ? m_context.tickSize : 1.0;
+            bool ok; double cur = m_leRate->text().toDouble(&ok);
+            if (!ok) cur = (m_context.ltp > 0) ? m_context.ltp : 0.0;
+            double next = cur + direction * tick;
+            if (m_context.tickSize > 0.0) {
+                next = std::round(next / m_context.tickSize) * m_context.tickSize;
+            }
+            m_leRate->setText(QString::number(next, 'f', 2));
+            event->accept();
+            return;
+        }
+    }
+
+    // Default handling
+    QWidget::keyPressEvent(event);
 }

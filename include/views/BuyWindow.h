@@ -9,6 +9,7 @@
 #include <QPushButton>
 #include <QDebug>
 #include "models/WindowContext.h"
+#include <QKeyEvent>
 
 class BuyWindow : public QWidget
 {
@@ -36,10 +37,14 @@ public:
 signals:
     void orderSubmitted(const QString &exchange, int token, const QString &symbol, 
                        int quantity, double price, const QString &orderType);
+    // Request MainWindow to open SellWindow for same contract and close this one
+    void requestSellWithContext(const WindowContext &context);
 
 protected:
     // Override to keep focus within the window (prevent tab escape)
     bool focusNextPrevChild(bool next) override;
+    // Handle key events: Esc (close), Enter (submit), F2 (switch to Sell), Up/Down (qty/price)
+    void keyPressEvent(QKeyEvent *event) override;
 
 private slots:
     void onSubmitClicked();
