@@ -1,0 +1,41 @@
+# NSE UDP Reader Configuration File
+# Lines starting with # or ; are comments
+
+[Network]
+# Multicast IP address to listen on
+multicast_ip = 233.1.2.5
+
+# UDP port number
+port = 34331
+
+# Buffer size for receiving UDP packets (bytes)
+# Should be at least 65535 to avoid truncation
+buffer_size = 65535
+
+# Socket receive timeout in seconds
+# Used for graceful shutdown checking
+socket_timeout_sec = 1
+
+[Logging]
+# Log level: DEBUG, INFO, WARN, ERROR
+log_level = INFO
+
+# Log file path (empty for no file logging)
+log_file = 
+
+# Enable console logging
+log_to_console = true
+
+[Statistics]
+# Statistics reporting interval in seconds
+stats_interval_sec = 30
+
+# Enable statistics tracking
+enable_stats = true
+
+[Debug]
+# Enable hex dump of packets (for debugging only)
+enable_hex_dump = false
+
+# Number of bytes to dump when hex_dump is enabled
+hex_dump_size = 64

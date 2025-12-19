@@ -1,0 +1,22 @@
+# Build artifacts
+nse_reader
+test_runner
+analyze_bytes
+check_offsets
+*.o
+*.d
+gmon.out
+build/
+
+# IDE files
+.vscode/
+
+# Configuration
+config.ini
+
+# Other
+*.log
+
+
+
+ref/
