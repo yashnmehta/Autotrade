@@ -309,18 +309,20 @@ set(RESOURCES
 # ✅ Native C++ UDP multicast receivers
 # ========================================
 
-# NSE FO Broadcast Library
-set(NSEFO_BROADCAST_SOURCES
-    ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/multicast_receiver.cpp
-    ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/udp_receiver.cpp
-    ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/nse_parsers.cpp
-    ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/lzo_decompress.cpp
-    ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/lzo1z_decompress_lib.cpp
-    ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/config.cpp
-    ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/logger.cpp
-    ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/utils/parse_compressed_message.cpp
-    ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/utils/parse_uncompressed_message.cpp
-)
+# NSE FO Broadcast Library - Temporarily disabled for testing
+# set(NSEFO_BROADCAST_SOURCES
+#     ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/multicast_receiver.cpp
+#     ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/udp_receiver.cpp
+#     ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/nse_parsers.cpp
+#     ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/lzo_decompress.cpp
+#     # Temporarily disabled due to missing lzo library on macOS
+#     # ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/lzo1z_decompress_lib.cpp
+#     ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/config.cpp
+#     ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/logger.cpp
+#     ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/utils/parse_compressed_message.cpp
+#     ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/utils/parse_uncompressed_message.cpp
+# )
+set(NSEFO_BROADCAST_SOURCES "")  # Empty for now
 
 # Add executable
 add_executable(TradingTerminal

@@ -584,7 +584,9 @@ void MarketWatchWindow::keyPressEvent(QKeyEvent *event)
         return;
     }
     
-    QWidget::keyPressEvent(event);
+    // CRITICAL FIX: Call CustomMarketWatch (which inherits from QTableView)
+    // NOT QWidget, so arrow keys work for table navigation
+    CustomMarketWatch::keyPressEvent(event);
 }
 
 void MarketWatchWindow::showContextMenu(const QPoint &pos)

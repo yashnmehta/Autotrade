@@ -143,6 +143,11 @@ protected:
     // Selection state
     int m_selectionAnchor;  // Anchor row for Shift-selection (proxy coordinates)
 
+protected:
+    // Override key events to dynamically change selection mode
+    void keyPressEvent(QKeyEvent *event) override;
+    void keyReleaseEvent(QKeyEvent *event) override;
+
 private:
     // Helper methods
     int getDropRow(const QPoint &pos) const;

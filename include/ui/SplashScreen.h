@@ -23,6 +23,14 @@ public:
 
     // Display control
     void showCentered();
+    
+    /**
+     * @brief Preload master contracts during initialization
+     * 
+     * Loads master data from cache in background during splash screen,
+     * making scrip search instantly available after login.
+     */
+    void preloadMasters();
 
 private:
     Ui::SplashScreen *ui;

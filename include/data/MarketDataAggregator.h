@@ -129,17 +129,17 @@ private:
     void updateTickerCache(const TickerData& data);
     void updateMarketWatchCache(const MarketWatchData& data);
     
-    // Native C++ receivers (no Qt wrappers)
-    std::unique_ptr<MulticastReceiver> m_nseFOReceiver;
-    std::unique_ptr<MulticastReceiver> m_nseCMReceiver;
-    std::unique_ptr<MulticastReceiver> m_bseFOReceiver;
-    std::unique_ptr<MulticastReceiver> m_bseCMReceiver;
+    // Native C++ receivers (no Qt wrappers) - TEMPORARILY DISABLED
+    // std::unique_ptr<MulticastReceiver> m_nseFOReceiver;
+    // std::unique_ptr<MulticastReceiver> m_nseCMReceiver;
+    // std::unique_ptr<MulticastReceiver> m_bseFOReceiver;
+    // std::unique_ptr<MulticastReceiver> m_bseCMReceiver;
     
-    // Standard C++11 threads
-    std::thread m_nseFOThread;
-    std::thread m_nseCMThread;
-    std::thread m_bseFOThread;
-    std::thread m_bseCMThread;
+    // Standard C++11 threads - TEMPORARILY DISABLED
+    // std::thread m_nseFOThread;
+    // std::thread m_nseCMThread;
+    // std::thread m_bseFOThread;
+    // std::thread m_bseCMThread;
     
     // Running state flag
     std::atomic<bool> m_running{false};

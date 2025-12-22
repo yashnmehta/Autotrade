@@ -4,6 +4,8 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QDebug>
+#include <QCoreApplication>
+#include <QStandardPaths>
 #include <fstream>
 #include <iostream>
 #include <string>
@@ -28,6 +30,61 @@ RepositoryManager::RepositoryManager()
 }
 
 RepositoryManager::~RepositoryManager() = default;
+
+QString RepositoryManager::getMastersDirectory() {
+    QString appDir = QCoreApplication::applicationDirPath();
+    QString mastersDir;
+    
+#ifdef Q_OS_MACOS
+    // macOS: Check if running from .app bundle
+    if (appDir.contains(".app/Contents/MacOS")) {
+        // Inside app bundle: use <app>/Masters
+        mastersDir = appDir + "/../Resources/Masters";
+        // Also check direct sibling folder
+        if (!QDir(mastersDir).exists()) {
+            mastersDir = appDir + "/Masters";
+        }
+    } else {
+        // Development build: use project relative path
+        mastersDir = appDir + "/../../../Masters";
+    }
+#elif defined(Q_OS_LINUX)
+    // Linux: Try user data directory first, then relative path
+    QString userDataDir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+    if (!userDataDir.isEmpty()) {
+        mastersDir = userDataDir + "/Masters";
+    } else {
+        // Fallback to home directory
+        mastersDir = QDir::homePath() + "/.TradingTerminal/Masters";
+    }
+#elif defined(Q_OS_WIN)
+    // Windows: Use AppData directory
+    QString userDataDir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+    if (!userDataDir.isEmpty()) {
+        mastersDir = userDataDir + "/Masters";
+    } else {
+        mastersDir = appDir + "/Masters";
+    }
+#else
+    // Generic fallback
+    mastersDir = appDir + "/Masters";
+#endif
+    
+    // Normalize and create directory
+    QDir dir;
+    QString normalizedPath = QDir::cleanPath(QFileInfo(mastersDir).absoluteFilePath());
+    
+    if (!dir.exists(normalizedPath)) {
+        if (dir.mkpath(normalizedPath)) {
+            qDebug() << "[RepositoryManager] Created Masters directory:" << normalizedPath;
+        } else {
+            qWarning() << "[RepositoryManager] Failed to create Masters directory:" << normalizedPath;
+        }
+    }
+    
+    qDebug() << "[RepositoryManager] Using Masters directory:" << normalizedPath;
+    return normalizedPath;
+}
 
 bool RepositoryManager::loadAll(const QString& mastersPath) {
     qDebug() << "[RepositoryManager] Loading all master contracts from:" << mastersPath;

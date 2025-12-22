@@ -85,7 +85,9 @@ void CustomMarketWatch::applyDefaultStyling()
     
     // Selection behavior
     setSelectionBehavior(QAbstractItemView::SelectRows);
-    setSelectionMode(QAbstractItemView::SingleSelection);  // Start with single, switch to extended on Ctrl/Shift
+    // Set the default selection mode to single selection.
+    // It will be dynamically changed to ExtendedSelection when modifier keys are pressed.
+    setSelectionMode(QAbstractItemView::SingleSelection);
     
     // Performance optimization
     setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
@@ -154,138 +156,91 @@ QMenu* CustomMarketWatch::createContextMenu()
     return menu;
 }
 
+// mousePressEvent is no longer needed; selection is handled by the base class
+// based on the dynamically changing selection mode.
+
 bool CustomMarketWatch::eventFilter(QObject *obj, QEvent *event)
 {
-    // Handle keyboard navigation for Shift+Arrow keys
-    if (obj == this) {
-        if (event->type() == QEvent::KeyPress) {
-            QKeyEvent *keyEvent = static_cast<QKeyEvent*>(event);
-            int key = keyEvent->key();
-            bool shift = keyEvent->modifiers() & Qt::ShiftModifier;
-            bool ctrl = keyEvent->modifiers() & Qt::ControlModifier;
-
-            if (key == Qt::Key_Up || key == Qt::Key_Down) {
-                if (shift || ctrl) {
-                    // Switch to extended selection mode for multi-select
-                    if (selectionMode() != QAbstractItemView::ExtendedSelection) {
-                        setSelectionMode(QAbstractItemView::ExtendedSelection);
-                        qDebug() << "[EventFilter] Switched to ExtendedSelection mode (Shift/Ctrl detected)";
-                    }
-                } else {
-                    // Switch back to single selection
-                    if (selectionMode() != QAbstractItemView::SingleSelection) {
-                        setSelectionMode(QAbstractItemView::SingleSelection);
-                        qDebug() << "[EventFilter] Switched to SingleSelection mode";
-                    }
-                }
-            }
-        }
+    // This event filter handles the custom drag & drop implementation.
+    if (obj != viewport()) {
+        return QTableView::eventFilter(obj, event);
     }
 
-    // Handle mouse events for drag-and-drop
-    if (obj == viewport()) {
-        if (event->type() == QEvent::MouseButtonPress) {
+    switch (event->type()) {
+        case QEvent::MouseButtonPress: {
             QMouseEvent *mouseEvent = static_cast<QMouseEvent*>(event);
             if (mouseEvent->button() == Qt::LeftButton) {
-                QModelIndex proxyIndex = indexAt(mouseEvent->pos());
-                int proxyRow = proxyIndex.row();
-                bool shift = mouseEvent->modifiers() & Qt::ShiftModifier;
-                bool ctrl = mouseEvent->modifiers() & Qt::ControlModifier;
-                bool isSelected = selectionModel()->isRowSelected(proxyRow, QModelIndex());
+                QModelIndex index = indexAt(mouseEvent->pos());
+                if (index.isValid()) {
+                    bool isModifierPressed = (mouseEvent->modifiers() & Qt::ShiftModifier) || (mouseEvent->modifiers() & Qt::ControlModifier);
+                    bool isRowSelected = selectionModel()->isRowSelected(index.row(), QModelIndex());
 
-                qDebug() << "[EventFilter] MousePress at row:" << proxyRow << "isSelected:" << isSelected 
-                         << "modifiers:" << (shift ? "SHIFT" : (ctrl ? "CTRL" : "NO"));
+                    // If clicking on an already selected row without modifiers, it's a potential drag of that selection.
+                    // We must consume the event to prevent the base class from clearing the multi-selection.
+                    if (!isModifierPressed && isRowSelected) {
+                        m_dragStartPos = mouseEvent->pos();
+                        m_isDragging = false;
+                        m_draggedTokens.clear();
+                        return true; // Consume the event to preserve the selection for dragging.
+                    }
+                }
+                // For all other cases (new selection, modifier clicks), just prepare for a potential drag
+                // but let the view handle the actual selection change.
+                m_dragStartPos = mouseEvent->pos();
+                m_isDragging = false;
+                m_draggedTokens.clear();
+            }
+            break;
+        }
 
-                if (proxyIndex.isValid()) {
-                    if (shift) {
-                        // Shift-click: range selection
-                        setSelectionMode(QAbstractItemView::ExtendedSelection);
-                        if (m_selectionAnchor < 0) {
-                            m_selectionAnchor = proxyRow;
+        case QEvent::MouseMove: {
+            QMouseEvent *mouseEvent = static_cast<QMouseEvent*>(event);
+            if ((mouseEvent->buttons() & Qt::LeftButton) && !m_dragStartPos.isNull() && !m_isDragging) {
+                if ((mouseEvent->pos() - m_dragStartPos).manhattanLength() >= QApplication::startDragDistance()) {
+                    // Drag gesture confirmed.
+                    m_draggedTokens.clear();
+                    QModelIndexList selectedRows = selectionModel()->selectedRows();
+                    for (const QModelIndex &idx : selectedRows) {
+                        int sourceRow = mapToSource(idx.row());
+                        int token = getTokenForRow(sourceRow);
+                        if (token > 0 && !isBlankRow(sourceRow)) {
+                            m_draggedTokens.append(token);
                         }
-                        qDebug() << "[EventFilter] Shift-click selection from anchor" << m_selectionAnchor << "to" << proxyRow;
-                    } else if (ctrl) {
-                        // Ctrl-click: toggle selection
-                        setSelectionMode(QAbstractItemView::ExtendedSelection);
-                        m_selectionAnchor = proxyRow;
-                        qDebug() << "[EventFilter] Ctrl-click toggle at row" << proxyRow;
+                    }
+
+                    if (!m_draggedTokens.isEmpty()) {
+                        m_isDragging = true;
+                        viewport()->setCursor(Qt::ClosedHandCursor);
+                        qDebug() << "[EventFilter] Drag started with" << m_draggedTokens.size() << "tokens.";
                     } else {
-                        // Normal click
-                        setSelectionMode(QAbstractItemView::SingleSelection);
-                        m_selectionAnchor = proxyRow;
-                        qDebug() << "[EventFilter] Set selection anchor to row" << proxyRow;
-
-                        if (isSelected) {
-                            // Prepare for drag
-                            m_dragStartPos = mouseEvent->pos();
-                            m_isDragging = false;
-                            m_draggedTokens.clear();
-
-                            // Collect tokens from selected rows
-                            QModelIndexList selected = selectionModel()->selectedRows();
-                            for (const QModelIndex &idx : selected) {
-                                int sourceRow = mapToSource(idx.row());
-                                int token = getTokenForRow(sourceRow);
-                                if (token > 0 && !isBlankRow(sourceRow)) {
-                                    m_draggedTokens.append(token);
-                                    qDebug() << "[EventFilter] Drag prep: token" << token;
-                                }
-                            }
-                            return false;  // Let normal selection happen
-                        } else {
-                            qDebug() << "[EventFilter] Normal single selection";
-                        }
+                        m_dragStartPos = QPoint(); // No valid tokens, cancel drag.
                     }
                 }
             }
+            break;
         }
-        else if (event->type() == QEvent::MouseMove) {
-            if (!m_isDragging && !m_dragStartPos.isNull() && !m_draggedTokens.isEmpty()) {
-                QMouseEvent *mouseEvent = static_cast<QMouseEvent*>(event);
-                int distance = (mouseEvent->pos() - m_dragStartPos).manhattanLength();
 
-                if (distance >= QApplication::startDragDistance()) {
-                    m_isDragging = true;
-                    viewport()->setCursor(Qt::ClosedHandCursor);
-                    qDebug() << "[EventFilter] Starting drag - distance:" << distance << "tokens:" << m_draggedTokens.size();
-                }
-            }
-
-            if (m_isDragging) {
-                viewport()->update();
-                return true;
-            }
-        }
-        else if (event->type() == QEvent::MouseButtonRelease) {
+        case QEvent::MouseButtonRelease: {
             QMouseEvent *mouseEvent = static_cast<QMouseEvent*>(event);
             if (mouseEvent->button() == Qt::LeftButton) {
-                qDebug() << "[EventFilter] MouseRelease - isDragging:" << m_isDragging;
-
-                if (m_isDragging && !m_draggedTokens.isEmpty()) {
-                    // Get drop position (in source model coordinates)
+                if (m_isDragging) {
+                    qDebug() << "[EventFilter] Drop detected.";
                     int targetSourceRow = getDropRow(mouseEvent->pos());
-                    qDebug() << "[EventFilter] Drop detected, target source row:" << targetSourceRow;
-
-                    // Perform the move (subclass implements actual logic)
                     performRowMoveByTokens(m_draggedTokens, targetSourceRow);
-
-                    // Reset drag state
-                    m_isDragging = false;
-                    m_draggedTokens.clear();
-                    m_dragStartPos = QPoint();
-                    viewport()->setCursor(Qt::ArrowCursor);
-                    viewport()->update();
-                    return true;
                 }
-
-                // Reset drag state
+                // Always reset drag state on release.
                 m_isDragging = false;
+                m_draggedTokens.clear();
                 m_dragStartPos = QPoint();
                 viewport()->setCursor(Qt::ArrowCursor);
             }
+            break;
         }
+
+        default:
+            break;
     }
-    
+
     return QTableView::eventFilter(obj, event);
 }
 
@@ -382,4 +337,63 @@ void CustomMarketWatch::highlightRow(int sourceRow)
     });
     
     qDebug() << "[CustomMarketWatch] Highlighted source row" << sourceRow << "(proxy row" << proxyRow << ")";
+}
+
+void CustomMarketWatch::keyPressEvent(QKeyEvent *event)
+{
+    if (event->isAutoRepeat()) {
+        QTableView::keyPressEvent(event);
+        return;
+    }
+
+    if (event->key() == Qt::Key_Shift || event->key() == Qt::Key_Control) {
+        qDebug() << "[keyPressEvent] Modifier key pressed. Current mode:" << selectionMode();
+        if (selectionMode() != QAbstractItemView::ExtendedSelection) {
+            qDebug() << "[keyPressEvent] ==> Switching to ExtendedSelection mode.";
+            setSelectionMode(QAbstractItemView::ExtendedSelection);
+        }
+    }
+    QTableView::keyPressEvent(event); // Call base class implementation
+}
+
+void CustomMarketWatch::keyReleaseEvent(QKeyEvent *event)
+{
+    if (event->isAutoRepeat()) {
+        QTableView::keyReleaseEvent(event);
+        return;
+    }
+
+    bool isShiftRelease = (event->key() == Qt::Key_Shift);
+    bool isCtrlRelease = (event->key() == Qt::Key_Control);
+
+    if (isShiftRelease || isCtrlRelease) {
+        qDebug() << "[keyReleaseEvent] Modifier key released. Key:" << event->key();
+        
+        // Get the current state of ALL keyboard modifiers
+        Qt::KeyboardModifiers currentMods = QApplication::keyboardModifiers();
+        qDebug() << "[keyReleaseEvent] Keyboard modifiers reported by Qt:" << currentMods;
+
+        // Create a mask of the modifiers we are tracking for selection
+        Qt::KeyboardModifiers selectionMods = Qt::ShiftModifier | Qt::ControlModifier;
+        
+        // IMPORTANT: From the currently pressed modifiers, remove the one that was JUST released.
+        if (isShiftRelease) {
+            currentMods &= ~Qt::ShiftModifier;
+        }
+        if (isCtrlRelease) {
+            currentMods &= ~Qt::ControlModifier;
+        }
+
+        qDebug() << "[keyReleaseEvent] Modifiers AFTER accounting for release:" << currentMods;
+
+        // Now, check if any of our tracked selection modifiers are still active.
+        if ((currentMods & selectionMods) == 0) {
+             qDebug() << "[keyReleaseEvent] ==> No selection modifiers left. Reverting to SingleSelection mode.";
+             setSelectionMode(QAbstractItemView::SingleSelection);
+        } else {
+             qDebug() << "[keyReleaseEvent] ==> Other selection modifiers still active. Staying in ExtendedSelection mode.";
+        }
+    }
+    
+    QTableView::keyReleaseEvent(event); // Call base class implementation
 }

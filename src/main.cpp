@@ -24,20 +24,23 @@ int main(int argc, char *argv[])
     // Phase 1: Show Splash Screen
     SplashScreen *splash = new SplashScreen();
     splash->showCentered();
+    
+    // Preload masters during splash (non-blocking via timer)
+    splash->setStatus("Initializing...");
+    splash->setProgress(10);
+    splash->preloadMasters();
 
-    // Simulate initial loading
+    // Continue with loading simulation
     QTimer splashTimer;
-    int splashProgress = 0;
+    int splashProgress = 50;  // Start at 50 since preload takes us there
     
     QObject::connect(&splashTimer, &QTimer::timeout, [&]() {
-        splashProgress += 20;
+        splashProgress += 16;  // Adjusted increment
         if (splashProgress <= 100) {
             splash->setProgress(splashProgress);
-            if (splashProgress == 20) splash->setStatus("Loading configuration...");
-            else if (splashProgress == 40) splash->setStatus("Initializing components...");
-            else if (splashProgress == 60) splash->setStatus("Preparing UI...");
-            else if (splashProgress == 80) splash->setStatus("Almost ready...");
-            else if (splashProgress == 100) {
+            if (splashProgress == 66) splash->setStatus("Preparing UI...");
+            else if (splashProgress == 82) splash->setStatus("Almost ready...");
+            else if (splashProgress >= 98) {
                 splash->setStatus("Ready!");
                 splashTimer.stop();
                 

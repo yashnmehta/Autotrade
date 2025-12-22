@@ -1,7 +1,10 @@
 #include "ui/SplashScreen.h"
 #include "ui_SplashScreen.h"
+#include "repository/RepositoryManager.h"
 #include <QApplication>
 #include <QScreen>
+#include <QTimer>
+#include <QDebug>
 
 SplashScreen::SplashScreen(QWidget *parent)
     : QWidget(parent, Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint)
@@ -48,4 +51,32 @@ void SplashScreen::showCentered()
     }
     
     QApplication::processEvents();
+}
+
+void SplashScreen::preloadMasters()
+{
+    // Load cached masters in the background during splash screen
+    // This makes scrip search instantly available after login
+    
+    setStatus("Loading master contracts...");
+    setProgress(30);
+    
+    // Use QTimer to allow UI to update before blocking operation
+    QTimer::singleShot(100, this, [this]() {
+        QString mastersDir = RepositoryManager::getMastersDirectory();
+        RepositoryManager* repo = RepositoryManager::getInstance();
+        
+        if (repo->loadAll(mastersDir)) {
+            qDebug() << "[SplashScreen] ✓ Masters preloaded successfully";
+            auto stats = repo->getSegmentStats();
+            qDebug() << "[SplashScreen]   NSE F&O:" << stats.nsefo << "contracts";
+            qDebug() << "[SplashScreen]   NSE CM:" << stats.nsecm << "contracts";
+            setStatus("Master contracts loaded");
+        } else {
+            qDebug() << "[SplashScreen] ⚠ No cached masters found (will download on login)";
+            setStatus("Masters will download after login");
+        }
+        
+        setProgress(50);
+    });
 }

@@ -80,8 +80,7 @@ void LoginFlowService::executeLogin(
             updateStatus("ia_login", "Interactive API connected", 60);
 
             // Phase 3: Download Masters (if requested) OR load from cache
-            QString appDir = QCoreApplication::applicationDirPath();
-            QString mastersDir = appDir + "/../../masters";
+            QString mastersDir = RepositoryManager::getMastersDirectory();
             QDir().mkpath(mastersDir);
             
             if (downloadMasters) {

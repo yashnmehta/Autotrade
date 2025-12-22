@@ -211,6 +211,18 @@ public:
      * @return Segment ID (1=NSECM, 2=NSEFO, 11=BSECM, 12=BSEFO)
      */
     static int getExchangeSegmentID(const QString& exchange, const QString& segment);
+    
+    /**
+     * @brief Get OS-specific Masters directory path
+     * 
+     * Returns platform-appropriate path for master data:
+     * - macOS .app bundle: <app>/Masters
+     * - Linux/Dev: <app>/../../../Masters or ~/TradingTerminal/Masters
+     * - Creates directory if it doesn't exist
+     * 
+     * @return Absolute path to Masters directory
+     */
+    static QString getMastersDirectory();
 
 private:
     RepositoryManager();

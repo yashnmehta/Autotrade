@@ -1,5 +1,5 @@
 #include "data/MarketDataAggregator.h"
-#include "multicast_receiver.h"
+// #include "multicast_receiver.h"  // Temporarily disabled
 #include "market_data_callback.h"
 #include <QMetaObject>
 #include <QDebug>
@@ -34,8 +34,9 @@ void MarketDataAggregator::start() {
         return;
     }
     
-    qDebug() << "[MarketDataAggregator] Starting broadcast receivers...";
+    qDebug() << "[MarketDataAggregator] Starting broadcast receivers... (DISABLED - fix linker errors first)";
     
+    /* TEMPORARILY DISABLED - fix multicast receiver linker errors
     try {
         // TODO: Load from config file - for now use hardcoded test values
         // NSE FO (Futures & Options)
@@ -58,11 +59,11 @@ void MarketDataAggregator::start() {
         int bseCMPort = 54324;
         std::string bseCMInterface = "";
         
-        // Create 4 native C++ receivers
-        m_nseFOReceiver = std::make_unique<MulticastReceiver>(nseFOIp, nseFOPort, nseFOInterface);
-        m_nseCMReceiver = std::make_unique<MulticastReceiver>(nseCMIp, nseCMPort, nseCMInterface);
-        m_bseFOReceiver = std::make_unique<MulticastReceiver>(bseFOIp, bseFOPort, bseFOInterface);
-        m_bseCMReceiver = std::make_unique<MulticastReceiver>(bseCMIp, bseCMPort, bseCMInterface);
+        // Create 4 native C++ receivers (interface parameter not needed)
+        m_nseFOReceiver = std::make_unique<MulticastReceiver>(nseFOIp, nseFOPort);
+        m_nseCMReceiver = std::make_unique<MulticastReceiver>(nseCMIp, nseCMPort);
+        m_bseFOReceiver = std::make_unique<MulticastReceiver>(bseFOIp, bseFOPort);
+        m_bseCMReceiver = std::make_unique<MulticastReceiver>(bseCMIp, bseCMPort);
         
         // Start 4 threads with native C++ receivers
         m_nseFOThread = std::thread([this]() {
@@ -112,6 +113,7 @@ void MarketDataAggregator::start() {
         m_running = false;
         throw;
     }
+    */ // END TEMPORARILY DISABLED
 }
 
 void MarketDataAggregator::stop() {
@@ -120,8 +122,9 @@ void MarketDataAggregator::stop() {
         return;
     }
     
-    qDebug() << "[MarketDataAggregator] Stopping receivers...";
+    qDebug() << "[MarketDataAggregator] Stopping receivers... (DISABLED)";
     
+    /* TEMPORARILY DISABLED
     // Stop all receivers (will break their receive loops)
     if (m_nseFOReceiver) {
         m_nseFOReceiver->stop();
@@ -157,6 +160,7 @@ void MarketDataAggregator::stop() {
         qDebug() << "[MarketDataAggregator] Joining BSECM thread...";
         m_bseCMThread.join();
     }
+    */ // END TEMPORARILY DISABLED
     
     qDebug() << "[MarketDataAggregator] All threads stopped and joined";
 }

@@ -547,7 +547,7 @@ void XTSMarketDataClient::onWSMessage(const std::string& message)
             }
             
             // Log Socket.IO event data (already filtered 1105-json-partial)
-            qDebug() << "📨 Socket.IO event data:" << qmsg;
+            // qDebug() << "📨 Socket.IO event data:" << qmsg;
             
             // XTS sends events like "1501-json-full", "1501-json-partial", "1502-json-full", "1502-json-partial"
             if (eventName == "1501-json-full" || eventName == "1501-json-partial" ||

@@ -56,9 +56,9 @@ private slots:
     void loadWorkspace();
     void manageWorkspaces();
     
-    // UDP Broadcast receivers
-    void startBroadcastReceivers();
-    void stopBroadcastReceivers();
+    // UDP Broadcast receivers - TEMPORARILY DISABLED (fix linker errors)
+    // void startBroadcastReceivers();
+    // void stopBroadcastReceivers();
 
 private:
     void setupContent();

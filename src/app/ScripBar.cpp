@@ -652,39 +652,38 @@ void ScripBar::updateTokenDisplay()
     }
     
     // Search in instrument cache for matching contract
-    // Debug: Show actual cached symbols to diagnose mismatch
-    static int debugCallCount = 0;
-    debugCallCount++;
-    
-    if (debugCallCount == 1 && m_instrumentCache.size() > 0) {
-        qDebug() << "[ScripBar] ===== CACHE DEBUG (call #1) =====";
-        qDebug() << "[ScripBar] Cache has" << m_instrumentCache.size() << "contracts";
-        qDebug() << "[ScripBar] First 5 cached entries:";
-        for (int i = 0; i < qMin(5, (int)m_instrumentCache.size()); i++) {
-            const auto& inst = m_instrumentCache[i];
-            qDebug() << "  [" << i << "] Symbol='" << inst.symbol << "' Exp='" << inst.expiryDate 
-                     << "' Strike=" << inst.strikePrice << " Opt='" << inst.optionType << "'";
+    // ENHANCED DEBUG: Always show cache status for options
+    if (isOption) {
+        qDebug() << "[ScripBar] CACHE STATUS: size=" << m_instrumentCache.size() << "contracts";
+        if (m_instrumentCache.size() > 0) {
+            // Show first matching symbol entry (if any)
+            int matchCount = 0;
+            for (int i = 0; i < qMin(10, (int)m_instrumentCache.size()); i++) {
+                const auto& inst = m_instrumentCache[i];
+                if (inst.symbol == symbol) {
+                    qDebug() << "  Found matching symbol [" << i << "]: Symbol='" << inst.symbol 
+                             << "' Exp='" << inst.expiryDate << "' Strike=" << inst.strikePrice 
+                             << " Opt='" << inst.optionType << "' Token=" << inst.exchangeInstrumentID;
+                    matchCount++;
+                    if (matchCount >= 3) break; // Show first 3 matches
+                }
+            }
+            if (matchCount == 0) {
+                qDebug() << "  ❌ NO entries with symbol='" << symbol << "' in cache!";
+                qDebug() << "  First 3 cache entries:";
+                for (int i = 0; i < qMin(3, (int)m_instrumentCache.size()); i++) {
+                    const auto& inst = m_instrumentCache[i];
+                    qDebug() << "    [" << i << "] Symbol='" << inst.symbol << "' Series='" << inst.series 
+                             << "' Type='" << inst.instrumentType << "'";
+                }
+            }
+        } else {
+            qDebug() << "  ❌ CACHE IS EMPTY!";
         }
-        qDebug() << "[ScripBar] ===================================";
-    }
-    
-    if (debugCallCount <= 3 && isOption && !expiry.isEmpty() && !strike.isEmpty() && !optionType.isEmpty()) {
-        qDebug() << "[ScripBar] DEBUG: Option search #" << debugCallCount 
-                 << " - Looking for Symbol='" << symbol << "' (length=" << symbol.length() << ")";
     }
     
     for (const auto &inst : m_instrumentCache) {
         bool matchSymbol = (inst.symbol == symbol);
-        
-        // Debug first few symbol comparisons
-        if (debugCallCount <= 3 && isOption) {
-            static int compCount = 0;
-            if (compCount < 3) {
-                qDebug() << "  Compare: cached='" << inst.symbol << "' (len=" << inst.symbol.length() 
-                         << ") vs search='" << symbol << "' (len=" << symbol.length() << ") match=" << matchSymbol;
-                compCount++;
-            }
-        }
         
         // For equity: only match symbol
         if (isEquity && matchSymbol) {
