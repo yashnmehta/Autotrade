@@ -38,9 +38,21 @@ TradingTerminal.app/
 *.log
 *.tmp
 
+# Test executables and scripts (should be in tests/ directory)
+/test_*
+!/tests/
 
 reference_code/
 
 # Ignore build artifacts in lib directory (but track source code)
 lib
+
+# Temporary directories
+masters_actual
+masters
+/Logs/
+/NSE_UDP_TEST/
+
+# Backup files
+*.backup
 
