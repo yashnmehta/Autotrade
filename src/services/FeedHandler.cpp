@@ -1,4 +1,6 @@
 #include "services/FeedHandler.h"
+#include "utils/LatencyTracker.h"
+#include <iostream>
 #include <QDebug>
 #include <algorithm>
 
@@ -182,6 +184,43 @@ void FeedHandler::unsubscribeAll(QObject* owner) {
 
 void FeedHandler::onTickReceived(const XTS::Tick& tick) {
     int token = tick.exchangeInstrumentID;
+    
+    // Mark FeedHandler processing timestamp
+    XTS::Tick trackedTick = tick;
+    trackedTick.timestampFeedHandler = LatencyTracker::now();
+    
+    // Debug logging for token 49543 - identify data source
+    if (token == 49543) {
+        std::string source = "UNKNOWN";
+        if (tick.timestampParsed > 0) {
+            source = "UDP_BROADCAST";
+        } else {
+            source = "XTS_WEBSOCKET";
+        }
+        
+        std::cout << "\n[FEEDHANDLER-SOURCE] Token: 49543 | DATA SOURCE: " << source << std::endl;
+        std::cout << "[FEEDHANDLER] Token: 49543 | RefNo: " << tick.refNo
+                  << " | LTP: " << tick.lastTradedPrice
+                  << " | timestampFeedHandler: " << trackedTick.timestampFeedHandler << " µs"
+                  << " | FeedHandler delay: " << (trackedTick.timestampFeedHandler - tick.timestampDequeued) << " µs" << std::endl;
+    }
+    
+    // Debug logging for token 49543
+    if (token == 49543) {
+        // Determine data source
+        std::string source = "UNKNOWN";
+        if (tick.timestampParsed > 0) {
+            source = "UDP_BROADCAST";
+        } else {
+            source = "XTS_WEBSOCKET";
+        }
+        
+        std::cout << "\n[FEEDHANDLER-SOURCE] Token: 49543 | DATA SOURCE: " << source << std::endl;
+        std::cout << "[FEEDHANDLER] Token: 49543 | RefNo: " << tick.refNo
+                  << " | LTP: " << tick.lastTradedPrice
+                  << " | timestampFeedHandler: " << trackedTick.timestampFeedHandler << " µs"
+                  << " | FeedHandler delay: " << (trackedTick.timestampFeedHandler - tick.timestampDequeued) << " µs" << std::endl;
+    }
 
     // Read lock - find subscribers
     std::vector<std::shared_ptr<Subscription>> subscribers;
@@ -197,7 +236,7 @@ void FeedHandler::onTickReceived(const XTS::Tick& tick) {
     if (!subscribers.empty()) {
         for (const auto& sub : subscribers) {
             try {
-                sub->callback(tick);
+                sub->callback(trackedTick);
             } catch (const std::exception& e) {
                 qWarning() << "[FeedHandler] Callback exception for token" << token 
                           << "- ID:" << sub->id << "-" << e.what();
@@ -230,7 +269,7 @@ void FeedHandler::onTickBatch(const std::vector<XTS::Tick>& ticks) {
         }
     }
 
-    // Invoke callbacks OUTSIDE lock
+    // Invoke callbacks OUTSIDE lock 
     for (const auto& tick : ticks) {
         int token = tick.exchangeInstrumentID;
         auto it = subscribersByToken.find(token);

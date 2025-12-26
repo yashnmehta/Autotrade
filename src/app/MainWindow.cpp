@@ -1,4 +1,5 @@
 #include "app/MainWindow.h"
+#include "market_data_callback.h"
 #include "core/widgets/CustomTitleBar.h"
 #include "core/widgets/CustomMDIArea.h"
 #include "core/widgets/CustomMDISubWindow.h"
@@ -9,11 +10,15 @@
 #include "views/SellWindow.h"
 #include "views/SnapQuoteWindow.h"
 #include "views/PositionWindow.h"
+#include "views/Preference.h"
 #include "repository/Greeks.h"
 #include "api/XTSMarketDataClient.h"
 #include "api/XTSInteractiveClient.h"
 #include "services/PriceCache.h"
 #include "services/FeedHandler.h"  // Phase 1: Direct callback-based tick distribution
+#include "utils/LatencyTracker.h"  // Latency tracking
+#include <thread>
+#include <chrono>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -41,6 +46,7 @@ MainWindow::MainWindow(QWidget *parent)
     : CustomMainWindow(parent)
     , m_xtsMarketDataClient(nullptr)
     , m_xtsInteractiveClient(nullptr)
+    , m_tickDrainTimer(nullptr)
 {
     setTitle("Trading Terminal");
     resize(1600, 900);
@@ -51,6 +57,19 @@ MainWindow::MainWindow(QWidget *parent)
     
     // Setup keyboard shortcuts
     setupShortcuts();
+    
+    // Setup UDP tick drain timer (1ms = 1000 Hz)
+    m_tickDrainTimer = new QTimer(this);
+    m_tickDrainTimer->setInterval(1);  // 1ms for real-time performance
+    m_tickDrainTimer->setTimerType(Qt::PreciseTimer);
+    connect(m_tickDrainTimer, &QTimer::timeout, this, &MainWindow::drainTickQueue);
+    m_tickDrainTimer->start();
+    qDebug() << "[MainWindow] ✅ UDP tick drain timer started (1ms interval)";
+    qDebug() << "";
+    qDebug() << "[MainWindow] ⚠️ UDP Broadcast NOT auto-started";
+    qDebug() << "[MainWindow] ⚠️ To receive UDP data: Data Menu → Start NSE Broadcast Receiver";
+    qDebug() << "[MainWindow] ⚠️ Without UDP, relying on XTS WebSocket (higher latency)";
+    qDebug() << "";
 
     // Restore visibility preferences
     QSettings s("TradingCompany", "TradingTerminal");
@@ -62,6 +81,8 @@ MainWindow::MainWindow(QWidget *parent)
 
 MainWindow::~MainWindow()
 {
+    // Stop UDP receiver if running
+    stopBroadcastReceiver();
 }
 
 void MainWindow::setXTSClients(XTSMarketDataClient *mdClient, XTSInteractiveClient *iaClient)
@@ -112,27 +133,37 @@ void MainWindow::setupContent()
     // Create menu bar (custom widget, NOT QMainWindow::menuBar())
     createMenuBar();
 
-    // Create toolbar
+    // Create custom toolbar area using nested QMainWindow
+    // This maintains dockable/floatable functionality while controlling position
+    QMainWindow *toolbarHost = new QMainWindow(container);
+    toolbarHost->setWindowFlags(Qt::Widget); // Make it behave as a widget, not a window
+    toolbarHost->setStyleSheet(
+        "QMainWindow { background-color: #aaaaaa;  }"
+        "QMainWindow::separator { background: #3e3e42; width: 1px; height: 1px; }");
+    
+    // Set dynamic sizing policy - expands horizontally, fits content vertically
+    toolbarHost->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
+    
+    // Create main toolbar
     createToolBar();
-    layout->addWidget(m_toolBar);
-#ifdef Q_OS_MAC
-    m_toolBar->setFixedHeight(25);
-#endif
+    m_toolBar->setMovable(true);
+    m_toolBar->setFloatable(true);
+    m_toolBar->setAllowedAreas(Qt::TopToolBarArea);
+    toolbarHost->addToolBar(Qt::TopToolBarArea, m_toolBar);
 
-    // Create connection bar wrapped in a toolbar-like widget
+    // Create connection bar toolbar
     createConnectionBar();
-    m_connectionToolBar = new QToolBar(tr("Connection"), container);
+    m_connectionToolBar = new QToolBar(tr("Connection"), toolbarHost);
     m_connectionToolBar->setStyleSheet(
         "QToolBar { "
-        "   background-color: #2d2d30; "
+        "   background-color: #f5f5f5; "
         "   border: none; "
         "   spacing: 2px; "
         "} "
         "QToolButton { "
-        "   background-color: transparent; "
-        "   color: #ffffff; "
+        "   color: #111111; "
         "   border: none; "
-        "   padding: 4px; "
+        "   padding: 2px; "
         "} "
         "QToolButton:hover { "
         "   background-color: #3e3e42; "
@@ -140,21 +171,20 @@ void MainWindow::setupContent()
         "QToolButton:pressed { "
         "   background-color: #094771; "
         "}");
-    m_connectionBar->setParent(nullptr);
     m_connectionToolBar->addWidget(m_connectionBar);
-    layout->addWidget(m_connectionToolBar);
-#ifdef Q_OS_MAC
-    m_connectionToolBar->setFixedHeight(25);
-    m_connectionBar->setFixedHeight(25);
-#endif
+    m_connectionToolBar->setMovable(true);
+    m_connectionToolBar->setFloatable(true);
+    m_connectionToolBar->setAllowedAreas(Qt::TopToolBarArea);
+    toolbarHost->addToolBarBreak(Qt::TopToolBarArea);  // Force new line
+    toolbarHost->addToolBar(Qt::TopToolBarArea, m_connectionToolBar);
 
-    // Create scrip bar wrapped in a toolbar
-    m_scripBar = new ScripBar(container);
+    // Create scrip bar toolbar
+    m_scripBar = new ScripBar(toolbarHost);
     connect(m_scripBar, &ScripBar::addToWatchRequested, this, &MainWindow::onAddToWatchRequested);
-    m_scripToolBar = new QToolBar(tr("Scrip Bar"), container);
+    m_scripToolBar = new QToolBar(tr("Scrip Bar"), toolbarHost);
     m_scripToolBar->setStyleSheet(
         "QToolBar { "
-        "   background-color: #2d2d30; "
+        "   background-color: #f5f5f5; "
         "   border: none; "
         "   spacing: 2px; "
         "} "
@@ -170,24 +200,43 @@ void MainWindow::setupContent()
         "QToolButton:pressed { "
         "   background-color: #094771; "
         "}");
-    m_scripBar->setParent(nullptr);
     m_scripToolBar->addWidget(m_scripBar);
-    layout->addWidget(m_scripToolBar);
-#ifdef Q_OS_MAC
-    m_scripToolBar->setFixedHeight(35);
-    m_scripBar->setMaximumHeight(35);
-#endif
+    m_scripToolBar->setMovable(true);
+    m_scripToolBar->setFloatable(true);
+    m_scripToolBar->setAllowedAreas(Qt::TopToolBarArea);
+    toolbarHost->addToolBarBreak(Qt::TopToolBarArea);  // Force new line
+    toolbarHost->addToolBar(Qt::TopToolBarArea, m_scripToolBar);
+    
+    // Create a dummy central widget for the toolbar host (required by QMainWindow)
+    QWidget *dummyWidget = new QWidget(toolbarHost);
+    dummyWidget->setFixedHeight(0); // Make it invisible
+    dummyWidget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    toolbarHost->setCentralWidget(dummyWidget);
+    
+    // Add the toolbar host to main layout (below menu bar)
+    // No stretch factor - takes only the space it needs
+    layout->addWidget(toolbarHost);
 
     // Custom MDI Area (main content area)
     m_mdiArea = new CustomMDIArea(container);
+    m_mdiArea->setStyleSheet("CustomMDIArea { background-color: #f5f5f5; }");
     layout->addWidget(m_mdiArea, 1); // Give it stretch factor so it expands
+
+    // Create info bar (inline widget) and add above status bar
+    createInfoBar();
+    layout->addWidget(m_infoBar);
 
     // Create status bar at the bottom
     createStatusBar();
     layout->addWidget(m_statusBar);
 
-    // Create info bar (as a dock widget on the side)
-    createInfoBar();
+    // Adjust central widget layout
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(0);
+
+    // Force initial layout update
+    container->updateGeometry();
+    container->adjustSize();
 }
 
 void MainWindow::setupShortcuts()
@@ -281,9 +330,8 @@ void MainWindow::createMenuBar()
 
     menuBar->setStyleSheet(
         "QMenuBar { "
-        "   background-color: #2d2d30; "
-        "   color: #ffffff; "
-        "   border-bottom: 1px solid #3e3e42; "
+        "   background-color: #e1e1e1; "
+        "   color: #111111; "
         "   padding: 0px; "
         "} "
         "QMenuBar::item { "
@@ -294,8 +342,8 @@ void MainWindow::createMenuBar()
         "   background-color: #3e3e42; "
         "} "
         "QMenu { "
-        "   background-color: #252526; "
-        "   color: #ffffff; "
+        "   background-color: #b6b6b6; "
+        "   color: #242424ff; "
         "   border: 1px solid #3e3e42; "
         "} "
         "QMenu::item { "
@@ -340,7 +388,8 @@ void MainWindow::createMenuBar()
 
     // Edit Menu
     QMenu *editMenu = menuBar->addMenu("&Edit");
-    editMenu->addAction("&Preferences");
+    QAction *preferencesAction = editMenu->addAction("&Preferences");
+    connect(preferencesAction, &QAction::triggered, this, &MainWindow::showPreferences);
 
     // View Menu
     QMenu *viewMenu = menuBar->addMenu("&View");
@@ -463,6 +512,14 @@ void MainWindow::createMenuBar()
     toolsMenu->addAction("&Options Calculator");
     toolsMenu->addAction("&Strategy Builder");
 
+    // Data Menu
+    QMenu *dataMenu = menuBar->addMenu("&Data");
+    QAction *startBroadcastAction = dataMenu->addAction("Start &NSE Broadcast Receiver");
+    connect(startBroadcastAction, &QAction::triggered, this, &MainWindow::startBroadcastReceiver);
+    
+    QAction *stopBroadcastAction = dataMenu->addAction("St&op NSE Broadcast Receiver");
+    connect(stopBroadcastAction, &QAction::triggered, this, &MainWindow::stopBroadcastReceiver);
+
     // Help Menu
     QMenu *helpMenu = menuBar->addMenu("&Help");
     helpMenu->addAction("&About");
@@ -488,17 +545,17 @@ void MainWindow::createToolBar()
     m_toolBar->setAllowedAreas(Qt::AllToolBarAreas);
     m_toolBar->setMovable(true);
     m_toolBar->setFloatable(true);
+    m_toolBar->setIconSize(QSize(16, 16));
+    m_toolBar->setFixedHeight( 30 );
     m_toolBar->setStyleSheet(
         "QToolBar { "
-        "   background-color: #2d2d30; "
-        "   border: 1px solid #3e3e42; "
-        "   spacing: 2px; "
+        "   background-color: #f1f1f1; "
         "} "
         "QToolButton { "
         "   background-color: transparent; "
-        "   color: #ffffff; "
+        "   color: #242424; "
         "   border: none; "
-        "   padding: 4px; "
+        "   padding: 2px; "
         "} "
         "QToolButton:hover { "
         "   background-color: #3e3e42; "
@@ -540,18 +597,18 @@ void MainWindow::createConnectionBar()
     m_connectionBar->setFixedHeight(28);
     m_connectionBar->setStyleSheet(
         "QWidget { "
-        "   background-color: #252526; "
-        "   border-bottom: 1px solid #3e3e42; "
+        "   background-color: #f1f1f1; "
         "} "
         "QLabel { "
-        "   color: #cccccc; "
+
+        "   color: #242424; "
         "   padding: 2px 6px; "
         "   font-size: 10px; "
         "}");
 
     QHBoxLayout *layout = new QHBoxLayout(m_connectionBar);
     layout->setContentsMargins(8, 0, 8, 0);
-    layout->setSpacing(8);
+    layout->setSpacing(3);
     layout->setAlignment(Qt::AlignVCenter);
 
     QLabel *statusLabel = new QLabel("Connection Status:", m_connectionBar);
@@ -1085,10 +1142,16 @@ void MainWindow::onAddToWatchRequested(const InstrumentData &instrument)
                 qDebug() << "✅ Applied cached price - LTP:" << cachedPrice->lastTradedPrice 
                         << "Change:" << change << "(" << changePercent << "%)";
             } else {
-                qDebug() << "ℹ️ No cached price for token" << instrument.exchangeInstrumentID << "- will wait for subscription/WebSocket";
+                qDebug() << "ℹ️ No cached price for token" << instrument.exchangeInstrumentID << "- will wait for UDP broadcast";
             }
             
-            // If XTS market data client is available, subscribe to get both initial snapshot and live updates
+            // ============================================================
+            // XTS SUBSCRIPTION DISABLED - Testing UDP Broadcast Only
+            // ============================================================
+            // Commenting out XTS subscription to measure pure UDP latency
+            // Uncomment below code to enable XTS WebSocket subscription
+            // ============================================================
+            /*
             if (m_xtsMarketDataClient) {
                 int64_t instrumentID = instrument.exchangeInstrumentID;
                 
@@ -1105,6 +1168,10 @@ void MainWindow::onAddToWatchRequested(const InstrumentData &instrument)
                     }
                 });
             }
+            */
+            qDebug() << "⚠️ [XTS DISABLED] Not subscribing to XTS - relying on UDP broadcast only";
+            qDebug() << "⚠️ Make sure to start UDP receiver: Data → Start NSE Broadcast Receiver";
+            // ============================================================
         } else {
             qDebug() << "Failed to add" << instrument.symbol << "to market watch (duplicate or invalid)";
         }
@@ -1214,6 +1281,19 @@ void MainWindow::manageWorkspaces()
     dialog.exec();
 }
 
+void MainWindow::showPreferences()
+{
+    PreferenceDialog dialog(this);
+    
+    if (dialog.exec() == QDialog::Accepted) {
+        qDebug() << "[MainWindow] Preferences saved and accepted";
+        // Preferences are automatically saved by the dialog
+        // Optionally: Apply any immediate UI changes here
+    } else {
+        qDebug() << "[MainWindow] Preferences dialog cancelled";
+    }
+}
+
 
 
 // i think there is a bug here when where snapquote or any other subwindow is active other than marketwatch
@@ -1289,3 +1369,339 @@ void MainWindow::onTickReceived(const XTS::Tick &tick)
     // ✅ Automatic subscription management - Add scrip = auto-subscribe
     // ✅ Automatic cleanup - Remove scrip/close window = auto-unsubscribe
 }
+
+// ============================================================================
+// UDP BROADCAST RECEIVER - PHASE 1: Test UDP Reception
+// ============================================================================
+
+void MainWindow::startBroadcastReceiver() {
+    qDebug() << "[UDP] ========================================";
+    qDebug() << "[UDP] Starting NSE broadcast receiver...";
+    qDebug() << "[UDP] ========================================";
+    
+    // TODO: Read from config.ini
+    std::string multicastIP = "233.1.2.5";  // NSE F&O multicast IP
+    int port = 34330;                            // NSE F&O port
+    
+    qDebug() << "[UDP] Multicast IP:" << QString::fromStdString(multicastIP);
+    qDebug() << "[UDP] Port:" << port;
+    
+    // Create receiver
+    m_udpReceiver = std::make_unique<MulticastReceiver>(multicastIP, port);
+    
+    if (!m_udpReceiver->isValid()) {
+        qWarning() << "[UDP] ❌ Failed to initialize receiver!";
+        qWarning() << "[UDP] Check:";
+        qWarning() << "[UDP]   1. Network interface supports multicast";
+        qWarning() << "[UDP]   2. Firewall not blocking port" << port;
+        qWarning() << "[UDP]   3. NSE broadcast is active (market hours)";
+        return;
+    }
+    
+    qDebug() << "[UDP] ✅ Receiver initialized successfully";
+    
+    // Register callback for 7200/7208 messages (Touchline data)
+    qDebug() << "[UDP] Registering callback for message 7200/7208 (Touchline)...";
+    MarketDataCallbackRegistry::instance().registerTouchlineCallback(
+        [this](const TouchlineData& data) {
+            // 7200 (MBO/MBP) and 7208 (MBP only) both dispatch to TouchlineData
+            m_msg7200Count++;
+            
+            // Convert NSE TouchlineData to XTS::Tick format
+            // IMPORTANT: Only set fields present in 7200 message
+            // Do NOT set bid/ask/depth fields - they come from separate 7208 depth callback
+            XTS::Tick tick;
+            tick.exchangeSegment = 2; // NSEFO
+            tick.exchangeInstrumentID = data.token;
+            tick.lastTradedPrice = data.ltp;
+            tick.lastTradedQuantity = data.lastTradeQty;
+            tick.volume = data.volume;
+            tick.open = data.open;
+            tick.high = data.high;
+            tick.low = data.low;
+            tick.close = data.close;
+            tick.lastUpdateTime = data.lastTradeTime;
+            
+            // Copy latency tracking fields from UDP parse
+            tick.refNo = data.refNo;
+            tick.timestampUdpRecv = data.timestampRecv;
+            tick.timestampParsed = data.timestampParsed;
+            tick.timestampQueued = LatencyTracker::now();  // Mark queue time
+            
+            // NOTE: Do NOT set these fields - they come from 7208 depth callback
+            // Setting them to 0 would erase existing depth data in MarketWatch
+            // MarketWatch will keep old values until depth update arrives
+            // tick.totalBuyQuantity = 0;  // ❌ WRONG - erases depth data
+            // tick.totalSellQuantity = 0; // ❌ WRONG - erases depth data
+            // tick.bidPrice = 0.0;        // ❌ WRONG - erases depth data
+            // tick.bidQuantity = 0;       // ❌ WRONG - erases depth data
+            // tick.askPrice = 0.0;        // ❌ WRONG - erases depth data
+            // tick.askQuantity = 0;       // ❌ WRONG - erases depth data
+            
+            // ⚡ ULTRA-LOW LATENCY: Direct callback to FeedHandler (bypasses queue!)
+            // Uses QMetaObject::invokeMethod with Qt::AutoConnection:
+            // - If called from UI thread → Direct call (0ns overhead)
+            // - If called from UDP thread → Queued (but necessary for thread safety)
+            tick.timestampDequeued = LatencyTracker::now();
+            
+            // Debug logging for token 49543
+            if (data.token == 49543) {
+                std::cout << "[MAINWINDOW-TOUCHLINE] Token: 49543 | RefNo: " << tick.refNo
+                          << " | LTP: " << tick.lastTradedPrice
+                          << " | timestampDequeued: " << tick.timestampDequeued << " µs"
+                          << " | Queue delay: " << (tick.timestampDequeued - tick.timestampParsed) << " µs" << std::endl;
+            }
+            
+            QMetaObject::invokeMethod(this, [this, tick]() {
+                FeedHandler::instance().onTickReceived(tick);
+            }, Qt::AutoConnection);  // Auto-detects thread context
+        }
+    );
+    
+    // Register callback for market depth data (from 7200/7208)
+    qDebug() << "[UDP] Registering callback for Market Depth...";
+    MarketDataCallbackRegistry::instance().registerMarketDepthCallback(
+        [this](const MarketDepthData& data) {
+            // Count market depth messages
+            m_depthCount++;            
+            // Create tick with ONLY depth fields (do NOT touch LTP/OHLC!)
+            // IMPORTANT: We only set fields present in depth message
+            // LTP/OHLC/volume are updated by touchline callback
+
+            XTS::Tick tick;
+            tick.exchangeSegment = 2; // NSEFO
+            tick.exchangeInstrumentID = data.token;
+            
+            // Set depth fields from 7208 message
+            if (!data.bids.empty()) {
+                tick.bidPrice = data.bids[0].price;
+                tick.bidQuantity = data.bids[0].quantity;
+            }
+            if (!data.asks.empty()) {
+                tick.askPrice = data.asks[0].price;
+                tick.askQuantity = data.asks[0].quantity;
+            }
+            tick.totalBuyQuantity = (int)data.totalBuyQty;
+            tick.totalSellQuantity = (int)data.totalSellQty;
+            
+            // Copy latency tracking fields
+            tick.refNo = data.refNo;
+            tick.timestampUdpRecv = data.timestampRecv;
+            tick.timestampParsed = data.timestampParsed;
+            tick.timestampQueued = LatencyTracker::now();
+            tick.timestampDequeued = LatencyTracker::now();
+            
+            // NOTE: Do NOT set LTP/OHLC/volume here - they come from touchline callback
+            // MarketWatch will merge this depth update with existing price data
+            
+            // ⚡ ULTRA-LOW LATENCY: Direct callback (bypasses queue!)
+            QMetaObject::invokeMethod(this, [this, tick]() {
+                FeedHandler::instance().onTickReceived(tick);
+            }, Qt::AutoConnection);
+        }
+    );
+    
+    // Register callback for ticker data (7202 - OI and fill updates)
+    qDebug() << "[UDP] Registering callback for Ticker (OI - 7202)...";
+    MarketDataCallbackRegistry::instance().registerTickerCallback(
+        [this](const TickerData& data) {
+            m_msg7202Count++;
+            
+            // Create tick with ONLY volume field (if available)
+            // IMPORTANT: Only update volume from ticker, don't touch other fields
+            if (data.fillVolume > 0) {
+                XTS::Tick tick;
+                tick.exchangeSegment = 2; // NSEFO
+                tick.exchangeInstrumentID = data.token;
+                tick.volume = data.fillVolume;
+                
+                // Copy latency tracking fields
+                tick.refNo = data.refNo;
+                tick.timestampUdpRecv = data.timestampRecv;
+                tick.timestampParsed = data.timestampParsed;
+                tick.timestampQueued = LatencyTracker::now();
+                tick.timestampDequeued = LatencyTracker::now();
+                
+                // Debug logging for token 49543
+                if (data.token == 49543) {
+                    std::cout << "[MAINWINDOW-TICKER] Token: 49543 | RefNo: " << tick.refNo
+                              << " | OI: " << data.openInterest
+                              << " | timestampDequeued: " << tick.timestampDequeued << " µs"
+                              << " | Queue delay: " << (tick.timestampDequeued - tick.timestampParsed) << " µs" << std::endl;
+                }
+                
+                // NOTE: Do NOT set LTP/OHLC/bid/ask here - they come from other callbacks
+                // MarketWatch will merge this volume update with existing data
+                
+                // ⚡ ULTRA-LOW LATENCY: Direct callback (bypasses queue!)
+                QMetaObject::invokeMethod(this, [this, tick]() {
+                    FeedHandler::instance().onTickReceived(tick);
+                }, Qt::AutoConnection);
+            }
+            
+            // Log OI for monitoring (XTS::Tick doesn't have OI field yet)
+            // qDebug() << "[UDP 7202] Token:" << data.token << "OI:" << data.openInterest;
+        }
+    );
+    
+    // Register callback for 7201 messages (Market Watch Round Robin)
+    qDebug() << "[UDP] Registering callback for message 7201 (Market Watch)...";
+    MarketDataCallbackRegistry::instance().registerMarketWatchCallback(
+        [this](const MarketWatchData& data) {
+            m_msg7201Count++;
+            
+            // Print every 7201 message we receive (they're rare!)
+            qDebug() << "[UDP 7201] *** MARKET WATCH MESSAGE RECEIVED ***";
+            qDebug() << "[UDP 7201] Token:" << data.token;
+            qDebug() << "[UDP 7201] Open Interest:" << data.openInterest;
+            
+            // Print all 3 market levels (Normal, Stop Loss, Auction)
+            for (size_t i = 0; i < data.levels.size() && i < 3; i++) {
+                QString marketType;
+                if (i == 0) marketType = "Normal Market";
+                else if (i == 1) marketType = "Stop Loss";
+                else if (i == 2) marketType = "Auction";
+                
+                qDebug() << "[UDP 7201] " << marketType << ":";
+                qDebug() << "[UDP 7201]   Buy - Price:" << data.levels[i].buyPrice 
+                         << "Volume:" << data.levels[i].buyVolume;
+                qDebug() << "[UDP 7201]   Sell - Price:" << data.levels[i].sellPrice 
+                         << "Volume:" << data.levels[i].sellVolume;
+            }
+            qDebug() << "[UDP 7201] ========================================";
+        }
+    );
+    
+    // Start receiving in background thread (non-blocking)
+    qDebug() << "[UDP] Starting receiver thread...";
+    
+    // Use std::thread to run in background - keeps UI responsive
+    std::thread udpThread([this]() {
+        m_udpReceiver->start();  // This blocks in the thread, not the UI
+    });
+    
+    // Detach thread so it runs independently
+    udpThread.detach();
+    
+    qDebug() << "[UDP] ✅ Receiver thread started (running in background)!";
+    qDebug() << "[UDP] Waiting for broadcast data...";
+    qDebug() << "[UDP] (If no data appears, check market hours: 9:15 AM - 3:30 PM)";
+    qDebug() << "[UDP] ========================================";
+    qDebug() << "";
+    qDebug() << "[UDP] Message counters active - will show summary on exit";
+    qDebug() << "[UDP] Tracking: 7200/7208 (Touchline), 7201 (MarketWatch), 7202 (Ticker)";
+    
+    // Update status bar
+    if (m_statusBar) {
+        m_statusBar->showMessage("NSE Broadcast Receiver: ACTIVE");
+    }
+}
+
+void MainWindow::stopBroadcastReceiver() {
+    if (m_udpReceiver) {
+        qDebug() << "[UDP] Stopping receiver...";
+        m_udpReceiver->stop();
+        
+        // Give thread time to stop gracefully
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        
+        // Print statistics
+        const UDPStats& stats = m_udpReceiver->getStats();
+        qDebug() << "[UDP] ========================================";
+        qDebug() << "[UDP] UDP PACKET STATISTICS:";
+        qDebug() << "[UDP]   Total packets:" << stats.totalPackets;
+        qDebug() << "[UDP]   Total bytes:" << stats.totalBytes;
+        qDebug() << "[UDP]   Compressed packets:" << stats.compressedPackets;
+        qDebug() << "[UDP]   Decompressed packets:" << stats.decompressedPackets;
+        qDebug() << "[UDP]   Decompression failures:" << stats.decompressionFailures;
+        qDebug() << "[UDP] ========================================";
+        qDebug() << "[UDP] MESSAGE TYPE STATISTICS:";
+        qDebug() << "[UDP]   7200/7208 (Touchline) messages:" << m_msg7200Count.load();
+        qDebug() << "[UDP]   7201 (Market Watch) messages:" << m_msg7201Count.load();
+        qDebug() << "[UDP]   7202 (Ticker/OI) messages:" << m_msg7202Count.load();
+        qDebug() << "[UDP]   Market Depth callbacks:" << m_depthCount.load();
+        qDebug() << "[UDP] ========================================";
+        
+        if (m_msg7201Count.load() == 0) {
+            qDebug() << "[UDP] ⚠️  NO 7201 messages received!";
+            qDebug() << "[UDP] This is normal - NSE rarely broadcasts 7201 (Market Watch).";
+            qDebug() << "[UDP] They prefer 7200/7208 which provide better market depth.";
+        } else {
+            qDebug() << "[UDP] ✅ Received" << m_msg7201Count.load() << "7201 messages!";
+        }
+        
+        m_udpReceiver.reset();
+        qDebug() << "[UDP] ✅ Receiver stopped";
+        
+        // Update status bar
+        if (m_statusBar) {
+            m_statusBar->showMessage("NSE Broadcast Receiver: STOPPED");
+        }
+    }
+}
+
+void MainWindow::drainTickQueue()
+{
+    // Drain all pending ticks from UDP thread
+    // Runs on UI thread at 1ms interval (1000 Hz) for real-time performance
+    
+    int count = 0;
+    const int MAX_BATCH = 1000;  // Prevent UI freeze if queue backs up
+    
+    // Track latency for first tick in batch (detailed)
+    static bool printNextDetailed = false;
+    static int ticksProcessed = 0;
+    
+    while (count < MAX_BATCH) {
+        auto tick = m_udpTickQueue.dequeue();
+        if (!tick.has_value()) {
+            break;  // Queue empty - all caught up!
+        }
+        
+        // Mark dequeue timestamp
+        tick->timestampDequeued = LatencyTracker::now();
+        
+        // Print detailed latency breakdown for every 100th tick
+        ticksProcessed++;
+        if (ticksProcessed % 100 == 1 && tick->refNo > 0) {
+            printNextDetailed = true;
+        }
+        
+        // Process tick on UI thread (thread-safe)
+        FeedHandler::instance().onTickReceived(*tick);
+        count++;
+        
+        // If this tick was marked for detailed tracking, FeedHandler/Model/View will log it
+    }
+    
+    // Monitor queue depth for performance tuning
+    static int totalDrained = 0;
+    static int maxBatchSize = 0;
+    
+    totalDrained += count;
+    if (count > maxBatchSize) {
+        maxBatchSize = count;
+        if (maxBatchSize > 100) {
+            qDebug() << "[Drain] New max batch size:" << maxBatchSize 
+                     << "(consider tuning timer interval)";
+        }
+    }
+    
+    // Log every 1000 ticks to track throughput
+    if (totalDrained >= 1000) {
+        qDebug() << "[Drain] Processed" << totalDrained << "total ticks"
+                 << "- Max batch:" << maxBatchSize;
+        totalDrained = 0;
+        maxBatchSize = 0;
+        
+        // Print aggregate statistics
+        LatencyTracker::printAggregateStats();
+    }
+    
+    // Warn if we hit max batch (queue might be backing up)
+    if (count >= MAX_BATCH) {
+        qWarning() << "[Drain] Hit max batch size!" << MAX_BATCH 
+                   << "- Queue depth exceeds drain rate!";
+    }
+}
+

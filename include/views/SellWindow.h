@@ -35,6 +35,12 @@ public:
     void loadFromContext(const WindowContext &context);
     void loadPreferences();
     void calculateDefaultPrice(const WindowContext &context);
+    
+    // Static singleton management
+    static SellWindow* getInstance(QWidget *parent = nullptr);
+    static SellWindow* getInstance(const WindowContext &context, QWidget *parent = nullptr);
+    static void closeCurrentWindow();
+    static bool hasActiveWindow();
 
 signals:
     void orderSubmitted(const QString &exchange, int token, const QString &symbol, 
@@ -55,6 +61,9 @@ private slots:
 private:
     void setupConnections();
     void populateComboBoxes();
+    static void setInstance(SellWindow* instance);
+    
+    static SellWindow* s_instance;
 
     // UI widgets loaded from .ui file
     QWidget *m_formWidget;

@@ -129,15 +129,13 @@ void ScripBar::setupUI()
 
     m_layout->addStretch();
 
-    // Compact flat styling (matches existing toolbar)
-    //add lineEdit style sheet in this
-
+    // Compact flat styling (light theme)
     setStyleSheet(
-        "QWidget { background-color: #2d2d30; }"
-        "QToolButton, QComboBox, QPushButton { color: #ffffff; background: #1e1e1e; border: none; padding: 2px 6px; }"
-        "QComboBox QAbstractItemView { background: #1e1e1e; color: #ffffff; selection-background-color: #094771; selection-color: #ffffff; }"
-        "QPushButton { background: #0e639c; border-radius: 2px; }"
-        "QLineEdit { background: #1e1e1e; color: #ffffff; border: 1px solid #3f3f46; border-radius: 2px; padding: 2px 4px; }"
+        "QWidget { background-color: #f5f5f5; }"
+        "QToolButton, QComboBox, QPushButton { color: #222222; background: #ffffff; border: 1px solid #d0d0d0; padding: 2px 6px; }"
+        "QComboBox QAbstractItemView { background: #ffffff; color: #222222; selection-background-color: #0078d7; selection-color: #ffffff; }"
+        "QPushButton { background: #0078d7; color: #ffffff; border: none; border-radius: 2px; }"
+        "QLineEdit { background: #ffffff; color: #222222; border: 1px solid #d0d0d0; border-radius: 2px; padding: 2px 4px; }"
         );
 }
 

@@ -12,7 +12,7 @@ void Config::setDefaults() {
     // Network settings
     multicast_ip = "233.1.2.5";
     port = 34331;
-    buffer_size = 65535;  // Must be at least 65535 for NSE packets
+    buffer_size = 2048;  // Must be at least 65535 for NSE packets
     socket_timeout_sec = 1;
     
     // Logging settings
@@ -38,6 +38,9 @@ std::string Config::trim(const std::string& str) {
 
 bool Config::loadFromFile(const std::string& filename) {
     std::ifstream file(filename);
+    
+    std::cout << "Loading configuration from file: " << filename << std::endl;
+    
     if (!file.is_open()) {
         std::cerr << "Warning: Could not open config file: " << filename << std::endl;
         return false;

@@ -2,10 +2,16 @@
 #include "protocol.h"
 #include "market_data_callback.h"
 #include <iostream>
+#include <chrono>
 
 void parse_message_7208(const MS_BCAST_ONLY_MBP* msg) {
     // Convert NoOfRecords from Big Endian
     uint16_t numRecords = be16toh_func(msg->noOfRecords);
+    
+    // Capture timestamps for latency tracking
+    static uint64_t refNoCounter = 0;
+    auto now = std::chrono::duration_cast<std::chrono::microseconds>(
+        std::chrono::steady_clock::now().time_since_epoch()).count();
     
     for (int i = 0; i < numRecords && i < 2; i++) {
         const auto& data = msg->data[i];
@@ -14,10 +20,23 @@ void parse_message_7208(const MS_BCAST_ONLY_MBP* msg) {
         int32_t token = be32toh_func(data.token);
         
         if (token > 0) {
+            uint64_t refNo = ++refNoCounter;
+            
             // Parse touchline data
             TouchlineData touchline;
             touchline.token = token;
+            touchline.refNo = refNo;
+            touchline.timestampRecv = now;
+            touchline.timestampParsed = now;
             touchline.ltp = be32toh_func(data.lastTradedPrice) / 100.0;
+            
+            // Debug logging for token 49543
+            // if (token == 49543) {
+            //     std::cout << "[7208-TOUCHLINE] Token: 49543 | RefNo: " << refNo
+            //               << " | LTP: " << touchline.ltp
+            //               << " | timestampParsed: " << touchline.timestampParsed << " µs" << std::endl;
+            // }
+            
             touchline.open = be32toh_func(data.openPrice) / 100.0;
             touchline.high = be32toh_func(data.highPrice) / 100.0;
             touchline.low = be32toh_func(data.lowPrice) / 100.0;
@@ -37,6 +56,9 @@ void parse_message_7208(const MS_BCAST_ONLY_MBP* msg) {
             // Parse market depth data
             MarketDepthData depth;
             depth.token = token;
+            depth.refNo = refNo;
+            depth.timestampRecv = now;
+            depth.timestampParsed = now;
             depth.totalBuyQty = data.totalBuyQuantity;
             depth.totalSellQty = data.totalSellQuantity;
             

@@ -196,6 +196,27 @@ PreferencesManager::TradingPreset PreferencesManager::getPreset(const QString &n
     return preset;
 }
 
+// ============================================================================
+// Generic Settings Access
+// ============================================================================
+
+QVariant PreferencesManager::value(const QString &key, const QVariant &defaultValue) const
+{
+    return m_settings.value(key, defaultValue);
+}
+
+void PreferencesManager::setValue(const QString &key, const QVariant &value)
+{
+    m_settings.setValue(key, value);
+    emit preferencesChanged(key);
+}
+
+void PreferencesManager::clear()
+{
+    m_settings.clear();
+    emit preferencesChanged("*");
+}
+
 void PreferencesManager::savePreset(const QString &name, const TradingPreset &preset)
 {
     QString prefix = QString("presets/%1/").arg(name);

@@ -1,0 +1,205 @@
+#include "views/Preference.h"
+#include "ui_Preference.h"
+#include "utils/PreferencesManager.h"
+#include <QColorDialog>
+#include <QFileDialog>
+#include <QMessageBox>
+#include <QScrollArea>
+#include <QVBoxLayout>
+#include <QDebug>
+
+PreferenceDialog::PreferenceDialog(QWidget *parent)
+    : QDialog(parent)
+    , ui(new Ui::PreferenceDialog)
+    , m_prefsManager(&PreferencesManager::instance())
+{
+    ui->setupUi(this);
+    setupConnections();
+    
+    // Set dialog properties BEFORE loading preferences
+    setWindowTitle("Preferences");
+    setModal(true);
+    
+    // Set fixed size to prevent resizing
+    setFixedSize(620, 480);
+    
+    // Remove resize grip
+    setSizeGripEnabled(false);
+    
+    // Make tabs scrollable
+    if (ui->tabWidget) {
+        // Add scroll area to each tab
+        for (int i = 0; i < ui->tabWidget->count(); ++i) {
+            QWidget *tab = ui->tabWidget->widget(i);
+            if (tab) {
+                QLayout *originalLayout = tab->layout();
+                if (originalLayout) {
+                    // Set proper spacing for the original layout
+                    originalLayout->setSpacing(6);
+                    originalLayout->setContentsMargins(8, 8, 8, 8);
+                    
+                    // Create scroll area
+                    QScrollArea *scrollArea = new QScrollArea(tab);
+                    scrollArea->setWidgetResizable(true);
+                    scrollArea->setFrameShape(QFrame::NoFrame);
+                    scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+                    scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+                    
+                    // Create container widget for the content
+                    QWidget *container = new QWidget();
+                    container->setLayout(originalLayout);
+                    
+                    scrollArea->setWidget(container);
+                    
+                    // Create new layout for the tab
+                    QVBoxLayout *newLayout = new QVBoxLayout(tab);
+                    newLayout->setContentsMargins(0, 0, 0, 0);
+                    newLayout->setSpacing(0);
+                    newLayout->addWidget(scrollArea);
+                }
+            }
+        }
+    }
+    
+    loadPreferences();
+    
+    // Center the dialog on parent window AFTER setting size
+    if (parent) {
+        QRect parentGeometry = parent->geometry();
+        int x = parentGeometry.x() + (parentGeometry.width() - width()) / 2;
+        int y = parentGeometry.y() + (parentGeometry.height() - height()) / 2;
+        move(x, y);
+    }
+}
+
+PreferenceDialog::~PreferenceDialog()
+{
+    delete ui;
+}
+
+void PreferenceDialog::setupConnections()
+{
+    // Button box connections
+    connect(ui->buttonBox, &QDialogButtonBox::accepted, this, &PreferenceDialog::onOkClicked);
+    connect(ui->buttonBox, &QDialogButtonBox::rejected, this, &QDialog::reject);
+    
+    // Apply button
+    if (auto applyButton = ui->buttonBox->button(QDialogButtonBox::Apply)) {
+        connect(applyButton, &QPushButton::clicked, this, &PreferenceDialog::onApplyClicked);
+    }
+    
+    // Restore defaults buttons
+    connect(ui->restoreDefaultsButton, &QPushButton::clicked, this, &PreferenceDialog::onRestoreDefaultsClicked);
+    connect(ui->restoreDefaultsButton_2, &QPushButton::clicked, this, &PreferenceDialog::onRestoreDefaultsClicked);
+    
+    // Browse buttons
+    connect(ui->browseButton, &QPushButton::clicked, this, &PreferenceDialog::onBrowseClicked);
+    connect(ui->browseButton_2, &QPushButton::clicked, this, &PreferenceDialog::onBrowseClicked);
+    
+    // Color button
+    connect(ui->colorButton, &QPushButton::clicked, this, &PreferenceDialog::onColorButtonClicked);
+    
+    // Move up/down buttons
+    connect(ui->moveUpButton, &QPushButton::clicked, this, &PreferenceDialog::onMoveUpClicked);
+    connect(ui->moveDownButton, &QPushButton::clicked, this, &PreferenceDialog::onMoveDownClicked);
+    connect(ui->moveUpButton_2, &QPushButton::clicked, this, &PreferenceDialog::onMoveUpClicked);
+    connect(ui->moveDownButton_2, &QPushButton::clicked, this, &PreferenceDialog::onMoveDownClicked);
+    
+    // Apply button in Order tab
+    connect(ui->applyButton, &QPushButton::clicked, this, &PreferenceDialog::onApplyClicked);
+}
+
+void PreferenceDialog::loadPreferences()
+{
+    // Load all preferences from PreferencesManager using the value() method
+    // General Tab settings loaded but currently mostly placeholder
+    qDebug() << "[PreferenceDialog] Loading preferences...";
+}
+
+void PreferenceDialog::savePreferences()
+{
+    // Save all preferences using setValue() method
+    qDebug() << "[PreferenceDialog] Saving preferences...";
+}
+
+void PreferenceDialog::applyPreferences()
+{
+    savePreferences();
+    QMessageBox::information(this, "Preferences", "Preferences have been applied successfully.");
+}
+
+void PreferenceDialog::onApplyClicked()
+{
+    applyPreferences();
+}
+
+void PreferenceDialog::onOkClicked()
+{
+    savePreferences();
+    accept();
+}
+
+void PreferenceDialog::onRestoreDefaultsClicked()
+{
+    auto reply = QMessageBox::question(
+        this,
+        "Restore Defaults",
+        "Are you sure you want to restore default preferences?",
+        QMessageBox::Yes | QMessageBox::No
+    );
+    
+    if (reply == QMessageBox::Yes) {
+        // Clear all preferences
+        m_prefsManager->clear();
+        // Reload with default values
+        loadPreferences();
+        QMessageBox::information(this, "Preferences", "Default preferences have been restored.");
+    }
+}
+
+void PreferenceDialog::onBrowseClicked()
+{
+    QString dir = QFileDialog::getExistingDirectory(
+        this,
+        "Select Directory",
+        QString(),
+        QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks
+    );
+    
+    if (!dir.isEmpty()) {
+        // Handle the selected directory
+        QMessageBox::information(this, "Directory Selected", "Selected: " + dir);
+    }
+}
+
+void PreferenceDialog::onColorButtonClicked()
+{
+    QColor color = QColorDialog::getColor(Qt::white, this, "Select Color");
+    if (color.isValid()) {
+        // Set the button color
+        QString styleSheet = QString("background-color: %1;").arg(color.name());
+        ui->colorButton->setStyleSheet(styleSheet);
+    }
+}
+
+void PreferenceDialog::onMoveUpClicked()
+{
+    // Move selected item up in the stock watch list
+    int currentRow = ui->stockWatchList->currentRow();
+    if (currentRow > 0) {
+        QListWidgetItem *item = ui->stockWatchList->takeItem(currentRow);
+        ui->stockWatchList->insertItem(currentRow - 1, item);
+        ui->stockWatchList->setCurrentRow(currentRow - 1);
+    }
+}
+
+void PreferenceDialog::onMoveDownClicked()
+{
+    // Move selected item down in the stock watch list
+    int currentRow = ui->stockWatchList->currentRow();
+    if (currentRow >= 0 && currentRow < ui->stockWatchList->count() - 1) {
+        QListWidgetItem *item = ui->stockWatchList->takeItem(currentRow);
+        ui->stockWatchList->insertItem(currentRow + 1, item);
+        ui->stockWatchList->setCurrentRow(currentRow + 1);
+    }
+}

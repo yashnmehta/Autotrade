@@ -33,6 +33,12 @@ public:
     
     // Load from context (called from constructor or externally)
     void loadFromContext(const WindowContext &context);
+    
+    // Static singleton management
+    static BuyWindow* getInstance(QWidget *parent = nullptr);
+    static BuyWindow* getInstance(const WindowContext &context, QWidget *parent = nullptr);
+    static void closeCurrentWindow();
+    static bool hasActiveWindow();
 
 signals:
     void orderSubmitted(const QString &exchange, int token, const QString &symbol, 
@@ -55,8 +61,12 @@ private:
     void populateComboBoxes();
     void loadPreferences();
     void calculateDefaultPrice(const WindowContext &context);
+    void onOrderTypeChanged(const QString &orderType);
+    void onAMOClicked();
+    static void setInstance(BuyWindow* instance);
     
     WindowContext m_context;
+    static BuyWindow* s_instance;
 
     // UI widgets loaded from .ui file
     QWidget *m_formWidget;
@@ -85,6 +95,18 @@ private:
     QLineEdit *m_leRemarks;
     QPushButton *m_pbSubmit;
     QPushButton *m_pbClear;
+    QPushButton *m_pbAMO;
+    
+    // New UI widgets from redesign
+    QLineEdit *m_leCol;
+    QLineEdit *m_leProdPercent;
+    QComboBox *m_cbOC;
+    QComboBox *m_cbProCli;
+    QComboBox *m_cbCPBroker;
+    QLineEdit *m_leMEQty;
+    QLineEdit *m_leSubBroker;
+    QLineEdit *m_leClient;
+    QComboBox *m_cbOrderType2;
 };
 
 #endif // BUYWINDOW_H

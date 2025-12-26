@@ -148,6 +148,7 @@ void UDPReceiver::startListener(int port, UDPStats& stats) {
     int packetsSinceLog = 0;
 
     while (true) {
+        std::cout << "Waiting for UDP packets..." << std::endl;
         ssize_t n = recv(sockfd, buffer.data(), buffer.size(), 0);
         if (n < 0) break;
         
@@ -249,6 +250,8 @@ void UDPReceiver::startListener(int port, UDPStats& stats) {
                      // Let's use 18 to be safe as per reference.
                      const uint8_t* ptr = decompressBuffer.data();
                      transactionCode = be16toh_func(*reinterpret_cast<const uint16_t*>(ptr + 18));
+                     // printf("Decompressed TxCode: %u\n", transactionCode); // Debug
+                     std::cout << "  [Decompressed] TxCode at offset 18: " << transactionCode << std::endl;
                 }
 
             } catch (const std::exception& e) {

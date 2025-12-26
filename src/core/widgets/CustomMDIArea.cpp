@@ -14,8 +14,8 @@ CustomMDIArea::CustomMDIArea(QWidget *parent)
       m_nextY(20),
       m_snapPreview(nullptr)
 {
-    // Dark background
-    setStyleSheet("background-color: #1e1e1e;");
+    // Light background
+    setStyleSheet("background-color: #f5f5f5;");
 
     // Create snap preview overlay
     m_snapPreview = new QWidget(this);

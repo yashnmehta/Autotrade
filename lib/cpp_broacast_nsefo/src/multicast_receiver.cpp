@@ -84,6 +84,7 @@ void MulticastReceiver::start() {
     int packet_count = 0;
     
     while (running) {
+        // std::cout << "Waiting for UDP packets..." << BUFFER_SIZE << std::endl;
         ssize_t n = recv(sockfd, buffer, BUFFER_SIZE, 0);
         
         // Handle timeout (allows checking running flag)
@@ -146,6 +147,7 @@ void MulticastReceiver::start() {
                 int16_t iCompLen = be16toh_func(*((int16_t*)ptr));
                 
                 if (iCompLen > 0) {
+                    // std::cout << "Processing compressed message of length " << iCompLen << std::endl;
                     // Compressed message
                     ptr += sizeof(int16_t);
                     
@@ -154,12 +156,8 @@ void MulticastReceiver::start() {
                         break;
                     }
                     
-                    // Parse compressed message (will update stats internally)
-                    parse_compressed_message(ptr, iCompLen);
-                    
-                    // Update stats - we'll need to extract txCode from decompressed data
-                    // For now, just track compressed size
-                    stats.recordPacket();
+                    // Parse compressed message and update stats with transaction code
+                    parse_compressed_message(ptr, iCompLen, stats);
                     
                     ptr += iCompLen;
                     

@@ -2,14 +2,31 @@
 #include "protocol.h"
 #include "market_data_callback.h"
 #include <iostream>
+#include <chrono>
 
 void parse_message_7200(const MS_BCAST_MBO_MBP* msg) {
     int32_t token = be32toh_func(msg->data.token);
     
+    // Capture timestamps for latency tracking
+    static uint64_t refNoCounter = 0;
+    uint64_t refNo = ++refNoCounter;
+    auto now = std::chrono::duration_cast<std::chrono::microseconds>(
+        std::chrono::steady_clock::now().time_since_epoch()).count();
+    
     // Parse touchline data
     TouchlineData touchline;
     touchline.token = token;
+    touchline.refNo = refNo;
+    touchline.timestampRecv = now;
+    touchline.timestampParsed = now;
     touchline.ltp = be32toh_func(msg->data.lastTradedPrice) / 100.0;
+    
+    // Debug logging for token 49543
+    if (token == 49543) {
+        std::cout << "[7200-TOUCHLINE] Token: 49543 | RefNo: " << refNo 
+                  << " | LTP: " << touchline.ltp
+                  << " | timestampParsed: " << touchline.timestampParsed << " µs" << std::endl;
+    }
     touchline.open = be32toh_func(msg->openPrice) / 100.0;
     touchline.high = be32toh_func(msg->highPrice) / 100.0;
     touchline.low = be32toh_func(msg->lowPrice) / 100.0;
@@ -29,6 +46,9 @@ void parse_message_7200(const MS_BCAST_MBO_MBP* msg) {
     // Parse market depth data
     MarketDepthData depth;
     depth.token = token;
+    depth.refNo = refNo;
+    depth.timestampRecv = now;
+    depth.timestampParsed = now;
     depth.totalBuyQty = msg->totalBuyQuantity;
     depth.totalSellQty = msg->totalSellQuantity;
     

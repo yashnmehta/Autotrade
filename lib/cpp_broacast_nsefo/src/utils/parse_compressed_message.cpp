@@ -1,4 +1,5 @@
 #include "utils/parse_compressed_message.h"
+#include "udp_receiver.h"  // For UDPStats
 #include "lzo_decompress.h"
 #include "protocol.h"
 #include "constants.h"
@@ -7,7 +8,7 @@
 #include <iomanip>
 #include <vector>
 
-void parse_compressed_message(const char* data, int16_t length) {
+void parse_compressed_message(const char* data, int16_t length, UDPStats& stats) {
     // Statistics tracking
     static int total_messages = 0;
     static int successful_decompressions = 0;
@@ -111,13 +112,25 @@ void parse_compressed_message(const char* data, int16_t length) {
     // Extract Transaction Code from offset 10 (even after skipping 8 bytes)
     // Looking at hex: offset 10-11 contains the TxCode (e.g., 0x1C28 = 7208)
     uint16_t txCode = be16toh_func(*((uint16_t*)(output.data() + 10)));
+
+    if (txCode != 7208 and txCode != 17202 and txCode != 7220 and txCode != 7211)
+    {
     
-    // Debug: Show transaction code for first few messages
-    static int debug_count = 0;
-    debug_count++;
-    if (debug_count <= 0) {
-        std::cout << "\nAFTER skipping 8 bytes - TxCode at offset 10: " << txCode << " (" << getTxCodeName(txCode) << ")" << std::endl;
-        std::cout << "First 64 bytes AFTER skip:" << std::endl;
+    std::cout << "  [Decompressed] TxCode at offset 10: " << txCode << std::endl;
+
+    }
+    // UPDATE STATISTICS: Track this message by transaction code
+    // compressedSize = input length, rawSize = decompressed output size
+    stats.update(txCode, length, output.size(), false);
+    
+    // TRACE 17201: Show when we receive this message
+    static int count_17201 = 0;
+    if (txCode == 17201) {
+        count_17201++;
+        std::cout << "\n[TRACE 17201 #" << count_17201 << "] Enhanced Market Watch message received!" << std::endl;
+        std::cout << "  Decompressed size: " << output.size() << " bytes" << std::endl;
+        std::cout << "  TxCode at offset 10: " << txCode << std::endl;
+        std::cout << "  First 64 bytes AFTER skip:" << std::endl;
         for (int i = 0; i < std::min((int)output.size(), 64); i++) {
             printf("%02X ", output[i]);
             if ((i + 1) % 16 == 0) printf("\n");
@@ -128,8 +141,8 @@ void parse_compressed_message(const char* data, int16_t length) {
     // Debug: Show raw bytes at key offsets for first message
     static int struct_debug = 0;
     struct_debug++;
-    if (struct_debug <= 0 && txCode == 7208) {
-        std::cout << "\n=== Structure Debug for BCAST_ONLY_MBP ===" << std::endl;
+    if (struct_debug <= 5 && txCode == 7208) {
+        std::cout << "\n=== Structure Debug for BCAST_ONLY_MBP #" << struct_debug << " ===" << std::endl;
         std::cout << "Bytes at offset 10-11 (TxCode): " << std::hex 
                   << (int)output[10] << " " << (int)output[11] << std::dec 
                   << " = " << be16toh_func(*((uint16_t*)(output.data() + 10))) << std::endl;
@@ -149,9 +162,9 @@ void parse_compressed_message(const char* data, int16_t length) {
     
     // Debug: Show pointer and actual bytes for first BCAST_ONLY_MBP message
     static int ptr_debug = 0;
-    if (txCode == 7208 && ptr_debug < 1) {
+    if (txCode == 7208 && ptr_debug < 3) {
         ptr_debug++;
-        std::cout << "\n=== Pointer Debug ===" << std::endl;
+        std::cout << "\n=== Pointer Debug #" << ptr_debug << " ===" << std::endl;
         std::cout << "output.size(): " << output.size() << std::endl;
         std::cout << "message_data pointer: " << (void*)message_data << std::endl;
         std::cout << "Bytes at message_data[40-41]: " << std::hex 
@@ -167,6 +180,13 @@ void parse_compressed_message(const char* data, int16_t length) {
         std::cout << std::endl;
     }
     
+    // TRACE: Show all transaction codes for first 20 messages
+    static int all_msg_count = 0;
+    all_msg_count++;
+    if (all_msg_count <= 20) {
+        std::cout << "[MSG #" << all_msg_count << "] TxCode: " << txCode << " (" << getTxCodeName(txCode) << ")" << std::endl;
+    }
+    
     switch (txCode) {
         case TxCodes::BCAST_MBO_MBP_UPDATE:
             std::cout << "  [Received] " << txCode << " (BCAST_MBO_MBP_UPDATE)" << std::endl;
@@ -177,6 +197,7 @@ void parse_compressed_message(const char* data, int16_t length) {
             
         case TxCodes::BCAST_ONLY_MBP:
             // Suppressed as requested
+            // std::cout << "  [Received] " << txCode << " (BCAST_ONLY_MBP 888)" << std::endl;
             if (output.size() >= sizeof(MS_BCAST_ONLY_MBP)) {
                 parse_bcast_only_mbp(reinterpret_cast<const MS_BCAST_ONLY_MBP*>(message_data));
             }
@@ -190,7 +211,7 @@ void parse_compressed_message(const char* data, int16_t length) {
             break;
             
         case TxCodes::BCAST_ENHNCD_TICKER_AND_MKT_INDEX:
-            std::cout << "  [Received] " << txCode << " (BCAST_ENHNCD_TICKER_AND_MKT_INDEX)" << std::endl;
+            // std::cout << "  [Received] " << txCode << " (BCAST_ENHNCD_TICKER_AND_MKT_INDEX)" << std::endl;
             if (output.size() >= sizeof(MS_ENHNCD_TICKER_TRADE_DATA)) {
                 parse_enhncd_ticker_trade_data(reinterpret_cast<const MS_ENHNCD_TICKER_TRADE_DATA*>(message_data));
             }
@@ -204,28 +225,31 @@ void parse_compressed_message(const char* data, int16_t length) {
             break;
             
         case TxCodes::BCAST_ENHNCD_MW_ROUND_ROBIN:
-            std::cout << "  [Received] " << txCode << " (BCAST_ENHNCD_MW_ROUND_ROBIN)" << std::endl;
+            std::cout << "  [DISPATCHING 17201] Calling parse_enhncd_market_watch()" << std::endl;
             if (output.size() >= sizeof(MS_ENHNCD_BCAST_INQ_RESP_2)) {
+                std::cout << "  [17201] Size check passed: " << output.size() << " >= " << sizeof(MS_ENHNCD_BCAST_INQ_RESP_2) << std::endl;
                 parse_enhncd_market_watch(reinterpret_cast<const MS_ENHNCD_BCAST_INQ_RESP_2*>(message_data));
+            } else {
+                std::cout << "  [17201 ERROR] Size check FAILED: " << output.size() << " < " << sizeof(MS_ENHNCD_BCAST_INQ_RESP_2) << std::endl;
             }
             break;
             
         case TxCodes::BCAST_SPD_MBP_DELTA:
-            std::cout << "  [Received] " << txCode << " (BCAST_SPD_MBP_DELTA)" << std::endl;
+            // std::cout << "  [Received] " << txCode << " (BCAST_SPD_MBP_DELTA)" << std::endl;
             if (output.size() >= sizeof(MS_SPD_MKT_INFO)) {
                 parse_spd_mbp_delta(reinterpret_cast<const MS_SPD_MKT_INFO*>(message_data));
             }
             break;
             
         case TxCodes::BCAST_LIMIT_PRICE_PROTECTION_RANGE:
-            std::cout << "  [Received] " << txCode << " (BCAST_LIMIT_PRICE_PROTECTION_RANGE)" << std::endl;
+            // std::cout << "  [Received] " << txCode << " (BCAST_LIMIT_PRICE_PROTECTION_RANGE)" << std::endl;
             if (output.size() >= sizeof(MS_BCAST_LIMIT_PRICE_PROTECTION_RANGE)) {
                 parse_limit_price_protection(reinterpret_cast<const MS_BCAST_LIMIT_PRICE_PROTECTION_RANGE*>(message_data));
             }
             break;
             
         default:
-            std::cout << "  [Unknown TxCode] " << txCode << " (" << getTxCodeName(txCode) << ")" << std::endl;
+            // std::cout << "  [Unknown TxCode] " << txCode << " (" << getTxCodeName(txCode) << ")" << std::endl;
             break;
     }
 }

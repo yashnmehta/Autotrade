@@ -25,6 +25,11 @@ struct TouchlineData {
     double netChange;
     uint16_t tradingStatus;
     uint16_t bookType;
+    
+    // Latency tracking fields
+    uint64_t refNo = 0;           // Reference number from packet
+    int64_t timestampRecv = 0;    // When UDP packet received (µs)
+    int64_t timestampParsed = 0;  // When packet parsed (µs)
 };
 
 // Market depth info (bid/ask levels)
@@ -41,6 +46,11 @@ struct MarketDepthData {
     std::vector<DepthLevel> asks;  // 5 levels
     double totalBuyQty;
     double totalSellQty;
+    
+    // Latency tracking fields
+    uint64_t refNo = 0;           // Reference number from packet
+    int64_t timestampRecv = 0;    // When UDP packet received (µs)
+    int64_t timestampParsed = 0;  // When packet parsed (µs)
 };
 
 // Ticker data (from 7202)
@@ -52,6 +62,11 @@ struct TickerData {
     uint32_t dayHiOI;
     uint32_t dayLoOI;
     uint16_t marketType;
+    
+    // Latency tracking fields
+    uint64_t refNo = 0;           // Reference number from packet
+    int64_t timestampRecv = 0;    // When UDP packet received (µs)
+    int64_t timestampParsed = 0;  // When packet parsed (µs)
 };
 
 // Market watch data (from 7201)

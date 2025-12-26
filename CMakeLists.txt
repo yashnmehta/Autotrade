@@ -113,6 +113,7 @@ set(VIEW_SOURCES
     src/views/SnapQuoteWindow.cpp
     src/views/PositionWindow.cpp
     src/views/ColumnProfileDialog.cpp
+    src/views/PreferenceDialog.cpp
 )
 
 set(VIEW_HEADERS
@@ -122,6 +123,7 @@ set(VIEW_HEADERS
     include/views/SnapQuoteWindow.h
     include/views/PositionWindow.h
     include/views/ColumnProfileDialog.h
+    include/views/Preference.h
 )
 
 # ========================================
@@ -309,20 +311,27 @@ set(RESOURCES
 # ✅ Native C++ UDP multicast receivers
 # ========================================
 
-# NSE FO Broadcast Library - Temporarily disabled for testing
-# set(NSEFO_BROADCAST_SOURCES
-#     ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/multicast_receiver.cpp
-#     ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/udp_receiver.cpp
-#     ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/nse_parsers.cpp
-#     ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/lzo_decompress.cpp
-#     # Temporarily disabled due to missing lzo library on macOS
-#     # ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/lzo1z_decompress_lib.cpp
-#     ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/config.cpp
-#     ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/logger.cpp
-#     ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/utils/parse_compressed_message.cpp
-#     ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/utils/parse_uncompressed_message.cpp
-# )
-set(NSEFO_BROADCAST_SOURCES "")  # Empty for now
+# NSE FO Broadcast Library
+set(NSEFO_BROADCAST_SOURCES
+    ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/multicast_receiver.cpp
+    ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/udp_receiver.cpp
+    ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/nse_parsers.cpp
+    ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/lzo_decompress.cpp
+    ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/lzo1z_decompress_lib.cpp
+    ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/config.cpp
+    ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/logger.cpp
+    ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/utils/parse_compressed_message.cpp
+    ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/utils/parse_uncompressed_message.cpp
+    # Message parsers
+    ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/parser/parse_message_7200.cpp
+    ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/parser/parse_message_7201.cpp
+    ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/parser/parse_message_7202.cpp
+    ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/parser/parse_message_7208.cpp
+    ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/parser/parse_message_7211.cpp
+    ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/parser/parse_message_7220.cpp
+    ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/parser/parse_message_17201.cpp
+    ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/parser/parse_message_17202.cpp
+)
 
 # Add executable
 add_executable(TradingTerminal
@@ -342,6 +351,7 @@ target_link_libraries(TradingTerminal PRIVATE
     OpenSSL::SSL
     OpenSSL::Crypto
     Threads::Threads
+    lzo2
 )
 
 # Include Boost headers (Beast is header-only)
@@ -360,10 +370,10 @@ endif()
 # Add tests subdirectory
 add_subdirectory(tests)
 
-# XTS API Test Program
-add_executable(test_xts_api test_xts_api.cpp)
-target_link_libraries(test_xts_api Qt5::Core Qt5::Network)
-set_target_properties(test_xts_api PROPERTIES AUTOMOC ON)
+# XTS API Test Program (disabled due to GCC 9 compiler ICE bug)
+# add_executable(test_xts_api test_xts_api.cpp)
+# target_link_libraries(test_xts_api Qt5::Core Qt5::Network)
+# set_target_properties(test_xts_api PROPERTIES AUTOMOC ON)
 
 # Performance Benchmark: Qt vs Native C++
 add_executable(benchmark_qt_vs_native tests/benchmark_qt_vs_native.cpp)

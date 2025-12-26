@@ -3,6 +3,7 @@
 #include "ui/LoginWindow.h"
 #include "services/LoginFlowService.h"
 #include "utils/ConfigLoader.h"
+#include "api/XTSTypes.h"  // For XTS::Tick
 #include <QApplication>
 #include <QThread>
 #include <QTimer>
@@ -15,6 +16,9 @@
 int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
+    
+    // Register XTS::Tick for cross-thread signals (CRITICAL for UDP broadcast!)
+    qRegisterMetaType<XTS::Tick>("XTS::Tick");
 
     // Set application metadata
     app.setApplicationName("Trading Terminal");

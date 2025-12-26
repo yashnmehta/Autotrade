@@ -27,6 +27,17 @@ void parse_message_7201(const MS_BCAST_INQ_RESP_2* msg) {
                 mw.levels.push_back(level);
             }
             
+
+            // add debug logging for token 49543
+            std::cout << "[7201-MARKETWATCH] Token: 49543 | Open Interest: " << mw.openInterest << std::endl;
+            for (size_t k = 0; k < mw.levels.size() && k < 3; k++) {
+                const auto& level = mw.levels[k];
+                std::string marketType = (k == 0) ? "Normal Market" : (k == 1) ? "Stop Loss" : "Auction";
+                std::cout << "[7201-MARKETWATCH] " << marketType << ": "
+                            << " Buy - Price: " << level.buyPrice << " Volume: " << level.buyVolume
+                            << " | Sell - Price: " << level.sellPrice << " Volume: " << level.sellVolume << std::endl;
+            }
+
             // Dispatch market watch callback
             MarketDataCallbackRegistry::instance().dispatchMarketWatch(mw);
         }

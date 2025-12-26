@@ -6,7 +6,7 @@
 #include <atomic>
 #include "udp_receiver.h"
 
-#define BUFFER_SIZE 65535
+#define BUFFER_SIZE 2048    
 
 class MulticastReceiver {
 public:

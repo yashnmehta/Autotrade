@@ -1,4 +1,5 @@
 #include "views/BuyWindow.h"
+#include "views/SellWindow.h"
 #include "utils/PreferencesManager.h"
 #include "repository/RepositoryManager.h"
 #include <QVBoxLayout>
@@ -8,9 +9,16 @@
 #include <QKeyEvent>
 #include "core/widgets/CustomMDISubWindow.h"
 
+// Static member initialization
+BuyWindow* BuyWindow::s_instance = nullptr;
+
 BuyWindow::BuyWindow(QWidget *parent)
     : QWidget(parent), m_formWidget(nullptr)
 {
+    qDebug() << "[BuyWindow::Constructor] Creating BuyWindow instance. Current s_instance:" << s_instance;
+    
+    // Set this as the current instance
+    setInstance(this);
     // Load UI file
     QUiLoader loader;
     QFile file(":/forms/BuyWindow.ui");
@@ -31,7 +39,8 @@ BuyWindow::BuyWindow(QWidget *parent)
     }
 
     // set minimum width 1200
-    setMinimumWidth(1000);
+    setMinimumWidth(1200);
+    setMinimumHeight(200);
 
     // Set focus policy to keep tab cycling within this window
     setFocusPolicy(Qt::StrongFocus);
@@ -43,34 +52,52 @@ BuyWindow::BuyWindow(QWidget *parent)
     layout->setSpacing(0);
     layout->addWidget(m_formWidget);
 
-    // Find widgets - Row 1
-    m_cbEx = m_formWidget->findChild<QComboBox *>("cbEx");
-    m_cbInstrName = m_formWidget->findChild<QComboBox *>("cbInstrName");
+    // Find widgets - Row 1 (matching new layout)
     m_cbOrdType = m_formWidget->findChild<QComboBox *>("cbOrdType");
-    m_leToken = m_formWidget->findChild<QLineEdit *>("leToken");
-    m_leInsType = m_formWidget->findChild<QLineEdit *>("leInsType");
+    m_leCol = m_formWidget->findChild<QLineEdit *>("leCol");
+    m_cbInstrName = m_formWidget->findChild<QComboBox *>("cbInstrName");
     m_leSymbol = m_formWidget->findChild<QLineEdit *>("leSymbol");
     m_cbExp = m_formWidget->findChild<QComboBox *>("cbExp");
     m_cbStrike = m_formWidget->findChild<QComboBox *>("cbStrike");
     m_cbOptType = m_formWidget->findChild<QComboBox *>("cbOptType");
     m_leQty = m_formWidget->findChild<QLineEdit *>("leQty");
-    m_leDiscloseQty = m_formWidget->findChild<QLineEdit *>("leDiscloseQty");
     m_leRate = m_formWidget->findChild<QLineEdit *>("leRate");
+    m_leProdPercent = m_formWidget->findChild<QLineEdit *>("leProdPercent");
+    m_cbOC = m_formWidget->findChild<QComboBox *>("cbOC");
+    m_cbProCli = m_formWidget->findChild<QComboBox *>("cbProCli");
+    m_cbCPBroker = m_formWidget->findChild<QComboBox *>("cbCPBroker");
+    m_cbMFAON = m_formWidget->findChild<QComboBox *>("cbMFAON");
+    m_leMEQty = m_formWidget->findChild<QLineEdit *>("leMEQty");
 
-    // Find widgets - Row 2
+    // Find widgets - Row 2 (matching new layout)
+    m_leSubBroker = m_formWidget->findChild<QLineEdit *>("leSubBroker");
+    m_leClient = m_formWidget->findChild<QLineEdit *>("leClient");
     m_leSetflor = m_formWidget->findChild<QLineEdit *>("leSetflor");
     m_leTrigPrice = m_formWidget->findChild<QLineEdit *>("leTrigPrice");
-    m_cbMFAON = m_formWidget->findChild<QComboBox *>("cbMFAON");
-    m_leMFQty = m_formWidget->findChild<QLineEdit *>("leMFQty");
-    m_cbProduct = m_formWidget->findChild<QComboBox *>("cbProduct");
+    m_cbOrderType2 = m_formWidget->findChild<QComboBox *>("cbOrderType2");
     m_cbValidity = m_formWidget->findChild<QComboBox *>("cbValidity");
     m_leRemarks = m_formWidget->findChild<QLineEdit *>("leRemarks");
+    m_pbAMO = m_formWidget->findChild<QPushButton *>("pbAMO");
     m_pbSubmit = m_formWidget->findChild<QPushButton *>("pbSubmit");
     m_pbClear = m_formWidget->findChild<QPushButton *>("pbClear");
+
+    // Legacy widgets (for compatibility)
+    m_cbEx = m_formWidget->findChild<QComboBox *>("cbEx");
+    m_leToken = m_formWidget->findChild<QLineEdit *>("leToken");
+    m_leInsType = m_formWidget->findChild<QLineEdit *>("leInsType");
+    m_leDiscloseQty = m_formWidget->findChild<QLineEdit *>("leDiscloseQty");
+    m_leMFQty = m_formWidget->findChild<QLineEdit *>("leMFQty");
+    m_cbProduct = m_formWidget->findChild<QComboBox *>("cbProduct");
 
     populateComboBoxes();
     setupConnections();
     loadPreferences();
+    
+    // Set initial focus to Total Qty field and select all text for immediate editing
+    if (m_leQty) {
+        m_leQty->setFocus();
+        m_leQty->selectAll();
+    }
 
     qDebug() << "[BuyWindow] Created successfully";
 }
@@ -85,6 +112,13 @@ BuyWindow::BuyWindow(const WindowContext &context, QWidget *parent)
 
 BuyWindow::~BuyWindow()
 {
+    qDebug() << "[BuyWindow::Destructor] Destroying BuyWindow instance. s_instance:" << s_instance << "this:" << this;
+    
+    // Clear the singleton instance when this window is destroyed
+    if (s_instance == this) {
+        s_instance = nullptr;
+        qDebug() << "[BuyWindow::Destructor] Cleared s_instance";
+    }
 }
 
 void BuyWindow::populateComboBoxes()
@@ -102,6 +136,11 @@ void BuyWindow::populateComboBoxes()
     if (m_cbOrdType)
     {
         m_cbOrdType->addItems({"LIMIT", "MARKET", "SL", "SL-M"});
+    }
+    
+    if (m_cbOrderType2)
+    {
+        m_cbOrderType2->addItems({"CarryForward", "DELIVERY", "INTRADAY"});
     }
 
     if (m_cbOptType)
@@ -123,6 +162,32 @@ void BuyWindow::populateComboBoxes()
     {
         m_cbValidity->addItems({"DAY", "IOC", "GTD"});
     }
+    
+    // New combo boxes from image
+    if (m_cbOC)
+    {
+        m_cbOC->addItems({"OPEN", "CLOSE"});
+    }
+    
+    if (m_cbProCli)
+    {
+        m_cbProCli->addItems({"PRO", "CLI"});
+    }
+    
+    if (m_cbCPBroker)
+    {
+        m_cbCPBroker->addItems({"", "Broker1", "Broker2"});
+    }
+    
+    if (m_cbExp)
+    {
+        m_cbExp->addItems({"23DEC2025", "30DEC2025", "06JAN2026"});
+    }
+    
+    if (m_cbStrike)
+    {
+        m_cbStrike->addItems({"26200.0", "26250.0", "26300.0", "26350.0"});
+    }
 }
 
 void BuyWindow::setupConnections()
@@ -135,6 +200,18 @@ void BuyWindow::setupConnections()
     if (m_pbClear)
     {
         connect(m_pbClear, &QPushButton::clicked, this, &BuyWindow::onClearClicked);
+    }
+    
+    if (m_pbAMO)
+    {
+        connect(m_pbAMO, &QPushButton::clicked, this, &BuyWindow::onAMOClicked);
+    }
+
+    // Connect order type change to update field states
+    if (m_cbOrdType)
+    {
+        connect(m_cbOrdType, QOverload<const QString &>::of(&QComboBox::currentTextChanged),
+                this, &BuyWindow::onOrderTypeChanged);
     }
 }
 
@@ -243,68 +320,101 @@ void BuyWindow::onClearClicked()
     qDebug() << "[BuyWindow] Form cleared";
 }
 
+void BuyWindow::onAMOClicked()
+{
+    // AMO (After Market Order) functionality
+    QMessageBox::information(this, "AMO", "After Market Order functionality will be implemented here.");
+    qDebug() << "[BuyWindow] AMO button clicked";
+}
+
+void BuyWindow::onOrderTypeChanged(const QString &orderType)
+{
+    // Update field states based on order type according to the specification:
+    // MARKET: Price=Disabled, Trigger=Disabled
+    // LIMIT: Price=Enabled, Trigger=Disabled  
+    // SL: Price=Enabled, Trigger=Enabled
+    // SL-M: Price=Disabled, Trigger=Enabled
+    
+    bool priceEnabled = false;
+    bool triggerEnabled = false;
+    
+    if (orderType == "MARKET") {
+        priceEnabled = false;
+        triggerEnabled = false;
+    } else if (orderType == "LIMIT") {
+        priceEnabled = true;
+        triggerEnabled = false;
+    } else if (orderType == "SL") {
+        priceEnabled = true;
+        triggerEnabled = true;
+    } else if (orderType == "SL-M") {
+        priceEnabled = false;
+        triggerEnabled = true;
+    }
+    
+    // Apply field states
+    if (m_leRate) {
+        m_leRate->setEnabled(priceEnabled);
+        if (!priceEnabled) {
+            m_leRate->clear(); // Clear disabled fields
+        }
+    }
+    
+    if (m_leTrigPrice) {
+        m_leTrigPrice->setEnabled(triggerEnabled);
+        if (!triggerEnabled) {
+            m_leTrigPrice->clear(); // Clear disabled fields
+        }
+    }
+    
+    // Auto-recalculate price if enabled and context is available
+    if (priceEnabled && m_context.isValid()) {
+        calculateDefaultPrice(m_context);
+    }
+    
+    qDebug() << "[BuyWindow] Order type changed to:" << orderType 
+             << "Price enabled:" << priceEnabled 
+             << "Trigger enabled:" << triggerEnabled;
+}
+
 bool BuyWindow::focusNextPrevChild(bool next)
 {
-    // Get all focusable widgets in this window's tab order
-    QList<QWidget *> focusableWidgets;
+    // Define the specific tab order: Total Qty -> Price (if enabled) -> Trig Price (if enabled) -> Submit
+    QList<QWidget *> tabOrder;
+    
+    // Always include Total Qty as the starting field
+    if (m_leQty && m_leQty->isEnabled()) {
+        tabOrder.append(m_leQty);
+    }
+    
+    // Add Price field if enabled (depends on order type)
+    if (m_leRate && m_leRate->isEnabled()) {
+        tabOrder.append(m_leRate);
+    }
+    
+    // Add Trigger Price field if enabled (depends on order type)
+    if (m_leTrigPrice && m_leTrigPrice->isEnabled()) {
+        tabOrder.append(m_leTrigPrice);
+    }
+    
+    // Always include Submit button as the final field
+    if (m_pbSubmit && m_pbSubmit->isEnabled()) {
+        tabOrder.append(m_pbSubmit);
+    }
 
-    // Manually build the list based on our tab order
-    if (m_cbEx && m_cbEx->isEnabled())
-        focusableWidgets.append(m_cbEx);
-    if (m_cbInstrName && m_cbInstrName->isEnabled())
-        focusableWidgets.append(m_cbInstrName);
-    if (m_cbOrdType && m_cbOrdType->isEnabled())
-        focusableWidgets.append(m_cbOrdType);
-    if (m_leToken && m_leToken->isEnabled())
-        focusableWidgets.append(m_leToken);
-    if (m_leInsType && m_leInsType->isEnabled())
-        focusableWidgets.append(m_leInsType);
-    if (m_leSymbol && m_leSymbol->isEnabled())
-        focusableWidgets.append(m_leSymbol);
-    if (m_cbExp && m_cbExp->isEnabled())
-        focusableWidgets.append(m_cbExp);
-    if (m_cbStrike && m_cbStrike->isEnabled())
-        focusableWidgets.append(m_cbStrike);
-    if (m_cbOptType && m_cbOptType->isEnabled())
-        focusableWidgets.append(m_cbOptType);
-    if (m_leQty && m_leQty->isEnabled())
-        focusableWidgets.append(m_leQty);
-    if (m_leDiscloseQty && m_leDiscloseQty->isEnabled())
-        focusableWidgets.append(m_leDiscloseQty);
-    if (m_leRate && m_leRate->isEnabled())
-        focusableWidgets.append(m_leRate);
-    if (m_leSetflor && m_leSetflor->isEnabled())
-        focusableWidgets.append(m_leSetflor);
-    if (m_leTrigPrice && m_leTrigPrice->isEnabled())
-        focusableWidgets.append(m_leTrigPrice);
-    if (m_cbMFAON && m_cbMFAON->isEnabled())
-        focusableWidgets.append(m_cbMFAON);
-    if (m_leMFQty && m_leMFQty->isEnabled())
-        focusableWidgets.append(m_leMFQty);
-    if (m_cbProduct && m_cbProduct->isEnabled())
-        focusableWidgets.append(m_cbProduct);
-    if (m_cbValidity && m_cbValidity->isEnabled())
-        focusableWidgets.append(m_cbValidity);
-    if (m_leRemarks && m_leRemarks->isEnabled())
-        focusableWidgets.append(m_leRemarks);
-    if (m_pbSubmit && m_pbSubmit->isEnabled())
-        focusableWidgets.append(m_pbSubmit);
-    if (m_pbClear && m_pbClear->isEnabled())
-        focusableWidgets.append(m_pbClear);
-
-    if (focusableWidgets.isEmpty())
+    if (tabOrder.isEmpty())
     {
         return false;
     }
 
     // Find the current focused widget
     QWidget *currentFocus = QApplication::focusWidget();
-    int currentIndex = focusableWidgets.indexOf(currentFocus);
+    int currentIndex = tabOrder.indexOf(currentFocus);
 
-    // If no widget has focus or focused widget is not in our list, focus the first one
+    // If no widget has focus or focused widget is not in our tab order, focus the first one (Total Qty)
     if (currentIndex == -1)
     {
-        focusableWidgets.first()->setFocus();
+        tabOrder.first()->setFocus();
         return true;
     }
 
@@ -312,18 +422,19 @@ bool BuyWindow::focusNextPrevChild(bool next)
     int nextIndex;
     if (next)
     {
-        nextIndex = (currentIndex + 1) % focusableWidgets.size();
+        nextIndex = (currentIndex + 1) % tabOrder.size();
     }
     else
     {
-        nextIndex = (currentIndex - 1 + focusableWidgets.size()) % focusableWidgets.size();
+        nextIndex = (currentIndex - 1 + tabOrder.size()) % tabOrder.size();
     }
 
     // Set focus to the next/previous widget
-    focusableWidgets[nextIndex]->setFocus();
+    tabOrder[nextIndex]->setFocus();
 
     qDebug() << "[BuyWindow] Tab navigation:" << (next ? "forward" : "backward")
-             << "from index" << currentIndex << "to" << nextIndex;
+             << "from index" << currentIndex << "to" << nextIndex
+             << "Widget:" << tabOrder[nextIndex]->objectName();
 
     return true; // We handled the focus change
 }
@@ -339,6 +450,8 @@ void BuyWindow::loadPreferences()
         if (idx >= 0) {
             m_cbOrdType->setCurrentIndex(idx);
         }
+        // Trigger field state update for the selected order type
+        onOrderTypeChanged(m_cbOrdType->currentText());
     }
     
     // Apply default product
@@ -444,6 +557,12 @@ void BuyWindow::loadFromContext(const WindowContext &context)
         calculateDefaultPrice(context);
     }
     
+    // Set focus to Total Qty field after loading context and select all text for immediate editing
+    if (m_leQty) {
+        m_leQty->setFocus();
+        m_leQty->selectAll();
+    }
+    
     qDebug() << "[BuyWindow] Loaded from context:" << context.exchange << context.symbol 
              << "Token:" << context.token << "LTP:" << context.ltp;
 }
@@ -455,19 +574,20 @@ void BuyWindow::calculateDefaultPrice(const WindowContext &context)
     PreferencesManager &prefs = PreferencesManager::instance();
     QString orderType = m_cbOrdType ? m_cbOrdType->currentText() : "LIMIT";
     
-    if (orderType == "MARKET") {
-        m_leRate->clear();  // Market orders don't need price
+    if (orderType == "MARKET" || orderType == "SL-M") {
+        // Market orders and SL-M don't need price
+        m_leRate->clear();
         m_leRate->setEnabled(false);
         return;
     }
     
     m_leRate->setEnabled(true);
     
-    // For limit orders, use ask price + offset for buying
+    // For limit orders and SL orders, calculate price
     double price = 0.0;
     
     if (context.ask > 0.0) {
-        // Use ask price (seller's price)
+        // Use ask price (seller's price) for buying
         price = context.ask;
     } else if (context.ltp > 0.0) {
         // Fallback to LTP
@@ -488,7 +608,8 @@ void BuyWindow::calculateDefaultPrice(const WindowContext &context)
     }
     
     m_leRate->setText(QString::number(price, 'f', 2));
-    qDebug() << "[BuyWindow] Calculated buy price:" << price << "(Ask:" << context.ask << "Offset:" << prefs.getBuyPriceOffset() << ")";
+    qDebug() << "[BuyWindow] Calculated buy price:" << price 
+             << "(Ask:" << context.ask << "Offset:" << prefs.getBuyPriceOffset() << ")";
 }
 
 void BuyWindow::keyPressEvent(QKeyEvent *event)
@@ -562,4 +683,86 @@ void BuyWindow::keyPressEvent(QKeyEvent *event)
 
     // Default handling
     QWidget::keyPressEvent(event);
+}
+
+// Static singleton management methods
+BuyWindow* BuyWindow::getInstance(QWidget *parent)
+{
+    qDebug() << "[BuyWindow::getInstance] Current instance:" << s_instance;
+    
+    if (s_instance) {
+        // Bring existing window to front
+        qDebug() << "[BuyWindow::getInstance] Reusing existing window";
+        s_instance->raise();
+        s_instance->activateWindow();
+        // Set focus to Total Qty field and select all text for immediate editing
+        if (s_instance->m_leQty) {
+            s_instance->m_leQty->setFocus();
+            s_instance->m_leQty->selectAll();
+        }
+        return s_instance;
+    }
+    
+    // Close any existing SellWindow before creating new BuyWindow
+    SellWindow::closeCurrentWindow();
+    
+    // Create new instance if none exists
+    qDebug() << "[BuyWindow::getInstance] Creating new BuyWindow";
+    return new BuyWindow(parent);
+}
+
+BuyWindow* BuyWindow::getInstance(const WindowContext &context, QWidget *parent)
+{
+    qDebug() << "[BuyWindow::getInstance] Current instance:" << s_instance << "Context:" << context.symbol;
+    
+    if (s_instance) {
+        // Update existing window with new context
+        qDebug() << "[BuyWindow::getInstance] Updating existing window with new context";
+        s_instance->loadFromContext(context);
+        s_instance->raise();
+        s_instance->activateWindow();
+        // Focus is already set in loadFromContext method
+        return s_instance;
+    }
+    
+    // Close any existing SellWindow before creating new BuyWindow
+    SellWindow::closeCurrentWindow();
+    
+    // Create new instance if none exists
+    qDebug() << "[BuyWindow::getInstance] Creating new BuyWindow with context";
+    return new BuyWindow(context, parent);
+}
+
+void BuyWindow::closeCurrentWindow()
+{
+    qDebug() << "[BuyWindow::closeCurrentWindow] s_instance:" << s_instance;
+    
+    if (s_instance) {
+        // Find the MDI container by looking for CustomMDISubWindow class
+        QWidget *parent = s_instance->parentWidget();
+        while (parent) {
+            if (parent->metaObject()->className() == QString("CustomMDISubWindow")) {
+                qDebug() << "[BuyWindow::closeCurrentWindow] Found MDI container:" << parent;
+                parent->close();
+                s_instance = nullptr;
+                return;
+            }
+            parent = parent->parentWidget();
+        }
+        
+        // Fallback: close the widget directly
+        qDebug() << "[BuyWindow::closeCurrentWindow] Closing widget directly";
+        s_instance->close();
+        s_instance = nullptr;
+    }
+}
+
+bool BuyWindow::hasActiveWindow()
+{
+    return s_instance != nullptr;
+}
+
+void BuyWindow::setInstance(BuyWindow* instance)
+{
+    s_instance = instance;
 }

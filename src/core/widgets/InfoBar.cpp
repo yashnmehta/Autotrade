@@ -16,15 +16,15 @@ static QWidget *createMiniPanel(const QString &title, const QString &value, QWid
     QFrame *frame = new QFrame(parent);
     frame->setObjectName("statPanel");
     frame->setStyleSheet(
-        "QFrame#statPanel{ background-color:#252526; border: 1px solid #3e3e42; padding: 3px 6px; border-radius: 2px; }");
+        "QFrame#statPanel{ background-color:#ffffff; border: 1px solid #d0d0d0;  }");
     QVBoxLayout *l = new QVBoxLayout(frame);
-    // l->setContentsMargins(3, 2, 3, 2);
-    l->setSpacing(1);
+    l->setContentsMargins(0, 0, 0, 0);
+    l->setSpacing(0);
     QLabel *t = new QLabel(title, frame);
-    t->setStyleSheet("color:#888888; font-size: 9px;");
+    t->setStyleSheet("color: #666666; font-size: 9px;");
     t->setAlignment(Qt::AlignCenter);
     QLabel *v = new QLabel(value, frame);
-    v->setStyleSheet("color:#ffffff; font-weight:bold; font-size:10px;");
+    v->setStyleSheet("color: #222222; font-weight:bold; font-size:10px;");
     v->setAlignment(Qt::AlignCenter);
     l->addWidget(t);
     l->addWidget(v);
@@ -40,25 +40,14 @@ InfoBar::InfoBar(QWidget *parent)
     setMinimumHeight(50);
 
     setStyleSheet(
-        "QWidget{ background-color: #1e1e1e; }"
-        "QLabel { color: #cccccc; font-size: 10px; padding: 0px 2px; }"
-        "QFrame#panel{ background-color: #2d2d30; border: 1px solid #3e3e42; }");
+        "QWidget{ background-color: #e1e1e1; }"
+        "QLabel { background-color: #e1e1e1; color: #222222; font-size: 10px; padding: 0px 0px; }"
+        "QFrame#panel{ background-color: #ffffff }");
 
     // Wire up referenced labels to our members for backward compatibility
     m_openOrdersLabel = ui->openOrdersLabel;
     m_totalOrdersLabel = ui->totalOrdersLabel;
     m_totalTradesLabel = ui->totalTradesLabel;
-
-    // Setup default conn indicator
-    QPixmap px(12, 12);
-    px.fill(Qt::transparent);
-    QPainter p(&px);
-    p.setRenderHint(QPainter::Antialiasing);
-    p.setBrush(QBrush(QColor("#888888")));
-    p.setPen(Qt::NoPen);
-    p.drawEllipse(0, 0, 12, 12);
-    ui->connLabel->setPixmap(px);
-    ui->connLabel->setToolTip("Disconnected");
 }
 
 void InfoBar::setVersionText(const QString &ver)
@@ -81,26 +70,9 @@ void InfoBar::setLastUpdateText(const QString &text)
 
 void InfoBar::setConnected(bool connected, int latencyMs)
 {
-    if (!ui || !ui->connLabel)
-        return;
-    QPixmap px(12, 12);
-    px.fill(Qt::transparent);
-    QPainter p(&px);
-    p.setRenderHint(QPainter::Antialiasing);
-    if (connected)
-    {
-        p.setBrush(QBrush(QColor("#57b846"))); // green
-        ui->connLabel->setToolTip(QString("Connected (%1 ms)").arg(latencyMs));
-    }
-    else
-    {
-        p.setBrush(QBrush(QColor("#888888"))); // gray
-        ui->connLabel->setToolTip("Disconnected");
-    }
-    p.setPen(Qt::NoPen);
-    p.drawEllipse(0, 0, 12, 12);
-    p.end();
-    ui->connLabel->setPixmap(px);
+    // connLabel removed from UI
+    Q_UNUSED(connected);
+    Q_UNUSED(latencyMs);
 }
 
 void InfoBar::setUserId(const QString &user)

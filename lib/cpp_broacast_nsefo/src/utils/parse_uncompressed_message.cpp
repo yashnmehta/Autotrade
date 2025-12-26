@@ -30,7 +30,7 @@ void parse_uncompressed_message(const char* data, int16_t length) {
             parse_circuit_check(reinterpret_cast<const MS_BC_CIRCUIT_CHECK*>(data));
             break;
         default:
-            std::cout << "    [Unknown TxCode] " << txCode << " (" << getTxCodeName(txCode) << ")" << std::endl;
+            // std::cout << "    [Unknown TxCode] " << txCode << " (" << getTxCodeName(txCode) << ")" << std::endl;
             break;
     }
 }

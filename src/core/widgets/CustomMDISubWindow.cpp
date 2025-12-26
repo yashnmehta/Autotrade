@@ -30,7 +30,7 @@ CustomMDISubWindow::CustomMDISubWindow(const QString &title, QWidget *parent)
 
     // Main layout with margins for resize borders (must be >= border width)
     m_mainLayout = new QVBoxLayout(this);
-    m_mainLayout->setContentsMargins(3, 3, 3, 3);  // 3px margin to show 2px border + extra space
+    m_mainLayout->setContentsMargins(0, 0, 0, 0);  // 3px margin to show 2px border + extra space
     m_mainLayout->setSpacing(0);
 
     // Custom title bar

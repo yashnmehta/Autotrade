@@ -6,7 +6,11 @@
 #include <QApplication>
 #include <QKeyEvent>
 #include <cmath>
-#include <cmath>
+
+// Static member definition
+SellWindow* SellWindow::s_instance = nullptr;
+
+// SellWindow as QWidget, load SellWindow.ui into layout
 
 SellWindow::SellWindow(QWidget *parent)
     : QWidget(parent), m_formWidget(nullptr)
@@ -30,18 +34,27 @@ SellWindow::SellWindow(QWidget *parent)
         return;
     }
 
-    // set minimum width 1000
-    setMinimumWidth(1000);
+    // Ensure the loaded form paints its own background
+    m_formWidget->setAttribute(Qt::WA_StyledBackground, true);
+    m_formWidget->setAutoFillBackground(true);
+    m_formWidget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    if (auto l = m_formWidget->layout()) {
+        l->setContentsMargins(0, 0, 0, 0);
+    }
+
+    // Create layout and add the loaded widget
+    QVBoxLayout *mainLayout = new QVBoxLayout(this);
+    mainLayout->setContentsMargins(0, 0, 0, 0);
+    mainLayout->setSpacing(0);
+    mainLayout->addWidget(m_formWidget, 1);  // stretch=1
+    setLayout(mainLayout);
+    
+    // Set window size constraints
+    setMinimumSize(1200, 220);
 
     // Set focus policy to keep tab cycling within this window
     setFocusPolicy(Qt::StrongFocus);
     m_formWidget->setFocusPolicy(Qt::StrongFocus);
-
-    // Set layout
-    QVBoxLayout *layout = new QVBoxLayout(this);
-    layout->setContentsMargins(0, 0, 0, 0);
-    layout->setSpacing(0);
-    layout->addWidget(m_formWidget);
 
     // Find widgets - Row 1
     m_cbEx = m_formWidget->findChild<QComboBox *>("cbEx");
@@ -71,7 +84,7 @@ SellWindow::SellWindow(QWidget *parent)
     populateComboBoxes();
     setupConnections();
     loadPreferences();
-
+    
     qDebug() << "[SellWindow] Created successfully";
 }
 
@@ -97,14 +110,27 @@ SellWindow::SellWindow(const WindowContext &context, QWidget *parent)
         return;
     }
 
-    setMinimumWidth(1000);
+    // Ensure the loaded form paints its own background
+    m_formWidget->setAttribute(Qt::WA_StyledBackground, true);
+    m_formWidget->setAutoFillBackground(true);
+    m_formWidget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    if (auto l = m_formWidget->layout()) {
+        l->setContentsMargins(0, 0, 0, 0);
+    }
+
+    // Create layout and add the loaded widget
+    QVBoxLayout *mainLayout = new QVBoxLayout(this);
+    mainLayout->setContentsMargins(0, 0, 0, 0);
+    mainLayout->setSpacing(0);
+    mainLayout->addWidget(m_formWidget, 1);  // stretch=1
+    setLayout(mainLayout);
+
+    // Set window size constraints
+    setMinimumSize(1200, 180);
+    setMaximumHeight(230);
+    
     setFocusPolicy(Qt::StrongFocus);
     m_formWidget->setFocusPolicy(Qt::StrongFocus);
-
-    QVBoxLayout *layout = new QVBoxLayout(this);
-    layout->setContentsMargins(0, 0, 0, 0);
-    layout->setSpacing(0);
-    layout->addWidget(m_formWidget);
 
     // Find all widgets
     m_cbEx = m_formWidget->findChild<QComboBox *>("cbEx");
@@ -133,7 +159,7 @@ SellWindow::SellWindow(const WindowContext &context, QWidget *parent)
     setupConnections();
     loadPreferences();
     loadFromContext(context);
-
+    
     qDebug() << "[SellWindow] Created with context successfully";
 }
 
@@ -588,4 +614,80 @@ void SellWindow::keyPressEvent(QKeyEvent *event)
 
     // Default handling
     QWidget::keyPressEvent(event);
+}
+
+// Static singleton management methods
+SellWindow* SellWindow::getInstance(QWidget *parent)
+{
+    qDebug() << "[SellWindow::getInstance] Current instance:" << s_instance;
+    
+    if (s_instance) {
+        // Bring existing window to front
+        qDebug() << "[SellWindow::getInstance] Reusing existing window";
+        s_instance->raise();
+        s_instance->activateWindow();
+        return s_instance;
+    }
+    
+    // Create new instance if none exists
+    qDebug() << "[SellWindow::getInstance] Creating new SellWindow";
+    SellWindow* window = new SellWindow(parent);
+    s_instance = window;
+    return window;
+}
+
+SellWindow* SellWindow::getInstance(const WindowContext &context, QWidget *parent)
+{
+    qDebug() << "[SellWindow::getInstance] Current instance:" << s_instance << "Context:" << context.symbol;
+    
+    if (s_instance) {
+        // Update existing window with new context
+        qDebug() << "[SellWindow::getInstance] Updating existing window with context";
+        s_instance->loadFromContext(context);
+        s_instance->raise();
+        s_instance->activateWindow();
+        return s_instance;
+    }
+    
+    // Create new instance if none exists
+    qDebug() << "[SellWindow::getInstance] Creating new SellWindow with context";
+    SellWindow* window = new SellWindow(context, parent);
+    s_instance = window;
+    return window;
+}
+
+
+
+void SellWindow::closeCurrentWindow()
+{
+    qDebug() << "[SellWindow::closeCurrentWindow] s_instance:" << s_instance;
+    
+    if (s_instance) {
+        // Find the MDI container by looking for CustomMDISubWindow class
+        QWidget *parent = s_instance->parentWidget();
+        while (parent) {
+            if (parent->metaObject()->className() == QString("CustomMDISubWindow")) {
+                qDebug() << "[SellWindow::closeCurrentWindow] Found MDI container:" << parent;
+                parent->close();
+                s_instance = nullptr;
+                return;
+            }
+            parent = parent->parentWidget();
+        }
+        
+        // Fallback: close the widget directly
+        qDebug() << "[SellWindow::closeCurrentWindow] Closing widget directly";
+        s_instance->close();
+        s_instance = nullptr;
+    }
+}
+
+bool SellWindow::hasActiveWindow()
+{
+    return s_instance != nullptr;
+}
+
+void SellWindow::setInstance(SellWindow* instance)
+{
+    s_instance = instance;
 }

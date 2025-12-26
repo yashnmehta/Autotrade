@@ -36,6 +36,18 @@ target_link_libraries(benchmark_price_cache
     Threads::Threads
 )
 
+# Model Update Methods Benchmark
+add_executable(benchmark_model_update_methods 
+    benchmark_model_update_methods.cpp
+)
+target_include_directories(benchmark_model_update_methods PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+)
+target_link_libraries(benchmark_model_update_methods
+    Qt5::Core
+    Qt5::Widgets
+)
+
 # Master Loading Test
 add_executable(test_master_loading 
     test_master_loading.cpp
@@ -61,3 +73,10 @@ set_target_properties(test_marketdata_api test_interactive_api benchmark_price_c
     PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests"
 )
+
+# Add subdirectory for signal vs callback test
+add_subdirectory(QtSignalVsCppCallback_test)
+
+# Add subdirectory for broadcast message test
+add_subdirectory(broadcast_message_test)
+

@@ -6,12 +6,14 @@
 #include "services/FeedHandler.h"  // Phase 2: Direct callback-based updates
 #include "utils/ClipboardHelpers.h"
 #include "utils/SelectionHelpers.h"
+#include "utils/LatencyTracker.h"  // Latency tracking
 #include "views/helpers/MarketWatchHelpers.h"
 #include "repository/RepositoryManager.h"
 #include "repository/NSEFORepository.h"
 #include "repository/NSECMRepository.h"
 #include "repository/BSEFORepository.h"
 #include "repository/BSECMRepository.h"
+#include <iostream>
 #include <QHeaderView>
 #include <QShortcut>
 #include <QKeyEvent>
@@ -55,6 +57,10 @@ void MarketWatchWindow::setupUI()
 {
     // Create model
     m_model = new MarketWatchModel(this);
+    
+    // DISABLED: Native C++ callbacks - causes issues with Qt's model-view architecture
+    // Using Qt's standard dataChanged signal instead for proper view updates
+    // m_model->setViewCallback(this);
     
     // Set model on base class (which wraps it in proxy model)
     setSourceModel(m_model);
@@ -166,6 +172,16 @@ bool MarketWatchWindow::addScrip(const QString &symbol, const QString &exchange,
     
     // Subscribe to price updates
     TokenSubscriptionManager::instance()->subscribe(exchange, token);
+    
+    // Phase 2: Subscribe to FeedHandler for direct callback-based updates (<1μs latency!)
+    auto subId = FeedHandler::instance().subscribe(
+        (uint32_t)token,
+        [this](const XTS::Tick& tick) {
+            this->onTickUpdate(tick);  // Direct callback - NO POLLING, NO TIMER
+        },
+        this  // Automatic cleanup when window destroyed
+    );
+    m_feedSubscriptions[token] = subId;
     
     // Register in address book
     m_tokenAddressBook->addToken(token, newRow);
@@ -315,7 +331,22 @@ void MarketWatchWindow::updatePrice(int token, double ltp, double change, double
 {
     QList<int> rows = m_tokenAddressBook->getRowsForToken(token);
     
+    // Debug logging for token 49508 (BANKNIFTY)
+    if (token == 49508 || token == 49543) {
+        std::cout << "[MARKETWATCH-UPDATEPRICE] Token: " << token 
+                  << " | LTP: " << ltp 
+                  << " | Change: " << change
+                  << " | Rows found: " << rows.size() << std::endl;
+        if (rows.isEmpty()) {
+            std::cout << "  ⚠️ WARNING: Token " << token << " not in address book!" << std::endl;
+        }
+    }
+    
     for (int row : rows) {
+        // Debug log for specific rows
+        if (token == 49508 || token == 49543) {
+            std::cout << "  → Updating row " << row << " in model..." << std::endl;
+        }
         m_model->updatePrice(row, ltp, change, changePercent);
     }
 }
@@ -386,6 +417,17 @@ void MarketWatchWindow::onTickUpdate(const XTS::Tick& tick)
 {
     int token = (int)tick.exchangeInstrumentID;
     
+    // Mark model update timestamp
+    int64_t timestampModelStart = LatencyTracker::now();
+    
+    // Debug logging for token 49543
+    if (token == 49543) {
+        std::cout << "[MARKETWATCH-START] Token: 49543 | RefNo: " << tick.refNo
+                  << " | LTP: " << tick.lastTradedPrice
+                  << " | timestampModelStart: " << timestampModelStart << " µs"
+                  << " | Model start delay: " << (timestampModelStart - tick.timestampFeedHandler) << " µs" << std::endl;
+    }
+    
     // Calculate derived values
     double change = tick.lastTradedPrice - tick.close;
     double changePercent = (tick.close != 0) ? (change / tick.close) * 100.0 : 0.0;
@@ -410,6 +452,55 @@ void MarketWatchWindow::onTickUpdate(const XTS::Tick& tick)
     // Update total buy/sell quantities
     if (tick.totalBuyQuantity > 0 || tick.totalSellQuantity > 0) {
         updateTotalBuySellQty(token, tick.totalBuyQuantity, tick.totalSellQuantity);
+    }
+    
+    // Mark model update complete
+    int64_t timestampModelEnd = LatencyTracker::now();
+    
+    // Debug logging for token 49543 - END-TO-END SUMMARY
+    if (token == 49543) {
+        int64_t totalLatency = timestampModelEnd - tick.timestampParsed;
+        std::cout << "\n[MARKETWATCH-COMPLETE] ═══════ Token 49543 End-to-End Summary ═══════" << std::endl;
+        std::cout << "  RefNo: " << tick.refNo << std::endl;
+        std::cout << "  LTP: " << tick.lastTradedPrice << " | Volume: " << tick.volume << std::endl;
+        std::cout << "  ┌─ Parse:       " << tick.timestampParsed << " µs" << std::endl;
+        std::cout << "  ├─ Queued:      " << tick.timestampQueued << " µs (+" << (tick.timestampQueued - tick.timestampParsed) << " µs)" << std::endl;
+        std::cout << "  ├─ Dequeued:    " << tick.timestampDequeued << " µs (+" << (tick.timestampDequeued - tick.timestampQueued) << " µs)" << std::endl;
+        std::cout << "  ├─ FeedHandler: " << tick.timestampFeedHandler << " µs (+" << (tick.timestampFeedHandler - tick.timestampDequeued) << " µs)" << std::endl;
+        std::cout << "  ├─ ModelStart:  " << timestampModelStart << " µs (+" << (timestampModelStart - tick.timestampFeedHandler) << " µs)" << std::endl;
+        std::cout << "  └─ ModelEnd:    " << timestampModelEnd << " µs (+" << (timestampModelEnd - timestampModelStart) << " µs)" << std::endl;
+        std::cout << "  ⏱️  TOTAL LATENCY: " << totalLatency << " µs (" << (totalLatency / 1000.0) << " ms)" << std::endl;
+        std::cout << "═══════════════════════════════════════════════════════════════\n" << std::endl;
+    }
+    
+    // Record latency if this tick has tracking data
+    if (tick.refNo > 0 && tick.timestampUdpRecv > 0) {
+        // Track latency (view update happens in native callback)
+        LatencyTracker::recordLatency(
+            tick.timestampUdpRecv,
+            tick.timestampParsed,
+            tick.timestampQueued,
+            tick.timestampDequeued,
+            tick.timestampFeedHandler,
+            timestampModelStart,
+            timestampModelEnd  // View update happens next via native callback
+        );
+        
+        // Print detailed breakdown every 100th tracked tick
+        static int trackedCount = 0;
+        if (++trackedCount % 100 == 1) {
+            LatencyTracker::printLatencyBreakdown(
+                tick.refNo,
+                token,
+                tick.timestampUdpRecv,
+                tick.timestampParsed,
+                tick.timestampQueued,
+                tick.timestampDequeued,
+                tick.timestampFeedHandler,
+                timestampModelStart,
+                timestampModelEnd
+            );
+        }
     }
     
     // Note: Open interest updates would go here if available in tick data
@@ -938,4 +1029,31 @@ bool MarketWatchWindow::hasValidSelection() const
     }
     
     return false;
+}
+
+// ============================================================================
+// IMarketWatchViewCallback Implementation (Ultra-Low Latency Mode)
+// ============================================================================
+
+void MarketWatchWindow::onRowUpdated(int row, int firstColumn, int lastColumn)
+{
+    // DISABLED: Native callback path bypasses Qt's model-view architecture
+    // This causes issues with proxy models and view updates
+    // Using Qt's proper dataChanged signal instead (see notifyRowUpdated in model)
+}
+
+void MarketWatchWindow::onRowsInserted(int firstRow, int lastRow)
+{
+    // Invalidate entire viewport (simple approach for row insertion)
+    viewport()->repaint();  // Force immediate repaint
+}
+
+void MarketWatchWindow::onRowsRemoved(int firstRow, int lastRow)
+{
+    // DISABLED: Native callback path - using Qt signals instead
+}
+
+void MarketWatchWindow::onModelReset()
+{
+    // DISABLED: Native callback path - using Qt signals instead
 }

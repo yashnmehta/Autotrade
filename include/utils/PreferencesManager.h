@@ -67,6 +67,11 @@ public:
                                  const QVariant &defaultValue = QVariant()) const;
     void setWindowPreference(const QString &window, const QString &key, const QVariant &value);
     
+    // Generic settings access
+    QVariant value(const QString &key, const QVariant &defaultValue = QVariant()) const;
+    void setValue(const QString &key, const QVariant &value);
+    void clear();
+    
     // Quick presets
     struct TradingPreset {
         QString orderType;

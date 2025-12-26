@@ -102,8 +102,8 @@ void CustomMainWindow::applyDefaultStyling()
 {
     setStyleSheet(
         "CustomMainWindow { "
-        "   background-color: #1e1e1e; "
-        "   border: 1px solid #3e3e42; "
+        "   background-color: #a1a1a1; "
+        "   "
         "}");
 }
 

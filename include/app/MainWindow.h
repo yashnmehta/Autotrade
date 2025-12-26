@@ -3,6 +3,10 @@
 
 #include "core/widgets/CustomMainWindow.h"
 #include "api/XTSMarketDataClient.h"
+#include "multicast_receiver.h"
+#include "utils/LockFreeQueue.h"
+#include <memory>
+#include <QTimer>
 
 class CustomMDIArea;
 class QToolBar;
@@ -55,10 +59,14 @@ private slots:
     void saveCurrentWorkspace();
     void loadWorkspace();
     void manageWorkspaces();
+    void showPreferences();
     
-    // UDP Broadcast receivers - TEMPORARILY DISABLED (fix linker errors)
-    // void startBroadcastReceivers();
-    // void stopBroadcastReceivers();
+    // UDP Broadcast receivers
+    void startBroadcastReceiver();
+    void stopBroadcastReceiver();
+    
+    // UDP tick queue drain (1ms timer)
+    void drainTickQueue();
 
 private:
     void setupContent();
@@ -90,6 +98,20 @@ private:
     // XTS API clients
     XTSMarketDataClient *m_xtsMarketDataClient;
     XTSInteractiveClient *m_xtsInteractiveClient;
+    
+    // UDP Broadcast receiver
+    std::unique_ptr<MulticastReceiver> m_udpReceiver;
+    
+    // UDP tick queue (lock-free SPSC for ultra-low latency)
+    LockFreeQueue<XTS::Tick> m_udpTickQueue{8192};  // 8K capacity
+    QTimer *m_tickDrainTimer;  // Drain queue every 1ms
+    
+    // UDP message counters
+    std::atomic<uint64_t> m_msg7200Count{0};
+    std::atomic<uint64_t> m_msg7201Count{0};
+    std::atomic<uint64_t> m_msg7202Count{0};
+    std::atomic<uint64_t> m_msg7208Count{0};
+    std::atomic<uint64_t> m_depthCount{0};
 };
 
 #endif // MAINWINDOW_H
