@@ -2,6 +2,7 @@
 #define PREFERENCEDIALOG_H
 
 #include <QDialog>
+#include <QShortcut>
 
 namespace Ui {
 class PreferenceDialog;
@@ -34,6 +35,7 @@ private:
 
     Ui::PreferenceDialog *ui;
     PreferencesManager *m_prefsManager;
+    QShortcut* m_escShortcut;
 };
 
 #endif // PREFERENCEDIALOG_H

@@ -58,6 +58,8 @@ set(CORE_WIDGET_SOURCES
     src/core/widgets/InfoBar.cpp
     src/core/widgets/CustomMarketWatch.cpp
     src/core/widgets/CustomNetPosition.cpp
+    src/core/widgets/CustomTradeBook.cpp
+    src/core/widgets/CustomOrderBook.cpp
 )
 
 set(CORE_WIDGET_HEADERS
@@ -71,6 +73,8 @@ set(CORE_WIDGET_HEADERS
     include/core/widgets/InfoBar.h
     include/core/widgets/CustomMarketWatch.h
     include/core/widgets/CustomNetPosition.h
+    include/core/widgets/CustomTradeBook.h
+    include/core/widgets/CustomOrderBook.h
 )
 
 # ========================================
@@ -112,6 +116,8 @@ set(VIEW_SOURCES
     src/views/MarketWatchWindow.cpp
     src/views/SnapQuoteWindow.cpp
     src/views/PositionWindow.cpp
+    src/views/TradeBookWindow.cpp
+    src/views/OrderBookWindow.cpp
     src/views/ColumnProfileDialog.cpp
     src/views/PreferenceDialog.cpp
 )
@@ -122,6 +128,8 @@ set(VIEW_HEADERS
     include/views/MarketWatchWindow.h
     include/views/SnapQuoteWindow.h
     include/views/PositionWindow.h
+    include/views/TradeBookWindow.h
+    include/views/OrderBookWindow.h
     include/views/ColumnProfileDialog.h
     include/views/Preference.h
 )

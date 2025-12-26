@@ -15,6 +15,10 @@ PreferenceDialog::PreferenceDialog(QWidget *parent)
     ui->setupUi(this);
     setupConnections();
     
+    // Setup Esc shortcut to close dialog
+    m_escShortcut = new QShortcut(QKeySequence(Qt::Key_Escape), this);
+    connect(m_escShortcut, &QShortcut::activated, this, &QDialog::reject);
+    
     // Set dialog properties BEFORE loading preferences
     setWindowTitle("Preferences");
     setModal(true);

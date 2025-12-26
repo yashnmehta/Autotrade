@@ -9,6 +9,7 @@
 #include <QComboBox>
 #include <QPushButton>
 #include <QDebug>
+#include <QShortcut>
 #include "models/WindowContext.h"
 
 class XTSMarketDataClient;
@@ -129,6 +130,7 @@ private:
     
     // Market data client
     XTSMarketDataClient *m_xtsClient;
+    QShortcut* m_escShortcut;
 };
 
 #endif // SNAPQUOTEWINDOW_H

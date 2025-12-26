@@ -10,6 +10,7 @@
 #include <QDialog>
 #include <QDialogButtonBox>
 #include <QMessageBox>
+#include <QTimer>
 #include <QDebug>
 
 // ============================================================================
@@ -28,7 +29,32 @@ PositionWindow::PositionWindow(QWidget *parent)
     m_filterShortcut = new QShortcut(QKeySequence("Ctrl+F"), this);
     connect(m_filterShortcut, &QShortcut::activated, this, &PositionWindow::toggleFilterRow);
     
-    qDebug() << "[PositionWindow] Created successfully - Press Ctrl+F to toggle filters";
+    // Setup Esc shortcut to close parent MDI window
+    m_escShortcut = new QShortcut(QKeySequence(Qt::Key_Escape), this);
+    connect(m_escShortcut, &QShortcut::activated, this, [this]() {
+        // Find parent CustomMDISubWindow and close it
+        QWidget *p = parentWidget();
+        while (p) {
+            if (p->metaObject()->className() == QString("CustomMDISubWindow")) {
+                p->close();
+                return;
+            }
+            p = p->parentWidget();
+        }
+        // Fallback: close this widget
+        close();
+    });
+    
+    // Set default focus to table for immediate keyboard navigation
+    if (m_tableView) {
+        QTimer::singleShot(0, this, [this]() {
+            if (m_tableView) {
+                m_tableView->setFocus();
+            }
+        });
+    }
+    
+    qDebug() << "[PositionWindow] Created successfully - Press Ctrl+F to toggle filters, Esc to close";
 }
 
 PositionWindow::~PositionWindow()

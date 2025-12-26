@@ -4,6 +4,7 @@
 #include <QMessageBox>
 #include <QJsonObject>
 #include <QJsonArray>
+#include <QTimer>
 
 SnapQuoteWindow::SnapQuoteWindow(QWidget *parent)
     : QWidget(parent)
@@ -109,6 +110,32 @@ SnapQuoteWindow::SnapQuoteWindow(QWidget *parent)
     
     populateComboBoxes();
     setupConnections();
+    
+    // Setup Esc shortcut to close parent MDI window
+    m_escShortcut = new QShortcut(QKeySequence(Qt::Key_Escape), this);
+    connect(m_escShortcut, &QShortcut::activated, this, [this]() {
+        // Find parent CustomMDISubWindow and close it
+        QWidget *p = parentWidget();
+        while (p) {
+            if (p->metaObject()->className() == QString("CustomMDISubWindow")) {
+                p->close();
+                return;
+            }
+            p = p->parentWidget();
+        }
+        // Fallback: close this widget
+        close();
+    });
+    
+    // Set default focus to token field for quick symbol lookup
+    if (m_leToken) {
+        QTimer::singleShot(0, this, [this]() {
+            if (m_leToken) {
+                m_leToken->setFocus();
+                m_leToken->selectAll();
+            }
+        });
+    }
     
     qDebug() << "[SnapQuoteWindow] Created successfully";
 }

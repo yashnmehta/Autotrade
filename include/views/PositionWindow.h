@@ -86,6 +86,7 @@ private:
     PositionModel* m_model;
     bool m_filterRowVisible;
     QShortcut* m_filterShortcut;
+    QShortcut* m_escShortcut;
     QList<FilterRowWidget*> m_filterWidgets;
 
     // All positions (unfiltered)

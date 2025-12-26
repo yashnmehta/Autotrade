@@ -48,6 +48,8 @@ private slots:
     void createBuyWindow();
     void createSellWindow();
     void createSnapQuoteWindow();
+    void createTradeBookWindow();
+    void createOrderBookWindow();
     void createPositionWindow();
     void onAddToWatchRequested(const InstrumentData &instrument);
     void resetLayout();

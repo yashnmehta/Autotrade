@@ -10,6 +10,8 @@
 #include "views/SellWindow.h"
 #include "views/SnapQuoteWindow.h"
 #include "views/PositionWindow.h"
+#include "views/TradeBookWindow.h"
+#include "views/OrderBookWindow.h"
 #include "views/Preference.h"
 #include "repository/Greeks.h"
 #include "api/XTSMarketDataClient.h"
@@ -253,12 +255,10 @@ void MainWindow::setupShortcuts()
     connect(sellShortcut, &QShortcut::activated, this, &MainWindow::createSellWindow);
     qDebug() << "  F2 -> Sell Window";
     
-    // F3: Open Order Book (filtered) - TODO: implement createOrderBook method
+    // F3: Open Order Book
     QShortcut *orderBookShortcut = new QShortcut(QKeySequence(Qt::Key_F3), this);
-    connect(orderBookShortcut, &QShortcut::activated, this, []() {
-        qDebug() << "[MainWindow] F3 pressed - Order Book not yet implemented";
-    });
-    qDebug() << "  F3 -> Order Book (not yet implemented)";
+    connect(orderBookShortcut, &QShortcut::activated, this, &MainWindow::createOrderBookWindow);
+    qDebug() << "  F3 -> Order Book";
     
     // F4: New Market Watch
     QShortcut *marketWatchShortcut = new QShortcut(QKeySequence(Qt::Key_F4), this);
@@ -270,12 +270,10 @@ void MainWindow::setupShortcuts()
     connect(snapQuoteShortcut, &QShortcut::activated, this, &MainWindow::createSnapQuoteWindow);
     qDebug() << "  F5 -> SnapQuote Window";
     
-    // F8: Open Tradebook - TODO: implement createTradebook method
+    // F8: Open Tradebook
     QShortcut *tradebookShortcut = new QShortcut(QKeySequence(Qt::Key_F8), this);
-    connect(tradebookShortcut, &QShortcut::activated, this, []() {
-        qDebug() << "[MainWindow] F8 pressed - Tradebook not yet implemented";
-    });
-    qDebug() << "  F8 -> Tradebook (not yet implemented)";
+    connect(tradebookShortcut, &QShortcut::activated, this, &MainWindow::createTradeBookWindow);
+    qDebug() << "  F8 -> TradeBook Window";
     
     // Alt+F6: Open Net Position Window
     QShortcut *positionShortcut = new QShortcut(QKeySequence(Qt::ALT | Qt::Key_F6), this);
@@ -326,35 +324,52 @@ void MainWindow::createMenuBar()
     menuBar->setNativeMenuBar(false);
 
     // Force menu bar to take full width and be part of vertical layout
-    menuBar->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    menuBar->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
 
     menuBar->setStyleSheet(
-        "QMenuBar { "
-        "   background-color: #e1e1e1; "
-        "   color: #111111; "
-        "   padding: 0px; "
-        "} "
-        "QMenuBar::item { "
-        "   padding: 4px 8px; "
-        "   background-color: transparent; "
-        "} "
-        "QMenuBar::item:selected { "
-        "   background-color: #3e3e42; "
-        "} "
-        "QMenu { "
-        "   background-color: #b6b6b6; "
-        "   color: #242424ff; "
-        "   border: 1px solid #3e3e42; "
-        "} "
-        "QMenu::item { "
-        "   padding: 4px 20px; "
-        "} "
-        "QMenu::item:selected { "
-        "   background-color: #094771; "
+        "QMenuBar {"
+        "  background: #f7f7f7;"
+        "  color: #222222;"
+        "  font-size: 11px;"
+        "  padding: 2px 0;"
+        "  border-bottom: 1px solid #dcdcdc;"
+        "  min-height: 20px;"
+        "}"
+        "QMenuBar::item {"
+        "  font-size: 10px;"
+
+        "  padding: 2px 4px;"
+        "  margin: 0 2px;"
+        "  border-radius: 3px;"
+        "}"
+        "QMenuBar::item:selected {"
+        "  font-size: 10px;"
+
+        "  background: #2a6fb3;"
+        "  color: #ffffff;"
+        "}"
+        "QMenu {"
+        "  background: #ffffff;"
+        "  color: #222222;"
+        "  border: 1px solid #dcdcdc;"
+        "  padding: 3px 0;"
+        "}"
+        "QMenu::item {"
+        "  font-size: 10px;"
+        "  padding: 3px 6px;"
+        "}"
+        "QMenu::separator {"
+        "  height: 1px;"
+        "  background: #eeeeee;"
+        "  margin: 6px 0;"
+        "}"
+        "QMenu::item:selected {"
+        "  background: #e6f0fb;"
+        "  color: #0b57a4;"
         "}");
 
     // CRITICAL: Set fixed height to prevent menu bar from being too tall
-    menuBar->setFixedHeight(25);
+    menuBar->setMaximumHeight(30);
 
     // Platform-specific attachment: macOS uses the native system menu bar,
     // other platforms embed the menu bar inside the window (top of central widget).
@@ -363,9 +378,8 @@ void MainWindow::createMenuBar()
     qDebug() << "Using native macOS menu bar";
 #else
     menuBar->setNativeMenuBar(false);
-    // Force menu bar to take full width and be part of vertical layout
-    menuBar->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
-    menuBar->setFixedHeight(25);
+    // Force menu bar to take full width and natural height
+    menuBar->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
 
     QVBoxLayout *layout = qobject_cast<QVBoxLayout *>(centralWidget()->layout());
     if (layout)
@@ -410,8 +424,31 @@ void MainWindow::createMenuBar()
     QAction *resetLayoutAction = viewMenu->addAction("Reset &Layout");
     connect(resetLayoutAction, &QAction::triggered, this, &MainWindow::resetLayout);
 
-    // Window Menu
+    // Window Menu - Create windows and manage MDI layout
     QMenu *windowMenu = menuBar->addMenu("&Window");
+    
+    // Create Window Actions
+    QAction *wmMarketWatch = windowMenu->addAction("&MarketWatch\tF4");
+    connect(wmMarketWatch, &QAction::triggered, this, &MainWindow::createMarketWatch);
+    
+    QAction *wmBuy = windowMenu->addAction("&Buy\tF1");
+    connect(wmBuy, &QAction::triggered, this, &MainWindow::createBuyWindow);
+    
+    QAction *wmSell = windowMenu->addAction("&Sell\tF2");
+    connect(wmSell, &QAction::triggered, this, &MainWindow::createSellWindow);
+    
+    QAction *wmSnap = windowMenu->addAction("Snap&Quote\tF5");
+    connect(wmSnap, &QAction::triggered, this, &MainWindow::createSnapQuoteWindow);
+    
+    QAction *wmOrderBook = windowMenu->addAction("&OrderBook\tF3");
+    connect(wmOrderBook, &QAction::triggered, this, &MainWindow::createOrderBookWindow);
+    
+    QAction *wmTradeBook = windowMenu->addAction("&TradeBook\tF8");
+    connect(wmTradeBook, &QAction::triggered, this, &MainWindow::createTradeBookWindow);
+    
+    QAction *wmPosition = windowMenu->addAction("Net &Position\tAlt+F6");
+    connect(wmPosition, &QAction::triggered, this, &MainWindow::createPositionWindow);
+    
     windowMenu->addSeparator();
 
     // Window Arrangement
@@ -1025,6 +1062,66 @@ void MainWindow::createPositionWindow()
     window->activateWindow();
 
     qDebug() << "[MainWindow] Position Window created";
+}
+
+void MainWindow::createTradeBookWindow()
+{
+    // Create window with TradeBook widget
+    CustomMDISubWindow *window = new CustomMDISubWindow("Trade Book", m_mdiArea);
+    window->setWindowType("TradeBook");
+
+    TradeBookWindow *tradeBook = new TradeBookWindow(window);
+    window->setContentWidget(tradeBook);
+    window->resize(1400, 600);
+
+    // Connect MDI signals
+    connect(window, &CustomMDISubWindow::closeRequested, window, &QWidget::close);
+    connect(window, &CustomMDISubWindow::minimizeRequested, [this, window]()
+            { m_mdiArea->minimizeWindow(window); });
+    connect(window, &CustomMDISubWindow::maximizeRequested, [window]()
+            { window->maximize(); });
+    connect(window, &CustomMDISubWindow::windowActivated, [this, window]()
+            { m_mdiArea->activateWindow(window); });
+
+    // Add to MDI area
+    m_mdiArea->addWindow(window);
+    
+    // Set focus to newly created window
+    window->setFocus();
+    window->raise();
+    window->activateWindow();
+
+    qDebug() << "[MainWindow] Trade Book Window created";
+}
+
+void MainWindow::createOrderBookWindow()
+{
+    // Create window with OrderBook widget
+    CustomMDISubWindow *window = new CustomMDISubWindow("Order Book", m_mdiArea);
+    window->setWindowType("OrderBook");
+
+    OrderBookWindow *orderBook = new OrderBookWindow(window);
+    window->setContentWidget(orderBook);
+    window->resize(1400, 600);
+
+    // Connect MDI signals
+    connect(window, &CustomMDISubWindow::closeRequested, window, &QWidget::close);
+    connect(window, &CustomMDISubWindow::minimizeRequested, [this, window]()
+            { m_mdiArea->minimizeWindow(window); });
+    connect(window, &CustomMDISubWindow::maximizeRequested, [window]()
+            { window->maximize(); });
+    connect(window, &CustomMDISubWindow::windowActivated, [this, window]()
+            { m_mdiArea->activateWindow(window); });
+
+    // Add to MDI area
+    m_mdiArea->addWindow(window);
+    
+    // Set focus to newly created window
+    window->setFocus();
+    window->raise();
+    window->activateWindow();
+
+    qDebug() << "[MainWindow] Order Book Window created";
 }
 
 void MainWindow::onAddToWatchRequested(const InstrumentData &instrument)

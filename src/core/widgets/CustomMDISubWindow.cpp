@@ -8,6 +8,7 @@
 #include <QPainter>
 #include <QMenu>
 #include <QApplication>
+#include <QTimer>
 #include <QDebug>
 
 CustomMDISubWindow::CustomMDISubWindow(const QString &title, QWidget *parent)
@@ -199,6 +200,13 @@ void CustomMDISubWindow::setContentWidget(QWidget *widget)
         m_mainLayout->addWidget(m_contentWidget);
         // Install event filter to capture mouse events near edges
         m_contentWidget->installEventFilter(this);
+        
+        // Set focus to content widget so keyboard input goes directly to it
+        QTimer::singleShot(0, m_contentWidget, [this]() {
+            if (m_contentWidget) {
+                m_contentWidget->setFocus();
+            }
+        });
     }
 }
 
