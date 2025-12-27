@@ -225,6 +225,11 @@ QWidget* TradeBookWindow::createFilterWidget()
     m_exportBtn = new QPushButton("Export");
     m_exportBtn->setStyleSheet("background-color: #d97706; color: white;");
 
+    m_showSummaryCheck = new QCheckBox("Show Summary Row");
+    m_showSummaryCheck->setStyleSheet("color: #d4d4d8; font-size: 11px;");
+    m_showSummaryCheck->setChecked(false);
+
+    btnLayout->addWidget(m_showSummaryCheck);
     btnLayout->addWidget(m_applyFilterBtn);
     btnLayout->addWidget(m_clearFilterBtn);
     btnLayout->addWidget(m_exportBtn);
@@ -240,8 +245,8 @@ QWidget* TradeBookWindow::createSummaryWidget()
     QWidget *summaryWidget = new QWidget();
     summaryWidget->setObjectName("summaryWidget");
     summaryWidget->setStyleSheet(
-        "QWidget#summaryWidget { background-color: #1e1e1e; border-top: 1px solid #333333; }"
-        "QLabel { color: #cccccc; font-size: 11px; }"
+        "QWidget#summaryWidget { background-color: #f5f5f5; border-top: 1px solid #cccccc; }"
+        "QLabel { color: #333333; font-size: 11px; }"
     );
     summaryWidget->setFixedHeight(32);
     
@@ -462,11 +467,22 @@ void TradeBookWindow::onTradesUpdated(const QVector<XTS::Trade>& trades)
         row[51]->setText(contract ? contract->expiryDate : "-"); // Maturity Date
         row[56]->setText(contract ? contract->displayName : trade.tradingSymbol); // Scrip Name
 
-        // Formatting
+        // Coloring based on trade side
+        QColor bgColor;
+        QColor textColor = Qt::black; // Default for light theme
+        
         if (trade.orderSide == "BUY") {
-            row[14]->setForeground(QColor("#4CAF50"));
+            bgColor = QColor("#e3f2fd"); // Light Blue for Buy
+            row[14]->setForeground(QColor("#0d47a1"));
         } else if (trade.orderSide == "SELL") {
-            row[14]->setForeground(QColor("#F44336"));
+            bgColor = QColor("#ffebee"); // Light Red for Sell
+            row[14]->setForeground(QColor("#b71c1c"));
+        }
+        
+        if (bgColor.isValid()) {
+            for (auto item : row) {
+                item->setBackground(bgColor);
+            }
         }
         
         QFont boldFont = row[14]->font();
@@ -792,11 +808,11 @@ TradeBookFilterWidget::TradeBookFilterWidget(int column, TradeBookWindow* tradeB
     m_filterButton->setText("▼ Filter");
     m_filterButton->setStyleSheet(
         "QPushButton { "
-        "background: #FFFFFF; color: #333333; border: 1px solid rgba(0,0,0,0.15); "
-        "border-radius: 3px; padding: 4px 8px; text-align: left; font-size: 10px; "
+        "background: #ffffff; color: #cccccc; border: 1px solid #454545; "
+        "border-radius: 2px; padding: 4px 8px; text-align: left; font-size: 10px; "
         "}"
-        "QPushButton:hover { background: #F8F8F8; border-color: #4A90E2; }"
-        "QPushButton:pressed { background: #E8E8E8; }"
+        "QPushButton:hover { background: #3e3e42; border-color: #0e639c; }"
+        "QPushButton:pressed { background: #0e639c; color: #ffffff; }"
     );
     m_filterButton->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
     m_filterButton->setMinimumHeight(28);
@@ -926,11 +942,11 @@ void TradeBookFilterWidget::showFilterPopup()
             m_filterButton->setText(QString("▼ (%1)").arg(m_selectedValues.count()));
             m_filterButton->setStyleSheet(
                 "QPushButton { "
-                "background: #E3F2FD; color: #1976D2; border: 1px solid #1976D2; "
-                "border-radius: 3px; padding: 4px 8px; text-align: left; font-size: 10px; font-weight: bold; "
+                "background: #e3f2fd; color: #1976d2; border: 1px solid #1976d2; "
+                "border-radius: 2px; padding: 4px 8px; text-align: left; font-size: 10px; font-weight: bold; "
                 "}"
-                "QPushButton:hover { background: #BBDEFB; border-color: #1565C0; }"
-                "QPushButton:pressed { background: #90CAF9; }"
+                "QPushButton:hover { background: #bbdefb; border-color: #1565c0; }"
+                "QPushButton:pressed { background: #90caf9; }"
             );
         }
         
@@ -951,11 +967,11 @@ void TradeBookFilterWidget::clear()
     m_filterButton->setText("▼ Filter");
     m_filterButton->setStyleSheet(
         "QPushButton { "
-        "background: #FFFFFF; color: #333333; border: 1px solid rgba(0,0,0,0.15); "
-        "border-radius: 3px; padding: 4px 8px; text-align: left; font-size: 10px; "
+        "background: #ffffff; color: #333333; border: 1px solid #cccccc; "
+        "border-radius: 2px; padding: 4px 8px; text-align: left; font-size: 10px; "
         "}"
-        "QPushButton:hover { background: #F8F8F8; border-color: #4A90E2; }"
-        "QPushButton:pressed { background: #E8E8E8; }"
+        "QPushButton:hover { background: #f0f0f0; border-color: #999999; }"
+        "QPushButton:pressed { background: #e0e0e0; }"
     );
 }
 

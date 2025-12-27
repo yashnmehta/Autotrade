@@ -250,8 +250,8 @@ QWidget* OrderBookWindow::createSummaryWidget()
     QWidget *summaryWidget = new QWidget();
     summaryWidget->setObjectName("summaryWidget");
     summaryWidget->setStyleSheet(
-        "QWidget#summaryWidget { background-color: #1e1e1e; border-top: 1px solid #333333; }"
-        "QLabel { color: #cccccc; font-size: 11px; }"
+        "QWidget#summaryWidget { background-color: #f5f5f5; border-top: 1px solid #cccccc; }"
+        "QLabel { color: #333333; font-size: 11px; }"
     );
     summaryWidget->setFixedHeight(32);
     
@@ -499,20 +499,50 @@ void OrderBookWindow::onOrdersUpdated(const QVector<XTS::Order>& orders)
         row[42]->setText(order.orderTimestamp());         // Server Entry Time
         row[42]->setData(QDateTime::fromString(order.orderTimestamp(), "dd-MM-yyyy HH:mm:ss"), Qt::UserRole); // For chrono sort
 
-        // Side colors
-        if (order.orderSide == "BUY") {
-            row[15]->setForeground(QColor("#4CAF50"));
-        } else if (order.orderSide == "SELL") {
-            row[15]->setForeground(QColor("#F44336"));
+        // Coloring based on side and status
+        QColor bgColor;
+        QColor textColor = Qt::black;
+        
+        bool isBuy = (order.orderSide == "BUY");
+        QString status = order.orderStatus;
+        
+        if (status == "Rejected") {
+            bgColor = QColor("#fff3e0"); // Orange for Rejected
+        } else if (isBuy) {
+            if (status == "Filled") {
+                bgColor = QColor("#e3f2fd"); // Light Blue for Executed Buy
+            } else if (status == "Open" || status == "New" || status == "PartiallyFilled") {
+                bgColor = QColor("#cce3f5"); // Slightly darker Blue for Pending Buy
+            } else if (status == "Cancelled") {
+                bgColor = QColor("#eceff1"); // Blueish Grey for Cancelled Buy
+            }
+        } else { // SELL
+            if (status == "Filled") {
+                bgColor = QColor("#ffebee"); // Light Red for Executed Sell
+            } else if (status == "Open" || status == "New" || status == "PartiallyFilled") {
+                bgColor = QColor("#ffccd2"); // Slightly darker Red for Pending Sell
+            } else if (status == "Cancelled") {
+                bgColor = QColor("#efebe9"); // Reddish Grey for Cancelled Sell
+            }
         }
+        
+        if (bgColor.isValid()) {
+            for (auto item : row) {
+                item->setBackground(bgColor);
+                item->setForeground(textColor);
+            }
+        }
+
+        // Specific styling for side and status columns to make them pop
+        if (isBuy) {
+            row[15]->setForeground(QColor("#0d47a1"));
+        } else {
+            row[15]->setForeground(QColor("#b71c1c"));
+        }
+        
         QFont boldFont = row[15]->font();
         boldFont.setBold(true);
         row[15]->setFont(boldFont);
-
-        // Status colors
-        if (order.orderStatus == "Filled") row[25]->setForeground(QColor("#4CAF50"));
-        else if (order.orderStatus == "Cancelled" || order.orderStatus == "Rejected") row[25]->setForeground(QColor("#F44336"));
-        else if (order.orderStatus == "Open" || order.orderStatus == "New" || order.orderStatus == "PartiallyFilled") row[25]->setForeground(QColor("#2196F3"));
         row[25]->setFont(boldFont);
 
         for (auto item : row) item->setEditable(false);
@@ -898,18 +928,18 @@ OrderBookFilterWidget::OrderBookFilterWidget(int column, OrderBookWindow* orderB
     layout->setSpacing(0);
 
     // Visual container
-    this->setStyleSheet("background-color: #F5F5F5; border-bottom: 1px solid rgba(0,0,0,0.12);");
+    this->setStyleSheet("background-color: #252526; border-bottom: 1px solid #333333;");
 
     // Create filter button with dropdown icon
     m_filterButton = new QPushButton(this);
     m_filterButton->setText("▼ Filter");
     m_filterButton->setStyleSheet(
         "QPushButton { "
-        "background: #FFFFFF; color: #333333; border: 1px solid rgba(0,0,0,0.15); "
-        "border-radius: 3px; padding: 4px 8px; text-align: left; font-size: 10px; "
+        "background: #ffffff; color: #333333; border: 1px solid #cccccc; "
+        "border-radius: 2px; padding: 4px 8px; text-align: left; font-size: 10px; "
         "}"
-        "QPushButton:hover { background: #F8F8F8; border-color: #4A90E2; }"
-        "QPushButton:pressed { background: #E8E8E8; }"
+        "QPushButton:hover { background: #f0f0f0; border-color: #999999; }"
+        "QPushButton:pressed { background: #e0e0e0; }"
     );
     m_filterButton->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
     m_filterButton->setMinimumHeight(28);
@@ -1039,11 +1069,11 @@ void OrderBookFilterWidget::showFilterPopup()
             m_filterButton->setText(QString("▼ (%1)").arg(m_selectedValues.count()));
             m_filterButton->setStyleSheet(
                 "QPushButton { "
-                "background: #E3F2FD; color: #1976D2; border: 1px solid #1976D2; "
-                "border-radius: 3px; padding: 4px 8px; text-align: left; font-size: 10px; font-weight: bold; "
+                "background: #e3f2fd; color: #1976d2; border: 1px solid #1976d2; "
+                "border-radius: 2px; padding: 4px 8px; text-align: left; font-size: 10px; font-weight: bold; "
                 "}"
-                "QPushButton:hover { background: #BBDEFB; border-color: #1565C0; }"
-                "QPushButton:pressed { background: #90CAF9; }"
+                "QPushButton:hover { background: #bbdefb; border-color: #1565c0; }"
+                "QPushButton:pressed { background: #90caf9; }"
             );
         }
         
@@ -1064,11 +1094,11 @@ void OrderBookFilterWidget::clear()
     m_filterButton->setText("▼ Filter");
     m_filterButton->setStyleSheet(
         "QPushButton { "
-        "background: #FFFFFF; color: #333333; border: 1px solid rgba(0,0,0,0.15); "
-        "border-radius: 3px; padding: 4px 8px; text-align: left; font-size: 10px; "
+        "background: #ffffff; color: #333333; border: 1px solid #cccccc; "
+        "border-radius: 2px; padding: 4px 8px; text-align: left; font-size: 10px; "
         "}"
-        "QPushButton:hover { background: #F8F8F8; border-color: #4A90E2; }"
-        "QPushButton:pressed { background: #E8E8E8; }"
+        "QPushButton:hover { background: #f0f0f0; border-color: #999999; }"
+        "QPushButton:pressed { background: #e0e0e0; }"
     );
 }
 
