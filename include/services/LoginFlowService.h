@@ -30,6 +30,9 @@ public:
     XTSMarketDataClient* getMarketDataClient() const { return m_mdClient; }
     XTSInteractiveClient* getInteractiveClient() const { return m_iaClient; }
 
+    // Set trading data service for storing fetched data
+    void setTradingDataService(class TradingDataService* service) { m_tradingDataService = service; }
+
     // Status callbacks
     void setStatusCallback(std::function<void(const QString&, const QString&, int)> callback);
     void setErrorCallback(std::function<void(const QString&, const QString&)> callback);
@@ -47,6 +50,7 @@ private:
 
     XTSMarketDataClient *m_mdClient;
     XTSInteractiveClient *m_iaClient;
+    TradingDataService *m_tradingDataService;
 
     std::function<void(const QString&, const QString&, int)> m_statusCallback;
     std::function<void(const QString&, const QString&)> m_errorCallback;

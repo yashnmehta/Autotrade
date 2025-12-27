@@ -1,4 +1,8 @@
 #include "views/PositionWindow.h"
+#include "services/TradingDataService.h"
+#include "repository/RepositoryManager.h"
+#include "repository/ContractData.h"
+#include "api/XTSTypes.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -12,18 +16,71 @@
 #include <QMessageBox>
 #include <QTimer>
 #include <QDebug>
+#include <QSortFilterProxyModel>
+
+// Custom proxy model to keep filter row at top and summary row at bottom
+class PositionSortProxyModel : public QSortFilterProxyModel {
+public:
+    explicit PositionSortProxyModel(QObject* parent = nullptr) : QSortFilterProxyModel(parent) {}
+
+protected:
+    bool lessThan(const QModelIndex &source_left, const QModelIndex &source_right) const override {
+        PositionModel* model = qobject_cast<PositionModel*>(sourceModel());
+        if (!model) return QSortFilterProxyModel::lessThan(source_left, source_right);
+
+        bool filterVisible = model->isFilterRowVisible();
+        int rowCount = model->rowCount();
+        
+        // Always keep filter row at top
+        if (filterVisible) {
+            if (source_left.row() == 0) return (sortOrder() == Qt::AscendingOrder);
+            if (source_right.row() == 0) return (sortOrder() == Qt::DescendingOrder);
+        }
+
+        // Always keep summary row at bottom
+        // Note: Summary row is the last row in the model
+        if (source_left.row() == rowCount - 1) return (sortOrder() == Qt::DescendingOrder);
+        if (source_right.row() == rowCount - 1) return (sortOrder() == Qt::AscendingOrder);
+
+        // For data rows, use UserRole for numeric sorting
+        QVariant leftData = model->data(source_left, Qt::UserRole);
+        QVariant rightData = model->data(source_right, Qt::UserRole);
+
+        if (leftData.type() == QVariant::Double || leftData.type() == QVariant::Int || leftData.type() == QVariant::LongLong) {
+            return leftData.toDouble() < rightData.toDouble();
+        }
+
+        return QSortFilterProxyModel::lessThan(source_left, source_right);
+    }
+};
 
 // ============================================================================
 // PositionWindow Implementation
 // ============================================================================
 
-PositionWindow::PositionWindow(QWidget *parent)
+PositionWindow::PositionWindow(TradingDataService* tradingDataService, QWidget *parent)
     : QWidget(parent)
     , m_model(nullptr)
     , m_filterRowVisible(false)
     , m_filterShortcut(nullptr)
+    , m_tradingDataService(tradingDataService)
 {
     setupUI();
+    
+    // Load initial profile
+    loadInitialProfile();
+    
+    // Connect to trading data service if available
+    if (m_tradingDataService) {
+        connect(m_tradingDataService, &TradingDataService::positionsUpdated,
+                this, &PositionWindow::onPositionsUpdated);
+        
+        // Load initial data
+        onPositionsUpdated(m_tradingDataService->getPositions());
+        qDebug() << "[PositionWindow] Connected to TradingDataService and loaded initial positions";
+    } else {
+        qWarning() << "[PositionWindow] No TradingDataService provided - window will be empty";
+    }
     
     // Setup Ctrl+F shortcut for filter toggle
     m_filterShortcut = new QShortcut(QKeySequence("Ctrl+F"), this);
@@ -78,150 +135,217 @@ void PositionWindow::setupUI()
 
 void PositionWindow::setupFilterBar()
 {
-    QWidget* filterWidget = new QWidget(this);
-    QHBoxLayout* filterLayout = new QHBoxLayout(filterWidget);
-    filterLayout->setContentsMargins(0, 0, 0, 0);
-    filterLayout->setSpacing(10);
+    m_topFilterWidget = new QWidget(this);
+    m_topFilterWidget->setObjectName("filterContainer");
+    m_topFilterWidget->setStyleSheet(
+        "QWidget#filterContainer { background-color: #2d2d2d; border-bottom: 1px solid #3f3f46; border-radius: 4px; }"
+        "QLabel { color: #d4d4d8; font-size: 11px; font-weight: 500; }"
+        "QComboBox { "
+        "   background-color: #3f3f46; color: #ffffff; border: 1px solid #52525b; "
+        "   border-radius: 3px; padding: 3px 5px; font-size: 11px; "
+        "} "
+        "QComboBox::drop-down { border: none; } "
+        "QPushButton { border-radius: 3px; font-weight: 600; font-size: 11px; padding: 5px 12px; } "
+    );
 
-    // Exchange
-    QLabel* lblExchange = new QLabel("Exchange:", this);
-    m_cbExchange = new QComboBox(this);
-    m_cbExchange->addItem("(ALL)");
-    m_cbExchange->addItems({"NSE", "BSE", "MCX"});
-    m_cbExchange->setMinimumWidth(80);
-    connect(m_cbExchange, QOverload<int>::of(&QComboBox::currentIndexChanged), 
-            this, &PositionWindow::onFilterChanged);
+    QVBoxLayout *mainLayout = new QVBoxLayout(m_topFilterWidget);
+    mainLayout->setContentsMargins(12, 10, 12, 10);
+    mainLayout->setSpacing(8);
 
-    // Segment
-    QLabel* lblSegment = new QLabel("Mkt Segment:", this);
-    m_cbSegment = new QComboBox(this);
-    m_cbSegment->addItem("(ALL)");
-    m_cbSegment->addItems({"E", "F", "O"});
-    m_cbSegment->setMinimumWidth(80);
-    connect(m_cbSegment, QOverload<int>::of(&QComboBox::currentIndexChanged), 
-            this, &PositionWindow::onFilterChanged);
+    // Filter label
+    QLabel *topLabel = new QLabel("POSITION FILTERS");
+    topLabel->setStyleSheet("color: #a1a1aa; font-weight: bold; letter-spacing: 0.5px; font-size: 10px;");
+    mainLayout->addWidget(topLabel);
 
-    // Periodicity
-    QLabel* lblPeriodicity = new QLabel("Periodicity:", this);
-    m_cbPeriodicity = new QComboBox(this);
-    m_cbPeriodicity->addItem("Daily");
-    m_cbPeriodicity->addItem("Weekly");
-    m_cbPeriodicity->addItem("Monthly");
-    m_cbPeriodicity->setMinimumWidth(80);
-    connect(m_cbPeriodicity, QOverload<int>::of(&QComboBox::currentIndexChanged), 
-            this, &PositionWindow::onFilterChanged);
+    QHBoxLayout *filterLayout = new QHBoxLayout();
+    filterLayout->setSpacing(15);
 
-    // User
-    QLabel* lblUser = new QLabel("User:", this);
-    m_cbUser = new QComboBox(this);
-    m_cbUser->addItem("MEMBER");
-    m_cbUser->addItem("Admin");
-    m_cbUser->addItem("Trader1");
-    m_cbUser->setMinimumWidth(100);
-    connect(m_cbUser, QOverload<int>::of(&QComboBox::currentIndexChanged), 
-            this, &PositionWindow::onFilterChanged);
+    auto addCombo = [&](const QString &label, QComboBox* &combo, const QStringList &items, int width) {
+        QVBoxLayout *vbox = new QVBoxLayout();
+        vbox->setSpacing(2);
+        vbox->addWidget(new QLabel(label));
+        combo = new QComboBox();
+        combo->addItems(items);
+        combo->setFixedWidth(width);
+        vbox->addWidget(combo);
+        filterLayout->addLayout(vbox);
+        connect(combo, QOverload<int>::of(&QComboBox::currentIndexChanged), 
+                this, &PositionWindow::onFilterChanged);
+    };
 
-    // Client
-    QLabel* lblClient = new QLabel("Client:", this);
-    m_cbClient = new QComboBox(this);
-    m_cbClient->addItem("(ALL)");
-    m_cbClient->addItems({"CLIENT001", "CLIENT002", "CLIENT003"});
-    m_cbClient->setMinimumWidth(100);
-    connect(m_cbClient, QOverload<int>::of(&QComboBox::currentIndexChanged), 
-            this, &PositionWindow::onFilterChanged);
+    addCombo("Exchange", m_cbExchange, {"(ALL)", "NSE", "BSE", "MCX"}, 80);
+    addCombo("Mkt Segment", m_cbSegment, {"(ALL)", "E", "F", "O"}, 80);
+    addCombo("Periodicity", m_cbPeriodicity, {"Daily", "Weekly", "Monthly"}, 90);
+    addCombo("User", m_cbUser, {"MEMBER", "Admin", "Trader1"}, 100);
+    addCombo("Client", m_cbClient, {"(ALL)", "CLIENT001", "CLIENT002", "CLIENT003"}, 100);
 
-    // Security
-    QLabel* lblSecurity = new QLabel("Security/Contract:", this);
+    // Security (Editable)
+    QVBoxLayout *vboxSec = new QVBoxLayout();
+    vboxSec->setSpacing(2);
+    vboxSec->addWidget(new QLabel("Security/Contract"));
     m_cbSecurity = new QComboBox(this);
     m_cbSecurity->addItem("(ALL)");
-    m_cbSecurity->setMinimumWidth(120);
+    m_cbSecurity->setFixedWidth(140);
     m_cbSecurity->setEditable(true);
+    vboxSec->addWidget(m_cbSecurity);
+    filterLayout->addLayout(vboxSec);
     connect(m_cbSecurity, QOverload<int>::of(&QComboBox::currentIndexChanged), 
             this, &PositionWindow::onFilterChanged);
 
+    filterLayout->addStretch();
+
     // Buttons
+    QHBoxLayout *btnLayout = new QHBoxLayout();
+    btnLayout->setSpacing(8);
+    btnLayout->setAlignment(Qt::AlignBottom);
+
     m_btnRefresh = new QPushButton("Refresh", this);
-    m_btnExport = new QPushButton("Export", this);
+    m_btnRefresh->setStyleSheet("background-color: #16a34a; color: white;");
     connect(m_btnRefresh, &QPushButton::clicked, this, &PositionWindow::onRefreshClicked);
+
+    m_btnExport = new QPushButton("Export", this);
+    m_btnExport->setStyleSheet("background-color: #d97706; color: white;");
     connect(m_btnExport, &QPushButton::clicked, this, &PositionWindow::onExportClicked);
 
-    // Add widgets to layout
-    filterLayout->addWidget(lblExchange);
-    filterLayout->addWidget(m_cbExchange);
-    filterLayout->addWidget(lblSegment);
-    filterLayout->addWidget(m_cbSegment);
-    filterLayout->addWidget(lblPeriodicity);
-    filterLayout->addWidget(m_cbPeriodicity);
-    filterLayout->addWidget(lblUser);
-    filterLayout->addWidget(m_cbUser);
-    filterLayout->addWidget(lblClient);
-    filterLayout->addWidget(m_cbClient);
-    filterLayout->addWidget(lblSecurity);
-    filterLayout->addWidget(m_cbSecurity);
-    filterLayout->addStretch();
-    filterLayout->addWidget(m_btnRefresh);
-    filterLayout->addWidget(m_btnExport);
+    btnLayout->addWidget(m_btnRefresh);
+    btnLayout->addWidget(m_btnExport);
 
-    // Save top filter widget and apply styling for better visibility
-    m_topFilterWidget = filterWidget;
-    m_topFilterWidget->setStyleSheet(
-        "QWidget { background-color: #F5F5F5; padding: 8px; border-radius: 4px; }"
-        "QLabel { color: #333333; font-weight: 500; }"
-        "QComboBox { background: #FFFFFF; color: #111111; border: 1px solid #CCCCCC; "
-        "border-radius: 3px; padding: 4px 8px; min-height: 24px; }"
-        "QComboBox:hover { border-color: #999999; }"
-        "QComboBox::drop-down { border: none; }"
-        "QPushButton { background: #4A90E2; color: white; border: none; "
-        "border-radius: 3px; padding: 6px 16px; font-weight: 500; }"
-        "QPushButton:hover { background: #357ABD; }"
-        "QPushButton:pressed { background: #2868A6; }"
-    );
+    filterLayout->addLayout(btnLayout);
+    mainLayout->addLayout(filterLayout);
+}
+
+#include "views/GenericProfileDialog.h"
+#include "models/GenericProfileManager.h"
+
+void PositionWindow::showColumnProfileDialog()
+{
+    QList<GenericColumnInfo> allCols;
+    for (int i = 0; i < PositionModel::ColumnCount; ++i) {
+        GenericColumnInfo info;
+        info.id = i;
+        info.name = m_model->headerData(i, Qt::Horizontal).toString();
+        info.defaultWidth = 90;
+        info.visibleByDefault = true;
+        allCols.append(info);
+    }
+
+    GenericProfileDialog dialog("PositionBook", allCols, m_columnProfile, this);
+    if (dialog.exec() == QDialog::Accepted) {
+        m_columnProfile = dialog.getProfile();
+        
+        // Apply to view
+        for (int i = 0; i < PositionModel::ColumnCount; ++i) {
+            bool visible = m_columnProfile.isColumnVisible(i);
+            m_tableView->setColumnHidden(i, !visible);
+            if (visible) {
+                m_tableView->setColumnWidth(i, m_columnProfile.columnWidth(i));
+            }
+        }
+    }
+}
+
+void PositionWindow::loadInitialProfile()
+{
+    GenericProfileManager manager("profiles");
+    QString defName = manager.getDefaultProfileName("PositionBook");
+    
+    if (defName != "Default" && manager.loadProfile("PositionBook", defName, m_columnProfile)) {
+        // Success
+    } else {
+        // Default layout
+        m_columnProfile = GenericTableProfile("Default");
+        for (int i = 0; i < PositionModel::ColumnCount; ++i) {
+            m_columnProfile.setColumnVisible(i, true);
+            m_columnProfile.setColumnWidth(i, 90);
+        }
+        QList<int> order;
+        for (int i = 0; i < PositionModel::ColumnCount; ++i) order.append(i);
+        m_columnProfile.setColumnOrder(order);
+    }
+    
+    // Apply to view
+    for (int i = 0; i < PositionModel::ColumnCount; ++i) {
+        bool visible = m_columnProfile.isColumnVisible(i);
+        m_tableView->setColumnHidden(i, !visible);
+        if (visible) {
+            m_tableView->setColumnWidth(i, m_columnProfile.columnWidth(i));
+        }
+    }
 }
 
 void PositionWindow::setupTableView()
 {
     m_tableView = new QTableView(this);
-    m_model = new PositionModel(this);
-    m_tableView->setModel(m_model);
+    m_tableView->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(m_tableView, &QTableView::customContextMenuRequested, this, [this](const QPoint &pos) {
+        QMenu menu(this);
+        menu.addAction("Export to CSV", this, &PositionWindow::onExportClicked);
+        menu.addAction("Refresh", this, &PositionWindow::onRefreshClicked);
+        menu.addSeparator();
+        menu.addAction("Column Profile...", this, &PositionWindow::showColumnProfileDialog);
+        menu.exec(m_tableView->viewport()->mapToGlobal(pos));
+    });
 
-    // Table view properties
-    // Make table background white and disable alternating rows and grid
-    m_tableView->setStyleSheet("QTableView { background-color: #FFFFFF; }");
-    m_tableView->setAlternatingRowColors(false);
-    m_tableView->setShowGrid(false);
-    m_tableView->setSelectionBehavior(QAbstractItemView::SelectRows);
-    m_tableView->setSelectionMode(QAbstractItemView::SingleSelection);
-    m_tableView->setSortingEnabled(true);
-    m_tableView->horizontalHeader()->setStretchLastSection(true);
-    m_tableView->verticalHeader()->setVisible(false);
+    m_model = new PositionModel(this);
     
-    // Style the header for better visibility
-    m_tableView->horizontalHeader()->setStyleSheet(
-        "QHeaderView::section { "
-        "background-color: #2C2C2C; "
-        "color: #FFFFFF; "
-        "padding: 6px; "
-        "border: 1px solid #1A1A1A; "
-        "font-weight: bold; "
-        "font-size: 11px; "
+    // Setup proxy model for sorting
+    m_proxyModel = new PositionSortProxyModel(this);
+    m_proxyModel->setSourceModel(m_model);
+    m_proxyModel->setDynamicSortFilter(true);
+    
+    m_tableView->setModel(m_proxyModel);
+    m_tableView->setSortingEnabled(true);
+    
+    // Premium Dark Theme styling
+    m_tableView->setStyleSheet(
+        "QTableView {"
+        "   background-color: #1e1e1e;"
+        "   alternate-background-color: #252526;"
+        "   selection-background-color: #094771;"
+        "   selection-color: #ffffff;"
+        "   gridline-color: #333333;"
+        "   border: none;"
+        "   color: #cccccc;"
+        "   font-size: 11px;"
         "}"
-        "QHeaderView::section:hover { "
-        "background-color: #3A3A3A; "
+        "QTableView::item {"
+        "   padding: 4px;"
+        "   border: none;"
+        "}"
+        "QHeaderView::section {"
+        "   background-color: #252526;"
+        "   color: #e0e0e0;"
+        "   padding: 6px;"
+        "   border: none;"
+        "   border-right: 1px solid #333333;"
+        "   border-bottom: 1px solid #333333;"
+        "   font-weight: bold;"
+        "   font-size: 11px;"
+        "}"
+        "QHeaderView::section:hover {"
+        "   background-color: #3e3e42;"
         "}"
     );
-    m_tableView->horizontalHeader()->setMinimumHeight(32);
+
+    // Configure table behavior
+    m_tableView->setAlternatingRowColors(true);
+    m_tableView->setSelectionBehavior(QAbstractItemView::SelectRows);
+    m_tableView->setSelectionMode(QAbstractItemView::SingleSelection);
+    m_tableView->setShowGrid(true);
+    m_tableView->setWordWrap(false);
     
-    // Set column widths
+    // Header behavior
+    m_tableView->horizontalHeader()->setMinimumHeight(32);
+    m_tableView->horizontalHeader()->setStretchLastSection(true);
+    m_tableView->horizontalHeader()->setSectionsClickable(true);
+    m_tableView->horizontalHeader()->setHighlightSections(false);
+    
+    // Default column widths
+    for (int i = 0; i < PositionModel::ColumnCount; ++i) {
+        m_tableView->setColumnWidth(i, 90);
+    }
     m_tableView->setColumnWidth(PositionModel::Symbol, 120);
-    m_tableView->setColumnWidth(PositionModel::SeriesExpiry, 80);
-    m_tableView->setColumnWidth(PositionModel::BuyQty, 80);
-    m_tableView->setColumnWidth(PositionModel::SellQty, 80);
-    m_tableView->setColumnWidth(PositionModel::NetPrice, 90);
-    m_tableView->setColumnWidth(PositionModel::MarkPrice, 90);
-    m_tableView->setColumnWidth(PositionModel::MTMGainLoss, 100);
-    m_tableView->setColumnWidth(PositionModel::MTMMargin, 100);
-    m_tableView->setColumnWidth(PositionModel::BuyValue, 100);
-    m_tableView->setColumnWidth(PositionModel::SellValue, 100);
+    m_tableView->setColumnWidth(PositionModel::Name, 150);
 }
 
 void PositionWindow::addPosition(const Position& position)
@@ -256,11 +380,7 @@ QList<Position> PositionWindow::getTopFilteredPositions() const
         // Apply top filter bar filters only
         if (m_filterExchange != "(ALL)" && !m_filterExchange.isEmpty() && pos.exchange != m_filterExchange)
             continue;
-        if (m_filterSegment != "(ALL)" && !m_filterSegment.isEmpty() && pos.segment != m_filterSegment)
-            continue;
-        if (!m_filterUser.isEmpty() && pos.user != m_filterUser)
-            continue;
-        if (m_filterClient != "(ALL)" && !m_filterClient.isEmpty() && pos.client != m_filterClient)
+        if (m_filterSegment != "(ALL)" && !m_filterSegment.isEmpty() && pos.productType != m_filterSegment)
             continue;
         if (m_filterSecurity != "(ALL)" && !m_filterSecurity.isEmpty() && pos.symbol != m_filterSecurity)
             continue;
@@ -289,16 +409,55 @@ void PositionWindow::applyFilters()
             
             QString cellValue;
             switch (column) {
+                case PositionModel::ScripCode: cellValue = QString::number(pos.scripCode); break;
                 case PositionModel::Symbol: cellValue = pos.symbol; break;
                 case PositionModel::SeriesExpiry: cellValue = pos.seriesExpiry; break;
-                case PositionModel::BuyQty: cellValue = pos.buyQty > 0 ? QString::number(pos.buyQty) : ""; break;
-                case PositionModel::SellQty: cellValue = pos.sellQty > 0 ? QString::number(pos.sellQty) : ""; break;
-                case PositionModel::NetPrice: cellValue = pos.netPrice != 0.0 ? QString::number(pos.netPrice, 'f', 2) : ""; break;
-                case PositionModel::MarkPrice: cellValue = pos.markPrice != 0.0 ? QString::number(pos.markPrice, 'f', 2) : ""; break;
-                case PositionModel::MTMGainLoss: cellValue = QString::number(pos.mtmGainLoss, 'f', 2); break;
-                case PositionModel::MTMMargin: cellValue = QString::number(pos.mtmMargin, 'f', 2); break;
-                case PositionModel::BuyValue: cellValue = pos.buyValue != 0.0 ? QString::number(pos.buyValue, 'f', 2) : ""; break;
-                case PositionModel::SellValue: cellValue = pos.sellValue != 0.0 ? QString::number(pos.sellValue, 'f', 2) : ""; break;
+                case PositionModel::StrikePrice: cellValue = pos.strikePrice > 0 ? QString::number(pos.strikePrice, 'f', 2) : ""; break;
+                case PositionModel::OptionType: cellValue = pos.optionType; break;
+                case PositionModel::NetQty: cellValue = QString::number(pos.netQty); break;
+                case PositionModel::MarketPrice: cellValue = QString::number(pos.marketPrice, 'f', 2); break;
+                case PositionModel::MTMGL: cellValue = QString::number(pos.mtm, 'f', 2); break;
+                case PositionModel::NetPrice: cellValue = QString::number(pos.netPrice, 'f', 2); break;
+                case PositionModel::MTMVPos: cellValue = QString::number(pos.mtmvPos, 'f', 2); break;
+                case PositionModel::TotalValue: cellValue = QString::number(pos.totalValue, 'f', 2); break;
+                case PositionModel::BuyVal: cellValue = QString::number(pos.buyVal, 'f', 2); break;
+                case PositionModel::SellVal: cellValue = QString::number(pos.sellVal, 'f', 2); break;
+                case PositionModel::Exchange: cellValue = pos.exchange; break;
+                case PositionModel::User: cellValue = pos.user; break;
+                case PositionModel::Client: cellValue = pos.client; break;
+                case PositionModel::Name: cellValue = pos.name; break;
+                case PositionModel::InstrumentType: cellValue = pos.instrumentType; break;
+                case PositionModel::InstrumentName: cellValue = pos.instrumentName; break;
+                case PositionModel::ScripName: cellValue = pos.scripName; break;
+                case PositionModel::BuyQty: cellValue = QString::number(pos.buyQty); break;
+                case PositionModel::BuyLot: cellValue = QString::number(pos.buyLot, 'f', 2); break;
+                case PositionModel::BuyWeight: cellValue = QString::number(pos.buyWeight, 'f', 2); break;
+                case PositionModel::BuyAvg: cellValue = QString::number(pos.buyAvg, 'f', 2); break;
+                case PositionModel::SellQty: cellValue = QString::number(pos.sellQty); break;
+                case PositionModel::SellLot: cellValue = QString::number(pos.sellLot, 'f', 2); break;
+                case PositionModel::SellWeight: cellValue = QString::number(pos.sellWeight, 'f', 2); break;
+                case PositionModel::SellAvg: cellValue = QString::number(pos.sellAvg, 'f', 2); break;
+                case PositionModel::NetLot: cellValue = QString::number(pos.netLot, 'f', 2); break;
+                case PositionModel::NetWeight: cellValue = QString::number(pos.netWeight, 'f', 2); break;
+                case PositionModel::NetVal: cellValue = QString::number(pos.netVal, 'f', 2); break;
+                case PositionModel::ProductType: cellValue = pos.productType; break;
+                case PositionModel::ClientGroup: cellValue = pos.clientGroup; break;
+                case PositionModel::DPRRange: cellValue = QString::number(pos.dprRange, 'f', 2); break;
+                case PositionModel::MaturityDate: cellValue = pos.maturityDate; break;
+                case PositionModel::Yield: cellValue = QString::number(pos.yield, 'f', 2); break;
+                case PositionModel::TotalQuantity: cellValue = QString::number(pos.totalQuantity); break;
+                case PositionModel::TotalLot: cellValue = QString::number(pos.totalLot, 'f', 2); break;
+                case PositionModel::TotalWeight: cellValue = QString::number(pos.totalWeight, 'f', 2); break;
+                case PositionModel::Brokerage: cellValue = QString::number(pos.brokerage, 'f', 2); break;
+                case PositionModel::NetMTM: cellValue = QString::number(pos.netMtm, 'f', 2); break;
+                case PositionModel::NetValuePostExp: cellValue = QString::number(pos.netValPostExp, 'f', 2); break;
+                case PositionModel::OptionFlag: cellValue = pos.optionFlag; break;
+                case PositionModel::VarPercent: cellValue = QString::number(pos.varPercent, 'f', 2); break;
+                case PositionModel::VarAmount: cellValue = QString::number(pos.varAmount, 'f', 2); break;
+                case PositionModel::SMCategory: cellValue = pos.smCategory; break;
+                case PositionModel::CfAvgPrice: cellValue = QString::number(pos.cfAvgPrice, 'f', 2); break;
+                case PositionModel::ActualMTM: cellValue = QString::number(pos.actualMtm, 'f', 2); break;
+                case PositionModel::UnsettledQty: cellValue = QString::number(pos.unsettledQty); break;
                 default: break;
             }
             
@@ -331,16 +490,19 @@ void PositionWindow::updateSummaryRow()
 {
     Position summary;
     summary.symbol = "(ALL)";
-    summary.seriesExpiry = "(ALL)";
+    summary.name = "(ALL)";
     
     QList<Position> positions = m_model->positions();
     for (const Position& pos : positions) {
         summary.buyQty += pos.buyQty;
         summary.sellQty += pos.sellQty;
-        summary.mtmGainLoss += pos.mtmGainLoss;
-        summary.mtmMargin += pos.mtmMargin;
-        summary.buyValue += pos.buyValue;
-        summary.sellValue += pos.sellValue;
+        summary.netQty += pos.netQty;
+        summary.mtm += pos.mtm;
+        summary.actualMtm += pos.actualMtm;
+        summary.buyVal += pos.buyVal;
+        summary.sellVal += pos.sellVal;
+        summary.totalValue += pos.totalValue;
+        summary.netVal += pos.netVal;
     }
     
     m_model->setSummary(summary);
@@ -366,7 +528,7 @@ void PositionWindow::recreateFilterWidgets()
         FilterRowWidget* filterWidget = new FilterRowWidget(col, this, m_tableView);
         m_filterWidgets.append(filterWidget);
         
-        QModelIndex idx = m_model->index(0, col);
+        QModelIndex idx = m_proxyModel->index(0, col);
         if (idx.isValid()) {
             m_tableView->setIndexWidget(idx, filterWidget);
             
@@ -461,6 +623,81 @@ void PositionWindow::onExportClicked()
     QMessageBox::information(this, "Export", "Export functionality will be implemented.");
 }
 
+void PositionWindow::onPositionsUpdated(const QVector<XTS::Position>& positions)
+{
+    qDebug() << "[PositionWindow::onPositionsUpdated] Received" << positions.size() << "positions from TradingDataService";
+    
+    m_allPositions.clear();
+    RepositoryManager* repo = RepositoryManager::getInstance();
+    
+    // Convert XTS::Position to local Position struct
+    for (const XTS::Position& xtsPos : positions) {
+        Position pos;
+        const ContractData* contract = repo->getContractByToken(xtsPos.exchangeSegment, xtsPos.exchangeInstrumentID);
+        
+        // Basic & Contract Info
+        pos.scripCode = xtsPos.exchangeInstrumentID;
+        pos.symbol = contract ? contract->name : xtsPos.tradingSymbol;
+        pos.seriesExpiry = contract ? contract->expiryDate : "-";
+        pos.strikePrice = contract ? contract->strikePrice : 0.0;
+        pos.optionType = contract ? contract->optionType : "-";
+        
+        QString exchangeCode = "NSE";
+        if (xtsPos.exchangeSegment.startsWith("NSE")) exchangeCode = "NSE";
+        else if (xtsPos.exchangeSegment.startsWith("BSE")) exchangeCode = "BSE";
+        pos.exchange = exchangeCode;
+        
+        pos.name = contract ? contract->displayName : xtsPos.tradingSymbol;
+        pos.instrumentType = contract ? contract->series : xtsPos.productType;
+        pos.instrumentName = contract ? contract->series : "";
+        pos.scripName = contract ? contract->displayName : xtsPos.tradingSymbol;
+        pos.productType = xtsPos.productType;
+        pos.optionFlag = (contract && (contract->optionType == "CE" || contract->optionType == "PE")) ? "OPT" : "FUT";
+
+        // Quantities & Positions
+        pos.netQty = xtsPos.quantity;
+        pos.buyQty = xtsPos.openBuyQuantity;
+        pos.sellQty = xtsPos.openSellQuantity;
+        pos.totalQuantity = xtsPos.quantity; // Or sum? usually net
+        pos.unsettledQty = 0; // Placeholder
+
+        // Prices
+        pos.marketPrice = xtsPos.sellAveragePrice; // XTS uses this for MTM / LTP in some views
+        pos.netPrice = xtsPos.buyAveragePrice;
+        pos.buyAvg = xtsPos.buyAveragePrice;
+        pos.sellAvg = xtsPos.sellAveragePrice;
+        pos.cfAvgPrice = xtsPos.buyAveragePrice; // Placeholder
+
+        // Values & Profits
+        pos.mtm = xtsPos.mtm;
+        pos.mtmvPos = xtsPos.mtm; // Placeholder
+        pos.totalValue = xtsPos.quantity * (pos.marketPrice > 0 ? pos.marketPrice : pos.netPrice);
+        pos.buyVal = xtsPos.buyAmount;
+        pos.sellVal = xtsPos.sellAmount;
+        pos.netVal = xtsPos.buyAmount - xtsPos.sellAmount;
+        pos.brokerage = 0.0; 
+        pos.netMtm = xtsPos.mtm;
+        pos.netValPostExp = xtsPos.mtm;
+        pos.actualMtm = xtsPos.mtm;
+        
+        // Metadata & Risk
+        pos.user = "MEMBER";
+        pos.client = xtsPos.accountID;
+        pos.clientGroup = "DEFAULT";
+        pos.maturityDate = contract ? contract->expiryDate : "-";
+        pos.yield = 0.0;
+        pos.varPercent = 0.0;
+        pos.varAmount = 0.0;
+        pos.smCategory = "-";
+        
+        m_allPositions.append(pos);
+    }
+    
+    qDebug() << "[PositionWindow::onPositionsUpdated] Converted to" << m_allPositions.size() << "local positions";
+    applyFilters();
+}
+
+
 
 
 // ============================================================================
@@ -516,27 +753,138 @@ QVariant PositionModel::data(const QModelIndex& index, int role) const
 
     if (role == Qt::DisplayRole) {
         switch (col) {
+            case ScripCode: return QString::number(pos.scripCode);
             case Symbol: return pos.symbol;
             case SeriesExpiry: return pos.seriesExpiry;
-            case BuyQty: return pos.buyQty > 0 ? QString::number(pos.buyQty) : QString();
-            case SellQty: return pos.sellQty > 0 ? QString::number(pos.sellQty) : QString();
+            case StrikePrice: return pos.strikePrice > 0 ? QString::number(pos.strikePrice, 'f', 2) : QString();
+            case OptionType: return pos.optionType;
+            case NetQty: return QString::number(pos.netQty);
+            case MarketPrice: return pos.marketPrice != 0.0 ? QString::number(pos.marketPrice, 'f', 2) : QString();
+            case MTMGL: return QString::number(pos.mtm, 'f', 2);
             case NetPrice: return pos.netPrice != 0.0 ? QString::number(pos.netPrice, 'f', 2) : QString();
-            case MarkPrice: return pos.markPrice != 0.0 ? QString::number(pos.markPrice, 'f', 2) : QString();
-            case MTMGainLoss: return QString::number(pos.mtmGainLoss, 'f', 2);
-            case MTMMargin: return QString::number(pos.mtmMargin, 'f', 2);
-            case BuyValue: return pos.buyValue != 0.0 ? QString::number(pos.buyValue, 'f', 2) : QString();
-            case SellValue: return pos.sellValue != 0.0 ? QString::number(pos.sellValue, 'f', 2) : QString();
+            case MTMVPos: return QString::number(pos.mtmvPos, 'f', 2);
+            case TotalValue: return QString::number(pos.totalValue, 'f', 2);
+            case BuyVal: return QString::number(pos.buyVal, 'f', 2);
+            case SellVal: return QString::number(pos.sellVal, 'f', 2);
+            case Exchange: return pos.exchange;
+            case User: return pos.user;
+            case Client: return pos.client;
+            case Name: return pos.name;
+            case InstrumentType: return pos.instrumentType;
+            case InstrumentName: return pos.instrumentName;
+            case ScripName: return pos.scripName;
+            case BuyQty: return QString::number(pos.buyQty);
+            case BuyLot: return QString::number(pos.buyLot, 'f', 2);
+            case BuyWeight: return QString::number(pos.buyWeight, 'f', 2);
+            case BuyAvg: return QString::number(pos.buyAvg, 'f', 2);
+            case SellQty: return QString::number(pos.sellQty);
+            case SellLot: return QString::number(pos.sellLot, 'f', 2);
+            case SellWeight: return QString::number(pos.sellWeight, 'f', 2);
+            case SellAvg: return QString::number(pos.sellAvg, 'f', 2);
+            case NetLot: return QString::number(pos.netLot, 'f', 2);
+            case NetWeight: return QString::number(pos.netWeight, 'f', 2);
+            case NetVal: return QString::number(pos.netVal, 'f', 2);
+            case ProductType: return pos.productType;
+            case ClientGroup: return pos.clientGroup;
+            case DPRRange: return QString::number(pos.dprRange, 'f', 2);
+            case MaturityDate: return pos.maturityDate;
+            case Yield: return QString::number(pos.yield, 'f', 2);
+            case TotalQuantity: return QString::number(pos.totalQuantity);
+            case TotalLot: return QString::number(pos.totalLot, 'f', 2);
+            case TotalWeight: return QString::number(pos.totalWeight, 'f', 2);
+            case Brokerage: return QString::number(pos.brokerage, 'f', 2);
+            case NetMTM: return QString::number(pos.netMtm, 'f', 2);
+            case NetValuePostExp: return QString::number(pos.netValPostExp, 'f', 2);
+            case OptionFlag: return pos.optionFlag;
+            case VarPercent: return QString::number(pos.varPercent, 'f', 2);
+            case VarAmount: return QString::number(pos.varAmount, 'f', 2);
+            case SMCategory: return pos.smCategory;
+            case CfAvgPrice: return QString::number(pos.cfAvgPrice, 'f', 2);
+            case ActualMTM: return QString::number(pos.actualMtm, 'f', 2);
+            case UnsettledQty: return QString::number(pos.unsettledQty);
+        }
+    }
+    else if (role == Qt::EditRole || role == Qt::UserRole) {
+        switch (col) {
+            case ScripCode: return (qlonglong)pos.scripCode;
+            case Symbol: return pos.symbol;
+            case SeriesExpiry: return pos.seriesExpiry;
+            case StrikePrice: return pos.strikePrice;
+            case OptionType: return pos.optionType;
+            case NetQty: return pos.netQty;
+            case MarketPrice: return pos.marketPrice;
+            case MTMGL: return pos.mtm;
+            case NetPrice: return pos.netPrice;
+            case MTMVPos: return pos.mtmvPos;
+            case TotalValue: return pos.totalValue;
+            case BuyVal: return pos.buyVal;
+            case SellVal: return pos.sellVal;
+            case Exchange: return pos.exchange;
+            case User: return pos.user;
+            case Client: return pos.client;
+            case Name: return pos.name;
+            case InstrumentType: return pos.instrumentType;
+            case InstrumentName: return pos.instrumentName;
+            case ScripName: return pos.scripName;
+            case BuyQty: return pos.buyQty;
+            case BuyLot: return pos.buyLot;
+            case BuyWeight: return pos.buyWeight;
+            case BuyAvg: return pos.buyAvg;
+            case SellQty: return pos.sellQty;
+            case SellLot: return pos.sellLot;
+            case SellWeight: return pos.sellWeight;
+            case SellAvg: return pos.sellAvg;
+            case NetLot: return pos.netLot;
+            case NetWeight: return pos.netWeight;
+            case NetVal: return pos.netVal;
+            case ProductType: return pos.productType;
+            case ClientGroup: return pos.clientGroup;
+            case DPRRange: return pos.dprRange;
+            case MaturityDate: return pos.maturityDate;
+            case Yield: return pos.yield;
+            case TotalQuantity: return pos.totalQuantity;
+            case TotalLot: return pos.totalLot;
+            case TotalWeight: return pos.totalWeight;
+            case Brokerage: return pos.brokerage;
+            case NetMTM: return pos.netMtm;
+            case NetValuePostExp: return pos.netValPostExp;
+            case OptionFlag: return pos.optionFlag;
+            case VarPercent: return pos.varPercent;
+            case VarAmount: return pos.varAmount;
+            case SMCategory: return pos.smCategory;
+            case CfAvgPrice: return pos.cfAvgPrice;
+            case ActualMTM: return pos.actualMtm;
+            case UnsettledQty: return pos.unsettledQty;
         }
     }
     else if (role == Qt::TextAlignmentRole) {
-        if (col == Symbol || col == SeriesExpiry)
-            return Qt::AlignLeft + Qt::AlignVCenter;
-        return Qt::AlignRight + Qt::AlignVCenter;
+        switch (col) {
+            case ScripCode:
+            case Symbol:
+            case SeriesExpiry:
+            case OptionType:
+            case Exchange:
+            case User:
+            case Client:
+            case Name:
+            case InstrumentType:
+            case InstrumentName:
+            case ScripName:
+            case ProductType:
+            case ClientGroup:
+            case MaturityDate:
+            case OptionFlag:
+            case SMCategory:
+                return Qt::AlignLeft + Qt::AlignVCenter;
+            default:
+                return Qt::AlignRight + Qt::AlignVCenter;
+        }
     }
     else if (role == Qt::ForegroundRole) {
-        if (col == MTMGainLoss) {
-            return pos.mtmGainLoss > 0 ? QColor(0, 150, 0) : 
-                   pos.mtmGainLoss < 0 ? QColor(200, 0, 0) : QColor(0, 0, 0);
+        if (col == MTMGL || col == NetMTM || col == ActualMTM) {
+            double val = (col == MTMGL) ? pos.mtm : (col == NetMTM ? pos.netMtm : pos.actualMtm);
+            return val > 0 ? QColor(0, 150, 0) : 
+                   val < 0 ? QColor(200, 0, 0) : QColor(0, 0, 0);
         }
     }
     else if (role == Qt::BackgroundRole) {
@@ -559,16 +907,55 @@ QVariant PositionModel::headerData(int section, Qt::Orientation orientation, int
 {
     if (orientation == Qt::Horizontal && role == Qt::DisplayRole) {
         switch (section) {
+            case ScripCode: return "Scrip Code";
             case Symbol: return "Symbol";
             case SeriesExpiry: return "Ser/Exp";
+            case StrikePrice: return "Strike Price";
+            case OptionType: return "Option Type";
+            case NetQty: return "Net Qty";
+            case MarketPrice: return "Market Price";
+            case MTMGL: return "MTM G/L";
+            case NetPrice: return "Net Price";
+            case MTMVPos: return "MTMV Pos";
+            case TotalValue: return "Total Value";
+            case BuyVal: return "Buy Val";
+            case SellVal: return "Sell Val";
+            case Exchange: return "Exchange";
+            case User: return "User";
+            case Client: return "Client";
+            case Name: return "Name";
+            case InstrumentType: return "Instrument Type";
+            case InstrumentName: return "Instrument Name";
+            case ScripName: return "Scrip Name";
             case BuyQty: return "Buy Qty";
+            case BuyLot: return "Buy Lot";
+            case BuyWeight: return "Buy Weight";
+            case BuyAvg: return "Buy Avg.";
             case SellQty: return "Sell Qty";
-            case NetPrice: return "Net Pr...";
-            case MarkPrice: return "Mark...";
-            case MTMGainLoss: return "MTM GA";
-            case MTMMargin: return "MTM-M...";
-            case BuyValue: return "Buy Val";
-            case SellValue: return "Sell Val";
+            case SellLot: return "Sell Lot";
+            case SellWeight: return "Sell Weight";
+            case SellAvg: return "Sell Avg.";
+            case NetLot: return "Net Lot";
+            case NetWeight: return "Net Weight";
+            case NetVal: return "Net Val";
+            case ProductType: return "Product Type";
+            case ClientGroup: return "Client Group";
+            case DPRRange: return "DPR Range";
+            case MaturityDate: return "Maturity Date";
+            case Yield: return "Yield";
+            case TotalQuantity: return "Total Quantity";
+            case TotalLot: return "Total Lot";
+            case TotalWeight: return "Total Weight";
+            case Brokerage: return "Brokerage";
+            case NetMTM: return "Net MTM";
+            case NetValuePostExp: return "Net Value Post Expenses";
+            case OptionFlag: return "Option Flag";
+            case VarPercent: return "VAR %";
+            case VarAmount: return "VAR Amount";
+            case SMCategory: return "SM Category";
+            case CfAvgPrice: return "CF Avg Price";
+            case ActualMTM: return "Actual MTM P&L";
+            case UnsettledQty: return "Unsettled Quantity";
         }
     }
     return QVariant();
@@ -656,16 +1043,55 @@ QStringList FilterRowWidget::getUniqueValuesForColumn() const
     for (const Position& pos : positions) {
         QString value;
         switch (m_column) {
+            case PositionModel::ScripCode: value = QString::number(pos.scripCode); break;
             case PositionModel::Symbol: value = pos.symbol; break;
             case PositionModel::SeriesExpiry: value = pos.seriesExpiry; break;
-            case PositionModel::BuyQty: if (pos.buyQty > 0) value = QString::number(pos.buyQty); break;
-            case PositionModel::SellQty: if (pos.sellQty > 0) value = QString::number(pos.sellQty); break;
-            case PositionModel::NetPrice: if (pos.netPrice != 0.0) value = QString::number(pos.netPrice, 'f', 2); break;
-            case PositionModel::MarkPrice: if (pos.markPrice != 0.0) value = QString::number(pos.markPrice, 'f', 2); break;
-            case PositionModel::MTMGainLoss: value = QString::number(pos.mtmGainLoss, 'f', 2); break;
-            case PositionModel::MTMMargin: value = QString::number(pos.mtmMargin, 'f', 2); break;
-            case PositionModel::BuyValue: if (pos.buyValue != 0.0) value = QString::number(pos.buyValue, 'f', 2); break;
-            case PositionModel::SellValue: if (pos.sellValue != 0.0) value = QString::number(pos.sellValue, 'f', 2); break;
+            case PositionModel::StrikePrice: value = pos.strikePrice > 0 ? QString::number(pos.strikePrice, 'f', 2) : ""; break;
+            case PositionModel::OptionType: value = pos.optionType; break;
+            case PositionModel::NetQty: value = QString::number(pos.netQty); break;
+            case PositionModel::MarketPrice: value = QString::number(pos.marketPrice, 'f', 2); break;
+            case PositionModel::MTMGL: value = QString::number(pos.mtm, 'f', 2); break;
+            case PositionModel::NetPrice: value = QString::number(pos.netPrice, 'f', 2); break;
+            case PositionModel::MTMVPos: value = QString::number(pos.mtmvPos, 'f', 2); break;
+            case PositionModel::TotalValue: value = QString::number(pos.totalValue, 'f', 2); break;
+            case PositionModel::BuyVal: value = QString::number(pos.buyVal, 'f', 2); break;
+            case PositionModel::SellVal: value = QString::number(pos.sellVal, 'f', 2); break;
+            case PositionModel::Exchange: value = pos.exchange; break;
+            case PositionModel::User: value = pos.user; break;
+            case PositionModel::Client: value = pos.client; break;
+            case PositionModel::Name: value = pos.name; break;
+            case PositionModel::InstrumentType: value = pos.instrumentType; break;
+            case PositionModel::InstrumentName: value = pos.instrumentName; break;
+            case PositionModel::ScripName: value = pos.scripName; break;
+            case PositionModel::BuyQty: value = QString::number(pos.buyQty); break;
+            case PositionModel::BuyLot: value = QString::number(pos.buyLot, 'f', 2); break;
+            case PositionModel::BuyWeight: value = QString::number(pos.buyWeight, 'f', 2); break;
+            case PositionModel::BuyAvg: value = QString::number(pos.buyAvg, 'f', 2); break;
+            case PositionModel::SellQty: value = QString::number(pos.sellQty); break;
+            case PositionModel::SellLot: value = QString::number(pos.sellLot, 'f', 2); break;
+            case PositionModel::SellWeight: value = QString::number(pos.sellWeight, 'f', 2); break;
+            case PositionModel::SellAvg: value = QString::number(pos.sellAvg, 'f', 2); break;
+            case PositionModel::NetLot: value = QString::number(pos.netLot, 'f', 2); break;
+            case PositionModel::NetWeight: value = QString::number(pos.netWeight, 'f', 2); break;
+            case PositionModel::NetVal: value = QString::number(pos.netVal, 'f', 2); break;
+            case PositionModel::ProductType: value = pos.productType; break;
+            case PositionModel::ClientGroup: value = pos.clientGroup; break;
+            case PositionModel::DPRRange: value = QString::number(pos.dprRange, 'f', 2); break;
+            case PositionModel::MaturityDate: value = pos.maturityDate; break;
+            case PositionModel::Yield: value = QString::number(pos.yield, 'f', 2); break;
+            case PositionModel::TotalQuantity: value = QString::number(pos.totalQuantity); break;
+            case PositionModel::TotalLot: value = QString::number(pos.totalLot, 'f', 2); break;
+            case PositionModel::TotalWeight: value = QString::number(pos.totalWeight, 'f', 2); break;
+            case PositionModel::Brokerage: value = QString::number(pos.brokerage, 'f', 2); break;
+            case PositionModel::NetMTM: value = QString::number(pos.netMtm, 'f', 2); break;
+            case PositionModel::NetValuePostExp: value = QString::number(pos.netValPostExp, 'f', 2); break;
+            case PositionModel::OptionFlag: value = pos.optionFlag; break;
+            case PositionModel::VarPercent: value = QString::number(pos.varPercent, 'f', 2); break;
+            case PositionModel::VarAmount: value = QString::number(pos.varAmount, 'f', 2); break;
+            case PositionModel::SMCategory: value = pos.smCategory; break;
+            case PositionModel::CfAvgPrice: value = QString::number(pos.cfAvgPrice, 'f', 2); break;
+            case PositionModel::ActualMTM: value = QString::number(pos.actualMtm, 'f', 2); break;
+            case PositionModel::UnsettledQty: value = QString::number(pos.unsettledQty); break;
         }
         if (!value.isEmpty()) {
             uniqueValues.insert(value);

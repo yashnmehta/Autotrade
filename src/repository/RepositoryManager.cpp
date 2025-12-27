@@ -393,6 +393,25 @@ QVector<ContractData> RepositoryManager::searchScrips(
     return results;
 }
 
+const ContractData* RepositoryManager::getContractByToken(
+    int exchangeSegmentID,
+    int64_t token
+) const {
+    if (exchangeSegmentID == 1 && m_nsecm->isLoaded()) {
+        return m_nsecm->getContract(token);
+    }
+    else if (exchangeSegmentID == 2 && m_nsefo->isLoaded()) {
+        return m_nsefo->getContract(token);
+    }
+    else if (exchangeSegmentID == 11 && m_bsecm->isLoaded()) {
+        return m_bsecm->getContract(token);
+    }
+    else if (exchangeSegmentID == 12 && m_bsefo->isLoaded()) {
+        return m_bsefo->getContract(token);
+    }
+    return nullptr;
+}
+
 QVector<ContractData> RepositoryManager::getScrips(
     const QString& exchange,
     const QString& segment,
@@ -412,21 +431,31 @@ QVector<ContractData> RepositoryManager::getScrips(
 }
 
 const ContractData* RepositoryManager::getContractByToken(
+    const QString& segmentKey,
+    int64_t token
+) const {
+    QString key = segmentKey.toUpper();
+    if (key == "NSEFO" || key == "NSEF" || key == "NSEO") {
+        return m_nsefo->isLoaded() ? m_nsefo->getContract(token) : nullptr;
+    }
+    else if (key == "NSECM" || key == "NSEE") {
+        return m_nsecm->isLoaded() ? m_nsecm->getContract(token) : nullptr;
+    }
+    else if (key == "BSEFO" || key == "BSEF") {
+        return m_bsefo->isLoaded() ? m_bsefo->getContract(token) : nullptr;
+    }
+    else if (key == "BSECM" || key == "BSEE") {
+        return m_bsecm->isLoaded() ? m_bsecm->getContract(token) : nullptr;
+    }
+    return nullptr;
+}
+
+const ContractData* RepositoryManager::getContractByToken(
     const QString& exchange,
     const QString& segment,
     int64_t token
 ) const {
-    QString segmentKey = getSegmentKey(exchange, segment);
-    
-    if (segmentKey == "NSEFO" && m_nsefo->isLoaded()) {
-        return m_nsefo->getContract(token);
-    }
-    else if (segmentKey == "NSECM" && m_nsecm->isLoaded()) {
-        return m_nsecm->getContract(token);
-    }
-    // TODO: Add BSE support
-    
-    return nullptr;
+    return getContractByToken(getSegmentKey(exchange, segment), token);
 }
 
 QVector<ContractData> RepositoryManager::getOptionChain(

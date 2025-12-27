@@ -1,5 +1,9 @@
 #include "views/OrderBookWindow.h"
 #include "core/widgets/CustomOrderBook.h"
+#include "services/TradingDataService.h"
+#include "repository/RepositoryManager.h"
+#include "repository/ContractData.h"
+#include "api/XTSTypes.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QComboBox>
@@ -14,17 +18,47 @@
 #include <QMessageBox>
 #include <QListWidget>
 #include <QLineEdit>
+#include <QSortFilterProxyModel>
+
+// Custom proxy model to keep filter row at top
+class OrderBookSortProxyModel : public QSortFilterProxyModel {
+public:
+    explicit OrderBookSortProxyModel(QObject* parent = nullptr) : QSortFilterProxyModel(parent) {}
+
+protected:
+    bool lessThan(const QModelIndex &source_left, const QModelIndex &source_right) const override {
+        // Always keep filter row at top
+        if (source_left.row() == 0) return (sortOrder() == Qt::AscendingOrder);
+        if (source_right.row() == 0) return (sortOrder() == Qt::DescendingOrder);
+
+        // For data rows, use UserRole for numeric sorting
+        QVariant leftData = sourceModel()->data(source_left, Qt::UserRole);
+        QVariant rightData = sourceModel()->data(source_right, Qt::UserRole);
+
+        if (leftData.isValid() && rightData.isValid()) {
+            if (leftData.type() == QVariant::Double || leftData.type() == QVariant::Int || leftData.type() == QVariant::LongLong) {
+                return leftData.toDouble() < rightData.toDouble();
+            }
+            if (leftData.type() == QVariant::DateTime) {
+                return leftData.toDateTime() < rightData.toDateTime();
+            }
+        }
+
+        return QSortFilterProxyModel::lessThan(source_left, source_right);
+    }
+};
 #include <QDialog>
 #include <QDialogButtonBox>
 #include <QTimer>
 #include <QDebug>
 
-OrderBookWindow::OrderBookWindow(QWidget *parent)
+OrderBookWindow::OrderBookWindow(TradingDataService* tradingDataService, QWidget *parent)
     : QWidget(parent)
     , m_tableView(nullptr)
     , m_model(nullptr)
     , m_filterRowVisible(false)
     , m_filterShortcut(nullptr)
+    , m_tradingDataService(tradingDataService)
     , m_totalOrders(0)
     , m_openOrders(0)
     , m_executedOrders(0)
@@ -32,8 +66,27 @@ OrderBookWindow::OrderBookWindow(QWidget *parent)
     , m_totalOrderValue(0.0)
 {
     setupUI();
+    loadInitialProfile();
     setupConnections();
-    loadDummyData();  // TODO: Replace with XTS API call
+    
+    // Initialize filter state
+    m_fromTime = QDateTime::currentDateTime().addDays(-7);
+    m_toTime = QDateTime::currentDateTime();
+    m_instrumentFilter = "All";
+    m_statusFilter = "All";
+    m_orderTypeFilter = "All";
+    m_exchangeFilter = "All";
+    m_buySellFilter = "All";
+
+    // Connect to trading data service if available
+    if (m_tradingDataService) {
+        connect(m_tradingDataService, &TradingDataService::ordersUpdated,
+                this, &OrderBookWindow::onOrdersUpdated);
+        
+        // Load initial data
+        onOrdersUpdated(m_tradingDataService->getOrders());
+        qDebug() << "[OrderBookWindow] Connected to TradingDataService and loaded initial orders";
+    }
     
     // Setup Ctrl+F shortcut for filter toggle
     m_filterShortcut = new QShortcut(QKeySequence("Ctrl+F"), this);
@@ -93,157 +146,245 @@ void OrderBookWindow::setupUI()
 
 QWidget* OrderBookWindow::createFilterWidget()
 {
-    QGroupBox *filterGroup = new QGroupBox("Order Book Filters");
-    filterGroup->setStyleSheet("QGroupBox { font-weight: bold; padding-top: 10px; background-color: #f5f5f5; }");
-    
-    QHBoxLayout *filterLayout = new QHBoxLayout(filterGroup);
-    filterLayout->setContentsMargins(10, 15, 10, 10);
-    filterLayout->setSpacing(10);
+    QWidget *container = new QWidget(this);
+    container->setObjectName("filterContainer");
+    container->setStyleSheet(
+        "QWidget#filterContainer { background-color: #2d2d2d; border-bottom: 1px solid #3f3f46; }"
+        "QLabel { color: #d4d4d8; font-size: 11px; font-weight: 500; }"
+        "QDateTimeEdit, QComboBox { "
+        "   background-color: #3f3f46; color: #ffffff; border: 1px solid #52525b; "
+        "   border-radius: 3px; padding: 3px 5px; font-size: 11px; "
+        "} "
+        "QDateTimeEdit::drop-down, QComboBox::drop-down { border: none; } "
+        "QPushButton { border-radius: 3px; font-weight: 600; font-size: 11px; padding: 5px 12px; } "
+    );
 
-    // Time Range
-    QLabel *lblFrom = new QLabel("From:");
+    QVBoxLayout *mainLayout = new QVBoxLayout(container);
+    mainLayout->setContentsMargins(12, 10, 12, 10);
+    mainLayout->setSpacing(8);
+
+    // Filter label
+    QLabel *topLabel = new QLabel("ORDER BOOK FILTERS");
+    topLabel->setStyleSheet("color: #a1a1aa; font-weight: bold; letter-spacing: 0.5px; font-size: 10px;");
+    mainLayout->addWidget(topLabel);
+
+    QHBoxLayout *filterLayout = new QHBoxLayout();
+    filterLayout->setSpacing(15);
+
+    // Group 1: Time Range
+    QHBoxLayout *timeLayout = new QHBoxLayout();
+    timeLayout->setSpacing(6);
+    QLabel *lblFrom = new QLabel("From");
     m_fromTimeEdit = new QDateTimeEdit(QDateTime::currentDateTime().addDays(-7));
     m_fromTimeEdit->setDisplayFormat("dd-MM-yyyy HH:mm");
     m_fromTimeEdit->setCalendarPopup(true);
-    m_fromTimeEdit->setMinimumWidth(150);
+    m_fromTimeEdit->setFixedWidth(135);
 
-    QLabel *lblTo = new QLabel("To:");
+    QLabel *lblTo = new QLabel("To");
     m_toTimeEdit = new QDateTimeEdit(QDateTime::currentDateTime());
     m_toTimeEdit->setDisplayFormat("dd-MM-yyyy HH:mm");
     m_toTimeEdit->setCalendarPopup(true);
-    m_toTimeEdit->setMinimumWidth(150);
+    m_toTimeEdit->setFixedWidth(135);
+    
+    timeLayout->addWidget(lblFrom);
+    timeLayout->addWidget(m_fromTimeEdit);
+    timeLayout->addWidget(lblTo);
+    timeLayout->addWidget(m_toTimeEdit);
+    filterLayout->addLayout(timeLayout);
 
-    // Instrument Type
-    QLabel *lblInstrument = new QLabel("Instrument:");
-    m_instrumentTypeCombo = new QComboBox();
-    m_instrumentTypeCombo->addItems({"All", "EQ", "FUT", "OPT", "INDEX"});
-    m_instrumentTypeCombo->setMinimumWidth(100);
+    // Group 2: Categories
+    auto addCombo = [&](const QString &label, QComboBox* &combo, const QStringList &items, int width) {
+        QVBoxLayout *vbox = new QVBoxLayout();
+        vbox->setSpacing(2);
+        vbox->addWidget(new QLabel(label));
+        combo = new QComboBox();
+        combo->addItems(items);
+        combo->setFixedWidth(width);
+        vbox->addWidget(combo);
+        filterLayout->addLayout(vbox);
+    };
 
-    // Exchange
-    QLabel *lblExchange = new QLabel("Exchange:");
-    m_exchangeCombo = new QComboBox();
-    m_exchangeCombo->addItems({"All", "NSE", "BSE", "NFO", "MCX"});
-    m_exchangeCombo->setMinimumWidth(100);
+    addCombo("Instrument", m_instrumentTypeCombo, {"All", "EQ", "FUT", "OPT", "INDEX"}, 90);
+    addCombo("Exchange", m_exchangeCombo, {"All", "NSE", "BSE", "NFO", "MCX"}, 70);
+    addCombo("B/S", m_buySellCombo, {"All", "BUY", "SELL"}, 65);
+    addCombo("Status", m_statusCombo, {"All", "Open", "Executed", "Cancelled", "Rejected", "Pending"}, 90);
+    addCombo("Order Type", m_orderTypeCombo, {"All", "Market", "Limit", "SL", "SL-M"}, 85);
 
-    // Buy/Sell
-    QLabel *lblBuySell = new QLabel("B/S:");
-    m_buySellCombo = new QComboBox();
-    m_buySellCombo->addItems({"All", "BUY", "SELL"});
-    m_buySellCombo->setMinimumWidth(80);
+    filterLayout->addStretch();
 
-    // Status
-    QLabel *lblStatus = new QLabel("Status:");
-    m_statusCombo = new QComboBox();
-    m_statusCombo->addItems({"All", "Open", "Executed", "Cancelled", "Rejected", "Pending"});
-    m_statusCombo->setMinimumWidth(100);
+    // Group 3: Buttons
+    QHBoxLayout *btnLayout = new QHBoxLayout();
+    btnLayout->setSpacing(8);
+    btnLayout->setAlignment(Qt::AlignBottom);
 
-    // Order Type
-    QLabel *lblOrderType = new QLabel("Order Type:");
-    m_orderTypeCombo = new QComboBox();
-    m_orderTypeCombo->addItems({"All", "Market", "Limit", "SL", "SL-M"});
-    m_orderTypeCombo->setMinimumWidth(100);
-
-    // Buttons
     m_applyFilterBtn = new QPushButton("Apply");
-    m_applyFilterBtn->setStyleSheet("QPushButton { background-color: #4CAF50; color: white; padding: 5px 15px; }");
+    m_applyFilterBtn->setStyleSheet("background-color: #16a34a; color: white;");
     
     m_clearFilterBtn = new QPushButton("Clear");
-    m_clearFilterBtn->setStyleSheet("QPushButton { background-color: #757575; color: white; padding: 5px 15px; }");
+    m_clearFilterBtn->setStyleSheet("background-color: #52525b; color: #e4e4e7; border: 1px solid #71717a;");
 
-    m_cancelOrderBtn = new QPushButton("Cancel Order");
-    m_cancelOrderBtn->setStyleSheet("QPushButton { background-color: #F44336; color: white; padding: 5px 15px; }");
+    m_cancelOrderBtn = new QPushButton("Cancel");
+    m_cancelOrderBtn->setStyleSheet("background-color: #dc2626; color: white;");
     
-    m_modifyOrderBtn = new QPushButton("Modify Order");
-    m_modifyOrderBtn->setStyleSheet("QPushButton { background-color: #2196F3; color: white; padding: 5px 15px; }");
+    m_modifyOrderBtn = new QPushButton("Modify");
+    m_modifyOrderBtn->setStyleSheet("background-color: #2563eb; color: white;");
 
     m_exportBtn = new QPushButton("Export");
-    m_exportBtn->setStyleSheet("QPushButton { background-color: #FF9800; color: white; padding: 5px 15px; }");
+    m_exportBtn->setStyleSheet("background-color: #d97706; color: white;");
 
-    // Add widgets to layout
-    filterLayout->addWidget(lblFrom);
-    filterLayout->addWidget(m_fromTimeEdit);
-    filterLayout->addWidget(lblTo);
-    filterLayout->addWidget(m_toTimeEdit);
-    filterLayout->addWidget(lblInstrument);
-    filterLayout->addWidget(m_instrumentTypeCombo);
-    filterLayout->addWidget(lblExchange);
-    filterLayout->addWidget(m_exchangeCombo);
-    filterLayout->addWidget(lblBuySell);
-    filterLayout->addWidget(m_buySellCombo);
-    filterLayout->addWidget(lblStatus);
-    filterLayout->addWidget(m_statusCombo);
-    filterLayout->addWidget(lblOrderType);
-    filterLayout->addWidget(m_orderTypeCombo);
-    filterLayout->addStretch();
-    filterLayout->addWidget(m_applyFilterBtn);
-    filterLayout->addWidget(m_clearFilterBtn);
-    filterLayout->addWidget(m_cancelOrderBtn);
-    filterLayout->addWidget(m_modifyOrderBtn);
-    filterLayout->addWidget(m_exportBtn);
+    btnLayout->addWidget(m_applyFilterBtn);
+    btnLayout->addWidget(m_clearFilterBtn);
+    btnLayout->addWidget(new QWidget()); // Spacer
+    btnLayout->addWidget(m_cancelOrderBtn);
+    btnLayout->addWidget(m_modifyOrderBtn);
+    btnLayout->addWidget(m_exportBtn);
 
-    return filterGroup;
+    filterLayout->addLayout(btnLayout);
+    mainLayout->addLayout(filterLayout);
+
+    return container;
 }
 
 QWidget* OrderBookWindow::createSummaryWidget()
 {
     QWidget *summaryWidget = new QWidget();
-    summaryWidget->setStyleSheet("background-color: #e1e1e1; padding: 5px;");
-    summaryWidget->setFixedHeight(35);
+    summaryWidget->setObjectName("summaryWidget");
+    summaryWidget->setStyleSheet(
+        "QWidget#summaryWidget { background-color: #1e1e1e; border-top: 1px solid #333333; }"
+        "QLabel { color: #cccccc; font-size: 11px; }"
+    );
+    summaryWidget->setFixedHeight(32);
     
     QHBoxLayout *summaryLayout = new QHBoxLayout(summaryWidget);
-    summaryLayout->setContentsMargins(10, 5, 10, 5);
+    summaryLayout->setContentsMargins(15, 0, 15, 0);
     
-    QLabel *summaryLabel = new QLabel(QString("Total Orders: <b>%1</b> | Open: <b style='color: #2196F3;'>%2</b> | "
-                                               "Executed: <b style='color: #4CAF50;'>%3</b> | Cancelled: <b style='color: #F44336;'>%4</b> | "
-                                               "Total Value: <b>₹%5</b>")
-                                       .arg(m_totalOrders)
-                                       .arg(m_openOrders)
-                                       .arg(m_executedOrders)
-                                       .arg(m_cancelledOrders)
-                                       .arg(m_totalOrderValue, 0, 'f', 2));
-    summaryLayout->addWidget(summaryLabel);
+    m_summaryLabel = new QLabel(this);
+    m_summaryLabel->setText("Total Orders: 0 | Open: 0 | Executed: 0 | Cancelled: 0 | Rejected: 0");
+    summaryLayout->addWidget(m_summaryLabel);
     summaryLayout->addStretch();
     
     return summaryWidget;
 }
 
+
+#include "views/GenericProfileDialog.h"
+#include "models/GenericProfileManager.h"
+
+void OrderBookWindow::showColumnProfileDialog()
+{
+    QList<GenericColumnInfo> allCols;
+    for (int i = 0; i < m_model->columnCount(); ++i) {
+        GenericColumnInfo info;
+        info.id = i;
+        info.name = m_model->headerData(i, Qt::Horizontal).toString();
+        info.defaultWidth = 90;
+        info.visibleByDefault = true;
+        allCols.append(info);
+    }
+
+    GenericProfileDialog dialog("OrderBook", allCols, m_columnProfile, this);
+    if (dialog.exec() == QDialog::Accepted) {
+        m_columnProfile = dialog.getProfile();
+        
+        // Apply to view
+        for (int i = 0; i < m_model->columnCount(); ++i) {
+            bool visible = m_columnProfile.isColumnVisible(i);
+            m_tableView->setColumnHidden(i, !visible);
+            if (visible) {
+                m_tableView->setColumnWidth(i, m_columnProfile.columnWidth(i));
+            }
+        }
+    }
+}
+
+void OrderBookWindow::loadInitialProfile()
+{
+    GenericProfileManager manager("profiles");
+    QString defName = manager.getDefaultProfileName("OrderBook");
+    
+    if (defName != "Default" && manager.loadProfile("OrderBook", defName, m_columnProfile)) {
+        // Success
+    } else {
+        // Default layout
+        m_columnProfile = GenericTableProfile("Default");
+        int colCount = m_model->columnCount();
+        for (int i = 0; i < colCount; ++i) {
+            m_columnProfile.setColumnVisible(i, true);
+            m_columnProfile.setColumnWidth(i, 90);
+        }
+        QList<int> order;
+        for (int i = 0; i < colCount; ++i) order.append(i);
+        m_columnProfile.setColumnOrder(order);
+    }
+    
+    // Apply to view
+    for (int i = 0; i < m_model->columnCount(); ++i) {
+        bool visible = m_columnProfile.isColumnVisible(i);
+        m_tableView->setColumnHidden(i, !visible);
+        if (visible) {
+            m_tableView->setColumnWidth(i, m_columnProfile.columnWidth(i));
+        }
+    }
+}
+
 void OrderBookWindow::setupTable()
 {
     m_tableView = new CustomOrderBook(this);
+    m_tableView->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(m_tableView, &QTableView::customContextMenuRequested, this, [this](const QPoint &pos) {
+        QMenu menu(this);
+        menu.addAction("Export to CSV", this, &OrderBookWindow::exportToCSV);
+        menu.addAction("Refresh", this, &OrderBookWindow::refreshOrders);
+        menu.addSeparator();
+        menu.addAction("Column Profile...", this, &OrderBookWindow::showColumnProfileDialog);
+        menu.exec(m_tableView->viewport()->mapToGlobal(pos));
+    });
+
     m_model = new QStandardItemModel(this);
     
-    // 20 columns for Order Book
+    // Setup proxy model for sorting
+    m_proxyModel = new OrderBookSortProxyModel(this);
+    m_proxyModel->setSourceModel(m_model);
+    m_proxyModel->setDynamicSortFilter(true);
+    
+    m_tableView->setModel(m_proxyModel);
+    m_tableView->setSortingEnabled(true);
+    
+    // Headers list as requested
     QStringList headers = {
-        "Order ID", "Time", "Exchange", "Segment", "Symbol", "Series/Expiry",
-        "Instrument", "B/S", "Order Type", "Product", "Validity",
-        "Qty", "Price", "Trigger Price", "Filled Qty", "Pending Qty",
-        "Avg Price", "Status", "Order Value", "Message"
+        "User", "Group", "Client Order No.", "Exchange Code", "MemberId", "TraderId",
+        "Instrument Type", "Instrument Name", "Code", "Symbol/ScripId", "Ser/Exp/Group",
+        "Strike Price", "Option Type", "Scrip Name", "Order Type", "B/S", "Pending Quantity",
+        "Price", "Spread", "Total Quantity", "Pro/Cli", "Client", "Client Name", "Misc.",
+        "Exch. Ord.No.", "Status", "Disclosed Quantity", "Settlor", "Validity",
+        "Good Till Days/Date/Time", "MF/AON", "MF Quantity", "Trigger Price",
+        "CP Broker Id", "Auction No.", "Last Modified Time", "Total Executed Quantity",
+        "Avg. Price", "Reason", "User Remarks", "Part Type", "Product Type",
+        "Server Entry Time", "AMO Order ID", "OMSID", "Give Up Status", "EOMSID",
+        "BookingRef", "Dealing Instruction", "Order Instruction", "Pending Lots",
+        "Total Lots", "Total Executed Lots", "Alias Settlor", "Alias PartType",
+        "Initiated From", "Modified From", "Strategy", "Mapping", "Initiated From User Id",
+        "Modified From User Id", "SOR Id", "Maturity Date", "Yield", "COL", "SL Price",
+        "SL Trigger Price", "SL Jump Price", "LTP Jump Price", "Profit Price",
+        "Leg Indicator", "Bracket Order Status", "Mapping Order Type", "Algo Type",
+        "Algo Description"
     };
     
     m_model->setHorizontalHeaderLabels(headers);
     m_tableView->setModel(m_model);
     
     // Set column widths
-    m_tableView->setColumnWidth(0, 120);  // Order ID
-    m_tableView->setColumnWidth(1, 140);  // Time
-    m_tableView->setColumnWidth(2, 80);   // Exchange
-    m_tableView->setColumnWidth(3, 80);   // Segment
-    m_tableView->setColumnWidth(4, 150);  // Symbol
-    m_tableView->setColumnWidth(5, 100);  // Series/Expiry
-    m_tableView->setColumnWidth(6, 100);  // Instrument
-    m_tableView->setColumnWidth(7, 60);   // B/S
-    m_tableView->setColumnWidth(8, 100);  // Order Type
-    m_tableView->setColumnWidth(9, 80);   // Product
-    m_tableView->setColumnWidth(10, 80);  // Validity
-    m_tableView->setColumnWidth(11, 80);  // Qty
-    m_tableView->setColumnWidth(12, 100); // Price
-    m_tableView->setColumnWidth(13, 100); // Trigger Price
-    m_tableView->setColumnWidth(14, 80);  // Filled Qty
-    m_tableView->setColumnWidth(15, 80);  // Pending Qty
-    m_tableView->setColumnWidth(16, 100); // Avg Price
-    m_tableView->setColumnWidth(17, 100); // Status
-    m_tableView->setColumnWidth(18, 120); // Order Value
-    m_tableView->setColumnWidth(19, 200); // Message
+    for (int i = 0; i < headers.size(); ++i) {
+        m_tableView->setColumnWidth(i, 100);
+    }
+    // Adjust specific ones
+    m_tableView->setColumnWidth(2, 120);  // Client Order No.
+    m_tableView->setColumnWidth(9, 150);  // Symbol
+    m_tableView->setColumnWidth(13, 150); // Scrip Name
+    m_tableView->setColumnWidth(14, 90);  // Order Type
+    m_tableView->setColumnWidth(25, 100); // Status
+    m_tableView->setColumnWidth(38, 200); // Reason
+    m_tableView->setColumnWidth(42, 140); // Server Entry Time
 }
 
 void OrderBookWindow::setupConnections()
@@ -258,74 +399,132 @@ void OrderBookWindow::setupConnections()
     connect(m_tableView, &CustomOrderBook::modifyOrderRequested, this, &OrderBookWindow::onModifyOrder);
 }
 
-void OrderBookWindow::loadDummyData()
+void OrderBookWindow::refreshOrders()
 {
-    // Sample orders for testing
-    QList<QStringList> orders = {
-        {"ORD001", "26-12-2025 09:15:30", "NSE", "EQ", "RELIANCE", "-", "EQ", "BUY", "Limit", "NRML", "DAY", "100", "2450.50", "0.00", "100", "0", "2450.50", "Executed", "245050.00", "Order executed successfully"},
-        {"ORD002", "26-12-2025 09:20:15", "NSE", "FO", "NIFTY", "28-DEC-2025", "FUT", "SELL", "Market", "MIS", "DAY", "50", "0.00", "0.00", "50", "0", "21550.25", "Executed", "1077512.50", "Order executed"},
-        {"ORD003", "26-12-2025 09:25:45", "NSE", "EQ", "TCS", "-", "EQ", "BUY", "Limit", "NRML", "DAY", "25", "3650.00", "0.00", "0", "25", "0.00", "Open", "91250.00", "Order pending"},
-        {"ORD004", "26-12-2025 09:30:20", "NFO", "FO", "BANKNIFTY", "28-DEC-2025", "OPT", "BUY", "Limit", "MIS", "DAY", "75", "250.50", "0.00", "75", "0", "250.50", "Executed", "18787.50", "Order executed"},
-        {"ORD005", "26-12-2025 09:35:10", "NSE", "EQ", "INFY", "-", "EQ", "SELL", "Limit", "NRML", "DAY", "50", "1450.00", "0.00", "0", "50", "0.00", "Open", "72500.00", "Order pending"},
-        {"ORD006", "26-12-2025 09:40:00", "NSE", "EQ", "HDFCBANK", "-", "EQ", "BUY", "SL", "NRML", "DAY", "30", "1650.00", "1645.00", "0", "30", "0.00", "Pending", "49500.00", "Stop loss order placed"},
-        {"ORD007", "26-12-2025 09:45:30", "BSE", "EQ", "WIPRO", "-", "EQ", "SELL", "Limit", "NRML", "DAY", "100", "450.75", "0.00", "0", "0", "0.00", "Cancelled", "45075.00", "Cancelled by user"},
-        {"ORD008", "26-12-2025 09:50:15", "NFO", "FO", "NIFTY", "28-DEC-2025", "OPT", "BUY", "Limit", "MIS", "DAY", "100", "180.50", "0.00", "50", "50", "180.25", "Partially Filled", "18050.00", "Partial execution"},
-        {"ORD009", "26-12-2025 09:55:00", "NSE", "EQ", "TATAMOTORS", "-", "EQ", "BUY", "Market", "NRML", "DAY", "150", "0.00", "0.00", "150", "0", "725.50", "Executed", "108825.00", "Market order executed"},
-        {"ORD010", "26-12-2025 10:00:45", "NSE", "EQ", "SBIN", "-", "EQ", "SELL", "Limit", "NRML", "DAY", "200", "590.00", "0.00", "0", "200", "0.00", "Open", "118000.00", "Order pending"}
-    };
+    qDebug() << "[OrderBookWindow] Refreshing orders...";
+    // In a real scenario, this might trigger a fetch in the service
+    // For now, we rely on the service being updated by the logic flow or WebSocket
+    if (m_tradingDataService) {
+        onOrdersUpdated(m_tradingDataService->getOrders());
+    }
+}
 
-    for (const QStringList &order : orders) {
+void OrderBookWindow::onOrdersUpdated(const QVector<XTS::Order>& orders)
+{
+    qDebug() << "[OrderBookWindow::onOrdersUpdated] Received" << orders.size() << "orders";
+    
+    // Remember filter row visible state
+    bool filterRowVisible = m_filterRowVisible;
+    if (filterRowVisible) {
+        toggleFilterRow(); // Hide to clear widgets
+    }
+
+    m_model->removeRows(0, m_model->rowCount());
+    
+    RepositoryManager* repo = RepositoryManager::getInstance();
+    
+    for (const XTS::Order& order : orders) {
         QList<QStandardItem*> row;
-        for (int i = 0; i < order.size(); ++i) {
-            QStandardItem *item = new QStandardItem(order[i]);
-            item->setEditable(false);
-            
-            // Color coding for B/S column
-            if (i == 7) {  // B/S column
-                if (order[i] == "BUY") {
-                    item->setForeground(QColor("#4CAF50"));  // Green
-                } else if (order[i] == "SELL") {
-                    item->setForeground(QColor("#F44336"));  // Red
-                }
-            }
-            
-            // Color coding for Status column
-            if (i == 17) {  // Status column
-                if (order[i] == "Executed") {
-                    item->setForeground(QColor("#4CAF50"));  // Green
-                } else if (order[i] == "Cancelled" || order[i] == "Rejected") {
-                    item->setForeground(QColor("#F44336"));  // Red
-                } else if (order[i] == "Open" || order[i] == "Pending") {
-                    item->setForeground(QColor("#2196F3"));  // Blue
-                } else if (order[i] == "Partially Filled") {
-                    item->setForeground(QColor("#FF9800"));  // Orange
-                }
-            }
-            
-            row.append(item);
+        const ContractData* contract = repo->getContractByToken(order.exchangeSegment, order.exchangeInstrumentID);
+        
+        // Initialize 75 items
+        for (int i = 0; i < 75; ++i) {
+            row.append(new QStandardItem(""));
         }
+
+        // Map fields to columns (0-indexed)
+        row[0]->setText("MEMBER");                        // User
+        row[1]->setText("DEFAULT");                       // Group
+        
+        row[2]->setText(order.appOrderIDStr());           // Client Order No
+        row[2]->setData((qlonglong)order.appOrderID, Qt::UserRole);
+        
+        row[3]->setText(order.exchangeSegment);           // Exchange Code
+        row[4]->setText("123");                           // MemberId
+        row[5]->setText("T01");                           // TraderId
+        
+        row[6]->setText(contract ? contract->series : "");   // Instrument Type
+        row[7]->setText(contract ? contract->series : "");   // Instrument Name
+        
+        row[8]->setText(QString::number(order.exchangeInstrumentID)); // Code
+        row[8]->setData((qlonglong)order.exchangeInstrumentID, Qt::UserRole);
+        
+        row[9]->setText(order.tradingSymbol);             // Symbol/ScripId
+        row[10]->setText(contract ? contract->expiryDate : ""); // Ser/Exp/Group
+        
+        row[11]->setText(contract && contract->strikePrice > 0 ? QString::number(contract->strikePrice, 'f', 2) : ""); // Strike Price
+        row[11]->setData(contract ? contract->strikePrice : 0.0, Qt::UserRole);
+        
+        row[12]->setText(contract ? contract->optionType : ""); // Option Type
+        row[13]->setText(contract ? contract->displayName : order.tradingSymbol); // Scrip Name
+        row[14]->setText(order.orderType);                // Order Type
+        row[15]->setText(order.orderSide);                // B/S
+        
+        row[16]->setText(QString::number(order.pendingQuantity())); // Pending Quantity
+        row[16]->setData(order.pendingQuantity(), Qt::UserRole);
+        
+        row[17]->setText(QString::number(order.orderPrice, 'f', 2)); // Price
+        row[17]->setData(order.orderPrice, Qt::UserRole);
+        
+        row[19]->setText(QString::number(order.orderQuantity)); // Total Quantity
+        row[19]->setData(order.orderQuantity, Qt::UserRole);
+        
+        row[20]->setText("CLI");                          // Pro/Cli
+        row[21]->setText(order.clientID);                 // Client
+        
+        row[24]->setText(order.exchangeOrderID);          // Exch. Ord.No.
+        row[24]->setData((qlonglong)order.exchangeOrderID.toLongLong(), Qt::UserRole);
+        
+        row[25]->setText(order.orderStatus);              // Status
+        
+        row[26]->setText(QString::number(order.orderDisclosedQuantity)); // Disclosed Quantity
+        row[26]->setData(order.orderDisclosedQuantity, Qt::UserRole);
+        
+        row[28]->setText(order.timeInForce);              // Validity
+        
+        row[32]->setText(QString::number(order.orderStopPrice, 'f', 2)); // Trigger Price
+        row[32]->setData(order.orderStopPrice, Qt::UserRole);
+        
+        row[35]->setText(order.lastUpdateDateTime);       // Last Modified Time
+        
+        row[36]->setText(QString::number(order.cumulativeQuantity)); // Total Executed Quantity
+        row[36]->setData(order.cumulativeQuantity, Qt::UserRole);
+        
+        row[37]->setText(QString::number(order.orderAverageTradedPrice, 'f', 2)); // Avg. Price
+        row[37]->setData(order.orderAverageTradedPrice, Qt::UserRole);
+        
+        row[38]->setText(order.cancelRejectReason.isEmpty() ? "-" : order.cancelRejectReason); // Reason
+        row[39]->setText(order.orderUniqueIdentifier);    // User Remarks
+        row[41]->setText(order.productType);              // Product Type
+        row[42]->setText(order.orderTimestamp());         // Server Entry Time
+        row[42]->setData(QDateTime::fromString(order.orderTimestamp(), "dd-MM-yyyy HH:mm:ss"), Qt::UserRole); // For chrono sort
+
+        // Side colors
+        if (order.orderSide == "BUY") {
+            row[15]->setForeground(QColor("#4CAF50"));
+        } else if (order.orderSide == "SELL") {
+            row[15]->setForeground(QColor("#F44336"));
+        }
+        QFont boldFont = row[15]->font();
+        boldFont.setBold(true);
+        row[15]->setFont(boldFont);
+
+        // Status colors
+        if (order.orderStatus == "Filled") row[25]->setForeground(QColor("#4CAF50"));
+        else if (order.orderStatus == "Cancelled" || order.orderStatus == "Rejected") row[25]->setForeground(QColor("#F44336"));
+        else if (order.orderStatus == "Open" || order.orderStatus == "New" || order.orderStatus == "PartiallyFilled") row[25]->setForeground(QColor("#2196F3"));
+        row[25]->setFont(boldFont);
+
+        for (auto item : row) item->setEditable(false);
         m_model->appendRow(row);
     }
     
-    // Initialize filters
-    m_fromTime = QDateTime::currentDateTime().addDays(-7);
-    m_toTime = QDateTime::currentDateTime();
-    m_instrumentFilter = "All";
-    m_statusFilter = "All";
-    m_orderTypeFilter = "All";
-    m_exchangeFilter = "All";
-    m_buySellFilter = "All";
-    
-    updateSummary();
-    
-    qDebug() << "[OrderBookWindow] Loaded" << m_model->rowCount() << "sample orders";
-}
+    if (filterRowVisible) {
+        toggleFilterRow(); // Show again
+    }
 
-void OrderBookWindow::refreshOrders()
-{
-    qDebug() << "[OrderBookWindow] Refresh orders";
-    // TODO: Call XTS API to fetch orders
-    loadDummyData();
+    applyFilterToModel();
+    updateSummary();
 }
 
 void OrderBookWindow::applyFilters()
@@ -525,9 +724,18 @@ void OrderBookWindow::updateSummary()
         }
     }
     
-    qDebug() << "[OrderBookWindow] Summary - Total:" << m_totalOrders
-             << "Open:" << m_openOrders << "Executed:" << m_executedOrders
-             << "Cancelled:" << m_cancelledOrders << "Value:" << m_totalOrderValue;
+    m_summaryLabel->setText(QString("Total Orders: <b>%1</b> | "
+                                    "Open: <b style='color: #2563eb;'>%2</b> | "
+                                    "Executed: <b style='color: #16a34a;'>%3</b> | "
+                                    "Cancelled: <b style='color: #dc2626;'>%4</b> | "
+                                    "Total Value: <b>₹%5</b>")
+                            .arg(m_totalOrders)
+                            .arg(m_openOrders)
+                            .arg(m_executedOrders)
+                            .arg(m_cancelledOrders)
+                            .arg(m_totalOrderValue, 0, 'f', 2));
+
+    qDebug() << "[OrderBookWindow] Summary updated";
 }
 
 void OrderBookWindow::setInstrumentFilter(const QString &instrument)

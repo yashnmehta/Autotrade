@@ -20,6 +20,7 @@
 #include "api/XTSInteractiveClient.h"
 #include "services/PriceCache.h"
 #include "services/FeedHandler.h"  // Phase 1: Direct callback-based tick distribution
+#include "services/TradingDataService.h"
 #include "utils/LatencyTracker.h"  // Latency tracking
 #include <thread>
 #include <chrono>
@@ -50,6 +51,7 @@ MainWindow::MainWindow(QWidget *parent)
     : CustomMainWindow(parent)
     , m_xtsMarketDataClient(nullptr)
     , m_xtsInteractiveClient(nullptr)
+    , m_tradingDataService(nullptr)
     , m_tickDrainTimer(nullptr)
 {
     setTitle("Trading Terminal");
@@ -106,6 +108,12 @@ void MainWindow::setXTSClients(XTSMarketDataClient *mdClient, XTSInteractiveClie
         m_scripBar->setXTSClient(m_xtsMarketDataClient);
         qDebug() << "[MainWindow] XTS clients set and passed to ScripBar";
     }
+}
+
+void MainWindow::setTradingDataService(TradingDataService *tradingDataService)
+{
+    m_tradingDataService = tradingDataService;
+    qDebug() << "[MainWindow] Trading data service set";
 }
 
 void MainWindow::refreshScripBar()
@@ -1072,11 +1080,18 @@ void MainWindow::createOptionChainWindow()
 
 void MainWindow::createPositionWindow()
 {
+    // Limit to 5 windows
+    if (countWindowsOfType("PositionWindow") >= 5) {
+        qWarning() << "[MainWindow] Limit reached: Cannot open more than 5 Position windows";
+        return;
+    }
+
     // Create window with Position widget
     CustomMDISubWindow *window = new CustomMDISubWindow("Integrated Net Position", m_mdiArea);
     window->setWindowType("PositionWindow");
+    window->setAttribute(Qt::WA_DeleteOnClose);
 
-    PositionWindow *posWindow = new PositionWindow(window);
+    PositionWindow *posWindow = new PositionWindow(m_tradingDataService, window);
     window->setContentWidget(posWindow);
     window->resize(1000, 500);
 
@@ -1091,16 +1106,23 @@ void MainWindow::createPositionWindow()
     window->raise();
     window->activateWindow();
 
-    qDebug() << "[MainWindow] Position Window created";
+    qDebug() << "[MainWindow] Position Window created (Count:" << countWindowsOfType("PositionWindow") << ")";
 }
 
 void MainWindow::createTradeBookWindow()
 {
+    // Limit to 5 windows
+    if (countWindowsOfType("TradeBook") >= 5) {
+        qWarning() << "[MainWindow] Limit reached: Cannot open more than 5 Trade Book windows";
+        return;
+    }
+
     // Create window with TradeBook widget
     CustomMDISubWindow *window = new CustomMDISubWindow("Trade Book", m_mdiArea);
     window->setWindowType("TradeBook");
+    window->setAttribute(Qt::WA_DeleteOnClose);
 
-    TradeBookWindow *tradeBook = new TradeBookWindow(window);
+    TradeBookWindow *tradeBook = new TradeBookWindow(m_tradingDataService, window);
     window->setContentWidget(tradeBook);
     window->resize(1400, 600);
 
@@ -1115,16 +1137,23 @@ void MainWindow::createTradeBookWindow()
     window->raise();
     window->activateWindow();
 
-    qDebug() << "[MainWindow] Trade Book Window created";
+    qDebug() << "[MainWindow] Trade Book Window created (Count:" << countWindowsOfType("TradeBook") << ")";
 }
 
 void MainWindow::createOrderBookWindow()
 {
+    // Limit to 5 windows
+    if (countWindowsOfType("OrderBook") >= 5) {
+        qWarning() << "[MainWindow] Limit reached: Cannot open more than 5 Order Book windows";
+        return;
+    }
+
     // Create window with OrderBook widget
     CustomMDISubWindow *window = new CustomMDISubWindow("Order Book", m_mdiArea);
     window->setWindowType("OrderBook");
+    window->setAttribute(Qt::WA_DeleteOnClose);
 
-    OrderBookWindow *orderBook = new OrderBookWindow(window);
+    OrderBookWindow *orderBook = new OrderBookWindow(m_tradingDataService, window);
     window->setContentWidget(orderBook);
     window->resize(1400, 600);
 
@@ -1139,7 +1168,20 @@ void MainWindow::createOrderBookWindow()
     window->raise();
     window->activateWindow();
 
-    qDebug() << "[MainWindow] Order Book Window created";
+    qDebug() << "[MainWindow] Order Book Window created (Count:" << countWindowsOfType("OrderBook") << ")";
+}
+
+int MainWindow::countWindowsOfType(const QString& type)
+{
+    int count = 0;
+    if (m_mdiArea) {
+        for (auto window : m_mdiArea->windowList()) {
+            if (window->windowType() == type) {
+                count++;
+            }
+        }
+    }
+    return count;
 }
 
 void MainWindow::onAddToWatchRequested(const InstrumentData &instrument)

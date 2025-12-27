@@ -5,6 +5,9 @@
 #include <QStandardItemModel>
 #include <QDateTime>
 #include <QShortcut>
+#include <QLabel>
+#include "models/GenericTableProfile.h"
+#include "api/XTSTypes.h"
 
 class CustomTradeBook;
 class QComboBox;
@@ -13,6 +16,7 @@ class QPushButton;
 class QCheckBox;
 class FilterRowWidget;
 class TradeBookFilterWidget;
+class TradingDataService;
 
 class TradeBookWindow : public QWidget
 {
@@ -21,7 +25,7 @@ class TradeBookWindow : public QWidget
     friend class TradeBookFilterWidget;
 
 public:
-    explicit TradeBookWindow(QWidget *parent = nullptr);
+    explicit TradeBookWindow(class TradingDataService* tradingDataService, QWidget *parent = nullptr);
     ~TradeBookWindow();
 
     // Filter methods
@@ -31,22 +35,27 @@ public:
     void setOrderTypeFilter(const QString &orderType);  // "All", "Day", "IOC", etc.
 
 public slots:
-    void refreshTrades();
+    // applyFilters, clearFilters, exportToCSV, toggleFilterRow, onColumnFilterChanged remain public slots
     void applyFilters();
     void clearFilters();
     void exportToCSV();
     void toggleFilterRow();
     void onColumnFilterChanged(int column, const QStringList& selectedValues);
+    void showColumnProfileDialog(); // Added
 
 signals:
     void tradeSelected(const QString &tradeId);
+
+private slots: // refreshTrades moved here, onTradesUpdated added
+    void refreshTrades();
+    void onTradesUpdated(const QVector<XTS::Trade>& trades);
 
 private:
     void setupUI();
     void setupFilterBar();
     void setupTable();
+    void loadInitialProfile();
     void setupConnections();
-    void loadDummyData();  // TODO: Replace with actual XTS API integration
     void applyFilterToModel();
     void updateSummary();
     
@@ -57,10 +66,14 @@ private:
     // Filter helper
     QList<QStandardItem*> getTopFilteredTrades() const;
 
+    // Trading data service
+    TradingDataService* m_tradingDataService;
+
     // UI Components
     CustomTradeBook *m_tableView;
     QStandardItemModel *m_model;
     QStandardItemModel *m_filteredModel;
+    class QSortFilterProxyModel *m_proxyModel; // Added for sorting
 
     // Filter Components
     QComboBox *m_instrumentTypeCombo;
@@ -88,8 +101,10 @@ private:
     QShortcut* m_escShortcut;
     QList<TradeBookFilterWidget*> m_filterWidgets;
     QMap<int, QStringList> m_columnFilters;
+    GenericTableProfile m_columnProfile; // Added
 
     // Summary data
+    QLabel *m_summaryLabel;
     double m_totalBuyQty;
     double m_totalSellQty;
     double m_totalBuyValue;

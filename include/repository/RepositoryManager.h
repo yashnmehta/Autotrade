@@ -106,12 +106,34 @@ public:
     ) const;
     
     /**
+     * @brief Get contract by token using exchange segment ID
+     * @param exchangeSegmentID XTS segment ID (1=NSECM, 2=NSEFO, 11=BSECM, 12=BSEFO)
+     * @param token Exchange instrument ID
+     * @return Pointer to contract (nullptr if not found)
+     */
+    const ContractData* getContractByToken(
+        int exchangeSegmentID,
+        int64_t token
+    ) const;
+    
+    /**
      * @brief Get contract by token
      * @param exchange Exchange name ("NSE" or "BSE")
      * @param segment Segment type ("CM" or "FO")
      * @param token Exchange instrument ID
      * @return Pointer to contract (nullptr if not found)
      */
+    /**
+     * @brief Get contract by token using combined segment key (e.g., "NSEFO", "NSECM")
+     * @param segmentKey Combined segment name
+     * @param token Exchange instrument ID
+     * @return Pointer to contract (nullptr if not found)
+     */
+    const ContractData* getContractByToken(
+        const QString& segmentKey,
+        int64_t token
+    ) const;
+
     const ContractData* getContractByToken(
         const QString& exchange,
         const QString& segment,

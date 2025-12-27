@@ -74,48 +74,116 @@ struct Instrument {
     int freezeQty;
     double tickSize;
     int lotSize;
+    QString instrumentType;
+    QString symbol;
+    QString expiryDate;
+    double strikePrice;
+    QString optionType;
 };
 
 // Position data structure
 struct Position {
-    QString exchangeSegment;
+    QString accountID;
+    double actualBuyAmount;
+    double actualBuyAveragePrice;
+    double actualSellAmount;
+    double actualSellAveragePrice;
+    double bep;
+    double buyAmount;
+    double buyAveragePrice;
     int64_t exchangeInstrumentID;
+    QString exchangeSegment;
+    QString loginID;
+    double mtm;
+    int marketLot;
+    double multiplier;
+    double netAmount;
+    int openBuyQuantity;
+    int openSellQuantity;
     QString productType;
     int quantity;
-    double buyAveragePrice;
+    double realizedMTM;
+    double sellAmount;
     double sellAveragePrice;
-    int netQuantity;
-    double realizedProfit;
-    double unrealizedProfit;
-    double mtm;
+    QString tradingSymbol;
+    double unrealizedMTM;
+    
+    // Legacy mapping helpers
+    double realizedProfit() const { return realizedMTM; }
+    double unrealizedProfit() const { return unrealizedMTM; }
 };
 
 // Order data structure
 struct Order {
-    QString appOrderID;
-    QString orderID;
+    int64_t appOrderID;
     QString exchangeOrderID;
+    QString clientID;
+    QString loginID;
+    QString exchangeSegment;
     int64_t exchangeInstrumentID;
-    QString orderSide;  // BUY/SELL
-    QString orderType;  // MARKET/LIMIT/SL
+    QString tradingSymbol;
+    QString orderSide;
+    QString orderType;
+    double orderPrice;
+    double orderStopPrice;
+    int orderQuantity;
+    int cumulativeQuantity;
+    int leavesQuantity;
+    QString orderStatus;
+    double orderAverageTradedPrice;
     QString productType;
     QString timeInForce;
-    double orderPrice;
-    int orderQuantity;
-    int filledQuantity;
-    QString orderStatus;
-    QString orderTimestamp;
+    QString orderGeneratedDateTime;
+    QString exchangeTransactTime;
+    QString lastUpdateDateTime;
+    QString orderUniqueIdentifier;
+    QString orderReferenceID;
+    QString cancelRejectReason;
+    QString orderCategoryType;
+    QString orderLegStatus;
+    int orderDisclosedQuantity;
+    QString orderExpiryDate;
+    
+    // Legacy mapping helpers
+    QString appOrderIDStr() const { return QString::number(appOrderID); }
+    int filledQuantity() const { return cumulativeQuantity; }
+    int pendingQuantity() const { return leavesQuantity; }
+    QString orderTimestamp() const { return orderGeneratedDateTime; }
 };
 
 // Trade data structure
 struct Trade {
-    QString tradeID;
-    QString orderID;
+    QString executionID;
+    int64_t appOrderID;
+    QString exchangeOrderID;
+    QString clientID;
+    QString loginID;
+    QString exchangeSegment;
     int64_t exchangeInstrumentID;
-    QString tradeSide;
-    double tradePrice;
-    int tradeQuantity;
-    QString tradeTimestamp;
+    QString tradingSymbol;
+    QString orderSide;
+    QString orderType;
+    double lastTradedPrice;
+    int lastTradedQuantity;
+    QString lastExecutionTransactTime;
+    QString orderGeneratedDateTime;
+    QString exchangeTransactTime;
+    double orderAverageTradedPrice;
+    int cumulativeQuantity;
+    int leavesQuantity;
+    QString orderStatus;
+    QString productType;
+    QString orderUniqueIdentifier;
+    double orderPrice;
+    int orderQuantity;
+
+    // Legacy mapping helpers
+    QString tradeID() const { return executionID; }
+    QString orderIDStr() const { return QString::number(appOrderID); }
+    QString tradeTimestamp() const { return lastExecutionTransactTime; }
+    double tradePrice() const { return lastTradedPrice; }
+    int tradeQuantity() const { return lastTradedQuantity; }
+    QString tradeSide() const { return orderSide; }
 };
 
 } // namespace XTS

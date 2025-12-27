@@ -5,6 +5,9 @@
 #include <QStandardItemModel>
 #include <QDateTime>
 #include <QShortcut>
+#include <QLabel>
+#include "models/GenericTableProfile.h"
+#include "api/XTSTypes.h"
 
 class CustomOrderBook;
 class QComboBox;
@@ -12,6 +15,7 @@ class QDateTimeEdit;
 class QPushButton;
 class QCheckBox;
 class OrderBookFilterWidget;
+class TradingDataService;
 
 class OrderBookWindow : public QWidget
 {
@@ -20,7 +24,7 @@ class OrderBookWindow : public QWidget
     friend class OrderBookFilterWidget;
 
 public:
-    explicit OrderBookWindow(QWidget *parent = nullptr);
+    explicit OrderBookWindow(class TradingDataService* tradingDataService, QWidget *parent = nullptr);
     ~OrderBookWindow();
 
     // Filter methods
@@ -31,13 +35,17 @@ public:
 
 public slots:
     void refreshOrders();
+
+private slots:
     void applyFilters();
     void clearFilters();
     void exportToCSV();
     void toggleFilterRow();
     void onColumnFilterChanged(int column, const QStringList& selectedValues);
+    void showColumnProfileDialog(); // Added
     void onCancelOrder();
     void onModifyOrder();
+    void onOrdersUpdated(const QVector<XTS::Order>& orders);
 
 signals:
     void orderSelected(const QString &orderId);
@@ -45,8 +53,8 @@ signals:
 private:
     void setupUI();
     void setupTable();
+    void loadInitialProfile();
     void setupConnections();
-    void loadDummyData();  // TODO: Replace with actual XTS API integration
     void applyFilterToModel();
     void updateSummary();
     
@@ -57,9 +65,13 @@ private:
     // Filter helper
     QList<QStandardItem*> getTopFilteredOrders() const;
 
+    // Trading data service
+    TradingDataService* m_tradingDataService;
+
     // UI Components
     CustomOrderBook *m_tableView;
     QStandardItemModel *m_model;
+    class QSortFilterProxyModel *m_proxyModel; // Added for sorting
 
     // Filter Components
     QComboBox *m_instrumentTypeCombo;
@@ -90,8 +102,10 @@ private:
     QShortcut* m_escShortcut;
     QList<OrderBookFilterWidget*> m_filterWidgets;
     QMap<int, QStringList> m_columnFilters;
+    GenericTableProfile m_columnProfile; // Added
 
     // Summary data
+    QLabel *m_summaryLabel;
     int m_totalOrders;
     int m_openOrders;
     int m_executedOrders;

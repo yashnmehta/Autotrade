@@ -39,6 +39,9 @@ public:
     // XTS API clients
     void setXTSClients(XTSMarketDataClient *mdClient, XTSInteractiveClient *iaClient);
     
+    // Trading data service
+    void setTradingDataService(class TradingDataService *tradingDataService);
+    
     // ScripBar refresh
     void refreshScripBar();
 
@@ -54,6 +57,9 @@ private slots:
     void createPositionWindow();
     void onAddToWatchRequested(const InstrumentData &instrument);
     void resetLayout();
+    
+    // Window limit helper
+    int countWindowsOfType(const QString& type);
     
     // Market data updates
     void onTickReceived(const XTS::Tick &tick);
@@ -104,6 +110,9 @@ private:
     // XTS API clients
     XTSMarketDataClient *m_xtsMarketDataClient;
     XTSInteractiveClient *m_xtsInteractiveClient;
+    
+    // Trading data service
+    TradingDataService *m_tradingDataService;
     
     // UDP Broadcast receiver
     std::unique_ptr<MulticastReceiver> m_udpReceiver;

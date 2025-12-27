@@ -25,30 +25,31 @@ CustomOrderBook::~CustomOrderBook()
 
 void CustomOrderBook::applyDefaultStyling()
 {
-    // Table styling
+    // Table styling - Premium Dark Theme
     setStyleSheet(
         "QTableView {"
-        "   background-color: white;"
-        "   alternate-background-color: #F5F5F5;"
-        "   selection-background-color: #E3F2FD;"
-        "   selection-color: black;"
-        "   gridline-color: #E0E0E0;"
+        "   background-color: #1e1e1e;"
+        "   alternate-background-color: #252526;"
+        "   selection-background-color: #094771;"
+        "   selection-color: #ffffff;"
+        "   gridline-color: #333333;"
         "   border: none;"
+        "   color: #cccccc;"
+        "   font-size: 11px;"
         "}"
         "QTableView::item {"
         "   padding: 4px;"
         "   border: none;"
         "}"
-        "QTableView::item:selected {"
-        "   background-color: #E3F2FD;"
-        "}"
         "QHeaderView::section {"
-        "   background-color: #F5F5F5;"
+        "   background-color: #252526;"
+        "   color: #e0e0e0;"
         "   padding: 6px;"
         "   border: none;"
-        "   border-right: 1px solid #E0E0E0;"
-        "   border-bottom: 1px solid #E0E0E0;"
+        "   border-right: 1px solid #333333;"
+        "   border-bottom: 1px solid #333333;"
         "   font-weight: bold;"
+        "   font-size: 11px;"
         "}"
     );
     

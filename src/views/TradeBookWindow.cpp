@@ -1,5 +1,9 @@
 #include "views/TradeBookWindow.h"
 #include "core/widgets/CustomTradeBook.h"
+#include "services/TradingDataService.h"
+#include "repository/RepositoryManager.h"
+#include "repository/ContractData.h"
+#include "api/XTSTypes.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QComboBox>
@@ -14,18 +18,48 @@
 #include <QMessageBox>
 #include <QListWidget>
 #include <QLineEdit>
+#include <QSortFilterProxyModel>
+
+// Custom proxy model to keep filter row at top
+class TradeBookSortProxyModel : public QSortFilterProxyModel {
+public:
+    explicit TradeBookSortProxyModel(QObject* parent = nullptr) : QSortFilterProxyModel(parent) {}
+
+protected:
+    bool lessThan(const QModelIndex &source_left, const QModelIndex &source_right) const override {
+        // Always keep filter row at top
+        if (source_left.row() == 0) return (sortOrder() == Qt::AscendingOrder);
+        if (source_right.row() == 0) return (sortOrder() == Qt::DescendingOrder);
+
+        // For data rows, use UserRole for numeric sorting
+        QVariant leftData = sourceModel()->data(source_left, Qt::UserRole);
+        QVariant rightData = sourceModel()->data(source_right, Qt::UserRole);
+
+        if (leftData.isValid() && rightData.isValid()) {
+            if (leftData.type() == QVariant::Double || leftData.type() == QVariant::Int || leftData.type() == QVariant::LongLong) {
+                return leftData.toDouble() < rightData.toDouble();
+            }
+            if (leftData.type() == QVariant::DateTime) {
+                return leftData.toDateTime() < rightData.toDateTime();
+            }
+        }
+
+        return QSortFilterProxyModel::lessThan(source_left, source_right);
+    }
+};
 #include <QDialog>
 #include <QDialogButtonBox>
 #include <QTimer>
 #include <QDebug>
 
-TradeBookWindow::TradeBookWindow(QWidget *parent)
+TradeBookWindow::TradeBookWindow(TradingDataService* tradingDataService, QWidget *parent)
     : QWidget(parent)
     , m_tableView(nullptr)
     , m_model(nullptr)
     , m_filteredModel(nullptr)
     , m_filterRowVisible(false)
     , m_filterShortcut(nullptr)
+    , m_tradingDataService(tradingDataService)
     , m_totalBuyQty(0.0)
     , m_totalSellQty(0.0)
     , m_totalBuyValue(0.0)
@@ -33,8 +67,26 @@ TradeBookWindow::TradeBookWindow(QWidget *parent)
     , m_tradeCount(0)
 {
     setupUI();
+    loadInitialProfile();
     setupConnections();
-    loadDummyData();  // TODO: Replace with XTS API call
+    
+    // Initialize filter state
+    m_fromTime = QDateTime::currentDateTime().addDays(-7);
+    m_toTime = QDateTime::currentDateTime();
+    m_instrumentFilter = "All";
+    m_buySellFilter = "All";
+    m_orderTypeFilter = "All";
+    m_exchangeFilter = "All";
+
+    // Connect to trading data service if available
+    if (m_tradingDataService) {
+        connect(m_tradingDataService, &TradingDataService::tradesUpdated,
+                this, &TradeBookWindow::onTradesUpdated);
+        
+        // Load initial data
+        onTradesUpdated(m_tradingDataService->getTrades());
+        qDebug() << "[TradeBookWindow] Connected to TradingDataService and loaded initial trades";
+    }
     
     // Setup Ctrl+F shortcut for filter toggle
     m_filterShortcut = new QShortcut(QKeySequence("Ctrl+F"), this);
@@ -94,145 +146,113 @@ void TradeBookWindow::setupUI()
 
 QWidget* TradeBookWindow::createFilterWidget()
 {
-    QGroupBox *filterGroup = new QGroupBox("Trade Book Filters");
-    filterGroup->setStyleSheet(
-        "QGroupBox { "
-        "   background-color: #f5f5f5; "
-        "   border: 1px solid #d0d0d0; "
-        "   border-radius: 4px; "
-        "   margin-top: 8px; "
-        "   padding-top: 8px; "
-        "   font-weight: bold; "
-        "}"
-        "QGroupBox::title { "
-        "   subcontrol-origin: margin; "
-        "   subcontrol-position: top left; "
-        "   padding: 0 5px; "
-        "   color: #333333; "
-        "}"
+    QWidget *container = new QWidget(this);
+    container->setObjectName("filterContainer");
+    container->setStyleSheet(
+        "QWidget#filterContainer { background-color: #2d2d2d; border-bottom: 1px solid #3f3f46; }"
+        "QLabel { color: #d4d4d8; font-size: 11px; font-weight: 500; }"
+        "QDateTimeEdit, QComboBox { "
+        "   background-color: #3f3f46; color: #ffffff; border: 1px solid #52525b; "
+        "   border-radius: 3px; padding: 3px 5px; font-size: 11px; "
+        "} "
+        "QDateTimeEdit::drop-down, QComboBox::drop-down { border: none; } "
+        "QPushButton { border-radius: 3px; font-weight: 600; font-size: 11px; padding: 5px 12px; } "
     );
 
-    QVBoxLayout *groupLayout = new QVBoxLayout(filterGroup);
-    groupLayout->setSpacing(8);
+    QVBoxLayout *mainLayout = new QVBoxLayout(container);
+    mainLayout->setContentsMargins(12, 10, 12, 10);
+    mainLayout->setSpacing(8);
 
-    // Row 1: Time filter
-    QHBoxLayout *timeLayout = new QHBoxLayout();
-    timeLayout->addWidget(new QLabel("From:"));
-    m_fromTimeEdit = new QDateTimeEdit();
-    m_fromTimeEdit->setCalendarPopup(true);
-    m_fromTimeEdit->setDateTime(QDateTime::currentDateTime().addDays(-7));
-    m_fromTimeEdit->setDisplayFormat("dd-MM-yyyy hh:mm");
-    m_fromTimeEdit->setMinimumWidth(150);
-    timeLayout->addWidget(m_fromTimeEdit);
+    // Filter label
+    QLabel *topLabel = new QLabel("TRADE BOOK FILTERS");
+    topLabel->setStyleSheet("color: #a1a1aa; font-weight: bold; letter-spacing: 0.5px; font-size: 10px;");
+    mainLayout->addWidget(topLabel);
 
-    timeLayout->addWidget(new QLabel("To:"));
-    m_toTimeEdit = new QDateTimeEdit();
-    m_toTimeEdit->setCalendarPopup(true);
-    m_toTimeEdit->setDateTime(QDateTime::currentDateTime());
-    m_toTimeEdit->setDisplayFormat("dd-MM-yyyy hh:mm");
-    m_toTimeEdit->setMinimumWidth(150);
-    timeLayout->addWidget(m_toTimeEdit);
-    
-    timeLayout->addStretch();
-    groupLayout->addLayout(timeLayout);
-
-    // Row 2: Other filters
     QHBoxLayout *filterLayout = new QHBoxLayout();
+    filterLayout->setSpacing(15);
+
+    // Group 1: Time Range
+    QHBoxLayout *timeLayout = new QHBoxLayout();
+    timeLayout->setSpacing(6);
+    QLabel *lblFrom = new QLabel("From");
+    m_fromTimeEdit = new QDateTimeEdit(QDateTime::currentDateTime().addDays(-7));
+    m_fromTimeEdit->setDisplayFormat("dd-MM-yyyy HH:mm");
+    m_fromTimeEdit->setCalendarPopup(true);
+    m_fromTimeEdit->setFixedWidth(135);
+
+    QLabel *lblTo = new QLabel("To");
+    m_toTimeEdit = new QDateTimeEdit(QDateTime::currentDateTime());
+    m_toTimeEdit->setDisplayFormat("dd-MM-yyyy HH:mm");
+    m_toTimeEdit->setCalendarPopup(true);
+    m_toTimeEdit->setFixedWidth(135);
     
-    filterLayout->addWidget(new QLabel("Instrument:"));
-    m_instrumentTypeCombo = new QComboBox();
-    m_instrumentTypeCombo->addItems({"All", "NSE OPT", "NSE FUT", "NSE EQ", "BSE EQ"});
-    m_instrumentTypeCombo->setMinimumWidth(100);
-    filterLayout->addWidget(m_instrumentTypeCombo);
+    timeLayout->addWidget(lblFrom);
+    timeLayout->addWidget(m_fromTimeEdit);
+    timeLayout->addWidget(lblTo);
+    timeLayout->addWidget(m_toTimeEdit);
+    filterLayout->addLayout(timeLayout);
 
-    filterLayout->addWidget(new QLabel("Exchange:"));
-    m_exchangeCombo = new QComboBox();
-    m_exchangeCombo->addItems({"All", "NSE", "BSE", "MCX"});
-    m_exchangeCombo->setMinimumWidth(80);
-    filterLayout->addWidget(m_exchangeCombo);
+    // Group 2: Categories
+    auto addCombo = [&](const QString &label, QComboBox* &combo, const QStringList &items, int width) {
+        QVBoxLayout *vbox = new QVBoxLayout();
+        vbox->setSpacing(2);
+        vbox->addWidget(new QLabel(label));
+        combo = new QComboBox();
+        combo->addItems(items);
+        combo->setFixedWidth(width);
+        vbox->addWidget(combo);
+        filterLayout->addLayout(vbox);
+    };
 
-    filterLayout->addWidget(new QLabel("Buy/Sell:"));
-    m_buySellCombo = new QComboBox();
-    m_buySellCombo->addItems({"All", "Buy", "Sell"});
-    m_buySellCombo->setMinimumWidth(80);
-    filterLayout->addWidget(m_buySellCombo);
-
-    filterLayout->addWidget(new QLabel("Order Type:"));
-    m_orderTypeCombo = new QComboBox();
-    m_orderTypeCombo->addItems({"All", "Day", "IOC", "GTC"});
-    m_orderTypeCombo->setMinimumWidth(80);
-    filterLayout->addWidget(m_orderTypeCombo);
+    addCombo("Instrument", m_instrumentTypeCombo, {"All", "NSE OPT", "NSE FUT", "NSE EQ", "BSE EQ"}, 110);
+    addCombo("Exchange", m_exchangeCombo, {"All", "NSE", "BSE", "MCX"}, 80);
+    addCombo("Buy/Sell", m_buySellCombo, {"All", "Buy", "Sell"}, 70);
+    addCombo("Order Type", m_orderTypeCombo, {"All", "Day", "IOC", "GTC"}, 80);
 
     filterLayout->addStretch();
 
-    // Action buttons
-    m_applyFilterBtn = new QPushButton("Apply Filter");
-    m_applyFilterBtn->setStyleSheet(
-        "QPushButton { background-color: #2196F3; color: white; padding: 6px 16px; border: none; border-radius: 4px; font-weight: bold; }"
-        "QPushButton:hover { background-color: #1976D2; }"
-        "QPushButton:pressed { background-color: #0D47A1; }"
-    );
-    filterLayout->addWidget(m_applyFilterBtn);
+    // Group 3: Buttons
+    QHBoxLayout *btnLayout = new QHBoxLayout();
+    btnLayout->setSpacing(8);
+    btnLayout->setAlignment(Qt::AlignBottom);
 
+    m_applyFilterBtn = new QPushButton("Apply");
+    m_applyFilterBtn->setStyleSheet("background-color: #16a34a; color: white;");
+    
     m_clearFilterBtn = new QPushButton("Clear");
-    m_clearFilterBtn->setStyleSheet(
-        "QPushButton { background-color: #757575; color: white; padding: 6px 16px; border: none; border-radius: 4px; }"
-        "QPushButton:hover { background-color: #616161; }"
-    );
-    filterLayout->addWidget(m_clearFilterBtn);
+    m_clearFilterBtn->setStyleSheet("background-color: #52525b; color: #e4e4e7; border: 1px solid #71717a;");
 
-    m_exportBtn = new QPushButton("Export CSV");
-    m_exportBtn->setStyleSheet(
-        "QPushButton { background-color: #4CAF50; color: white; padding: 6px 16px; border: none; border-radius: 4px; }"
-        "QPushButton:hover { background-color: #45a049; }"
-    );
-    filterLayout->addWidget(m_exportBtn);
+    m_exportBtn = new QPushButton("Export");
+    m_exportBtn->setStyleSheet("background-color: #d97706; color: white;");
 
-    groupLayout->addLayout(filterLayout);
+    btnLayout->addWidget(m_applyFilterBtn);
+    btnLayout->addWidget(m_clearFilterBtn);
+    btnLayout->addWidget(m_exportBtn);
 
-    return filterGroup;
+    filterLayout->addLayout(btnLayout);
+    mainLayout->addLayout(filterLayout);
+
+    return container;
 }
 
 QWidget* TradeBookWindow::createSummaryWidget()
 {
     QWidget *summaryWidget = new QWidget();
-    summaryWidget->setStyleSheet("background-color: #e3f2fd; border-top: 2px solid #2196F3;");
-    summaryWidget->setFixedHeight(40);
-
+    summaryWidget->setObjectName("summaryWidget");
+    summaryWidget->setStyleSheet(
+        "QWidget#summaryWidget { background-color: #1e1e1e; border-top: 1px solid #333333; }"
+        "QLabel { color: #cccccc; font-size: 11px; }"
+    );
+    summaryWidget->setFixedHeight(32);
+    
     QHBoxLayout *summaryLayout = new QHBoxLayout(summaryWidget);
-    summaryLayout->setContentsMargins(10, 5, 10, 5);
-
-    m_showSummaryCheck = new QCheckBox("Show Summary");
-    m_showSummaryCheck->setChecked(true);
-    summaryLayout->addWidget(m_showSummaryCheck);
-
-    summaryLayout->addWidget(new QLabel("|"));
-
-    QLabel *tradeCountLabel = new QLabel(QString("Trades: <b>%1</b>").arg(m_tradeCount));
-    summaryLayout->addWidget(tradeCountLabel);
-
-    summaryLayout->addWidget(new QLabel("|"));
-
-    QLabel *buyQtyLabel = new QLabel(QString("Buy Qty: <b>%1</b>").arg(m_totalBuyQty, 0, 'f', 0));
-    buyQtyLabel->setStyleSheet("color: #4CAF50;");
-    summaryLayout->addWidget(buyQtyLabel);
-
-    QLabel *sellQtyLabel = new QLabel(QString("Sell Qty: <b>%1</b>").arg(m_totalSellQty, 0, 'f', 0));
-    sellQtyLabel->setStyleSheet("color: #F44336;");
-    summaryLayout->addWidget(sellQtyLabel);
-
-    summaryLayout->addWidget(new QLabel("|"));
-
-    QLabel *buyValueLabel = new QLabel(QString("Buy Value: <b>₹%1</b>").arg(m_totalBuyValue, 0, 'f', 2));
-    buyValueLabel->setStyleSheet("color: #4CAF50;");
-    summaryLayout->addWidget(buyValueLabel);
-
-    QLabel *sellValueLabel = new QLabel(QString("Sell Value: <b>₹%1</b>").arg(m_totalSellValue, 0, 'f', 2));
-    sellValueLabel->setStyleSheet("color: #F44336;");
-    summaryLayout->addWidget(sellValueLabel);
-
+    summaryLayout->setContentsMargins(15, 0, 15, 0);
+    
+    m_summaryLabel = new QLabel(this);
+    m_summaryLabel->setText("Trades: 0 | Buy Qty: 0 | Sell Qty: 0 | Buy Val: 0 | Sell Val: 0");
+    summaryLayout->addWidget(m_summaryLabel);
     summaryLayout->addStretch();
-
+    
     return summaryWidget;
 }
 
@@ -241,35 +261,121 @@ void TradeBookWindow::setupFilterBar()
     // Filter widgets created in setupUI
 }
 
+
+#include "views/GenericProfileDialog.h"
+#include "models/GenericProfileManager.h"
+
+void TradeBookWindow::showColumnProfileDialog()
+{
+    QList<GenericColumnInfo> allCols;
+    for (int i = 0; i < m_model->columnCount(); ++i) {
+        GenericColumnInfo info;
+        info.id = i;
+        info.name = m_model->headerData(i, Qt::Horizontal).toString();
+        info.defaultWidth = 90;
+        info.visibleByDefault = true;
+        allCols.append(info);
+    }
+
+    GenericProfileDialog dialog("TradeBook", allCols, m_columnProfile, this);
+    if (dialog.exec() == QDialog::Accepted) {
+        m_columnProfile = dialog.getProfile();
+        
+        // Apply to view
+        for (int i = 0; i < m_model->columnCount(); ++i) {
+            bool visible = m_columnProfile.isColumnVisible(i);
+            m_tableView->setColumnHidden(i, !visible);
+            if (visible) {
+                m_tableView->setColumnWidth(i, m_columnProfile.columnWidth(i));
+            }
+        }
+    }
+}
+
+void TradeBookWindow::loadInitialProfile()
+{
+    GenericProfileManager manager("profiles");
+    QString defName = manager.getDefaultProfileName("TradeBook");
+    
+    if (defName != "Default" && manager.loadProfile("TradeBook", defName, m_columnProfile)) {
+        // Success
+    } else {
+        // Default layout
+        m_columnProfile = GenericTableProfile("Default");
+        int colCount = m_model->columnCount();
+        for (int i = 0; i < colCount; ++i) {
+            m_columnProfile.setColumnVisible(i, true);
+            m_columnProfile.setColumnWidth(i, 90);
+        }
+        QList<int> order;
+        for (int i = 0; i < colCount; ++i) order.append(i);
+        m_columnProfile.setColumnOrder(order);
+    }
+    
+    // Apply to view
+    for (int i = 0; i < m_model->columnCount(); ++i) {
+        bool visible = m_columnProfile.isColumnVisible(i);
+        m_tableView->setColumnHidden(i, !visible);
+        if (visible) {
+            m_tableView->setColumnWidth(i, m_columnProfile.columnWidth(i));
+        }
+    }
+}
+
 void TradeBookWindow::setupTable()
 {
     m_tableView = new CustomTradeBook(this);
-    
+    m_tableView->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(m_tableView, &QTableView::customContextMenuRequested, this, [this](const QPoint &pos) {
+        QMenu menu(this);
+        menu.addAction("Export to CSV", this, &TradeBookWindow::exportToCSV);
+        menu.addAction("Refresh", this, &TradeBookWindow::refreshTrades);
+        menu.addSeparator();
+        menu.addAction("Column Profile...", this, &TradeBookWindow::showColumnProfileDialog);
+        menu.exec(m_tableView->viewport()->mapToGlobal(pos));
+    });
+
     // Create model
     m_model = new QStandardItemModel(this);
     
-    // Define columns matching reference image
-    QStringList headers;
-    headers << "User" << "Group" << "Exc..." << "Membe..." << "TradeId" 
-            << "Instrumen..." << "Instrumen..." << "Code" << "Symbol/Sc..." 
-            << "Spread Sy..." << "Ser/Exp/G..." << "Strike Pri..." << "Option Type"
-            << "O..." << "B..." << "Quantity" << "Price" << "Time" 
-            << "Spread ..." << "Spread" << "P..." << "Client" << "Client Name"
-            << "Exch. Order No.";
+    // Setup proxy model for sorting
+    m_proxyModel = new TradeBookSortProxyModel(this);
+    m_proxyModel->setSourceModel(m_model);
+    m_proxyModel->setDynamicSortFilter(true);
+    
+    m_tableView->setModel(m_proxyModel);
+    m_tableView->setSortingEnabled(true);
+    
+    // 57 headers list as requested
+    QStringList headers = {
+        "User", "Group", "Exchange Code", "MemberId", "TraderId", "Instrument Type",
+        "Instrument Name", "Code", "Symbol/ScripId", "Spread Symbol", "Ser/Exp/Group",
+        "Strike Price", "Option Type", "Order Type", "B/S", "Quantity", "Price",
+        "Time", "Spread Price", "Spread", "Pro/Cli", "Client", "Client Name",
+        "Exch. Order No.", "Trade No.", "Settlor", "User Remarks", "New Client",
+        "Part Type", "Product Type", "Order Entry Time", "Client Order No.",
+        "Order Initiated From", "Order Modified From", "Misc.", "Strategy",
+        "Mapping", "OMSID", "GiveUp Status", "EOMSID", "Booking Ref.",
+        "Dealing Instruction", "Order Instruction", "Lots", "Alias Settlor",
+        "Alias PartType", "New Participant Code", "Initiated From User Id",
+        "Modified From User Id", "SOR Id", "New Settlor", "Maturity Date",
+        "Yield", "Mapping Order Type", "Algo Type", "Algo Description", "Scrip Name"
+    };
     
     m_model->setHorizontalHeaderLabels(headers);
     m_tableView->setModel(m_model);
     
     // Set column widths
     QHeaderView *header = m_tableView->horizontalHeader();
-    header->setDefaultSectionSize(90);
-    header->resizeSection(0, 80);   // User
-    header->resizeSection(1, 60);   // Group
-    header->resizeSection(4, 100);  // TradeId
-    header->resizeSection(8, 120);  // Symbol
-    header->resizeSection(15, 80);  // Quantity
-    header->resizeSection(16, 80);  // Price
-    header->resizeSection(17, 100); // Time
+    for (int i = 0; i < headers.size(); ++i) {
+        header->resizeSection(i, 100);
+    }
+    header->resizeSection(8, 150);  // Symbol/ScripId
+    header->resizeSection(56, 150); // Scrip Name
+    header->resizeSection(17, 140); // Time
+    header->resizeSection(23, 120); // Exch. Order No.
+    header->resizeSection(24, 120); // Trade No.
+    header->resizeSection(31, 120); // Client Order No.
 }
 
 void TradeBookWindow::setupConnections()
@@ -280,49 +386,103 @@ void TradeBookWindow::setupConnections()
     connect(m_showSummaryCheck, &QCheckBox::toggled, m_tableView, &CustomTradeBook::setSummaryRowEnabled);
 }
 
-void TradeBookWindow::loadDummyData()
-{
-    // Clear existing data
-    m_model->removeRows(0, m_model->rowCount());
-    
-    // Add sample trades (TODO: Replace with XTS API call)
-    QStringList sampleTrades = {
-        "YASH12|DEFAULT|NSE|NSE|T12345|NSE OPT|OPTSTK|43110|NIFTY 30DEC24 26250 CE|-----|30DEC24|26250.00|CE|PRO|BUY|100|15.50|26-12-2025 09:15:30|0.00|0.00|0.00|CLI001|Client A|1234567",
-        "YASH12|DEFAULT|NSE|NSE|T12346|NSE FUT|FUTIDX|43111|NIFTY 30JAN25|-----|30JAN25|0.00|---|PRO|SELL|50|26150.00|26-12-2025 09:20:15|0.00|0.00|0.00|CLI002|Client B|1234568",
-        "YASH12|DEFAULT|NSE|NSE|T12347|NSE OPT|OPTSTK|43112|NIFTY 30DEC24 26500 PE|-----|30DEC24|26500.00|PE|PRO|BUY|200|25.75|26-12-2025 10:30:45|0.00|0.00|0.00|CLI001|Client A|1234569",
-    };
-    
-    for (const QString &trade : sampleTrades) {
-        QStringList fields = trade.split("|");
-        QList<QStandardItem*> row;
-        for (const QString &field : fields) {
-            QStandardItem *item = new QStandardItem(field);
-            item->setEditable(false);
-            
-            // Color coding for Buy/Sell
-            if (field == "BUY") {
-                item->setForeground(QBrush(QColor("#4CAF50")));
-                item->setData(QFont(item->font().family(), item->font().pointSize(), QFont::Bold), Qt::FontRole);
-            } else if (field == "SELL") {
-                item->setForeground(QBrush(QColor("#F44336")));
-                item->setData(QFont(item->font().family(), item->font().pointSize(), QFont::Bold), Qt::FontRole);
-            }
-            
-            row.append(item);
-        }
-        m_model->appendRow(row);
-    }
-    
-    updateSummary();
-    
-    qDebug() << "[TradeBookWindow] Loaded" << m_model->rowCount() << "dummy trades";
-}
-
 void TradeBookWindow::refreshTrades()
 {
     qDebug() << "[TradeBookWindow] Refreshing trades...";
-    // TODO: Call XTS API to fetch latest trades
-    loadDummyData();
+    if (m_tradingDataService) {
+        onTradesUpdated(m_tradingDataService->getTrades());
+    }
+}
+
+void TradeBookWindow::onTradesUpdated(const QVector<XTS::Trade>& trades)
+{
+    qDebug() << "[TradeBookWindow::onTradesUpdated] Received" << trades.size() << "trades";
+    
+    // Remember filter row visible state
+    bool filterRowVisible = m_filterRowVisible;
+    if (filterRowVisible) {
+        toggleFilterRow(); // Hide to clear widgets
+    }
+
+    m_model->removeRows(0, m_model->rowCount());
+    
+    RepositoryManager* repo = RepositoryManager::getInstance();
+    
+    for (const XTS::Trade& trade : trades) {
+        QList<QStandardItem*> row;
+        const ContractData* contract = repo->getContractByToken(trade.exchangeSegment, trade.exchangeInstrumentID);
+        
+        // Initialize 57 items
+        for (int i = 0; i < 57; ++i) {
+            row.append(new QStandardItem(""));
+        }
+
+        // Map fields to columns (0-indexed)
+        row[0]->setText("MEMBER");                        // User
+        row[1]->setText("DEFAULT");                       // Group
+        row[2]->setText(trade.exchangeSegment);           // Exchange Code
+        row[3]->setText("123");                           // MemberId
+        row[4]->setText("T01");                           // TraderId
+        row[5]->setText(contract ? contract->series : "-"); // Instrument Type
+        row[6]->setText(contract ? contract->series : "-"); // Instrument Name
+        
+        row[7]->setText(QString::number(trade.exchangeInstrumentID)); // Code
+        row[7]->setData((qlonglong)trade.exchangeInstrumentID, Qt::UserRole);
+        
+        row[8]->setText(trade.tradingSymbol);             // Symbol/ScripId
+        row[10]->setText(contract ? contract->expiryDate : "-"); // Ser/Exp/Group
+        
+        row[11]->setText(contract && contract->strikePrice > 0 ? QString::number(contract->strikePrice, 'f', 2) : "-"); // Strike Price
+        row[11]->setData(contract ? contract->strikePrice : 0.0, Qt::UserRole);
+        
+        row[12]->setText(contract ? contract->optionType : "-"); // Option Type
+        row[13]->setText(trade.orderType);                // Order Type
+        row[14]->setText(trade.orderSide);                // B/S
+        
+        row[15]->setText(QString::number(trade.lastTradedQuantity)); // Quantity
+        row[15]->setData(trade.lastTradedQuantity, Qt::UserRole);
+        
+        row[16]->setText(QString::number(trade.lastTradedPrice, 'f', 2)); // Price
+        row[16]->setData(trade.lastTradedPrice, Qt::UserRole);
+        
+        row[17]->setText(trade.lastExecutionTransactTime); // Time
+        row[17]->setData(QDateTime::fromString(trade.lastExecutionTransactTime, "dd-MM-yyyy HH:mm:ss"), Qt::UserRole);
+        
+        row[20]->setText("CLI");                          // Pro/Cli
+        row[21]->setText(trade.clientID.isEmpty() ? "PRO7" : trade.clientID); // Client
+        row[23]->setText(trade.exchangeOrderID);          // Exch. Order No.
+        row[24]->setText(trade.executionID);              // Trade No.
+        row[26]->setText(trade.orderUniqueIdentifier);    // User Remarks
+        row[29]->setText(trade.productType);              // Product Type
+        row[30]->setText(trade.orderGeneratedDateTime);   // Order Entry Time
+        
+        row[31]->setText(QString::number(trade.appOrderID)); // Client Order No.
+        row[31]->setData((qlonglong)trade.appOrderID, Qt::UserRole);
+        
+        row[51]->setText(contract ? contract->expiryDate : "-"); // Maturity Date
+        row[56]->setText(contract ? contract->displayName : trade.tradingSymbol); // Scrip Name
+
+        // Formatting
+        if (trade.orderSide == "BUY") {
+            row[14]->setForeground(QColor("#4CAF50"));
+        } else if (trade.orderSide == "SELL") {
+            row[14]->setForeground(QColor("#F44336"));
+        }
+        
+        QFont boldFont = row[14]->font();
+        boldFont.setBold(true);
+        row[14]->setFont(boldFont);
+
+        for (auto item : row) item->setEditable(false);
+        m_model->appendRow(row);
+    }
+    
+    if (filterRowVisible) {
+        toggleFilterRow(); // Show again
+    }
+
+    applyFilterToModel();
+    updateSummary();
 }
 
 void TradeBookWindow::applyFilters()
@@ -455,9 +615,17 @@ void TradeBookWindow::updateSummary()
         }
     }
     
-    qDebug() << "[TradeBookWindow] Summary - Trades:" << m_tradeCount
-             << "Buy:" << m_totalBuyQty << "@" << m_totalBuyValue
-             << "Sell:" << m_totalSellQty << "@" << m_totalSellValue;
+    m_summaryLabel->setText(QString("Trades: <b>%1</b> | "
+                                    "Buy Qty: <b style='color: #16a34a;'>%2</b> | "
+                                    "Sell Qty: <b style='color: #dc2626;'>%3</b> | "
+                                    "Buy Val: <b>₹%4</b> | Sell Val: <b>₹%5</b>")
+                            .arg(m_tradeCount)
+                            .arg(m_totalBuyQty)
+                            .arg(m_totalSellQty)
+                            .arg(m_totalBuyValue, 0, 'f', 2)
+                            .arg(m_totalSellValue, 0, 'f', 2));
+
+    qDebug() << "[TradeBookWindow] Summary updated";
 }
 
 void TradeBookWindow::exportToCSV()

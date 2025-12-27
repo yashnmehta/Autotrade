@@ -21,6 +21,61 @@ find_package(Boost 1.70 REQUIRED)
 find_package(OpenSSL REQUIRED)
 find_package(Threads REQUIRED)
 
+# ========================================
+# LZO Library Configuration (Cross-platform)
+# ========================================
+option(USE_SYSTEM_LZO "Use system-installed LZO library instead of bundled one" ON)
+
+if(USE_SYSTEM_LZO)
+    # Try to find system LZO library
+    find_package(PkgConfig QUIET)
+    if(PkgConfig_FOUND)
+        pkg_check_modules(LZO lzo2)
+    endif()
+
+    if(NOT LZO_FOUND)
+        # Fallback to find_library
+        find_library(LZO_LIBRARY
+            NAMES lzo2 liblzo2
+            PATHS /usr/lib /usr/local/lib /opt/homebrew/lib
+        )
+        find_path(LZO_INCLUDE_DIR
+            NAMES lzo/lzo1z.h
+            PATHS /usr/include /usr/local/include /opt/homebrew/include
+        )
+        if(LZO_LIBRARY AND LZO_INCLUDE_DIR)
+            set(LZO_FOUND TRUE)
+            set(LZO_LIBRARIES ${LZO_LIBRARY})
+            set(LZO_INCLUDE_DIRS ${LZO_INCLUDE_DIR})
+        endif()
+    endif()
+
+    if(LZO_FOUND)
+        message(STATUS "Using system LZO library")
+        message(STATUS "LZO include dirs: ${LZO_INCLUDE_DIRS}")
+        message(STATUS "LZO libraries: ${LZO_LIBRARIES}")
+        set(USE_BUNDLED_LZO OFF)
+    else()
+        message(STATUS "System LZO library not found, using bundled version")
+        set(USE_BUNDLED_LZO ON)
+    endif()
+else()
+    message(STATUS "Using bundled LZO library (USE_SYSTEM_LZO=OFF)")
+    set(USE_BUNDLED_LZO ON)
+endif()
+
+if(USE_BUNDLED_LZO)
+    # Build bundled LZO library
+    add_subdirectory(lib/lzo-2.10)
+    set(LZO_LIBRARIES ${CMAKE_BINARY_DIR}/lib/lzo-2.10/liblzo2.a)
+    set(LZO_INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/lib/lzo-2.10/include)
+endif()
+
+# Export LZO variables for use in subdirectories (available via cache)
+set(LZO_LIBRARIES ${LZO_LIBRARIES} CACHE INTERNAL "LZO library path")
+set(LZO_INCLUDE_DIRS ${LZO_INCLUDE_DIRS} CACHE INTERNAL "LZO include directories")
+set(USE_BUNDLED_LZO ${USE_BUNDLED_LZO} CACHE INTERNAL "Whether using bundled LZO")
+
 # Include directories - New Structured Architecture
 include_directories(
     ${CMAKE_SOURCE_DIR}/include
@@ -41,6 +96,7 @@ include_directories(
     ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_nsecm/include
     ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_bsefo/include
     ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_bsecm/include
+    ${LZO_INCLUDE_DIRS}
 )
 
 # ========================================
@@ -119,6 +175,7 @@ set(VIEW_SOURCES
     src/views/TradeBookWindow.cpp
     src/views/OrderBookWindow.cpp
     src/views/ColumnProfileDialog.cpp
+    src/views/GenericProfileDialog.cpp
     src/views/PreferenceDialog.cpp
     src/views/CustomizeDialog.cpp
     src/ui/OptionChainWindow.cpp
@@ -134,6 +191,7 @@ set(VIEW_HEADERS
     include/views/TradeBookWindow.h
     include/views/OrderBookWindow.h
     include/views/ColumnProfileDialog.h
+    include/views/GenericProfileDialog.h
     include/views/Preference.h
     include/views/CustomizeDialog.h
 )
@@ -161,6 +219,7 @@ set(MODEL_HEADERS
 set(SERVICE_SOURCES
     src/services/TokenSubscriptionManager.cpp
     src/services/LoginFlowService.cpp
+    src/services/TradingDataService.cpp
     src/services/PriceCache.cpp
     src/services/FeedHandler.cpp
 )
@@ -168,6 +227,7 @@ set(SERVICE_SOURCES
 set(SERVICE_HEADERS
     include/services/TokenSubscriptionManager.h
     include/services/LoginFlowService.h
+    include/services/TradingDataService.h
     include/services/PriceCache.h
     include/services/FeedHandler.h
 )
@@ -364,7 +424,7 @@ target_link_libraries(TradingTerminal PRIVATE
     OpenSSL::SSL
     OpenSSL::Crypto
     Threads::Threads
-    lzo2
+    ${LZO_LIBRARIES}
 )
 
 # Include Boost headers (Beast is header-only)

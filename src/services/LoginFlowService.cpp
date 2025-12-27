@@ -1,4 +1,5 @@
 #include "services/LoginFlowService.h"
+#include "services/TradingDataService.h"
 #include "repository/RepositoryManager.h"
 #include <QDebug>
 #include <QCoreApplication>
@@ -10,6 +11,7 @@ LoginFlowService::LoginFlowService(QObject *parent)
     : QObject(parent)
     , m_mdClient(nullptr)
     , m_iaClient(nullptr)
+    , m_tradingDataService(nullptr)
     , m_statusCallback(nullptr)
     , m_errorCallback(nullptr)
     , m_completeCallback(nullptr)
@@ -155,28 +157,52 @@ void LoginFlowService::executeLogin(
                 // Phase 5: Fetch initial data
                 updateStatus("data", "Loading account data...", 95);
                 
-                // Fetch positions
-                m_iaClient->getPositions("DayWise", [this](bool success, const QVector<XTS::Position> &positions, const QString &message) {
+                // Fetch positions (NetWise includes carry forward and today's positions)
+                m_iaClient->getPositions("NetWise", [this](bool success, const QVector<XTS::Position> &positions, const QString &message) {
                     if (success) {
-                        qDebug() << "Loaded" << positions.size() << "positions";
+                        qDebug() << "[LoginFlowService] Loaded" << positions.size() << "NetWise positions";
+                        
+                        // Store in TradingDataService
+                        if (m_tradingDataService) {
+                            m_tradingDataService->setPositions(positions);
+                        }
                     } else {
-                        qWarning() << "Failed to load positions:" << message;
+                        qWarning() << "[LoginFlowService] Failed to load positions:" << message;
+                        // Fallback to DayWise if NetWise fails (though usually both should work)
+                        m_iaClient->getPositions("DayWise", [this](bool success, const QVector<XTS::Position> &positions, const QString &message) {
+                             if (success && m_tradingDataService) {
+                                 qDebug() << "[LoginFlowService] Loaded" << positions.size() << "DayWise positions (fallback)";
+                                 m_tradingDataService->setPositions(positions);
+                             } else {
+                                 qWarning() << "[LoginFlowService] Failed to load DayWise positions during fallback:" << message;
+                             }
+                        });
                     }
 
                     // Fetch orders
                     m_iaClient->getOrders([this](bool success, const QVector<XTS::Order> &orders, const QString &message) {
                         if (success) {
-                            qDebug() << "Loaded" << orders.size() << "orders";
+                            qDebug() << "[LoginFlowService] Loaded" << orders.size() << "orders";
+                            
+                            // Store in TradingDataService
+                            if (m_tradingDataService) {
+                                m_tradingDataService->setOrders(orders);
+                            }
                         } else {
-                            qWarning() << "Failed to load orders:" << message;
+                            qWarning() << "[LoginFlowService] Failed to load orders: success=" << success << "message=" << message;
                         }
 
                         // Fetch trades
                         m_iaClient->getTrades([this](bool success, const QVector<XTS::Trade> &trades, const QString &message) {
                             if (success) {
-                                qDebug() << "Loaded" << trades.size() << "trades";
+                                qDebug() << "[LoginFlowService] Loaded" << trades.size() << "trades";
+                                
+                                // Store in TradingDataService
+                                if (m_tradingDataService) {
+                                    m_tradingDataService->setTrades(trades);
+                                }
                             } else {
-                                qWarning() << "Failed to load trades:" << message;
+                                qWarning() << "[LoginFlowService] Failed to load trades: success=" << success << "message=" << message;
                             }
 
                             // Complete!

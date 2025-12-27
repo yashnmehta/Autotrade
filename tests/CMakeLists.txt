@@ -21,6 +21,23 @@ target_link_libraries(test_interactive_api
     Qt5::Network
 )
 
+# Standalone Interactive Data Test (using NativeHTTPClient)
+add_executable(test_ia_data_native 
+    test_ia_data_native.cpp
+    ../src/api/NativeHTTPClient.cpp
+)
+target_include_directories(test_ia_data_native PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+    ${Boost_INCLUDE_DIRS}
+)
+target_link_libraries(test_ia_data_native
+    Qt5::Core
+    OpenSSL::SSL
+    OpenSSL::Crypto
+    Threads::Threads
+)
+set_target_properties(test_ia_data_native PROPERTIES AUTOMOC ON)
+
 # Price Cache Performance Benchmark
 add_executable(benchmark_price_cache 
     benchmark_price_cache.cpp
@@ -79,51 +96,60 @@ find_package(OpenGL REQUIRED)
 find_package(glfw3 QUIET)
 if(NOT glfw3_FOUND)
     # Try finding it via pkg-config if find_package fails
-    find_package(PkgConfig REQUIRED)
-    pkg_check_modules(GLFW REQUIRED glfw3)
+    find_package(PkgConfig QUIET)
+    if(PkgConfig_FOUND)
+        pkg_check_modules(GLFW REQUIRED glfw3)
+    else()
+        message(WARNING "PkgConfig not found, GLFW-based ImGui benchmark will not be built")
+        set(BUILD_IMGUI_BENCHMARK OFF)
+    endif()
 endif()
 
 set(IMGUI_DIR ${CMAKE_SOURCE_DIR}/lib/imgui)
-set(IMGUI_SOURCES
-    ${IMGUI_DIR}/imgui.cpp
-    ${IMGUI_DIR}/imgui_draw.cpp
-    ${IMGUI_DIR}/imgui_tables.cpp
-    ${IMGUI_DIR}/imgui_widgets.cpp
-    ${IMGUI_DIR}/imgui_demo.cpp
-    ${IMGUI_DIR}/backends/imgui_impl_glfw.cpp
-    ${IMGUI_DIR}/backends/imgui_impl_opengl3.cpp
-)
+if(EXISTS ${IMGUI_DIR}/imgui.cpp)
+    set(IMGUI_SOURCES
+        ${IMGUI_DIR}/imgui.cpp
+        ${IMGUI_DIR}/imgui_draw.cpp
+        ${IMGUI_DIR}/imgui_tables.cpp
+        ${IMGUI_DIR}/imgui_widgets.cpp
+        ${IMGUI_DIR}/imgui_demo.cpp
+        ${IMGUI_DIR}/backends/imgui_impl_glfw.cpp
+        ${IMGUI_DIR}/backends/imgui_impl_opengl3.cpp
+    )
 
-add_executable(benchmark_imgui_vs_qt 
-    benchmark_imgui_vs_qt.cpp
-    ${IMGUI_SOURCES}
-)
+    add_executable(benchmark_imgui_vs_qt 
+        benchmark_imgui_vs_qt.cpp
+        ${IMGUI_SOURCES}
+    )
 
-target_include_directories(benchmark_imgui_vs_qt PRIVATE
-    ${CMAKE_SOURCE_DIR}/include
-    ${IMGUI_DIR}
-    ${IMGUI_DIR}/backends
-)
+    target_include_directories(benchmark_imgui_vs_qt PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+        ${IMGUI_DIR}
+        ${IMGUI_DIR}/backends
+    )
 
-if(glfw3_FOUND)
-    target_link_libraries(benchmark_imgui_vs_qt
-        ${OPENGL_LIBRARIES}
-        glfw
-        dl
+    if(glfw3_FOUND)
+        target_link_libraries(benchmark_imgui_vs_qt
+            ${OPENGL_LIBRARIES}
+            glfw
+            dl
+        )
+    else()
+        target_link_libraries(benchmark_imgui_vs_qt
+            ${OPENGL_LIBRARIES}
+            ${GLFW_LIBRARIES}
+            dl
+        )
+        target_include_directories(benchmark_imgui_vs_qt PRIVATE ${GLFW_INCLUDE_DIRS})
+    endif()
+
+    set_target_properties(benchmark_imgui_vs_qt
+        PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests"
     )
 else()
-    target_link_libraries(benchmark_imgui_vs_qt
-        ${OPENGL_LIBRARIES}
-        ${GLFW_LIBRARIES}
-        dl
-    )
-    target_include_directories(benchmark_imgui_vs_qt PRIVATE ${GLFW_INCLUDE_DIRS})
+    message(STATUS "ImGui sources not found, skipping ImGui vs Qt benchmark")
 endif()
-
-set_target_properties(benchmark_imgui_vs_qt
-    PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests"
-)
 
 # Add subdirectory for signal vs callback test
 add_subdirectory(QtSignalVsCppCallback_test)

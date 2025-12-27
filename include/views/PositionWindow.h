@@ -13,29 +13,86 @@
 #include <QMap>
 #include <QSet>
 #include <QShortcut>
+#include "models/GenericTableProfile.h"
 
 class PositionModel;
 class FilterRowWidget;
 
+// Forward declarations
+namespace XTS {
+    struct Position;
+}
+
 struct Position {
-    QString symbol;
-    QString seriesExpiry;
-    int buyQty;
-    int sellQty;
-    double netPrice;
-    double markPrice;
-    double mtmGainLoss;
-    double mtmMargin;
-    double buyValue;
-    double sellValue;
-    QString exchange;
-    QString segment;
-    QString user;
-    QString client;
-    QString periodicity;
+    // Basic & Contract Info
+    int64_t scripCode;      // Scrip Code
+    QString symbol;         // Symbol
+    QString seriesExpiry;   // Ser/Exp
+    double strikePrice;     // Strike Price
+    QString optionType;     // Option Type
+    QString exchange;       // Exchange
+    QString name;           // Name
+    QString instrumentType; // Instrument Type
+    QString instrumentName; // Instrument Name
+    QString scripName;      // Scrip Name
+    QString productType;    // Product Type
+    QString optionFlag;     // Option Flag
+
+    // Quantities & Positions
+    int netQty;             // Net Qty
+    int buyQty;             // Buy Qty
+    int sellQty;            // Sell Qty
+    int totalQuantity;      // Total Quantity
+    int unsettledQty;       // Unsettled Quantity
     
-    Position() : buyQty(0), sellQty(0), netPrice(0.0), markPrice(0.0),
-                 mtmGainLoss(0.0), mtmMargin(0.0), buyValue(0.0), sellValue(0.0) {}
+    // Lots & Weights (Placeholders)
+    double buyLot;
+    double buyWeight;
+    double sellLot;
+    double sellWeight;
+    double netLot;
+    double netWeight;
+    double totalLot;
+    double totalWeight;
+
+    // Prices
+    double marketPrice;     // Market Price
+    double netPrice;        // Net Price (Avg Price)
+    double buyAvg;          // Buy Avg.
+    double sellAvg;         // Sell Avg.
+    double cfAvgPrice;      // CF Avg Price
+
+    // Values & Profits
+    double mtm;             // MTM G/L
+    double mtmvPos;         // MTMV Pos
+    double totalValue;      // Total Value
+    double buyVal;          // Buy Val
+    double sellVal;         // Sell Val
+    double netVal;          // Net Val
+    double brokerage;       // Brokerage
+    double netMtm;          // Net MTM
+    double netValPostExp;   // Net Value Post Expenses
+    double actualMtm;       // Actual MTM P&L
+    
+    // Risk & Other metadata
+    QString user;           // User
+    QString client;         // Client
+    QString clientGroup;    // Client Group
+    double dprRange;        // DPR Range
+    QString maturityDate;   // Maturity Date
+    double yield;           // Yield
+    double varPercent;      // VAR %
+    double varAmount;       // VAR Amount
+    QString smCategory;     // SM Category
+    
+    Position() : scripCode(0), strikePrice(0.0), netQty(0), buyQty(0), sellQty(0),
+                 totalQuantity(0), unsettledQty(0), buyLot(0.0), buyWeight(0.0),
+                 sellLot(0.0), sellWeight(0.0), netLot(0.0), netWeight(0.0),
+                 totalLot(0.0), totalWeight(0.0), marketPrice(0.0), netPrice(0.0),
+                 buyAvg(0.0), sellAvg(0.0), cfAvgPrice(0.0), mtm(0.0), mtmvPos(0.0),
+                 totalValue(0.0), buyVal(0.0), sellVal(0.0), netVal(0.0),
+                 brokerage(0.0), netMtm(0.0), netValPostExp(0.0), actualMtm(0.0),
+                 dprRange(0.0), yield(0.0), varPercent(0.0), varAmount(0.0) {}
 };
 
 class PositionWindow : public QWidget
@@ -43,12 +100,15 @@ class PositionWindow : public QWidget
     Q_OBJECT
 
 public:
-    explicit PositionWindow(QWidget *parent = nullptr);
+    explicit PositionWindow(class TradingDataService* tradingDataService, QWidget *parent = nullptr);
     ~PositionWindow();
 
     void addPosition(const Position& position);
     void updatePosition(const QString& symbol, const Position& position);
     void clearPositions();
+
+public slots:
+    void showColumnProfileDialog(); // Added for column profile
 
 private slots:
     void onFilterChanged();
@@ -56,11 +116,13 @@ private slots:
     void onRefreshClicked();
     void onExportClicked();
     void toggleFilterRow();
+    void onPositionsUpdated(const QVector<XTS::Position>& positions);
 
 private:
     void setupUI();
     void setupFilterBar();
     void setupTableView();
+    void loadInitialProfile();
     void applyFilters();
     void updateSummaryRow();
 
@@ -84,10 +146,14 @@ private:
     // Table view and model
     QTableView* m_tableView;
     PositionModel* m_model;
+    class QSortFilterProxyModel* m_proxyModel; // Added for sorting
     bool m_filterRowVisible;
     QShortcut* m_filterShortcut;
     QShortcut* m_escShortcut;
     QList<FilterRowWidget*> m_filterWidgets;
+
+    // Trading data service
+    TradingDataService* m_tradingDataService;
 
     // All positions (unfiltered)
     QList<Position> m_allPositions;
@@ -99,7 +165,9 @@ private:
     QString m_filterUser;
     QString m_filterClient;
     QString m_filterSecurity;
-    QMap<int, QStringList> m_columnFilters; // column -> selected values list
+    // column -> selected values list
+    QMap<int, QStringList> m_columnFilters;
+    GenericTableProfile m_columnProfile; // Added for column profile
 };
 
 // Filter row delegate for embedding widgets in table
@@ -138,16 +206,55 @@ class PositionModel : public QAbstractTableModel
 
 public:
     enum Column {
-        Symbol = 0,
+        ScripCode = 0,
+        Symbol,
         SeriesExpiry,
-        BuyQty,
-        SellQty,
+        StrikePrice,
+        OptionType,
+        NetQty,
+        MarketPrice,
+        MTMGL,
         NetPrice,
-        MarkPrice,
-        MTMGainLoss,
-        MTMMargin,
-        BuyValue,
-        SellValue,
+        MTMVPos,
+        TotalValue,
+        BuyVal,
+        SellVal,
+        Exchange,
+        User,
+        Client,
+        Name,
+        InstrumentType,
+        InstrumentName,
+        ScripName,
+        BuyQty,
+        BuyLot,
+        BuyWeight,
+        BuyAvg,
+        SellQty,
+        SellLot,
+        SellWeight,
+        SellAvg,
+        NetLot,
+        NetWeight,
+        NetVal,
+        ProductType,
+        ClientGroup,
+        DPRRange,
+        MaturityDate,
+        Yield,
+        TotalQuantity,
+        TotalLot,
+        TotalWeight,
+        Brokerage,
+        NetMTM,
+        NetValuePostExp,
+        OptionFlag,
+        VarPercent,
+        VarAmount,
+        SMCategory,
+        CfAvgPrice,
+        ActualMTM,
+        UnsettledQty,
         ColumnCount
     };
 

@@ -25,14 +25,18 @@ CustomTradeBook::~CustomTradeBook()
 
 void CustomTradeBook::applyDefaultStyling()
 {
-    // Table appearance - optimized for trade data
-    setAlternatingRowColors(false);
-    setShowGrid(false);
+    // Table appearance - optimized for trade data - Premium Dark Theme
+    setAlternatingRowColors(true);
+    setShowGrid(true);
     setStyleSheet("QTableView { "
-                  "background-color: white; "
-                  "gridline-color: #E0E0E0; "
-                  "selection-background-color: #E3F2FD; "
-                  "selection-color: black; "
+                  "background-color: #1e1e1e; "
+                  "alternate-background-color: #252526; "
+                  "gridline-color: #333333; "
+                  "selection-background-color: #094771; "
+                  "selection-color: #ffffff; "
+                  "color: #cccccc; "
+                  "border: none; "
+                  "font-size: 11px; "
                   "}"
                   "QTableView::item { "
                   "padding: 4px 8px; "
@@ -53,15 +57,17 @@ void CustomTradeBook::applyDefaultStyling()
 
 void CustomTradeBook::setupHeader()
 {
-    // Header styling
+    // Header styling - Premium Dark Theme
     horizontalHeader()->setStyleSheet(
         "QHeaderView::section { "
-        "background-color: #F5F5F5; "
+        "background-color: #252526; "
+        "color: #e0e0e0; "
         "border: none; "
-        "border-bottom: 1px solid #E0E0E0; "
-        "border-right: 1px solid #E0E0E0; "
-        "padding: 4px 8px; "
+        "border-bottom: 1px solid #333333; "
+        "border-right: 1px solid #333333; "
+        "padding: 6px 8px; "
         "font-weight: bold; "
+        "font-size: 11px; "
         "}"
     );
     

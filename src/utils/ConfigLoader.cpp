@@ -124,12 +124,12 @@ QString ConfigLoader::getMarketDataSecretKey() const
 
 QString ConfigLoader::getInteractiveAppKey() const
 {
-    return getValue("CREDENTIALS", "interective_appkey");
+    return getValue("CREDENTIALS", "interactive_appkey");
 }
 
 QString ConfigLoader::getInteractiveSecretKey() const
 {
-    return getValue("CREDENTIALS", "interective_secretkey");
+    return getValue("CREDENTIALS", "interactive_secretkey");
 }
 
 QString ConfigLoader::getSource() const

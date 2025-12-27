@@ -29,13 +29,14 @@ add_executable(test_broadcast_messages
 target_include_directories(test_broadcast_messages PRIVATE
     ../../lib/cpp_broacast_nsefo/include
     ../../include
+    ${LZO_INCLUDE_DIRS}
 )
 
 # Link libraries
 target_link_libraries(test_broadcast_messages
     Qt5::Core
     pthread
-    lzo2
+    ${LZO_LIBRARIES}
 )
 
 # C++ standard

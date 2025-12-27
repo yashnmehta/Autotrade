@@ -55,7 +55,7 @@ void CustomMarketWatch::setSourceModel(QAbstractItemModel *model)
     
     // Enable sorting
     setSortingEnabled(true);
-    m_proxyModel->setDynamicSortFilter(false);  // Manual sorting only
+    m_proxyModel->setDynamicSortFilter(true);  // Enable automatic re-sorting
 }
 
 void CustomMarketWatch::applyDefaultStyling()

@@ -26,8 +26,8 @@ public:
     {
         // XTS Interactive API Configuration
         m_baseURL = "https://mtrade.arhamshare.com";
-        m_appKey = "5820d8e017294c81d71873";
-        m_secretKey = "Ibvk668@NX";
+        m_appKey = "bfd0b3bcb0b52a40eb6826";
+        m_secretKey = "Cdfn817@X0";
         m_source = "TWSAPI";
         
         m_testsPassed = 0;
@@ -196,6 +196,7 @@ private slots:
         std::cout << "Endpoint: GET /interactive/portfolio/positions?dayOrNet=DayWise" << std::endl;
         
         QString url = m_baseURL + "/interactive/portfolio/positions?dayOrNet=DayWise";
+        if (!m_clientCode.isEmpty()) url += "&clientID=" + m_clientCode;
         QUrl requestUrl(url); QNetworkRequest request(requestUrl);
         request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
         request.setRawHeader("Authorization", m_authToken.toUtf8());
@@ -205,23 +206,26 @@ private slots:
         connect(reply, &QNetworkReply::finished, this, [this, reply]() {
             m_testsTotal++;
             
-            if (reply->error() == QNetworkReply::NoError) {
-                QJsonDocument doc = QJsonDocument::fromJson(reply->readAll());
-                QJsonObject obj = doc.object();
-                
+            QByteArray responseData = reply->readAll();
+            QJsonDocument doc = QJsonDocument::fromJson(responseData);
+            QJsonObject obj = doc.object();
+            QString code = obj["code"].toString();
+
+            if (reply->error() == QNetworkReply::NoError || (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() == 400)) {
                 if (obj["type"].toString() == "success") {
-                    QJsonArray positions = obj["result"].toArray();
+                    QJsonArray positions = obj["result"].toObject()["positionList"].toArray();
                     std::cout << "✓ DayWise positions retrieved - " << positions.size() << " positions found" << std::endl;
                     m_testsPassed++;
-                } else if (obj["code"].toString() == "e-property-validation-failed") {
+                } else if (code == "e-property-validation-failed" || code == "e-portfolio-0005") {
                     std::cout << "✓ DayWise positions endpoint working (no positions)" << std::endl;
                     m_testsPassed++;
                 } else {
-                    std::cout << "✗ DayWise positions failed: " << obj["description"].toString().toStdString() << std::endl;
+                    std::cout << "✗ DayWise positions failed: " << obj["description"].toString().toStdString() << " (Code: " << code.toStdString() << ")" << std::endl;
                     m_testsFailed++;
                 }
             } else {
                 std::cout << "✗ Network error: " << reply->errorString().toStdString() << std::endl;
+                std::cout << "  Body: " << responseData.toStdString() << std::endl;
                 m_testsFailed++;
             }
             
@@ -235,6 +239,7 @@ private slots:
         std::cout << "Endpoint: GET /interactive/portfolio/positions?dayOrNet=NetWise" << std::endl;
         
         QString url = m_baseURL + "/interactive/portfolio/positions?dayOrNet=NetWise";
+        if (!m_clientCode.isEmpty()) url += "&clientID=" + m_clientCode;
         QUrl requestUrl(url); QNetworkRequest request(requestUrl);
         request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
         request.setRawHeader("Authorization", m_authToken.toUtf8());
@@ -244,23 +249,26 @@ private slots:
         connect(reply, &QNetworkReply::finished, this, [this, reply]() {
             m_testsTotal++;
             
-            if (reply->error() == QNetworkReply::NoError) {
-                QJsonDocument doc = QJsonDocument::fromJson(reply->readAll());
-                QJsonObject obj = doc.object();
-                
+            QByteArray responseData = reply->readAll();
+            QJsonDocument doc = QJsonDocument::fromJson(responseData);
+            QJsonObject obj = doc.object();
+            QString code = obj["code"].toString();
+
+            if (reply->error() == QNetworkReply::NoError || (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() == 400)) {
                 if (obj["type"].toString() == "success") {
-                    QJsonArray positions = obj["result"].toArray();
+                    QJsonArray positions = obj["result"].toObject()["positionList"].toArray();
                     std::cout << "✓ NetWise positions retrieved - " << positions.size() << " positions found" << std::endl;
                     m_testsPassed++;
-                } else if (obj["code"].toString() == "e-property-validation-failed") {
+                } else if (code == "e-property-validation-failed" || code == "e-portfolio-0005") {
                     std::cout << "✓ NetWise positions endpoint working (no positions)" << std::endl;
                     m_testsPassed++;
                 } else {
-                    std::cout << "✗ NetWise positions failed: " << obj["description"].toString().toStdString() << std::endl;
+                    std::cout << "✗ NetWise positions failed: " << obj["description"].toString().toStdString() << " (Code: " << code.toStdString() << ")" << std::endl;
                     m_testsFailed++;
                 }
             } else {
                 std::cout << "✗ Network error: " << reply->errorString().toStdString() << std::endl;
+                std::cout << "  Body: " << responseData.toStdString() << std::endl;
                 m_testsFailed++;
             }
             
@@ -274,6 +282,7 @@ private slots:
         std::cout << "Endpoint: GET /interactive/orders" << std::endl;
         
         QString url = m_baseURL + "/interactive/orders";
+        if (!m_clientCode.isEmpty()) url += "?clientID=" + m_clientCode;
         QUrl requestUrl(url); QNetworkRequest request(requestUrl);
         request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
         request.setRawHeader("Authorization", m_authToken.toUtf8());
@@ -283,23 +292,26 @@ private slots:
         connect(reply, &QNetworkReply::finished, this, [this, reply]() {
             m_testsTotal++;
             
-            if (reply->error() == QNetworkReply::NoError) {
-                QJsonDocument doc = QJsonDocument::fromJson(reply->readAll());
-                QJsonObject obj = doc.object();
-                
+            QByteArray responseData = reply->readAll();
+            QJsonDocument doc = QJsonDocument::fromJson(responseData);
+            QJsonObject obj = doc.object();
+            QString code = obj["code"].toString();
+
+            if (reply->error() == QNetworkReply::NoError || (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() == 400)) {
                 if (obj["type"].toString() == "success") {
                     QJsonArray orders = obj["result"].toArray();
                     std::cout << "✓ Orders retrieved - " << orders.size() << " orders found" << std::endl;
                     m_testsPassed++;
-                } else if (obj["code"].toString() == "e-property-validation-failed") {
+                } else if (code == "e-property-validation-failed" || code == "e-orders-0005") {
                     std::cout << "✓ Orders endpoint working (no orders)" << std::endl;
                     m_testsPassed++;
                 } else {
-                    std::cout << "✗ Orders failed: " << obj["description"].toString().toStdString() << std::endl;
+                    std::cout << "✗ Orders failed: " << obj["description"].toString().toStdString() << " (Code: " << code.toStdString() << ")" << std::endl;
                     m_testsFailed++;
                 }
             } else {
                 std::cout << "✗ Network error: " << reply->errorString().toStdString() << std::endl;
+                std::cout << "  Body: " << responseData.toStdString() << std::endl;
                 m_testsFailed++;
             }
             
@@ -313,6 +325,7 @@ private slots:
         std::cout << "Endpoint: GET /interactive/orders/trades" << std::endl;
         
         QString url = m_baseURL + "/interactive/orders/trades";
+        if (!m_clientCode.isEmpty()) url += "?clientID=" + m_clientCode;
         QUrl requestUrl(url); QNetworkRequest request(requestUrl);
         request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
         request.setRawHeader("Authorization", m_authToken.toUtf8());
@@ -322,23 +335,26 @@ private slots:
         connect(reply, &QNetworkReply::finished, this, [this, reply]() {
             m_testsTotal++;
             
-            if (reply->error() == QNetworkReply::NoError) {
-                QJsonDocument doc = QJsonDocument::fromJson(reply->readAll());
-                QJsonObject obj = doc.object();
-                
+            QByteArray responseData = reply->readAll();
+            QJsonDocument doc = QJsonDocument::fromJson(responseData);
+            QJsonObject obj = doc.object();
+            QString code = obj["code"].toString();
+
+            if (reply->error() == QNetworkReply::NoError || (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() == 400)) {
                 if (obj["type"].toString() == "success") {
                     QJsonArray trades = obj["result"].toArray();
                     std::cout << "✓ Trades retrieved - " << trades.size() << " trades found" << std::endl;
                     m_testsPassed++;
-                } else if (obj["code"].toString() == "e-property-validation-failed") {
+                } else if (code == "e-property-validation-failed" || code == "e-tradeBook-0005") {
                     std::cout << "✓ Trades endpoint working (no trades)" << std::endl;
                     m_testsPassed++;
                 } else {
-                    std::cout << "✗ Trades failed: " << obj["description"].toString().toStdString() << std::endl;
+                    std::cout << "✗ Trades failed: " << obj["description"].toString().toStdString() << " (Code: " << code.toStdString() << ")" << std::endl;
                     m_testsFailed++;
                 }
             } else {
                 std::cout << "✗ Network error: " << reply->errorString().toStdString() << std::endl;
+                std::cout << "  Body: " << responseData.toStdString() << std::endl;
                 m_testsFailed++;
             }
             

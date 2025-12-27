@@ -23,6 +23,8 @@ public:
     void login(std::function<void(bool, const QString&)> callback);
     QString getToken() const { return m_token; }
     QString getUserID() const { return m_userID; }
+    QString getClientID() const { return m_clientID; }
+    void setClientID(const QString &id) { m_clientID = id; }
     bool isLoggedIn() const { return !m_token.isEmpty(); }
 
     // Position queries
@@ -49,6 +51,7 @@ private:
     QString m_source;
     QString m_token;
     QString m_userID;
+    QString m_clientID;
 
     // Native HTTP client (698x faster than Qt)
     std::unique_ptr<NativeHTTPClient> m_httpClient;

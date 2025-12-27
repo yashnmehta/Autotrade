@@ -7,13 +7,13 @@ bool PositionHelpers::parsePositionFromTSV(const QString &line, Position &positi
 {
     QStringList fields = line.split('\t');
     
-    // Need at least Symbol, SeriesExpiry, BuyQty, SellQty
+    // Need at least Symbol, Name, BuyQty, SellQty
     if (fields.size() < 4) {
         return false;
     }
     
     QString symbol = fields.at(0).trimmed();
-    QString seriesExpiry = fields.at(1).trimmed();
+    QString name = fields.at(1).trimmed();
     
     if (symbol.isEmpty() || symbol.startsWith("─")) {
         return false;
@@ -21,7 +21,7 @@ bool PositionHelpers::parsePositionFromTSV(const QString &line, Position &positi
     
     // Populate basic fields
     position.symbol = symbol;
-    position.seriesExpiry = seriesExpiry;
+    position.name = name;
     
     // Parse quantities
     if (fields.size() >= 4) {
@@ -32,24 +32,19 @@ bool PositionHelpers::parsePositionFromTSV(const QString &line, Position &positi
     // Parse prices and P&L
     if (fields.size() >= 8) {
         position.netPrice = fields.at(4).toDouble();
-        position.markPrice = fields.at(5).toDouble();
-        position.mtmGainLoss = fields.at(6).toDouble();
-        position.mtmMargin = fields.at(7).toDouble();
+        position.marketPrice = fields.at(5).toDouble();
+        position.mtm = fields.at(6).toDouble();
     }
     
     // Parse values
     if (fields.size() >= 10) {
-        position.buyValue = fields.at(8).toDouble();
-        position.sellValue = fields.at(9).toDouble();
+        position.buyVal = fields.at(8).toDouble();
+        position.sellVal = fields.at(9).toDouble();
     }
     
     // Parse metadata
-    if (fields.size() >= 15) {
+    if (fields.size() >= 11) {
         position.exchange = fields.at(10).trimmed();
-        position.segment = fields.at(11).trimmed();
-        position.user = fields.at(12).trimmed();
-        position.client = fields.at(13).trimmed();
-        position.periodicity = fields.at(14).trimmed();
     }
     
     qDebug() << "[PositionHelpers] Parsed position:" << symbol << "Net Qty:" << calculateNetQty(position);
@@ -58,23 +53,19 @@ bool PositionHelpers::parsePositionFromTSV(const QString &line, Position &positi
 
 QString PositionHelpers::formatPositionToTSV(const Position &position)
 {
-    // Format: Symbol\tSeriesExpiry\tBuyQty\tSellQty\tNetPrice\tMarkPrice\tMTM\tMargin\tBuyValue\tSellValue\tExchange\tSegment\tUser\tClient\tPeriodicity
-    return QString("%1\t%2\t%3\t%4\t%5\t%6\t%7\t%8\t%9\t%10\t%11\t%12\t%13\t%14\t%15")
+    // Format: Symbol\tName\tBuyQty\tSellQty\tNetPrice\tMarketPrice\tMTM\tMargin\tBuyVal\tSellVal\tExchange
+    return QString("%1\t%2\t%3\t%4\t%5\t%6\t%7\t%8\t%9\t%10\t%11")
             .arg(position.symbol)
-            .arg(position.seriesExpiry)
+            .arg(position.name)
             .arg(position.buyQty)
             .arg(position.sellQty)
             .arg(position.netPrice, 0, 'f', 2)
-            .arg(position.markPrice, 0, 'f', 2)
-            .arg(position.mtmGainLoss, 0, 'f', 2)
-            .arg(position.mtmMargin, 0, 'f', 2)
-            .arg(position.buyValue, 0, 'f', 2)
-            .arg(position.sellValue, 0, 'f', 2)
-            .arg(position.exchange)
-            .arg(position.segment)
-            .arg(position.user)
-            .arg(position.client)
-            .arg(position.periodicity);
+            .arg(position.marketPrice, 0, 'f', 2)
+            .arg(position.mtm, 0, 'f', 2)
+            .arg(0.0, 0, 'f', 2) // Margin placeholder
+            .arg(position.buyVal, 0, 'f', 2)
+            .arg(position.sellVal, 0, 'f', 2)
+            .arg(position.exchange);
 }
 
 bool PositionHelpers::isValidPosition(const Position &position)
@@ -92,7 +83,7 @@ double PositionHelpers::calculateTotalPnL(const QList<Position> &positions)
     double totalPnL = 0.0;
     
     for (const Position &pos : positions) {
-        totalPnL += pos.mtmGainLoss;
+        totalPnL += pos.mtm;
     }
     
     return totalPnL;
@@ -100,13 +91,7 @@ double PositionHelpers::calculateTotalPnL(const QList<Position> &positions)
 
 double PositionHelpers::calculateTotalMargin(const QList<Position> &positions)
 {
-    double totalMargin = 0.0;
-    
-    for (const Position &pos : positions) {
-        totalMargin += pos.mtmMargin;
-    }
-    
-    return totalMargin;
+    return 0.0;
 }
 
 QString PositionHelpers::formatPnL(double pnl)

@@ -834,16 +834,23 @@ MarketWatchProfileManager::MarketWatchProfileManager()
     : m_currentProfileName("Default")
 {
     loadDefaultProfiles();
+    loadAllProfiles("profiles/marketwatch");
 }
 
 void MarketWatchProfileManager::addProfile(const MarketWatchColumnProfile &profile)
 {
     m_profiles[profile.name()] = profile;
+    saveAllProfiles("profiles/marketwatch");
 }
 
 bool MarketWatchProfileManager::removeProfile(const QString &name)
 {
     if (!m_profiles.contains(name)) return false;
+    
+    // Delete file
+    QDir dir("profiles/marketwatch");
+    dir.remove(name + ".json");
+    
     m_profiles.remove(name);
     if (m_currentProfileName == name) {
         m_currentProfileName = "Default";
