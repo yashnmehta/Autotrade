@@ -74,6 +74,57 @@ set_target_properties(test_marketdata_api test_interactive_api benchmark_price_c
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests"
 )
 
+# ImGui vs Qt Benchmark
+find_package(OpenGL REQUIRED)
+find_package(glfw3 QUIET)
+if(NOT glfw3_FOUND)
+    # Try finding it via pkg-config if find_package fails
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(GLFW REQUIRED glfw3)
+endif()
+
+set(IMGUI_DIR ${CMAKE_SOURCE_DIR}/lib/imgui)
+set(IMGUI_SOURCES
+    ${IMGUI_DIR}/imgui.cpp
+    ${IMGUI_DIR}/imgui_draw.cpp
+    ${IMGUI_DIR}/imgui_tables.cpp
+    ${IMGUI_DIR}/imgui_widgets.cpp
+    ${IMGUI_DIR}/imgui_demo.cpp
+    ${IMGUI_DIR}/backends/imgui_impl_glfw.cpp
+    ${IMGUI_DIR}/backends/imgui_impl_opengl3.cpp
+)
+
+add_executable(benchmark_imgui_vs_qt 
+    benchmark_imgui_vs_qt.cpp
+    ${IMGUI_SOURCES}
+)
+
+target_include_directories(benchmark_imgui_vs_qt PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+    ${IMGUI_DIR}
+    ${IMGUI_DIR}/backends
+)
+
+if(glfw3_FOUND)
+    target_link_libraries(benchmark_imgui_vs_qt
+        ${OPENGL_LIBRARIES}
+        glfw
+        dl
+    )
+else()
+    target_link_libraries(benchmark_imgui_vs_qt
+        ${OPENGL_LIBRARIES}
+        ${GLFW_LIBRARIES}
+        dl
+    )
+    target_include_directories(benchmark_imgui_vs_qt PRIVATE ${GLFW_INCLUDE_DIRS})
+endif()
+
+set_target_properties(benchmark_imgui_vs_qt
+    PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests"
+)
+
 # Add subdirectory for signal vs callback test
 add_subdirectory(QtSignalVsCppCallback_test)
 

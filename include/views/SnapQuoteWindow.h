@@ -131,6 +131,13 @@ private:
     // Market data client
     XTSMarketDataClient *m_xtsClient;
     QShortcut* m_escShortcut;
+    QShortcut* m_refreshShortcut;
+
+    // Total counts
+    QLabel *m_lbTotalBuyers;
+    QLabel *m_lbTotalSellers;
+
+    void initUI();
 };
 
 #endif // SNAPQUOTEWINDOW_H

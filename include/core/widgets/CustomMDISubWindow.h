@@ -59,6 +59,7 @@ signals:
     void minimizeRequested();
     void maximizeRequested();
     void windowActivated();
+    void customizeRequested();
 
 protected:
     void mousePressEvent(QMouseEvent *event) override;

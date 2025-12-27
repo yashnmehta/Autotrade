@@ -12,132 +12,7 @@ SnapQuoteWindow::SnapQuoteWindow(QWidget *parent)
     , m_token(0)
     , m_xtsClient(nullptr)
 {
-    // Load UI file
-    QUiLoader loader;
-    QFile file(":/forms/SnapQuote.ui");
-    
-    if (!file.open(QFile::ReadOnly)) {
-        qWarning() << "[SnapQuoteWindow] Failed to open UI file";
-        return;
-    }
-    
-    m_formWidget = loader.load(&file, this);
-    file.close();
-    
-    if (!m_formWidget) {
-        qWarning() << "[SnapQuoteWindow] Failed to load UI";
-        return;
-    }
-    
-    // Set layout
-    QVBoxLayout *layout = new QVBoxLayout(this);
-    layout->setContentsMargins(0, 0, 0, 0);
-    layout->setSpacing(0);
-    layout->addWidget(m_formWidget);
-    
-    // Find header widgets
-    m_cbEx = m_formWidget->findChild<QComboBox*>("cbEx");
-    m_cbSegment = m_formWidget->findChild<QComboBox*>("cbSegment");
-    m_leToken = m_formWidget->findChild<QLineEdit*>("leToken");
-    m_leInstType = m_formWidget->findChild<QLineEdit*>("leInstType");
-    m_leSymbol = m_formWidget->findChild<QLineEdit*>("leSymbol");
-    m_cbExpiry = m_formWidget->findChild<QComboBox*>("cbExpiry");
-    m_pbRefresh = m_formWidget->findChild<QPushButton*>("pbRefresh");
-    
-    // Find LTP widgets
-    m_lbLTPQty = m_formWidget->findChild<QLabel*>("lbLTPQty");
-    m_lbLTPPrice = m_formWidget->findChild<QLabel*>("lbLTPPrice");
-    m_lbLTPIndicator = m_formWidget->findChild<QLabel*>("lbLTPIndicator");
-    m_lbLTPTime = m_formWidget->findChild<QLabel*>("lbLTPTime");
-    
-    // Find market statistics widgets
-    m_lbVolume = m_formWidget->findChild<QLabel*>("lbVolume");
-    m_lbValue = m_formWidget->findChild<QLabel*>("lbValue");
-    m_lbATP = m_formWidget->findChild<QLabel*>("lbATP");
-    m_lbPercentChange = m_formWidget->findChild<QLabel*>("lbPercentChange");
-    
-    // Find price data widgets
-    m_lbOpen = m_formWidget->findChild<QLabel*>("lbOpen");
-    m_lbHigh = m_formWidget->findChild<QLabel*>("lbHigh");
-    m_lbLow = m_formWidget->findChild<QLabel*>("lbLow");
-    m_lbClose = m_formWidget->findChild<QLabel*>("lbClose");
-    
-    // Find additional statistics widgets
-    m_lbDPR = m_formWidget->findChild<QLabel*>("lbDPR");
-    m_lbOI = m_formWidget->findChild<QLabel*>("lbOI");
-    m_lbOIPercent = m_formWidget->findChild<QLabel*>("lbOIPercent");
-    m_lbGainLoss = m_formWidget->findChild<QLabel*>("lbGainLoss");
-    m_lbMTMValue = m_formWidget->findChild<QLabel*>("lbMTMValue");
-    m_lbMTMPos = m_formWidget->findChild<QLabel*>("lbMTMPos");
-    
-    // Find bid depth widgets
-    m_lbBidQty1 = m_formWidget->findChild<QLabel*>("lbBidQty1");
-    m_lbBidQty2 = m_formWidget->findChild<QLabel*>("lbBidQty2");
-    m_lbBidQty3 = m_formWidget->findChild<QLabel*>("lbBidQty3");
-    m_lbBidQty4 = m_formWidget->findChild<QLabel*>("lbBidQty4");
-    m_lbBidQty5 = m_formWidget->findChild<QLabel*>("lbBidQty5");
-    
-    m_lbBidPrice1 = m_formWidget->findChild<QLabel*>("lbBidPrice1");
-    m_lbBidPrice2 = m_formWidget->findChild<QLabel*>("lbBidPrice2");
-    m_lbBidPrice3 = m_formWidget->findChild<QLabel*>("lbBidPrice3");
-    m_lbBidPrice4 = m_formWidget->findChild<QLabel*>("lbBidPrice4");
-    m_lbBidPrice5 = m_formWidget->findChild<QLabel*>("lbBidPrice5");
-    
-    m_lbBidOrders1 = m_formWidget->findChild<QLabel*>("bidAt1");
-    m_lbBidOrders2 = m_formWidget->findChild<QLabel*>("bidAt2");
-    m_lbBidOrders3 = m_formWidget->findChild<QLabel*>("bidAt3");
-    m_lbBidOrders4 = m_formWidget->findChild<QLabel*>("bidAt4");
-    m_lbBidOrders5 = m_formWidget->findChild<QLabel*>("bidAt5");
-    
-    // Find ask depth widgets
-    m_lbAskPrice1 = m_formWidget->findChild<QLabel*>("lbAskPrice1");
-    m_lbAskPrice2 = m_formWidget->findChild<QLabel*>("lbAskPrice2");
-    m_lbAskPrice3 = m_formWidget->findChild<QLabel*>("lbAskPrice3");
-    m_lbAskPrice4 = m_formWidget->findChild<QLabel*>("lbAskPrice4");
-    m_lbAskPrice5 = m_formWidget->findChild<QLabel*>("lbAskPrice5");
-    
-    m_lbAskQty1 = m_formWidget->findChild<QLabel*>("lbAskQty1");
-    m_lbAskQty2 = m_formWidget->findChild<QLabel*>("lbAskQty2");
-    m_lbAskQty3 = m_formWidget->findChild<QLabel*>("lbAskQty3");
-    m_lbAskQty4 = m_formWidget->findChild<QLabel*>("lbAskQty4");
-    m_lbAskQty5 = m_formWidget->findChild<QLabel*>("lbAskQty5");
-    
-    m_lbAskOrders1 = m_formWidget->findChild<QLabel*>("lbAskOrders1");
-    m_lbAskOrders2 = m_formWidget->findChild<QLabel*>("lbAskOrders2");
-    m_lbAskOrders3 = m_formWidget->findChild<QLabel*>("lbAskOrders3");
-    m_lbAskOrders4 = m_formWidget->findChild<QLabel*>("lbAskOrders4");
-    m_lbAskOrders5 = m_formWidget->findChild<QLabel*>("lbAskOrders5");
-    
-    populateComboBoxes();
-    setupConnections();
-    
-    // Setup Esc shortcut to close parent MDI window
-    m_escShortcut = new QShortcut(QKeySequence(Qt::Key_Escape), this);
-    connect(m_escShortcut, &QShortcut::activated, this, [this]() {
-        // Find parent CustomMDISubWindow and close it
-        QWidget *p = parentWidget();
-        while (p) {
-            if (p->metaObject()->className() == QString("CustomMDISubWindow")) {
-                p->close();
-                return;
-            }
-            p = p->parentWidget();
-        }
-        // Fallback: close this widget
-        close();
-    });
-    
-    // Set default focus to token field for quick symbol lookup
-    if (m_leToken) {
-        QTimer::singleShot(0, this, [this]() {
-            if (m_leToken) {
-                m_leToken->setFocus();
-                m_leToken->selectAll();
-            }
-        });
-    }
-    
-    qDebug() << "[SnapQuoteWindow] Created successfully";
+    initUI();
 }
 
 SnapQuoteWindow::SnapQuoteWindow(const WindowContext &context, QWidget *parent)
@@ -147,7 +22,13 @@ SnapQuoteWindow::SnapQuoteWindow(const WindowContext &context, QWidget *parent)
     , m_context(context)
     , m_xtsClient(nullptr)
 {
-    // Load UI file
+    initUI();
+    loadFromContext(context);
+}
+
+void SnapQuoteWindow::initUI()
+{
+    // Load UI file using QUiLoader
     QUiLoader loader;
     QFile file(":/forms/SnapQuote.ui");
     
@@ -156,20 +37,23 @@ SnapQuoteWindow::SnapQuoteWindow(const WindowContext &context, QWidget *parent)
         return;
     }
     
-    m_formWidget = loader.load(&file, this);
+    m_formWidget = loader.load(&file);
     file.close();
     
     if (!m_formWidget) {
-        qWarning() << "[SnapQuoteWindow] Failed to load UI";
+        qWarning() << "[SnapQuoteWindow] ERROR: Failed to load UI widget from :/forms/SnapQuote.ui. Check if file is valid XML.";
         return;
     }
     
+    // Main layout for this widget to host the loaded form
     QVBoxLayout *layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
     layout->addWidget(m_formWidget);
     
-    // Find all widgets
+    qDebug() << "[SnapQuoteWindow] UI loaded successfully. Root widget name:" << m_formWidget->objectName();
+    
+    // --- Header Widgets ---
     m_cbEx = m_formWidget->findChild<QComboBox*>("cbEx");
     m_cbSegment = m_formWidget->findChild<QComboBox*>("cbSegment");
     m_leToken = m_formWidget->findChild<QLineEdit*>("leToken");
@@ -177,29 +61,38 @@ SnapQuoteWindow::SnapQuoteWindow(const WindowContext &context, QWidget *parent)
     m_leSymbol = m_formWidget->findChild<QLineEdit*>("leSymbol");
     m_cbExpiry = m_formWidget->findChild<QComboBox*>("cbExpiry");
     m_pbRefresh = m_formWidget->findChild<QPushButton*>("pbRefresh");
+    
+    // --- Market Data Widgets ---
     m_lbLTPQty = m_formWidget->findChild<QLabel*>("lbLTPQty");
     m_lbLTPPrice = m_formWidget->findChild<QLabel*>("lbLTPPrice");
     m_lbLTPIndicator = m_formWidget->findChild<QLabel*>("lbLTPIndicator");
     m_lbLTPTime = m_formWidget->findChild<QLabel*>("lbLTPTime");
-    m_lbVolume = m_formWidget->findChild<QLabel*>("lbVolume");
-    m_lbValue = m_formWidget->findChild<QLabel*>("lbValue");
-    m_lbATP = m_formWidget->findChild<QLabel*>("lbATP");
-    m_lbPercentChange = m_formWidget->findChild<QLabel*>("lbPercentChange");
+    
     m_lbOpen = m_formWidget->findChild<QLabel*>("lbOpen");
     m_lbHigh = m_formWidget->findChild<QLabel*>("lbHigh");
     m_lbLow = m_formWidget->findChild<QLabel*>("lbLow");
     m_lbClose = m_formWidget->findChild<QLabel*>("lbClose");
+    
+    m_lbVolume = m_formWidget->findChild<QLabel*>("lbVolume");
+    m_lbValue = m_formWidget->findChild<QLabel*>("lbValue");
+    m_lbATP = m_formWidget->findChild<QLabel*>("lbATP");
+    m_lbPercentChange = m_formWidget->findChild<QLabel*>("lbPercentChange");
+    
+    // --- Stats Widgets ---
     m_lbDPR = m_formWidget->findChild<QLabel*>("lbDPR");
     m_lbOI = m_formWidget->findChild<QLabel*>("lbOI");
     m_lbOIPercent = m_formWidget->findChild<QLabel*>("lbOIPercent");
     m_lbGainLoss = m_formWidget->findChild<QLabel*>("lbGainLoss");
     m_lbMTMValue = m_formWidget->findChild<QLabel*>("lbMTMValue");
     m_lbMTMPos = m_formWidget->findChild<QLabel*>("lbMTMPos");
+    
+    // --- Depth: Bid Widgets ---
     m_lbBidQty1 = m_formWidget->findChild<QLabel*>("lbBidQty1");
     m_lbBidQty2 = m_formWidget->findChild<QLabel*>("lbBidQty2");
     m_lbBidQty3 = m_formWidget->findChild<QLabel*>("lbBidQty3");
     m_lbBidQty4 = m_formWidget->findChild<QLabel*>("lbBidQty4");
     m_lbBidQty5 = m_formWidget->findChild<QLabel*>("lbBidQty5");
+    
     m_lbBidPrice1 = m_formWidget->findChild<QLabel*>("lbBidPrice1");
     m_lbBidPrice2 = m_formWidget->findChild<QLabel*>("lbBidPrice2");
     m_lbBidPrice3 = m_formWidget->findChild<QLabel*>("lbBidPrice3");
@@ -212,27 +105,60 @@ SnapQuoteWindow::SnapQuoteWindow(const WindowContext &context, QWidget *parent)
     m_lbBidOrders4 = m_formWidget->findChild<QLabel*>("bidAt4");
     m_lbBidOrders5 = m_formWidget->findChild<QLabel*>("bidAt5");
     
-    m_lbAskPrice1 = m_formWidget->findChild<QLabel*>("lbAskPrice1");
-    m_lbAskPrice2 = m_formWidget->findChild<QLabel*>("lbAskPrice2");
-    m_lbAskPrice3 = m_formWidget->findChild<QLabel*>("lbAskPrice3");
-    m_lbAskPrice4 = m_formWidget->findChild<QLabel*>("lbAskPrice4");
-    m_lbAskPrice5 = m_formWidget->findChild<QLabel*>("lbAskPrice5");
+    // --- Depth: Ask Widgets ---
     m_lbAskQty1 = m_formWidget->findChild<QLabel*>("lbAskQty1");
     m_lbAskQty2 = m_formWidget->findChild<QLabel*>("lbAskQty2");
     m_lbAskQty3 = m_formWidget->findChild<QLabel*>("lbAskQty3");
     m_lbAskQty4 = m_formWidget->findChild<QLabel*>("lbAskQty4");
     m_lbAskQty5 = m_formWidget->findChild<QLabel*>("lbAskQty5");
+    
+    m_lbAskPrice1 = m_formWidget->findChild<QLabel*>("lbAskPrice1");
+    m_lbAskPrice2 = m_formWidget->findChild<QLabel*>("lbAskPrice2");
+    m_lbAskPrice3 = m_formWidget->findChild<QLabel*>("lbAskPrice3");
+    m_lbAskPrice4 = m_formWidget->findChild<QLabel*>("lbAskPrice4");
+    m_lbAskPrice5 = m_formWidget->findChild<QLabel*>("lbAskPrice5");
+    
     m_lbAskOrders1 = m_formWidget->findChild<QLabel*>("lbAskOrders1");
     m_lbAskOrders2 = m_formWidget->findChild<QLabel*>("lbAskOrders2");
     m_lbAskOrders3 = m_formWidget->findChild<QLabel*>("lbAskOrders3");
     m_lbAskOrders4 = m_formWidget->findChild<QLabel*>("lbAskOrders4");
     m_lbAskOrders5 = m_formWidget->findChild<QLabel*>("lbAskOrders5");
+
+    m_lbTotalBuyers = m_formWidget->findChild<QLabel*>("lb_allBuyers");
+    m_lbTotalSellers = m_formWidget->findChild<QLabel*>("lb_allSellers");
     
     populateComboBoxes();
     setupConnections();
-    loadFromContext(context);
     
-    qDebug() << "[SnapQuoteWindow] Created with context successfully";
+    // Esc shortcut to close parent MDI window
+    m_escShortcut = new QShortcut(QKeySequence(Qt::Key_Escape), this);
+    connect(m_escShortcut, &QShortcut::activated, this, [this]() {
+        QWidget *p = parentWidget();
+        while (p) {
+            if (p->metaObject()->className() == QString("CustomMDISubWindow")) {
+                p->close();
+                return;
+            }
+            p = p->parentWidget();
+        }
+        close();
+    });
+
+    // F5 shortcut for Refresh
+    m_refreshShortcut = new QShortcut(QKeySequence(Qt::Key_F5), this);
+    connect(m_refreshShortcut, &QShortcut::activated, this, &SnapQuoteWindow::onRefreshClicked);
+    
+    // Default focus to token field
+    if (m_leToken) {
+        QTimer::singleShot(0, this, [this]() {
+            if (m_leToken) {
+                m_leToken->setFocus();
+                m_leToken->selectAll();
+            }
+        });
+    }
+    
+    qDebug() << "[SnapQuoteWindow] UI initialized successfully";
 }
 
 SnapQuoteWindow::~SnapQuoteWindow()
@@ -669,6 +595,13 @@ void SnapQuoteWindow::fetchQuote()
         double atp = touchline.value("AverageTradedPrice").toDouble(0.0);
         if (atp == 0.0) atp = touchline.value("ATP").toDouble(0.0);  // Try short form
         double percentChange = touchline.value("PercentChange").toDouble(0.0);
+        
+        // Extract total buyers/sellers
+        qint64 totalBuyers = touchline.value("TotalBuyQuantity").toVariant().toLongLong();
+        qint64 totalSellers = touchline.value("TotalSellQuantity").toVariant().toLongLong();
+
+        if (m_lbTotalBuyers) m_lbTotalBuyers->setText(QString("Total Buyers: %1").arg(totalBuyers));
+        if (m_lbTotalSellers) m_lbTotalSellers->setText(QString("Total Sellers: %1").arg(totalSellers));
         
         qDebug() << "[SnapQuoteWindow] LTP=" << ltp << "Vol=" << volume << "Bids/Asks:" << quote.value("Bids").toArray().size() << "/" << quote.value("Asks").toArray().size();
         

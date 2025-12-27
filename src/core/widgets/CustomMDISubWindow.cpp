@@ -436,6 +436,8 @@ void CustomMDISubWindow::contextMenuEvent(QContextMenuEvent *event)
 
     QAction *closeAction = menu.addAction("Close");
     QAction *closeOthersAction = menu.addAction("Close All Others");
+    menu.addSeparator();
+    QAction *customizeAction = menu.addAction("Customize");
 
     QAction *selected = menu.exec(event->globalPos());
 
@@ -469,6 +471,10 @@ void CustomMDISubWindow::contextMenuEvent(QContextMenuEvent *event)
                 }
             }
         }
+    }
+    else if (selected == customizeAction)
+    {
+        emit customizeRequested();
     }
 
     event->accept();

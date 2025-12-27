@@ -176,7 +176,7 @@ QJsonObject ConfigLoader::getUDPConfig() const
     QJsonObject nseFo;
     nseFo["enabled"] = true;
     nseFo["multicastGroup"] = "233.1.2.5";
-    nseFo["port"] = getInt("UDP", "udp_fo", 34330);
+    nseFo["port"] = getInt("UDP", "udp_fo", 34331);
     nseFo["protocol"] = "binary";
     exchanges["NSEFO"] = nseFo;
     

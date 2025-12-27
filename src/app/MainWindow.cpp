@@ -9,10 +9,12 @@
 #include "views/BuyWindow.h"
 #include "views/SellWindow.h"
 #include "views/SnapQuoteWindow.h"
+#include "views/OptionChainWindow.h"
 #include "views/PositionWindow.h"
 #include "views/TradeBookWindow.h"
 #include "views/OrderBookWindow.h"
 #include "views/Preference.h"
+#include "views/CustomizeDialog.h"
 #include "repository/Greeks.h"
 #include "api/XTSMarketDataClient.h"
 #include "api/XTSInteractiveClient.h"
@@ -296,6 +298,11 @@ void MainWindow::setupShortcuts()
         }
     });
     qDebug() << "  Alt+S -> Focus Exchange Combobox";
+
+    // Ctrl+R: Open Preferences
+    QShortcut *preferencesShortcut = new QShortcut(QKeySequence(Qt::CTRL | Qt::Key_R), this);
+    connect(preferencesShortcut, &QShortcut::activated, this, &MainWindow::showPreferences);
+    qDebug() << "  Ctrl+R -> Preferences Window";
     
     qDebug() << "[MainWindow] Keyboard shortcuts setup complete";
 }
@@ -402,7 +409,7 @@ void MainWindow::createMenuBar()
 
     // Edit Menu
     QMenu *editMenu = menuBar->addMenu("&Edit");
-    QAction *preferencesAction = editMenu->addAction("&Preferences");
+    QAction *preferencesAction = editMenu->addAction("&Preferences\tCtrl+R");
     connect(preferencesAction, &QAction::triggered, this, &MainWindow::showPreferences);
 
     // View Menu
@@ -439,6 +446,9 @@ void MainWindow::createMenuBar()
     
     QAction *wmSnap = windowMenu->addAction("Snap&Quote\tF5");
     connect(wmSnap, &QAction::triggered, this, &MainWindow::createSnapQuoteWindow);
+    
+    QAction *wmOptionChain = windowMenu->addAction("&Option Chain\tF6");
+    connect(wmOptionChain, &QAction::triggered, this, &MainWindow::createOptionChainWindow);
     
     QAction *wmOrderBook = windowMenu->addAction("&OrderBook\tF3");
     connect(wmOrderBook, &QAction::triggered, this, &MainWindow::createOrderBookWindow);
@@ -755,14 +765,8 @@ void MainWindow::createMarketWatch()
     window->setContentWidget(marketWatch);
     window->resize(900, 400);
 
-    // Connect window signals
-    connect(window, &CustomMDISubWindow::closeRequested, window, &QWidget::close);
-    connect(window, &CustomMDISubWindow::minimizeRequested, [this, window]()
-            { m_mdiArea->minimizeWindow(window); });
-    connect(window, &CustomMDISubWindow::maximizeRequested, [window]()
-            { window->maximize(); });
-    connect(window, &CustomMDISubWindow::windowActivated, [this, window]()
-            { m_mdiArea->activateWindow(window); });
+    // Connect window signals using consolidated helper
+    connectWindowSignals(window);
 
     // Add to MDI area
     m_mdiArea->addWindow(window);
@@ -852,23 +856,16 @@ void MainWindow::createBuyWindow()
                 SellWindow *swin = new SellWindow(context, sellSub);
                 sellSub->setContentWidget(swin);
                 sellSub->resize(600, 250);
-                // Connect MDI signals
-                connect(sellSub, &CustomMDISubWindow::closeRequested, sellSub, &QWidget::close);
-                connect(sellSub, &CustomMDISubWindow::minimizeRequested, [this, sellSub]() { m_mdiArea->minimizeWindow(sellSub); });
-                connect(sellSub, &CustomMDISubWindow::maximizeRequested, [sellSub]() { sellSub->maximize(); });
-                connect(sellSub, &CustomMDISubWindow::windowActivated, [this, sellSub]() { m_mdiArea->activateWindow(sellSub); });
+                
+                // Connect MDI signals using helper
+                connectWindowSignals(sellSub);
+                
                 m_mdiArea->addWindow(sellSub);
                 qDebug() << "[MainWindow] Switched Buy->Sell for token:" << context.token;
             });
 
     // Connect MDI signals
-    connect(window, &CustomMDISubWindow::closeRequested, window, &QWidget::close);
-    connect(window, &CustomMDISubWindow::minimizeRequested, [this, window]()
-            { m_mdiArea->minimizeWindow(window); });
-    connect(window, &CustomMDISubWindow::maximizeRequested, [window]()
-            { window->maximize(); });
-    connect(window, &CustomMDISubWindow::windowActivated, [this, window]()
-            { m_mdiArea->activateWindow(window); });
+    connectWindowSignals(window);
 
     // Add to MDI area
     m_mdiArea->addWindow(window);
@@ -930,11 +927,8 @@ void MainWindow::createSellWindow()
                 BuyWindow *bwin = new BuyWindow(context, buySub);
                 buySub->setContentWidget(bwin);
                 buySub->resize(1200, 250);
-                // Connect MDI signals
-                connect(buySub, &CustomMDISubWindow::closeRequested, buySub, &QWidget::close);
-                connect(buySub, &CustomMDISubWindow::minimizeRequested, [this, buySub]() { m_mdiArea->minimizeWindow(buySub); });
-                connect(buySub, &CustomMDISubWindow::maximizeRequested, [buySub]() { buySub->maximize(); });
-                connect(buySub, &CustomMDISubWindow::windowActivated, [this, buySub]() { m_mdiArea->activateWindow(buySub); });
+                connectWindowSignals(buySub);
+                
                 // Connect order signal
                 connect(bwin, &BuyWindow::orderSubmitted, [](const QString &ex, int tok, const QString &sym, int q, double p, const QString &ot) {
                     qDebug() << "[MainWindow] Buy Order Submitted:" << ex << tok << sym << q << "@" << p << ot;
@@ -946,10 +940,9 @@ void MainWindow::createSellWindow()
                     SellWindow *swin = new SellWindow(ctx, sellSub);
                     sellSub->setContentWidget(swin);
                     sellSub->resize(1200, 250);
-                    connect(sellSub, &CustomMDISubWindow::closeRequested, sellSub, &QWidget::close);
-                    connect(sellSub, &CustomMDISubWindow::minimizeRequested, [this, sellSub]() { m_mdiArea->minimizeWindow(sellSub); });
-                    connect(sellSub, &CustomMDISubWindow::maximizeRequested, [sellSub]() { sellSub->maximize(); });
-                    connect(sellSub, &CustomMDISubWindow::windowActivated, [this, sellSub]() { m_mdiArea->activateWindow(sellSub); });
+                    
+                    connectWindowSignals(sellSub);
+                    
                     m_mdiArea->addWindow(sellSub);
                 });
                 // Add to MDI area
@@ -957,13 +950,7 @@ void MainWindow::createSellWindow()
             });
 
     // Connect MDI signals
-    connect(window, &CustomMDISubWindow::closeRequested, window, &QWidget::close);
-    connect(window, &CustomMDISubWindow::minimizeRequested, [this, window]()
-            { m_mdiArea->minimizeWindow(window); });
-    connect(window, &CustomMDISubWindow::maximizeRequested, [window]()
-            { window->maximize(); });
-    connect(window, &CustomMDISubWindow::windowActivated, [this, window]()
-            { m_mdiArea->activateWindow(window); });
+    connectWindowSignals(window);
 
     // Add to MDI area
     m_mdiArea->addWindow(window);
@@ -1015,13 +1002,7 @@ void MainWindow::createSnapQuoteWindow()
     // No need for dummy data here as API provides real-time values
 
     // Connect MDI signals
-    connect(window, &CustomMDISubWindow::closeRequested, window, &QWidget::close);
-    connect(window, &CustomMDISubWindow::minimizeRequested, [this, window]()
-            { m_mdiArea->minimizeWindow(window); });
-    connect(window, &CustomMDISubWindow::maximizeRequested, [window]()
-            { window->maximize(); });
-    connect(window, &CustomMDISubWindow::windowActivated, [this, window]()
-            { m_mdiArea->activateWindow(window); });
+    connectWindowSignals(window);
 
     // Add to MDI area
     m_mdiArea->addWindow(window);
@@ -1032,6 +1013,61 @@ void MainWindow::createSnapQuoteWindow()
     window->activateWindow();
 
     qDebug() << "[MainWindow] Snap Quote Window created";
+}
+
+void MainWindow::createOptionChainWindow()
+{
+    CustomMDISubWindow *window = new CustomMDISubWindow("Option Chain", m_mdiArea);
+    window->setWindowType("OptionChain");
+    
+    // Try to get context from active MarketWatch
+    MarketWatchWindow *activeMarketWatch = getActiveMarketWatch();
+    OptionChainWindow *optionWindow = new OptionChainWindow(window);
+    
+    if (activeMarketWatch && activeMarketWatch->hasValidSelection()) {
+        WindowContext context = activeMarketWatch->getSelectedContractContext();
+        if (context.isValid()) {
+            // Set symbol and expiry from context
+            optionWindow->setSymbol(context.symbol, context.expiry);
+            qDebug() << "[MainWindow] Option Chain created with context:" << context.symbol << context.expiry;
+        }
+    } else {
+        qDebug() << "[MainWindow] Option Chain created with default symbol (NIFTY)";
+    }
+    
+    // Connect signals
+    connect(optionWindow, &OptionChainWindow::tradeRequested, 
+            [this](const QString &symbol, const QString &expiry, double strike, const QString &optionType) {
+        qDebug() << "[MainWindow] Trade requested:" << symbol << expiry << strike << optionType;
+        // TODO: Open Buy/Sell window with pre-filled option details
+    });
+    
+    connect(optionWindow, &OptionChainWindow::calculatorRequested,
+            [this](const QString &symbol, const QString &expiry, double strike, const QString &optionType) {
+        qDebug() << "[MainWindow] Calculator requested:" << symbol << expiry;
+        // TODO: Open calculator window
+    });
+    
+    connect(optionWindow, &OptionChainWindow::refreshRequested, [optionWindow]() {
+        qDebug() << "[MainWindow] Option Chain refresh requested";
+        // TODO: Fetch fresh option chain data from API
+    });
+    
+    window->setContentWidget(optionWindow);
+    window->resize(1600, 800);
+    
+    // Connect MDI signals
+    connectWindowSignals(window);
+    
+    // Add to MDI area
+    m_mdiArea->addWindow(window);
+    
+    // Set focus
+    window->setFocus();
+    window->raise();
+    window->activateWindow();
+    
+    qDebug() << "[MainWindow] Option Chain Window created";
 }
 
 void MainWindow::createPositionWindow()
@@ -1045,13 +1081,7 @@ void MainWindow::createPositionWindow()
     window->resize(1000, 500);
 
     // Connect MDI signals
-    connect(window, &CustomMDISubWindow::closeRequested, window, &QWidget::close);
-    connect(window, &CustomMDISubWindow::minimizeRequested, [this, window]()
-            { m_mdiArea->minimizeWindow(window); });
-    connect(window, &CustomMDISubWindow::maximizeRequested, [window]()
-            { window->maximize(); });
-    connect(window, &CustomMDISubWindow::windowActivated, [this, window]()
-            { m_mdiArea->activateWindow(window); });
+    connectWindowSignals(window);
 
     // Add to MDI area
     m_mdiArea->addWindow(window);
@@ -1075,13 +1105,7 @@ void MainWindow::createTradeBookWindow()
     window->resize(1400, 600);
 
     // Connect MDI signals
-    connect(window, &CustomMDISubWindow::closeRequested, window, &QWidget::close);
-    connect(window, &CustomMDISubWindow::minimizeRequested, [this, window]()
-            { m_mdiArea->minimizeWindow(window); });
-    connect(window, &CustomMDISubWindow::maximizeRequested, [window]()
-            { window->maximize(); });
-    connect(window, &CustomMDISubWindow::windowActivated, [this, window]()
-            { m_mdiArea->activateWindow(window); });
+    connectWindowSignals(window);
 
     // Add to MDI area
     m_mdiArea->addWindow(window);
@@ -1105,13 +1129,7 @@ void MainWindow::createOrderBookWindow()
     window->resize(1400, 600);
 
     // Connect MDI signals
-    connect(window, &CustomMDISubWindow::closeRequested, window, &QWidget::close);
-    connect(window, &CustomMDISubWindow::minimizeRequested, [this, window]()
-            { m_mdiArea->minimizeWindow(window); });
-    connect(window, &CustomMDISubWindow::maximizeRequested, [window]()
-            { window->maximize(); });
-    connect(window, &CustomMDISubWindow::windowActivated, [this, window]()
-            { m_mdiArea->activateWindow(window); });
+    connectWindowSignals(window);
 
     // Add to MDI area
     m_mdiArea->addWindow(window);
@@ -1478,7 +1496,7 @@ void MainWindow::startBroadcastReceiver() {
     
     // TODO: Read from config.ini
     std::string multicastIP = "233.1.2.5";  // NSE F&O multicast IP
-    int port = 34330;                            // NSE F&O port
+    int port = 34331;                            // NSE F&O port
     
     qDebug() << "[UDP] Multicast IP:" << QString::fromStdString(multicastIP);
     qDebug() << "[UDP] Port:" << port;
@@ -1800,5 +1818,29 @@ void MainWindow::drainTickQueue()
         qWarning() << "[Drain] Hit max batch size!" << MAX_BATCH 
                    << "- Queue depth exceeds drain rate!";
     }
+}
+
+void MainWindow::connectWindowSignals(CustomMDISubWindow *window)
+{
+    if (!window) return;
+
+    // Connect MDI area signals
+    connect(window, &CustomMDISubWindow::closeRequested, window, &QWidget::close);
+    connect(window, &CustomMDISubWindow::minimizeRequested, this, [this, window]() {
+        m_mdiArea->minimizeWindow(window);
+    });
+    connect(window, &CustomMDISubWindow::maximizeRequested, window, &CustomMDISubWindow::maximize);
+    connect(window, &CustomMDISubWindow::windowActivated, this, [this, window]() {
+        m_mdiArea->activateWindow(window);
+    });
+
+    // Connect Customize signal
+    connect(window, &CustomMDISubWindow::customizeRequested, this, [this, window]() {
+        QString windowType = window->windowType();
+        QWidget *targetWidget = window->contentWidget();
+        
+        CustomizeDialog dialog(windowType, targetWidget, this);
+        dialog.exec();
+    });
 }
 

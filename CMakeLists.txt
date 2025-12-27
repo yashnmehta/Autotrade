@@ -120,6 +120,8 @@ set(VIEW_SOURCES
     src/views/OrderBookWindow.cpp
     src/views/ColumnProfileDialog.cpp
     src/views/PreferenceDialog.cpp
+    src/views/CustomizeDialog.cpp
+    src/ui/OptionChainWindow.cpp
 )
 
 set(VIEW_HEADERS
@@ -127,11 +129,13 @@ set(VIEW_HEADERS
     include/views/SellWindow.h
     include/views/MarketWatchWindow.h
     include/views/SnapQuoteWindow.h
+    include/views/OptionChainWindow.h
     include/views/PositionWindow.h
     include/views/TradeBookWindow.h
     include/views/OrderBookWindow.h
     include/views/ColumnProfileDialog.h
     include/views/Preference.h
+    include/views/CustomizeDialog.h
 )
 
 # ========================================
@@ -307,6 +311,7 @@ set(FORMS
     resources/forms/InfoBar.ui
     resources/forms/SplashScreen.ui
     resources/forms/LoginWindow.ui
+    resources/forms/customize.ui
 )
 
 # Resource files

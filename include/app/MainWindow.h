@@ -48,6 +48,7 @@ private slots:
     void createBuyWindow();
     void createSellWindow();
     void createSnapQuoteWindow();
+    void createOptionChainWindow();
     void createTradeBookWindow();
     void createOrderBookWindow();
     void createPositionWindow();
@@ -79,6 +80,9 @@ private:
     void createStatusBar();
     void createInfoBar();
     
+    // Window signal connection helper
+    void connectWindowSignals(class CustomMDISubWindow *window);
+
     // Helper to get active MarketWatch for context
     class MarketWatchWindow* getActiveMarketWatch() const;
     
