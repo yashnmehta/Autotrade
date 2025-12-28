@@ -277,6 +277,7 @@ protected:
      * @brief Override to handle row moves
      */
     void performRowMoveByTokens(const QList<int> &tokens, int targetSourceRow) override;
+    void closeEvent(QCloseEvent *event) override;
 
 private slots:
     void showContextMenu(const QPoint &pos);

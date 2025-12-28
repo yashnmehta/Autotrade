@@ -175,6 +175,11 @@ CustomMDISubWindow::~CustomMDISubWindow()
 
 void CustomMDISubWindow::closeEvent(QCloseEvent *event)
 {
+    // Try to close content widget first so it can save state
+    if (m_contentWidget) {
+        m_contentWidget->close();
+    }
+
     // Remove ourselves from the MDI area before closing
     CustomMDIArea *mdiArea = qobject_cast<CustomMDIArea *>(parent());
     if (mdiArea)

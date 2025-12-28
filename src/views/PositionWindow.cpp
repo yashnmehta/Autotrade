@@ -9,6 +9,7 @@
 #include <QDialog>
 #include <QDialogButtonBox>
 #include <QListWidget>
+#include <QCloseEvent>
 #include <QDebug>
 #include <QTableView>
 #include <QVBoxLayout>
@@ -19,6 +20,7 @@
 #include "views/GenericProfileDialog.h"
 #include "models/GenericProfileManager.h"
 #include "utils/TableProfileHelper.h"
+#include "utils/WindowSettingsHelper.h"
 
 PositionWindow::PositionWindow(TradingDataService* tradingDataService, QWidget *parent)
     : QWidget(parent)
@@ -36,6 +38,9 @@ PositionWindow::PositionWindow(TradingDataService* tradingDataService, QWidget *
     
     m_filterShortcut = new QShortcut(QKeySequence("Ctrl+F"), this);
     connect(m_filterShortcut, &QShortcut::activated, this, &PositionWindow::toggleFilterRow);
+
+    // Load and apply previous runtime state and customizations
+    WindowSettingsHelper::loadAndApplyWindowSettings(this, "PositionBook");
 }
 
 PositionWindow::~PositionWindow() {}
@@ -59,17 +64,17 @@ QWidget* PositionWindow::createFilterWidget() {
     QHBoxLayout* layout = new QHBoxLayout(container);
     layout->setContentsMargins(12, 10, 12, 10);
     
-    auto addCombo = [&](const QString& l, QComboBox*& c, const QStringList& i) {
+    auto addCombo = [&](const QString& l, QComboBox*& c, const QStringList& i, const QString& objName) {
         QVBoxLayout* v = new QVBoxLayout(); v->addWidget(new QLabel(l));
-        c = new QComboBox(); c->addItems(i); v->addWidget(c); layout->addLayout(v);
+        c = new QComboBox(); c->addItems(i); c->setObjectName(objName); v->addWidget(c); layout->addLayout(v);
         connect(c, &QComboBox::currentTextChanged, this, &PositionWindow::onFilterChanged);
     };
     
-    addCombo("Exchange", m_cbExchange, {"All", "NSE", "BSE", "MCX"});
-    addCombo("Segment", m_cbSegment, {"All", "Cash", "FO", "CD", "COM"});
-    addCombo("Product", m_cbPeriodicity, {"All", "MIS", "NRML", "CNC"});
-    addCombo("User", m_cbUser, {"All"});
-    addCombo("Client", m_cbClient, {"All"});
+    addCombo("Exchange", m_cbExchange, {"All", "NSE", "BSE", "MCX"}, "cbExchange");
+    addCombo("Segment", m_cbSegment, {"All", "Cash", "FO", "CD", "COM"}, "cbSegment");
+    addCombo("Product", m_cbPeriodicity, {"All", "MIS", "NRML", "CNC"}, "cbProduct");
+    addCombo("User", m_cbUser, {"All"}, "cbUser");
+    addCombo("Client", m_cbClient, {"All"}, "cbClient");
     
     layout->addStretch();
     m_btnRefresh = new QPushButton("Refresh"); m_btnRefresh->setStyleSheet("background-color: #16a34a; color: white;");
@@ -191,16 +196,26 @@ void PositionWindow::updateSummaryRow() {
 }
 
 void PositionWindow::toggleFilterRow() {
-    m_filterRowVisible = !m_filterRowVisible; m_model->setFilterRowVisible(m_filterRowVisible);
+    m_filterRowVisible = !m_filterRowVisible; 
+    m_model->setFilterRowVisible(m_filterRowVisible);
+    
     if (m_filterRowVisible) {
         m_filterWidgets.clear();
-        for (int i=0; i<PositionModel::ColumnCount; ++i) {
-            FilterRowWidget* fw = new FilterRowWidget(i, this, m_tableView);
-            m_filterWidgets.append(fw); m_tableView->setIndexWidget(m_model->index(0, i), fw);
-            connect(fw, &FilterRowWidget::filterChanged, this, &PositionWindow::onColumnFilterChanged);
+        for (int i = 0; i < PositionModel::ColumnCount; ++i) {
+            GenericTableFilter* fw = new GenericTableFilter(i, m_model, m_tableView, m_tableView);
+            fw->setFilterRowOffset(1); // Filter row is at index 0
+            fw->setSummaryRowOffset(1); // Summary row is at the end
+            
+            m_filterWidgets.append(fw); 
+            m_tableView->setIndexWidget(m_model->index(0, i), fw);
+            
+            connect(fw, &GenericTableFilter::filterChanged, this, &PositionWindow::onColumnFilterChanged);
         }
     } else {
-        m_columnFilters.clear(); for (int i=0; i<PositionModel::ColumnCount; ++i) m_tableView->setIndexWidget(m_model->index(0, i), nullptr);
+        m_columnFilters.clear(); 
+        for (int i = 0; i < PositionModel::ColumnCount; ++i) {
+            m_tableView->setIndexWidget(m_model->index(0, i), nullptr);
+        }
         applyFilters();
     }
 }
@@ -243,47 +258,8 @@ void PositionWindow::updatePosition(const QString& s, const PositionData& p) {
 }
 void PositionWindow::clearPositions() { m_allPositions.clear(); applyFilters(); }
 
-FilterRowWidget::FilterRowWidget(int column, PositionWindow* window, QWidget* parent)
-    : QWidget(parent), m_column(column), m_positionWindow(window) {
-    QHBoxLayout* l = new QHBoxLayout(this); l->setContentsMargins(2,2,2,2);
-    m_filterButton = new QPushButton("▼ Filter");
-    m_filterButton->setStyleSheet("background: #fff; color: #333; border: 1px solid #ccc; font-size: 10px;");
-    l->addWidget(m_filterButton); connect(m_filterButton, &QPushButton::clicked, this, &FilterRowWidget::showFilterPopup);
+void PositionWindow::closeEvent(QCloseEvent *event) {
+    TableProfileHelper::saveCurrentProfile("PositionBook", m_tableView, m_model, m_columnProfile);
+    WindowSettingsHelper::saveWindowSettings(this, "PositionBook");
+    QWidget::closeEvent(event);
 }
-
-void FilterRowWidget::showFilterPopup() {
-    QDialog d(this); d.setWindowTitle("Filter"); QVBoxLayout* l = new QVBoxLayout(&d);
-    QListWidget* lw = new QListWidget(&d);
-    QSet<QString> vals; for (int i=(m_positionWindow->m_model->isFilterRowVisible()?1:0); i<m_positionWindow->m_model->rowCount(); ++i) {
-        QString v = m_positionWindow->m_model->data(m_positionWindow->m_model->index(i, m_column), Qt::DisplayRole).toString();
-        if (!v.isEmpty()) vals.insert(v);
-    }
-    QStringList sorted = vals.values(); sorted.sort();
-    for (const QString& v : sorted) {
-        QListWidgetItem* item = new QListWidgetItem(v, lw); item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
-        item->setCheckState(m_selectedValues.contains(v) ? Qt::Checked : Qt::Unchecked);
-    }
-    l->addWidget(lw);
-    QDialogButtonBox* bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &d);
-    l->addWidget(bb); connect(bb, &QDialogButtonBox::accepted, &d, &QDialog::accept); connect(bb, &QDialogButtonBox::rejected, &d, &QDialog::reject);
-    if (d.exec() == QDialog::Accepted) {
-        m_selectedValues.clear(); for (int i=0; i<lw->count(); ++i) if (lw->item(i)->checkState() == Qt::Checked) m_selectedValues.append(lw->item(i)->text());
-        updateButtonDisplay(); emit filterChanged(m_column, m_selectedValues);
-    }
-}
-
-QStringList FilterRowWidget::getUniqueValuesForColumn() const {
-    QSet<QString> vals; if (!m_positionWindow || !m_positionWindow->m_model) return QStringList();
-    for (int i=(m_positionWindow->m_model->isFilterRowVisible()?1:0); i<m_positionWindow->m_model->rowCount(); ++i) {
-        QString v = m_positionWindow->m_model->data(m_positionWindow->m_model->index(i, m_column), Qt::DisplayRole).toString();
-        if (!v.isEmpty()) vals.insert(v);
-    }
-    QStringList sorted = vals.values(); sorted.sort(); return sorted;
-}
-
-void FilterRowWidget::updateButtonDisplay() {
-    if (m_selectedValues.isEmpty()) m_filterButton->setText("▼ Filter");
-    else m_filterButton->setText(QString("▼ (%1)").arg(m_selectedValues.count()));
-}
-
-void FilterRowWidget::clear() { m_selectedValues.clear(); updateButtonDisplay(); }

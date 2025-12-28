@@ -49,6 +49,8 @@ signals:
 protected:
     // Override to keep focus within the window (prevent tab escape)
     bool focusNextPrevChild(bool next) override;
+    // Override to handle window close event
+    void closeEvent(QCloseEvent *event) override;
     // Handle key events: Esc (close), Enter (submit), F2 (switch to Sell), Up/Down (qty/price)
     void keyPressEvent(QKeyEvent *event) override;
 

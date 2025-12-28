@@ -8,6 +8,8 @@
 #include <cmath>
 #include <QKeyEvent>
 #include "core/widgets/CustomMDISubWindow.h"
+#include "utils/WindowSettingsHelper.h"
+#include "utils/TableProfileHelper.h"
 
 // Static member initialization
 BuyWindow* BuyWindow::s_instance = nullptr;
@@ -92,6 +94,9 @@ BuyWindow::BuyWindow(QWidget *parent)
     populateComboBoxes();
     setupConnections();
     loadPreferences();
+    
+    // Load and apply previous runtime state and customizations
+    WindowSettingsHelper::loadAndApplyWindowSettings(this, "BuyWindow");
     
     // Set initial focus to Total Qty field and select all text for immediate editing
     if (m_leQty) {
@@ -765,4 +770,9 @@ bool BuyWindow::hasActiveWindow()
 void BuyWindow::setInstance(BuyWindow* instance)
 {
     s_instance = instance;
+}
+
+void BuyWindow::closeEvent(QCloseEvent *event) {
+    WindowSettingsHelper::saveWindowSettings(this, "BuyWindow");
+    QWidget::closeEvent(event);
 }

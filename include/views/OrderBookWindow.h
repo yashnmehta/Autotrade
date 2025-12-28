@@ -11,20 +11,19 @@
 #include "api/XTSTypes.h"
 #include "models/OrderModel.h"
 
+#include "views/helpers/GenericTableFilter.h"
+
 class CustomOrderBook;
 class QComboBox;
 class QDateTimeEdit;
 class QPushButton;
 class QCheckBox;
-class OrderBookFilterWidget;
 class TradingDataService;
 class QSortFilterProxyModel;
 
 class OrderBookWindow : public QWidget
 {
     Q_OBJECT
-    
-    friend class OrderBookFilterWidget;
 
 public:
     explicit OrderBookWindow(TradingDataService* tradingDataService, QWidget *parent = nullptr);
@@ -84,7 +83,7 @@ private:
 
     bool m_filterRowVisible;
     QShortcut* m_filterShortcut;
-    QList<OrderBookFilterWidget*> m_filterWidgets;
+    QList<GenericTableFilter*> m_filterWidgets;
     QMap<int, QStringList> m_columnFilters;
     GenericTableProfile m_columnProfile;
 
@@ -103,29 +102,9 @@ private:
     int m_executedOrders;
     int m_cancelledOrders;
     double m_totalOrderValue;
-};
-
-class OrderBookFilterWidget : public QWidget
-{
-    Q_OBJECT
-
-public:
-    explicit OrderBookFilterWidget(int column, OrderBookWindow* orderBookWindow, QWidget* parent = nullptr);
-    void clear();
-    void updateButtonDisplay();
-
-signals:
-    void filterChanged(int column, const QStringList& selectedValues);
-
-private slots:
-    void showFilterPopup();
-
-private:
-    QStringList getUniqueValuesForColumn() const;
-    int m_column;
-    QPushButton* m_filterButton;
-    OrderBookWindow* m_orderBookWindow;
-    QStringList m_selectedValues;
+    
+protected:
+    void closeEvent(QCloseEvent *event) override;
 };
 
 #endif // ORDERBOOKWINDOW_H

@@ -1,5 +1,6 @@
 #include "views/CustomizeDialog.h"
 #include "ui_customize.h"
+#include "utils/WindowSettingsHelper.h"
 #include <QSettings>
 #include <QColorDialog>
 #include <QDebug>
@@ -248,83 +249,8 @@ void CustomizeDialog::applySettings()
         return;
     }
     
-    qDebug() << "[CustomizeDialog] Applying settings to target window:" << m_targetWindow->metaObject()->className();
+    // Delegate to WindowSettingsHelper for consistent application
+    WindowSettingsHelper::applyCustomization(m_targetWindow, m_windowType);
     
-    // Extract background color from preview
-    QString previewStyle = ui->previewTextLabel->styleSheet();
-    QString bgColor = "#ffffff";  // default
-    
-    // Parse background color from stylesheet
-    int bgStart = previewStyle.indexOf("background-color: ") + 18;
-    int bgEnd = previewStyle.indexOf(";", bgStart);
-    if (bgStart > 17 && bgEnd > bgStart) {
-        bgColor = previewStyle.mid(bgStart, bgEnd - bgStart).trimmed();
-    }
-    
-    qDebug() << "[CustomizeDialog] Extracted background color:" << bgColor;
-    qDebug() << "[CustomizeDialog] Preview stylesheet:" << previewStyle;
-    
-    // Find the actual widget to style
-    // Many windows (BuyWindow, SellWindow) have a m_formWidget child that's the actual content
-    QWidget *widgetToStyle = m_targetWindow;
-    
-    // Debug: List ALL children to see what's there
-    qDebug() << "[CustomizeDialog] Searching for form widget among children...";
-    QObjectList children = m_targetWindow->children();
-    qDebug() << "[CustomizeDialog] Total children count:" << children.size();
-    
-    for (int i = 0; i < children.size(); ++i) {
-        QObject *child = children[i];
-        QWidget *childWidget = qobject_cast<QWidget*>(child);
-        if (childWidget) {
-            QString className = childWidget->metaObject()->className();
-            QString objName = childWidget->objectName();
-            qDebug() << "[CustomizeDialog] Child" << i << ":" << className << "ObjectName:" << (objName.isEmpty() ? "<empty>" : objName);
-            
-            // Look for QWidget child (the form loaded from .ui file)
-            // It's typically a direct QWidget child with QVBoxLayout parent
-            if (className == QString("QWidget") && childWidget->layout() != nullptr) {
-                widgetToStyle = childWidget;
-                qDebug() << "[CustomizeDialog] *** FOUND FORM WIDGET! Using child:" << className;
-                break;
-            }
-        }
-    }
-    
-    if (widgetToStyle == m_targetWindow) {
-        qDebug() << "[CustomizeDialog] WARNING: No form widget child found, applying to parent window directly";
-    }
-    
-    // Ensure the widget can accept stylesheets
-    widgetToStyle->setAttribute(Qt::WA_StyledBackground, true);
-    widgetToStyle->setAutoFillBackground(true);
-    
-    // Apply stylesheet ONLY to the main widget background
-    // Explicitly reset child widgets to prevent inheritance and preserve their original styling
-    QString widgetClassName = widgetToStyle->metaObject()->className();
-    QString newStyle = QString(
-        "%1 { background-color: %2; }"
-        "QLineEdit { background-color: white; border: 1px solid #000000; }"
-        "QComboBox { background-color: white; border: 1px solid #000000; }"
-        "QPushButton { }"  // Don't change button styling at all
-        "QLabel { background-color: transparent; }"
-        "QTableView { }"  // Don't change table view styling (MarketWatch)
-        "QHeaderView { }"  // Don't change header styling
-    ).arg(widgetClassName, bgColor);
-    
-    widgetToStyle->setStyleSheet(newStyle);
-    
-    // Also set using QPalette for the window background only
-    QPalette palette = widgetToStyle->palette();
-    palette.setColor(QPalette::Window, QColor(bgColor));
-    // Note: We do NOT set Base, Button, or AlternateBase
-    // This keeps input fields with their original styling
-    widgetToStyle->setPalette(palette);
-    
-    // Force immediate repaint
-    widgetToStyle->update();
-    widgetToStyle->repaint();
-    
-    qDebug() << "[CustomizeDialog] Applied background color" << bgColor << "to widget:" << widgetToStyle->metaObject()->className();
-    qDebug() << "[CustomizeDialog] Applied stylesheet:" << newStyle;
+    qDebug() << "[CustomizeDialog] Applied background/font settings to" << m_windowType;
 }

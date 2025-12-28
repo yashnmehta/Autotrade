@@ -334,11 +334,13 @@ set(UTILS_HEADERS
 set(VIEW_HELPER_SOURCES
     src/views/helpers/MarketWatchHelpers.cpp
     src/views/helpers/PositionHelpers.cpp
+    src/views/helpers/GenericTableFilter.cpp
 )
 
 set(VIEW_HELPER_HEADERS
     include/views/helpers/MarketWatchHelpers.h
     include/views/helpers/PositionHelpers.h
+    include/views/helpers/GenericTableFilter.h
 )
 
 # ========================================

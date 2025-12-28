@@ -68,6 +68,13 @@ public:
         profile.setColumnOrder(currentOrder);
     }
 
+    static void saveCurrentProfile(const QString& windowName, QTableView* tableView, QAbstractItemModel* model, GenericTableProfile& profile) {
+        captureProfile(tableView, model, profile);
+        GenericProfileManager manager("profiles");
+        manager.saveProfile(windowName, profile);
+        manager.saveDefaultProfile(windowName, profile.name());
+    }
+
     static bool showProfileDialog(const QString& windowName, QTableView* tableView, QAbstractItemModel* model, GenericTableProfile& profile, QWidget* parent) {
         // Sync current table state (widths/order) to profile before opening dialog
         captureProfile(tableView, model, profile);

@@ -24,9 +24,11 @@
 #include <QTimer>
 #include <QDebug>
 #include <QMenu>
+#include <QCloseEvent>
 #include "views/GenericProfileDialog.h"
 #include "models/GenericProfileManager.h"
 #include "utils/TableProfileHelper.h"
+#include "utils/WindowSettingsHelper.h"
 
 // Custom proxy model to keep filter row at top
 class TradeBookSortProxyModel : public QSortFilterProxyModel {
@@ -89,6 +91,10 @@ TradeBookWindow::TradeBookWindow(TradingDataService* tradingDataService, QWidget
     
     m_filterShortcut = new QShortcut(QKeySequence("Ctrl+F"), this);
     connect(m_filterShortcut, &QShortcut::activated, this, &TradeBookWindow::toggleFilterRow);
+
+    // Load and apply previous runtime state and customizations
+    WindowSettingsHelper::loadAndApplyWindowSettings(this, "TradeBook");
+    applyFilters();
 }
 
 TradeBookWindow::~TradeBookWindow() {}
@@ -113,18 +119,19 @@ QWidget* TradeBookWindow::createFilterWidget() {
     m_fromTimeEdit = new QDateTimeEdit(QDateTime::currentDateTime().addDays(-7));
     m_toTimeEdit = new QDateTimeEdit(QDateTime::currentDateTime());
     m_fromTimeEdit->setDisplayFormat("dd-MM-yyyy HH:mm"); m_toTimeEdit->setDisplayFormat("dd-MM-yyyy HH:mm");
-    auto addCombo = [&](const QString &l, QComboBox* &c, const QStringList &i) {
-        QVBoxLayout *v = new QVBoxLayout(); v->addWidget(new QLabel(l)); c = new QComboBox(); c->addItems(i); v->addWidget(c); filterLayout->addLayout(v);
+    auto addCombo = [&](const QString &l, QComboBox* &c, const QStringList &i, const QString& objName) {
+        QVBoxLayout *v = new QVBoxLayout(); v->addWidget(new QLabel(l)); c = new QComboBox(); c->addItems(i); c->setObjectName(objName); v->addWidget(c); filterLayout->addLayout(v);
     };
-    addCombo("Instrument", m_instrumentTypeCombo, {"All", "NSE OPT", "NSE FUT", "NSE EQ"});
-    addCombo("Exchange", m_exchangeCombo, {"All", "NSE", "BSE"});
-    addCombo("Buy/Sell", m_buySellCombo, {"All", "Buy", "Sell"});
-    addCombo("Order Type", m_orderTypeCombo, {"All", "Day", "IOC"});
+    addCombo("Instrument", m_instrumentTypeCombo, {"All", "NSE OPT", "NSE FUT", "NSE EQ"}, "instrumentTypeCombo");
+    addCombo("Exchange", m_exchangeCombo, {"All", "NSE", "BSE"}, "exchangeCombo");
+    addCombo("Buy/Sell", m_buySellCombo, {"All", "Buy", "Sell"}, "buySellCombo");
+    addCombo("Order Type", m_orderTypeCombo, {"All", "Day", "IOC"}, "orderTypeCombo");
     filterLayout->addStretch();
     m_applyFilterBtn = new QPushButton("Apply"); m_applyFilterBtn->setStyleSheet("background-color: #16a34a; color: white;");
     m_clearFilterBtn = new QPushButton("Clear"); m_clearFilterBtn->setStyleSheet("background-color: #52525b; color: white;");
     m_exportBtn = new QPushButton("Export"); m_exportBtn->setStyleSheet("background-color: #d97706; color: white;");
     m_showSummaryCheck = new QCheckBox("Summary Row"); m_showSummaryCheck->setStyleSheet("color: #d4d4d8;");
+    m_showSummaryCheck->setObjectName("showSummaryCheck");
     filterLayout->addWidget(m_showSummaryCheck); filterLayout->addWidget(m_applyFilterBtn); filterLayout->addWidget(m_clearFilterBtn); filterLayout->addWidget(m_exportBtn);
     mainLayout->addLayout(filterLayout);
     return container;
@@ -239,9 +246,10 @@ void TradeBookWindow::toggleFilterRow() {
     if (m_filterRowVisible) {
         m_filterWidgets.clear();
         for (int i=0; i<TradeModel::ColumnCount; ++i) {
-            TradeBookFilterWidget* fw = new TradeBookFilterWidget(i, this, m_tableView);
+            GenericTableFilter* fw = new GenericTableFilter(i, m_model, m_tableView, m_tableView);
+            fw->setFilterRowOffset(1);
             m_filterWidgets.append(fw); m_tableView->setIndexWidget(m_model->index(0, i), fw);
-            connect(fw, &TradeBookFilterWidget::filterChanged, this, &TradeBookWindow::onColumnFilterChanged);
+            connect(fw, &GenericTableFilter::filterChanged, this, &TradeBookWindow::onColumnFilterChanged);
         }
     } else {
         m_columnFilters.clear(); for (int i=0; i<TradeModel::ColumnCount; ++i) m_tableView->setIndexWidget(m_model->index(0, i), nullptr);
@@ -273,47 +281,8 @@ void TradeBookWindow::exportToCSV() {
     }
 }
 
-TradeBookFilterWidget::TradeBookFilterWidget(int column, TradeBookWindow* window, QWidget* parent)
-    : QWidget(parent), m_column(column), m_tradeBookWindow(window) {
-    QHBoxLayout* l = new QHBoxLayout(this); l->setContentsMargins(2,2,2,2);
-    m_filterButton = new QPushButton("▼ Filter");
-    m_filterButton->setStyleSheet("background: #fff; color: #333; border: 1px solid #ccc; font-size: 10px;");
-    l->addWidget(m_filterButton); connect(m_filterButton, &QPushButton::clicked, this, &TradeBookFilterWidget::showFilterPopup);
+void TradeBookWindow::closeEvent(QCloseEvent *event) {
+    TableProfileHelper::saveCurrentProfile("TradeBook", m_tableView, m_model, m_columnProfile);
+    WindowSettingsHelper::saveWindowSettings(this, "TradeBook");
+    QWidget::closeEvent(event);
 }
-
-void TradeBookFilterWidget::showFilterPopup() {
-    QDialog d(this); d.setWindowTitle("Filter"); QVBoxLayout* l = new QVBoxLayout(&d);
-    QListWidget* lw = new QListWidget(&d);
-    QSet<QString> vals; for (int i=(m_tradeBookWindow->m_filterRowVisible?1:0); i<m_tradeBookWindow->m_model->rowCount(); ++i) {
-        QString v = m_tradeBookWindow->m_model->data(m_tradeBookWindow->m_model->index(i, m_column), Qt::DisplayRole).toString();
-        if (!v.isEmpty()) vals.insert(v);
-    }
-    QStringList sorted = vals.values(); sorted.sort();
-    for (const QString& v : sorted) {
-        QListWidgetItem* item = new QListWidgetItem(v, lw); item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
-        item->setCheckState(m_selectedValues.contains(v) ? Qt::Checked : Qt::Unchecked);
-    }
-    l->addWidget(lw);
-    QDialogButtonBox* bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &d);
-    l->addWidget(bb); connect(bb, &QDialogButtonBox::accepted, &d, &QDialog::accept); connect(bb, &QDialogButtonBox::rejected, &d, &QDialog::reject);
-    if (d.exec() == QDialog::Accepted) {
-        m_selectedValues.clear(); for (int i=0; i<lw->count(); ++i) if (lw->item(i)->checkState() == Qt::Checked) m_selectedValues.append(lw->item(i)->text());
-        updateButtonDisplay(); emit filterChanged(m_column, m_selectedValues);
-    }
-}
-
-QStringList TradeBookFilterWidget::getUniqueValuesForColumn() const {
-    QSet<QString> vals; if (!m_tradeBookWindow || !m_tradeBookWindow->m_model) return QStringList();
-    for (int i=(m_tradeBookWindow->m_filterRowVisible?1:0); i<m_tradeBookWindow->m_model->rowCount(); ++i) {
-        QString v = m_tradeBookWindow->m_model->data(m_tradeBookWindow->m_model->index(i, m_column), Qt::DisplayRole).toString();
-        if (!v.isEmpty()) vals.insert(v);
-    }
-    QStringList sorted = vals.values(); sorted.sort(); return sorted;
-}
-
-void TradeBookFilterWidget::updateButtonDisplay() {
-    if (m_selectedValues.isEmpty()) m_filterButton->setText("▼ Filter");
-    else m_filterButton->setText(QString("▼ (%1)").arg(m_selectedValues.count()));
-}
-
-void TradeBookFilterWidget::clear() { m_selectedValues.clear(); updateButtonDisplay(); }

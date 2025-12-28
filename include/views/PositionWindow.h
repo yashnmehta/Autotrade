@@ -12,24 +12,24 @@ namespace XTS {
     struct Position;
 }
 
+#include "views/helpers/GenericTableFilter.h"
+
 class QComboBox;
 class QLineEdit;
 class QPushButton;
 class QSortFilterProxyModel;
 class TradingDataService;
-class FilterRowWidget; // Restore forward declaration
 
 class PositionWindow : public QWidget
 {
     Q_OBJECT
-    friend class FilterRowWidget;
 
 public:
     explicit PositionWindow(TradingDataService* tradingDataService, QWidget *parent = nullptr);
     ~PositionWindow();
 
-    void addPosition(const PositionData& p); // Parameter name changed
-    void updatePosition(const QString& s, const PositionData& p); // Parameter names changed
+    void addPosition(const PositionData& p);
+    void updatePosition(const QString& s, const PositionData& p);
     void clearPositions();
 
 public slots:
@@ -42,7 +42,7 @@ private slots:
     void onExportClicked();
     void toggleFilterRow();
     void onPositionsUpdated(const QVector<XTS::Position>& positions);
-    void onSquareOffClicked(); // New slot
+    void onSquareOffClicked();
 
 private:
     void setupUI();
@@ -51,7 +51,7 @@ private:
     void loadInitialProfile();
     void applyFilters();
     void updateSummaryRow();
-    void recreateFilterWidgets(); // Moved from below
+    void recreateFilterWidgets();
 
     QComboBox* m_cbExchange;
     QComboBox* m_cbSegment;
@@ -70,7 +70,7 @@ private:
     bool m_filterRowVisible;
     QShortcut* m_filterShortcut;
     QShortcut* m_escShortcut;
-    QList<FilterRowWidget*> m_filterWidgets;
+    QList<GenericTableFilter*> m_filterWidgets;
     QMap<int, QStringList> m_columnFilters;
     GenericTableProfile m_columnProfile;
 
@@ -83,29 +83,9 @@ private:
     QString m_filterUser;
     QString m_filterClient;
     QString m_filterSecurity;
-};
-
-class FilterRowWidget : public QWidget
-{
-    Q_OBJECT
-
-public:
-    explicit FilterRowWidget(int column, PositionWindow* positionWindow, QWidget* parent = nullptr);
-    void clear();
-    void updateButtonDisplay();
-
-signals:
-    void filterChanged(int column, const QStringList& selectedValues);
-
-private slots:
-    void showFilterPopup();
-
-private:
-    QStringList getUniqueValuesForColumn() const;
-    int m_column;
-    QPushButton* m_filterButton;
-    PositionWindow* m_positionWindow;
-    QStringList m_selectedValues;
+    
+protected:
+    void closeEvent(QCloseEvent *event) override;
 };
 
 #endif // POSITIONWINDOW_H

@@ -53,6 +53,7 @@ protected:
     bool focusNextPrevChild(bool next) override;
     // Handle key events: Esc (close), Enter (submit), F2 (switch to Buy), Up/Down (qty/price)
     void keyPressEvent(QKeyEvent *event) override;
+    void closeEvent(QCloseEvent *event) override;
 
 private slots:
     void onSubmitClicked();

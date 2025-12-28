@@ -1,6 +1,8 @@
 #include "views/SellWindow.h"
 #include "utils/PreferencesManager.h"
 #include "core/widgets/CustomMDISubWindow.h"
+#include "utils/WindowSettingsHelper.h"
+#include "utils/TableProfileHelper.h"
 #include <QVBoxLayout>
 #include <QMessageBox>
 #include <QApplication>
@@ -85,6 +87,9 @@ SellWindow::SellWindow(QWidget *parent)
     setupConnections();
     loadPreferences();
     
+    // Load and apply previous runtime state and customizations
+    WindowSettingsHelper::loadAndApplyWindowSettings(this, "SellWindow");
+    
     qDebug() << "[SellWindow] Created successfully";
 }
 
@@ -159,6 +164,9 @@ SellWindow::SellWindow(const WindowContext &context, QWidget *parent)
     setupConnections();
     loadPreferences();
     loadFromContext(context);
+    
+    // Load and apply previous runtime state and customizations
+    WindowSettingsHelper::loadAndApplyWindowSettings(this, "SellWindow");
     
     qDebug() << "[SellWindow] Created with context successfully";
 }
@@ -690,4 +698,9 @@ bool SellWindow::hasActiveWindow()
 void SellWindow::setInstance(SellWindow* instance)
 {
     s_instance = instance;
+}
+
+void SellWindow::closeEvent(QCloseEvent *event) {
+    WindowSettingsHelper::saveWindowSettings(this, "SellWindow");
+    QWidget::closeEvent(event);
 }

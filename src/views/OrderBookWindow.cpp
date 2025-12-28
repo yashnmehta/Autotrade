@@ -24,9 +24,11 @@
 #include <QTimer>
 #include <QDebug>
 #include <QMenu>
+#include <QCloseEvent>
 #include "views/GenericProfileDialog.h"
 #include "models/GenericProfileManager.h"
 #include "utils/TableProfileHelper.h"
+#include "utils/WindowSettingsHelper.h"
 
 // Custom proxy model to keep filter row at top
 class OrderBookSortProxyModel : public QSortFilterProxyModel {
@@ -83,6 +85,10 @@ OrderBookWindow::OrderBookWindow(TradingDataService* tradingDataService, QWidget
     }
     m_filterShortcut = new QShortcut(QKeySequence("Ctrl+F"), this);
     connect(m_filterShortcut, &QShortcut::activated, this, &OrderBookWindow::toggleFilterRow);
+
+    // Load and apply previous runtime state and customizations
+    WindowSettingsHelper::loadAndApplyWindowSettings(this, "OrderBook");
+    applyFilters();
 }
 
 OrderBookWindow::~OrderBookWindow() {}
@@ -106,14 +112,14 @@ QWidget* OrderBookWindow::createFilterWidget() {
     QHBoxLayout *filterLayout = new QHBoxLayout();
     m_fromTimeEdit = new QDateTimeEdit(); m_toTimeEdit = new QDateTimeEdit();
     m_fromTimeEdit->setDisplayFormat("dd-MM-yyyy HH:mm"); m_toTimeEdit->setDisplayFormat("dd-MM-yyyy HH:mm");
-    auto addCombo = [&](const QString &l, QComboBox* &c, const QStringList &i) {
-        QVBoxLayout *v = new QVBoxLayout(); v->addWidget(new QLabel(l)); c = new QComboBox(); c->addItems(i); v->addWidget(c); filterLayout->addLayout(v);
+    auto addCombo = [&](const QString &l, QComboBox* &c, const QStringList &i, const QString& objName) {
+        QVBoxLayout *v = new QVBoxLayout(); v->addWidget(new QLabel(l)); c = new QComboBox(); c->addItems(i); c->setObjectName(objName); v->addWidget(c); filterLayout->addLayout(v);
     };
-    addCombo("Instrument", m_instrumentTypeCombo, {"All", "NSE OPT", "NSE FUT", "NSE EQ"});
-    addCombo("Status", m_statusCombo, {"All", "Open", "Filled", "Cancelled", "Rejected"});
-    addCombo("Buy/Sell", m_buySellCombo, {"All", "Buy", "Sell"});
-    addCombo("Exchange", m_exchangeCombo, {"All", "NSE", "BSE"});
-    addCombo("Order Type", m_orderTypeCombo, {"All", "Market", "Limit"});
+    addCombo("Instrument", m_instrumentTypeCombo, {"All", "NSE OPT", "NSE FUT", "NSE EQ"}, "instrumentTypeCombo");
+    addCombo("Status", m_statusCombo, {"All", "Open", "Filled", "Cancelled", "Rejected"}, "statusCombo");
+    addCombo("Buy/Sell", m_buySellCombo, {"All", "Buy", "Sell"}, "buySellCombo");
+    addCombo("Exchange", m_exchangeCombo, {"All", "NSE", "BSE"}, "exchangeCombo");
+    addCombo("Order Type", m_orderTypeCombo, {"All", "Market", "Limit"}, "orderTypeCombo");
     filterLayout->addStretch();
     m_applyFilterBtn = new QPushButton("Apply"); m_applyFilterBtn->setStyleSheet("background-color: #16a34a; color: white;");
     m_clearFilterBtn = new QPushButton("Clear"); m_clearFilterBtn->setStyleSheet("background-color: #52525b; color: white;");
@@ -276,9 +282,10 @@ void OrderBookWindow::toggleFilterRow() {
     if (m_filterRowVisible) {
         m_filterWidgets.clear();
         for (int i=0; i<OrderModel::ColumnCount; ++i) {
-            OrderBookFilterWidget* fw = new OrderBookFilterWidget(i, this, m_tableView);
+            GenericTableFilter* fw = new GenericTableFilter(i, m_model, m_tableView, m_tableView);
+            fw->setFilterRowOffset(1);
             m_filterWidgets.append(fw); m_tableView->setIndexWidget(m_model->index(0, i), fw);
-            connect(fw, &OrderBookFilterWidget::filterChanged, this, &OrderBookWindow::onColumnFilterChanged);
+            connect(fw, &GenericTableFilter::filterChanged, this, &OrderBookWindow::onColumnFilterChanged);
         }
     } else {
         m_columnFilters.clear(); for (int i=0; i<OrderModel::ColumnCount; ++i) m_tableView->setIndexWidget(m_model->index(0, i), nullptr);
@@ -331,47 +338,8 @@ void OrderBookWindow::setTimeFilter(const QDateTime& f, const QDateTime& t) { m_
 void OrderBookWindow::setStatusFilter(const QString& s) { m_statusCombo->setCurrentText(s); applyFilters(); }
 void OrderBookWindow::setOrderTypeFilter(const QString& o) { m_orderTypeCombo->setCurrentText(o); applyFilters(); }
 
-OrderBookFilterWidget::OrderBookFilterWidget(int column, OrderBookWindow* window, QWidget* parent)
-    : QWidget(parent), m_column(column), m_orderBookWindow(window) {
-    QHBoxLayout* l = new QHBoxLayout(this); l->setContentsMargins(2,2,2,2);
-    m_filterButton = new QPushButton("▼ Filter");
-    m_filterButton->setStyleSheet("background-color: #f0f0f0; color: #333; border: 1px solid #ccc; font-size: 10px;");
-    l->addWidget(m_filterButton); connect(m_filterButton, &QPushButton::clicked, this, &OrderBookFilterWidget::showFilterPopup);
+void OrderBookWindow::closeEvent(QCloseEvent *event) {
+    TableProfileHelper::saveCurrentProfile("OrderBook", m_tableView, m_model, m_columnProfile);
+    WindowSettingsHelper::saveWindowSettings(this, "OrderBook");
+    QWidget::closeEvent(event);
 }
-
-void OrderBookFilterWidget::showFilterPopup() {
-    QDialog d(this); d.setWindowTitle("Filter"); QVBoxLayout* l = new QVBoxLayout(&d);
-    QListWidget* lw = new QListWidget(&d);
-    QSet<QString> vals; for (int i=(m_orderBookWindow->m_filterRowVisible?1:0); i<m_orderBookWindow->m_model->rowCount(); ++i) {
-        QString v = m_orderBookWindow->m_model->data(m_orderBookWindow->m_model->index(i, m_column), Qt::DisplayRole).toString();
-        if (!v.isEmpty()) vals.insert(v);
-    }
-    QStringList sorted = vals.values(); sorted.sort();
-    for (const QString& v : sorted) {
-        QListWidgetItem* item = new QListWidgetItem(v, lw); item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
-        item->setCheckState(m_selectedValues.contains(v) ? Qt::Checked : Qt::Unchecked);
-    }
-    l->addWidget(lw);
-    QDialogButtonBox* bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &d);
-    l->addWidget(bb); connect(bb, &QDialogButtonBox::accepted, &d, &QDialog::accept); connect(bb, &QDialogButtonBox::rejected, &d, &QDialog::reject);
-    if (d.exec() == QDialog::Accepted) {
-        m_selectedValues.clear(); for (int i=0; i<lw->count(); ++i) if (lw->item(i)->checkState() == Qt::Checked) m_selectedValues.append(lw->item(i)->text());
-        updateButtonDisplay(); emit filterChanged(m_column, m_selectedValues);
-    }
-}
-
-QStringList OrderBookFilterWidget::getUniqueValuesForColumn() const {
-    QSet<QString> vals; if (!m_orderBookWindow || !m_orderBookWindow->m_model) return QStringList();
-    for (int i=(m_orderBookWindow->m_filterRowVisible?1:0); i<m_orderBookWindow->m_model->rowCount(); ++i) {
-        QString v = m_orderBookWindow->m_model->data(m_orderBookWindow->m_model->index(i, m_column), Qt::DisplayRole).toString();
-        if (!v.isEmpty()) vals.insert(v);
-    }
-    QStringList sorted = vals.values(); sorted.sort(); return sorted;
-}
-
-void OrderBookFilterWidget::updateButtonDisplay() {
-    if (m_selectedValues.isEmpty()) m_filterButton->setText("▼ Filter");
-    else m_filterButton->setText(QString("▼ (%1)").arg(m_selectedValues.count()));
-}
-
-void OrderBookFilterWidget::clear() { m_selectedValues.clear(); updateButtonDisplay(); }

@@ -11,20 +11,19 @@
 #include "api/XTSTypes.h"
 #include "models/TradeModel.h"
 
+#include "views/helpers/GenericTableFilter.h"
+
 class CustomTradeBook;
 class QComboBox;
 class QDateTimeEdit;
 class QPushButton;
 class QCheckBox;
-class TradeBookFilterWidget;
 class TradingDataService;
 class QSortFilterProxyModel;
 
 class TradeBookWindow : public QWidget
 {
     Q_OBJECT
-    
-    friend class TradeBookFilterWidget;
 
 public:
     explicit TradeBookWindow(TradingDataService* tradingDataService, QWidget *parent = nullptr);
@@ -73,7 +72,7 @@ private:
 
     bool m_filterRowVisible;
     QShortcut* m_filterShortcut;
-    QList<TradeBookFilterWidget*> m_filterWidgets;
+    QList<GenericTableFilter*> m_filterWidgets;
     QMap<int, QStringList> m_columnFilters;
     GenericTableProfile m_columnProfile;
 
@@ -91,29 +90,9 @@ private:
     double m_totalBuyValue;
     double m_totalSellValue;
     int m_tradeCount;
-};
-
-class TradeBookFilterWidget : public QWidget
-{
-    Q_OBJECT
-
-public:
-    explicit TradeBookFilterWidget(int column, TradeBookWindow* tradeBookWindow, QWidget* parent = nullptr);
-    void clear();
-    void updateButtonDisplay();
-
-signals:
-    void filterChanged(int column, const QStringList& selectedValues);
-
-private slots:
-    void showFilterPopup();
-
-private:
-    QStringList getUniqueValuesForColumn() const;
-    int m_column;
-    QPushButton* m_filterButton;
-    TradeBookWindow* m_tradeBookWindow;
-    QStringList m_selectedValues;
+    
+protected:
+    void closeEvent(QCloseEvent *event) override;
 };
 
 #endif // TRADEBOOKWINDOW_H

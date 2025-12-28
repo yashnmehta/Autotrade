@@ -1,5 +1,7 @@
 #include "views/MarketWatchWindow.h"
 #include "views/ColumnProfileDialog.h"
+#include "utils/WindowSettingsHelper.h"
+#include "utils/TableProfileHelper.h"
 #include "models/MarketWatchModel.h"
 #include "models/TokenAddressBook.h"
 #include "services/TokenSubscriptionManager.h"
@@ -34,6 +36,9 @@ MarketWatchWindow::MarketWatchWindow(QWidget *parent)
     setupUI();
     setupConnections();
     setupKeyboardShortcuts();
+
+    // Load and apply previous runtime state and customizations
+    WindowSettingsHelper::loadAndApplyWindowSettings(this, "MarketWatch");
 }
 
 MarketWatchWindow::~MarketWatchWindow()
@@ -1057,4 +1062,9 @@ void MarketWatchWindow::onRowsRemoved(int firstRow, int lastRow)
 void MarketWatchWindow::onModelReset()
 {
     // DISABLED: Native callback path - using Qt signals instead
+}
+
+void MarketWatchWindow::closeEvent(QCloseEvent *event) {
+    WindowSettingsHelper::saveWindowSettings(this, "MarketWatch");
+    QWidget::closeEvent(event);
 }
