@@ -204,12 +204,18 @@ set(MODEL_SOURCES
     src/models/MarketWatchModel.cpp
     src/models/MarketWatchColumnProfile.cpp
     src/models/TokenAddressBook.cpp
+    src/models/OrderModel.cpp
+    src/models/TradeModel.cpp
+    src/models/PositionModel.cpp
 )
 
 set(MODEL_HEADERS
     include/models/MarketWatchModel.h
     include/models/MarketWatchColumnProfile.h
     include/models/TokenAddressBook.h
+    include/models/OrderModel.h
+    include/models/TradeModel.h
+    include/models/PositionModel.h
 )
 
 # ========================================

@@ -2,12 +2,14 @@
 #define ORDERBOOKWINDOW_H
 
 #include <QWidget>
-#include <QStandardItemModel>
 #include <QDateTime>
 #include <QShortcut>
 #include <QLabel>
+#include <QMap>
+#include <QVector>
 #include "models/GenericTableProfile.h"
 #include "api/XTSTypes.h"
+#include "models/OrderModel.h"
 
 class CustomOrderBook;
 class QComboBox;
@@ -16,6 +18,7 @@ class QPushButton;
 class QCheckBox;
 class OrderBookFilterWidget;
 class TradingDataService;
+class QSortFilterProxyModel;
 
 class OrderBookWindow : public QWidget
 {
@@ -24,14 +27,14 @@ class OrderBookWindow : public QWidget
     friend class OrderBookFilterWidget;
 
 public:
-    explicit OrderBookWindow(class TradingDataService* tradingDataService, QWidget *parent = nullptr);
+    explicit OrderBookWindow(TradingDataService* tradingDataService, QWidget *parent = nullptr);
     ~OrderBookWindow();
 
     // Filter methods
     void setInstrumentFilter(const QString &instrument);
     void setTimeFilter(const QDateTime &fromTime, const QDateTime &toTime);
-    void setStatusFilter(const QString &status);  // "All", "Open", "Executed", "Cancelled"
-    void setOrderTypeFilter(const QString &orderType);  // "All", "Market", "Limit", "SL", "SL-M"
+    void setStatusFilter(const QString &status);
+    void setOrderTypeFilter(const QString &orderType);
 
 public slots:
     void refreshOrders();
@@ -42,7 +45,7 @@ private slots:
     void exportToCSV();
     void toggleFilterRow();
     void onColumnFilterChanged(int column, const QStringList& selectedValues);
-    void showColumnProfileDialog(); // Added
+    void showColumnProfileDialog();
     void onCancelOrder();
     void onModifyOrder();
     void onOrdersUpdated(const QVector<XTS::Order>& orders);
@@ -58,22 +61,16 @@ private:
     void applyFilterToModel();
     void updateSummary();
     
-    // UI Helper methods
     QWidget* createFilterWidget();
     QWidget* createSummaryWidget();
     
-    // Filter helper
-    QList<QStandardItem*> getTopFilteredOrders() const;
-
-    // Trading data service
     TradingDataService* m_tradingDataService;
+    QVector<XTS::Order> m_allOrders;
 
-    // UI Components
     CustomOrderBook *m_tableView;
-    QStandardItemModel *m_model;
-    class QSortFilterProxyModel *m_proxyModel; // Added for sorting
+    OrderModel *m_model;
+    QSortFilterProxyModel *m_proxyModel;
 
-    // Filter Components
     QComboBox *m_instrumentTypeCombo;
     QComboBox *m_statusCombo;
     QComboBox *m_orderTypeCombo;
@@ -84,27 +81,22 @@ private:
     QPushButton *m_applyFilterBtn;
     QPushButton *m_clearFilterBtn;
     QPushButton *m_exportBtn;
-    QPushButton *m_cancelOrderBtn;
-    QPushButton *m_modifyOrderBtn;
 
-    // Filter State
-    QString m_instrumentFilter;
-    QDateTime m_fromTime;
-    QDateTime m_toTime;
-    QString m_statusFilter;
-    QString m_orderTypeFilter;
-    QString m_exchangeFilter;
-    QString m_buySellFilter;
-    
-    // Excel-like filter row
     bool m_filterRowVisible;
     QShortcut* m_filterShortcut;
-    QShortcut* m_escShortcut;
     QList<OrderBookFilterWidget*> m_filterWidgets;
     QMap<int, QStringList> m_columnFilters;
-    GenericTableProfile m_columnProfile; // Added
+    GenericTableProfile m_columnProfile;
 
-    // Summary data
+    // Filter State
+    QDateTime m_fromTime;
+    QDateTime m_toTime;
+    QString m_instrumentFilter;
+    QString m_statusFilter;
+    QString m_buySellFilter;
+    QString m_exchangeFilter;
+    QString m_orderTypeFilter;
+
     QLabel *m_summaryLabel;
     int m_totalOrders;
     int m_openOrders;
@@ -113,14 +105,12 @@ private:
     double m_totalOrderValue;
 };
 
-// Excel-like filter widget for column filtering
 class OrderBookFilterWidget : public QWidget
 {
     Q_OBJECT
 
 public:
     explicit OrderBookFilterWidget(int column, OrderBookWindow* orderBookWindow, QWidget* parent = nullptr);
-    QStringList selectedValues() const;
     void clear();
     void updateButtonDisplay();
 
@@ -132,12 +122,9 @@ private slots:
 
 private:
     QStringList getUniqueValuesForColumn() const;
-    
     int m_column;
     QPushButton* m_filterButton;
     OrderBookWindow* m_orderBookWindow;
-
-public:
     QStringList m_selectedValues;
 };
 

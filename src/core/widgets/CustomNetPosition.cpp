@@ -65,6 +65,7 @@ void CustomNetPosition::setupHeader()
     );
     
     // Header behavior
+    horizontalHeader()->setSectionsMovable(true);
     horizontalHeader()->setStretchLastSection(true);
     horizontalHeader()->setSectionsClickable(true);
     horizontalHeader()->setHighlightSections(false);

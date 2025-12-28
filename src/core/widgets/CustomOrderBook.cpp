@@ -4,6 +4,8 @@
 #include <QAction>
 #include <QDebug>
 
+#include <QStyleFactory>
+
 CustomOrderBook::CustomOrderBook(QWidget *parent)
     : QTableView(parent)
     , m_contextMenu(nullptr)
@@ -25,35 +27,20 @@ CustomOrderBook::~CustomOrderBook()
 
 void CustomOrderBook::applyDefaultStyling()
 {
-    // Table styling - Premium Dark Theme
-    setStyleSheet(
-        "QTableView {"
-        "   background-color: #ffffff;"
-        "   alternate-background-color: #f9f9f9;"
-        "   selection-background-color: #e3f2fd;"
-        "   selection-color: #000000;"
-        "   gridline-color: #e0e0e0;"
-        "   border: none;"
-        "   color: #333333;"
-        "   font-size: 11px;"
-        "}"
-        "QTableView::item {"
-        "   padding: 4px;"
-        "   border: none;"
-        "}"
-        "QHeaderView::section {"
-        "   background-color: #f5f5f5;"
-        "   color: #333333;"
-        "   padding: 6px;"
-        "   border: none;"
-        "   border-right: 1px solid #e0e0e0;"
-        "   border-bottom: 1px solid #e0e0e0;"
-        "   font-weight: bold;"
-        "   font-size: 11px;"
-        "}"
-    );
+    // Table styling - Adjusted to allow model colors to show
+    setStyleSheet("QTableView { "
+                  "gridline-color: #e0e0e0; "
+                  "selection-background-color: #bbdefb; "
+                  "selection-color: #000000; "
+                  "color: #333333; "
+                  "border: none; "
+                  "font-size: 11px; "
+                  "}"
+                  "QTableView::item { "
+                  "padding: 4px 8px; "
+                  "}");
     
-    setAlternatingRowColors(true);
+    setAlternatingRowColors(false);
     setSelectionBehavior(QAbstractItemView::SelectRows);
     setSelectionMode(QAbstractItemView::SingleSelection);
     setShowGrid(true);
@@ -62,7 +49,21 @@ void CustomOrderBook::applyDefaultStyling()
 
 void CustomOrderBook::setupHeader()
 {
-    horizontalHeader()->setStretchLastSection(false);
+    horizontalHeader()->setStyleSheet(
+        "QHeaderView::section { "
+        "background-color: #f5f5f5; "
+        "color: #333333; "
+        "border: none; "
+        "border-bottom: 1px solid #e0e0e0; "
+        "border-right: 1px solid #e0e0e0; "
+        "padding: 6px 8px; "
+        "font-weight: bold; "
+        "font-size: 11px; "
+        "}"
+    );
+    // Header behavior
+    horizontalHeader()->setSectionsMovable(true);
+    horizontalHeader()->setStretchLastSection(true);
     horizontalHeader()->setSectionResizeMode(QHeaderView::Interactive);
     horizontalHeader()->setDefaultAlignment(Qt::AlignLeft | Qt::AlignVCenter);
     horizontalHeader()->setHighlightSections(false);

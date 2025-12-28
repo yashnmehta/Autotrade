@@ -4,6 +4,8 @@
 #include <QAction>
 #include <QDebug>
 
+#include <QStyleFactory>
+
 CustomTradeBook::CustomTradeBook(QWidget *parent)
     : QTableView(parent)
     , m_contextMenu(nullptr)
@@ -25,14 +27,12 @@ CustomTradeBook::~CustomTradeBook()
 
 void CustomTradeBook::applyDefaultStyling()
 {
-    // Table appearance - optimized for trade data - Premium Dark Theme
-    setAlternatingRowColors(true);
+    // Table appearance - optimized for trade data
+    setAlternatingRowColors(false);
     setShowGrid(true);
     setStyleSheet("QTableView { "
-                  "background-color: #ffffff; "
-                  "alternate-background-color: #f9f9f9; "
                   "gridline-color: #e0e0e0; "
-                  "selection-background-color: #e3f2fd; "
+                  "selection-background-color: #bbdefb; "
                   "selection-color: #000000; "
                   "color: #333333; "
                   "border: none; "
@@ -72,6 +72,7 @@ void CustomTradeBook::setupHeader()
     );
     
     // Header behavior
+    horizontalHeader()->setSectionsMovable(true);
     horizontalHeader()->setStretchLastSection(true);
     horizontalHeader()->setSectionsClickable(true);
     horizontalHeader()->setHighlightSections(false);

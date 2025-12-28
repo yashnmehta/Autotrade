@@ -1,9 +1,9 @@
 #include "views/helpers/PositionHelpers.h"
-#include "views/PositionWindow.h"  // For Position struct
+#include "views/PositionWindow.h"  // For PositionData struct
 #include <QDebug>
 #include <QLocale>
 
-bool PositionHelpers::parsePositionFromTSV(const QString &line, Position &position)
+bool PositionHelpers::parsePositionFromTSV(const QString &line, PositionData &position)
 {
     QStringList fields = line.split('\t');
     
@@ -51,7 +51,7 @@ bool PositionHelpers::parsePositionFromTSV(const QString &line, Position &positi
     return true;
 }
 
-QString PositionHelpers::formatPositionToTSV(const Position &position)
+QString PositionHelpers::formatPositionToTSV(const PositionData &position)
 {
     // Format: Symbol\tName\tBuyQty\tSellQty\tNetPrice\tMarketPrice\tMTM\tMargin\tBuyVal\tSellVal\tExchange
     return QString("%1\t%2\t%3\t%4\t%5\t%6\t%7\t%8\t%9\t%10\t%11")
@@ -68,28 +68,28 @@ QString PositionHelpers::formatPositionToTSV(const Position &position)
             .arg(position.exchange);
 }
 
-bool PositionHelpers::isValidPosition(const Position &position)
+bool PositionHelpers::isValidPosition(const PositionData &position)
 {
     return !position.symbol.isEmpty() && !position.symbol.startsWith("─");
 }
 
-int PositionHelpers::calculateNetQty(const Position &position)
+int PositionHelpers::calculateNetQty(const PositionData &position)
 {
     return position.buyQty - position.sellQty;
 }
 
-double PositionHelpers::calculateTotalPnL(const QList<Position> &positions)
+double PositionHelpers::calculateTotalPnL(const QList<PositionData> &positions)
 {
     double totalPnL = 0.0;
     
-    for (const Position &pos : positions) {
+    for (const PositionData &pos : positions) {
         totalPnL += pos.mtm;
     }
     
     return totalPnL;
 }
 
-double PositionHelpers::calculateTotalMargin(const QList<Position> &positions)
+double PositionHelpers::calculateTotalMargin(const QList<PositionData> &positions)
 {
     return 0.0;
 }
@@ -108,7 +108,7 @@ QString PositionHelpers::formatPnL(double pnl)
     }
 }
 
-bool PositionHelpers::isSquaredOff(const Position &position)
+bool PositionHelpers::isSquaredOff(const PositionData &position)
 {
     return calculateNetQty(position) == 0;
 }

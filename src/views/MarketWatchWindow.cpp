@@ -857,6 +857,7 @@ void MarketWatchWindow::performRowMoveByTokens(const QList<int> &tokens, int tar
         
         // Notify address book AFTER the move
         m_tokenAddressBook->onRowsInserted(finalPos, 1);
+        m_tokenAddressBook->addToken(scrip.token, finalPos);
         
         // Update selection/current index to the moved row (in proxy coordinates)
         // With sorting disabled, proxy row == source row

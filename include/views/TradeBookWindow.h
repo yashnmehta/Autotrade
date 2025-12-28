@@ -2,21 +2,23 @@
 #define TRADEBOOKWINDOW_H
 
 #include <QWidget>
-#include <QStandardItemModel>
 #include <QDateTime>
 #include <QShortcut>
 #include <QLabel>
+#include <QMap>
+#include <QVector>
 #include "models/GenericTableProfile.h"
 #include "api/XTSTypes.h"
+#include "models/TradeModel.h"
 
 class CustomTradeBook;
 class QComboBox;
 class QDateTimeEdit;
 class QPushButton;
 class QCheckBox;
-class FilterRowWidget;
 class TradeBookFilterWidget;
 class TradingDataService;
+class QSortFilterProxyModel;
 
 class TradeBookWindow : public QWidget
 {
@@ -25,61 +27,43 @@ class TradeBookWindow : public QWidget
     friend class TradeBookFilterWidget;
 
 public:
-    explicit TradeBookWindow(class TradingDataService* tradingDataService, QWidget *parent = nullptr);
+    explicit TradeBookWindow(TradingDataService* tradingDataService, QWidget *parent = nullptr);
     ~TradeBookWindow();
 
-    // Filter methods
-    void setInstrumentFilter(const QString &instrument);
-    void setTimeFilter(const QDateTime &fromTime, const QDateTime &toTime);
-    void setBuySellFilter(const QString &buySell);  // "All", "Buy", "Sell"
-    void setOrderTypeFilter(const QString &orderType);  // "All", "Day", "IOC", etc.
-
 public slots:
-    // applyFilters, clearFilters, exportToCSV, toggleFilterRow, onColumnFilterChanged remain public slots
+    void refreshTrades();
+
+private slots:
     void applyFilters();
     void clearFilters();
     void exportToCSV();
     void toggleFilterRow();
     void onColumnFilterChanged(int column, const QStringList& selectedValues);
-    void showColumnProfileDialog(); // Added
-
-signals:
-    void tradeSelected(const QString &tradeId);
-
-private slots: // refreshTrades moved here, onTradesUpdated added
-    void refreshTrades();
+    void showColumnProfileDialog();
     void onTradesUpdated(const QVector<XTS::Trade>& trades);
 
 private:
     void setupUI();
-    void setupFilterBar();
     void setupTable();
     void loadInitialProfile();
     void setupConnections();
     void applyFilterToModel();
     void updateSummary();
     
-    // UI Helper methods
     QWidget* createFilterWidget();
     QWidget* createSummaryWidget();
     
-    // Filter helper
-    QList<QStandardItem*> getTopFilteredTrades() const;
-
-    // Trading data service
     TradingDataService* m_tradingDataService;
+    QVector<XTS::Trade> m_allTrades;
 
-    // UI Components
     CustomTradeBook *m_tableView;
-    QStandardItemModel *m_model;
-    QStandardItemModel *m_filteredModel;
-    class QSortFilterProxyModel *m_proxyModel; // Added for sorting
+    TradeModel *m_model;
+    QSortFilterProxyModel *m_proxyModel;
 
-    // Filter Components
     QComboBox *m_instrumentTypeCombo;
+    QComboBox *m_exchangeCombo;
     QComboBox *m_buySellCombo;
     QComboBox *m_orderTypeCombo;
-    QComboBox *m_exchangeCombo;
     QDateTimeEdit *m_fromTimeEdit;
     QDateTimeEdit *m_toTimeEdit;
     QPushButton *m_applyFilterBtn;
@@ -87,24 +71,21 @@ private:
     QPushButton *m_exportBtn;
     QCheckBox *m_showSummaryCheck;
 
-    // Filter State
-    QString m_instrumentFilter;
+    bool m_filterRowVisible;
+    QShortcut* m_filterShortcut;
+    QList<TradeBookFilterWidget*> m_filterWidgets;
+    QMap<int, QStringList> m_columnFilters;
+    GenericTableProfile m_columnProfile;
+
+    QLabel *m_summaryLabel;
     QDateTime m_fromTime;
     QDateTime m_toTime;
+    QString m_instrumentFilter;
     QString m_buySellFilter;
     QString m_orderTypeFilter;
     QString m_exchangeFilter;
-    
-    // Excel-like filter row
-    bool m_filterRowVisible;
-    QShortcut* m_filterShortcut;
-    QShortcut* m_escShortcut;
-    QList<TradeBookFilterWidget*> m_filterWidgets;
-    QMap<int, QStringList> m_columnFilters;
-    GenericTableProfile m_columnProfile; // Added
 
     // Summary data
-    QLabel *m_summaryLabel;
     double m_totalBuyQty;
     double m_totalSellQty;
     double m_totalBuyValue;
@@ -112,14 +93,12 @@ private:
     int m_tradeCount;
 };
 
-// Excel-like filter widget for column filtering
 class TradeBookFilterWidget : public QWidget
 {
     Q_OBJECT
 
 public:
     explicit TradeBookFilterWidget(int column, TradeBookWindow* tradeBookWindow, QWidget* parent = nullptr);
-    QStringList selectedValues() const;
     void clear();
     void updateButtonDisplay();
 
@@ -131,12 +110,9 @@ private slots:
 
 private:
     QStringList getUniqueValuesForColumn() const;
-    
     int m_column;
     QPushButton* m_filterButton;
     TradeBookWindow* m_tradeBookWindow;
-
-public:
     QStringList m_selectedValues;
 };
 
