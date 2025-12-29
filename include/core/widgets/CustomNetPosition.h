@@ -47,10 +47,7 @@ public:
      */
     void setupHeader();
 
-    /**
-     * @brief Enable/disable summary row display
-     * @param enabled True to show summary row at bottom
-     */
+public slots:
     void setSummaryRowEnabled(bool enabled);
 
     /**

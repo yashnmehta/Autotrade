@@ -31,6 +31,7 @@ public:
     void activateWindow(CustomMDISubWindow *window);
     void minimizeWindow(CustomMDISubWindow *window);
     void restoreWindow(CustomMDISubWindow *window);
+    void closeAllSubWindows();
 
     // Window Arrangement
     void cascadeWindows();

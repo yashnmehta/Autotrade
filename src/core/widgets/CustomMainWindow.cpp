@@ -4,6 +4,8 @@
 #include <QApplication>
 #include <QScreen>
 #include <QDebug>
+#include <QToolBar>
+#include <QStatusBar>
 
 CustomMainWindow::CustomMainWindow(QWidget *parent)
     : QMainWindow(parent),
@@ -38,87 +40,116 @@ void CustomMainWindow::setupUi()
     // Default size
     resize(1280, 720);
 
-    // Create a main container widget that will hold everything
-    // This becomes QMainWindow's central widget
-    QWidget *mainContainer = new QWidget(this);
-    mainContainer->setObjectName("mainContainer");
+    // Create a header container that will hold TitleBar and MenuBar
+    m_headerContainer = new QWidget(this);
+    m_headerContainer->setObjectName("headerContainer");
+    m_headerLayout = new QVBoxLayout(m_headerContainer);
+    m_headerLayout->setContentsMargins(0, 0, 0, 0);
+    m_headerLayout->setSpacing(0);
+    m_headerLayout->setSizeConstraint(QLayout::SetMinAndMaxSize);
 
-    // Create main vertical layout: TitleBar → Content
-    QVBoxLayout *containerLayout = new QVBoxLayout(mainContainer);
-    containerLayout->setContentsMargins(0, 0, 0, 0);
-    containerLayout->setSpacing(0);
+    // Create title bar and add to top of header
+    m_titleBar = new CustomTitleBar(m_headerContainer);
+    m_headerLayout->addWidget(m_titleBar);
 
-    // Create title bar and add to top of container
-    m_titleBar = new CustomTitleBar(mainContainer);
-    containerLayout->addWidget(m_titleBar);
+    // Initial hide of header, it will be shown when added to layout
+    m_headerContainer->hide();
 
-    // Create a content widget that will hold everything below the title bar
-    // This is where derived classes can add their content
-    m_centralWidget = new QWidget(mainContainer);
-    m_centralWidget->setObjectName("contentWidget");
-    containerLayout->addWidget(m_centralWidget);
-
-    // Create layout for central widget (for derived classes to use)
-    m_mainLayout = new QVBoxLayout(m_centralWidget);
-    m_mainLayout->setContentsMargins(0, 0, 0, 0);
-    m_mainLayout->setSpacing(0);
-
-    // Set the main container as QMainWindow's central widget
-    QMainWindow::setCentralWidget(mainContainer);
-
-    // Install event filter on title bar to handle resize events
+    // Install event filters for resize
     m_titleBar->installEventFilter(this);
-
-    // Install event filter on title bar children (buttons, labels) to handle resize from button areas
     for (QObject *child : m_titleBar->children())
     {
         if (qobject_cast<QWidget *>(child))
-        {
             child->installEventFilter(this);
-        }
     }
 
     // Connect title bar signals
     connect(m_titleBar, &CustomTitleBar::minimizeClicked, this, &CustomMainWindow::showMinimized);
     connect(m_titleBar, &CustomTitleBar::maximizeClicked, this, &CustomMainWindow::toggleMaximize);
     connect(m_titleBar, &CustomTitleBar::closeClicked, this, &QWidget::close);
+    connect(m_titleBar, &CustomTitleBar::dragStarted, this, [this](const QPoint &globalPos) {
+        m_dragOffset = globalPos - frameGeometry().topLeft();
+    });
+    connect(m_titleBar, &CustomTitleBar::dragMoved, this, [this](const QPoint &globalPos) {
+        if (!m_isMaximized && !m_isResizing) move(globalPos - m_dragOffset);
+    });
 
-    // Connect drag signals to move the window
-    // Store drag offset when drag starts
-    connect(m_titleBar, &CustomTitleBar::dragStarted, this, [this](const QPoint &globalPos)
-            { m_dragOffset = globalPos - frameGeometry().topLeft(); });
-
-    // Move window during drag using stored offset
-    connect(m_titleBar, &CustomTitleBar::dragMoved, this, [this](const QPoint &globalPos)
-            {
-        if (!m_isMaximized && !m_isResizing) {
-            move(globalPos - m_dragOffset);
-        } });
-
-    qDebug() << "CustomMainWindow created";
+    qDebug() << "CustomMainWindow UI initialized with menuWidget header";
 }
 
 void CustomMainWindow::applyDefaultStyling()
 {
-    setStyleSheet(
-        "CustomMainWindow { "
-        "   background-color: #a1a1a1; "
-        "   "
-        "}");
+    setStyleSheet("CustomMainWindow { background-color: #949494; ");
 }
 
 void CustomMainWindow::setCentralWidget(QWidget *widget)
 {
-    if (m_centralWidget)
-    {
-        m_mainLayout->removeWidget(m_centralWidget);
-        m_centralWidget->setParent(nullptr);
+    if (m_centralWidget == widget) return;
+
+    // We use a wrapper widget to hold both our custom header and the user's central widget.
+    // This avoids issues with QMainWindow::setMenuWidget on frameless macOS windows.
+    QWidget* wrapper = QMainWindow::centralWidget();
+    QVBoxLayout* wrapperLayout = nullptr;
+
+    if (wrapper && wrapper->objectName() == "centralWrapper") {
+        wrapperLayout = qobject_cast<QVBoxLayout*>(wrapper->layout());
+    } else {
+        wrapper = new QWidget(this);
+        wrapper->setObjectName("centralWrapper");
+        wrapperLayout = new QVBoxLayout(wrapper);
+        wrapperLayout->setContentsMargins(0, 0, 0, 0);
+        wrapperLayout->setSpacing(0);
+        
+        // Add header at the top
+        wrapperLayout->addWidget(m_headerContainer);
+        m_headerContainer->show();
+        
+        QMainWindow::setCentralWidget(wrapper);
+    }
+
+    // Remove old central widget if exists
+    if (m_centralWidget) {
+        wrapperLayout->removeWidget(m_centralWidget);
     }
 
     m_centralWidget = widget;
-    if (m_centralWidget)
+    if (m_centralWidget) {
+        wrapperLayout->addWidget(m_centralWidget, 1); // 1 = stretch factor
+    }
+}
+
+void CustomMainWindow::setCustomMenuBar(QWidget *menubar)
+{
+    if (menubar && m_headerLayout)
     {
-        m_mainLayout->addWidget(m_centralWidget);
+        // Add below title bar
+        m_headerLayout->addWidget(menubar);
+        menubar->show();
+        
+        // Ensure header container grows
+        m_headerContainer->adjustSize();
+    }
+}
+
+void CustomMainWindow::addCustomToolBar(QWidget *toolbar)
+{
+    // Not needed if we use native addToolBar, but let's make it more generic
+    if (qobject_cast<QToolBar*>(toolbar)) {
+        QMainWindow::addToolBar(qobject_cast<QToolBar*>(toolbar));
+    } else if (toolbar) {
+        // Fallback or wrapper for non-QToolBar widgets - maybe add to a default toolbar?
+        QToolBar *wrapper = new QToolBar(this);
+        wrapper->addWidget(toolbar);
+        QMainWindow::addToolBar(wrapper);
+    }
+}
+
+void CustomMainWindow::setCustomStatusBar(QWidget *statusbar)
+{
+    if (qobject_cast<QStatusBar*>(statusbar)) {
+        QMainWindow::setStatusBar(qobject_cast<QStatusBar*>(statusbar));
+    } else if (statusbar) {
+        // Maybe wrapper? QMainWindow only takes QStatusBar for setStatusBar.
     }
 }
 

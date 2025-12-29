@@ -69,6 +69,7 @@ signals:
 private:
     void populateComboBoxes();
     void setupConnections();
+    void setupKeyboardShortcuts();
 
 private:
     // UI widgets loaded from .ui file

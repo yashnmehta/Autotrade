@@ -41,6 +41,9 @@ public:
     // Refresh symbols when repository loads
     void refreshSymbols();
 
+    // Focus on the input field
+    void focusInput();
+
 signals:
     void addToWatchRequested(const InstrumentData &instrument);
 
@@ -63,7 +66,6 @@ private:
     void populateExpiries(const QString &symbol);
     void populateStrikes(const QString &expiry);
     void populateOptionTypes(const QString &strike);
-    void setupShortcuts();
     void updateBseScripCodeVisibility();
     void updateTokenDisplay();
     

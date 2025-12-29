@@ -13,7 +13,6 @@ ScripBar::ScripBar(QWidget *parent)
 {
     setupUI();
     populateExchanges();
-    setupShortcuts();
 }
 
 ScripBar::~ScripBar() = default;
@@ -129,14 +128,18 @@ void ScripBar::setupUI()
 
     m_layout->addStretch();
 
-    // Compact flat styling (light theme)
+    // Dark premium styling 
     setStyleSheet(
-        "QWidget { background-color: #f5f5f5; }"
-        "QToolButton, QComboBox, QPushButton { color: #222222; background: #ffffff; border: 1px solid #d0d0d0; padding: 2px 6px; }"
-        "QComboBox QAbstractItemView { background: #ffffff; color: #222222; selection-background-color: #0078d7; selection-color: #ffffff; }"
-        "QPushButton { background: #0078d7; color: #ffffff; border: none; border-radius: 2px; }"
-        "QLineEdit { background: #ffffff; color: #222222; border: 1px solid #d0d0d0; border-radius: 2px; padding: 2px 4px; }"
-        );
+        "QWidget { background-color: #2d2d30; border: none; }"
+        "CustomScripComboBox { color: #d4d4d8; background: #3e3e42; border: 1px solid #454545; padding: 2px 4px; border-radius: 4px; }"
+        "CustomScripComboBox:hover { border: 1px solid #007acc; }"
+        "CustomScripComboBox QAbstractItemView { background: #252526; color: #d4d4d8; selection-background-color: #094771; selection-color: #ffffff; outline: none; border: 1px solid #454545; }"
+        "QPushButton { background: #007acc; color: #ffffff; border: none; border-radius: 4px; font-weight: bold; padding: 4px 12px; }"
+        "QPushButton:hover { background: #0062a3; }"
+        "QPushButton:pressed { background: #004d80; }"
+        "QLineEdit { background: #3c3c3c; color: #d4d4d8; border: 1px solid #454545; border-radius: 4px; padding: 2px 6px; }"
+        "QLabel { color: #cccccc; }"
+    );
 }
 
 void ScripBar::populateExchanges()
@@ -750,20 +753,14 @@ void ScripBar::updateTokenDisplay()
     m_bseScripCodeEdit->clear();
 }
 
-void ScripBar::setupShortcuts()
-{
-    // Ctrl+S (Windows/Linux) or Cmd+S (Mac) to focus Exchange combobox
-    QShortcut *focusExchangeShortcut = new QShortcut(QKeySequence("Ctrl+S"), this);
-    connect(focusExchangeShortcut, &QShortcut::activated, this, [this]() {
-        qDebug() << "[ScripBar] Shortcut Ctrl+S activated - focusing Exchange";
-        if (m_exchangeCombo) {
-            m_exchangeCombo->setFocus();
-            m_exchangeCombo->selectAllText();
-            qDebug() << "[ScripBar] Exchange focused";
+// Slot implementations
+void ScripBar::focusInput() {
+    if (m_exchangeCombo) {
+        m_exchangeCombo->setFocus();
+        if (m_exchangeCombo->lineEdit()) {
+            m_exchangeCombo->lineEdit()->selectAll();
         }
-    });
-
-    qDebug() << "[ScripBar] Keyboard shortcut registered: Ctrl+S (or Cmd+S on Mac) -> Focus Exchange";
+    }
 }
 
 QString ScripBar::getCurrentExchange() const

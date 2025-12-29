@@ -8,6 +8,10 @@
 #include <QCheckBox>
 #include <QPalette>
 #include <QDebug>
+#include <QTableView>
+#include <QHeaderView>
+#include <QMetaObject>
+#include <QList>
 
 class WindowSettingsHelper {
 public:

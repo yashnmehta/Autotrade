@@ -1,30 +1,20 @@
 #ifndef TRADEBOOKWINDOW_H
 #define TRADEBOOKWINDOW_H
 
-#include <QWidget>
-#include <QDateTime>
-#include <QShortcut>
-#include <QLabel>
-#include <QMap>
-#include <QVector>
-#include "models/GenericTableProfile.h"
+#include "views/BaseBookWindow.h"
 #include "api/XTSTypes.h"
 #include "models/TradeModel.h"
 
-#include "views/helpers/GenericTableFilter.h"
-
 class CustomTradeBook;
+class TradingDataService;
 class QComboBox;
 class QDateTimeEdit;
 class QPushButton;
 class QCheckBox;
-class TradingDataService;
-class QSortFilterProxyModel;
+class QLabel;
 
-class TradeBookWindow : public QWidget
-{
+class TradeBookWindow : public BaseBookWindow {
     Q_OBJECT
-
 public:
     explicit TradeBookWindow(TradingDataService* tradingDataService, QWidget *parent = nullptr);
     ~TradeBookWindow();
@@ -35,16 +25,16 @@ public slots:
 private slots:
     void applyFilters();
     void clearFilters();
-    void exportToCSV();
-    void toggleFilterRow();
-    void onColumnFilterChanged(int column, const QStringList& selectedValues);
-    void showColumnProfileDialog();
     void onTradesUpdated(const QVector<XTS::Trade>& trades);
+    void toggleFilterRow();
+    void exportToCSV();
+
+protected:
+    void setupUI() override;
+    void onColumnFilterChanged(int column, const QStringList& selectedValues) override;
 
 private:
-    void setupUI();
     void setupTable();
-    void loadInitialProfile();
     void setupConnections();
     void applyFilterToModel();
     void updateSummary();
@@ -54,10 +44,6 @@ private:
     
     TradingDataService* m_tradingDataService;
     QVector<XTS::Trade> m_allTrades;
-
-    CustomTradeBook *m_tableView;
-    TradeModel *m_model;
-    QSortFilterProxyModel *m_proxyModel;
 
     QComboBox *m_instrumentTypeCombo;
     QComboBox *m_exchangeCombo;
@@ -70,29 +56,15 @@ private:
     QPushButton *m_exportBtn;
     QCheckBox *m_showSummaryCheck;
 
-    bool m_filterRowVisible;
-    QShortcut* m_filterShortcut;
-    QList<GenericTableFilter*> m_filterWidgets;
     QMap<int, QStringList> m_columnFilters;
-    GenericTableProfile m_columnProfile;
 
     QLabel *m_summaryLabel;
-    QDateTime m_fromTime;
-    QDateTime m_toTime;
     QString m_instrumentFilter;
+    QString m_exchangeFilter;
     QString m_buySellFilter;
     QString m_orderTypeFilter;
-    QString m_exchangeFilter;
-
-    // Summary data
-    double m_totalBuyQty;
-    double m_totalSellQty;
-    double m_totalBuyValue;
-    double m_totalSellValue;
-    int m_tradeCount;
-    
-protected:
-    void closeEvent(QCloseEvent *event) override;
+    QDateTime m_fromTime;
+    QDateTime m_toTime;
 };
 
 #endif // TRADEBOOKWINDOW_H

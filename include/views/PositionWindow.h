@@ -1,91 +1,50 @@
 #ifndef POSITIONWINDOW_H
 #define POSITIONWINDOW_H
 
-#include <QWidget>
-#include <QShortcut>
-#include "models/PositionModel.h"
-#include "models/GenericTableProfile.h"
-#include "core/widgets/CustomNetPosition.h"
+#include "views/BaseBookWindow.h"
 #include "api/XTSTypes.h"
+#include "PositionModel.h"
 
-namespace XTS {
-    struct Position;
-}
-
-#include "views/helpers/GenericTableFilter.h"
-
-class QComboBox;
-class QLineEdit;
-class QPushButton;
-class QSortFilterProxyModel;
+class CustomNetPosition;
 class TradingDataService;
+class QComboBox;
+class QPushButton;
+class QLabel;
 
-class PositionWindow : public QWidget
-{
+class PositionWindow : public BaseBookWindow {
     Q_OBJECT
-
 public:
     explicit PositionWindow(TradingDataService* tradingDataService, QWidget *parent = nullptr);
     ~PositionWindow();
 
     void addPosition(const PositionData& p);
-    void updatePosition(const QString& s, const PositionData& p);
+    void updatePosition(const QString& symbol, const PositionData& p);
     void clearPositions();
 
-public slots:
-    void showColumnProfileDialog();
-
 private slots:
-    void onFilterChanged();
-    void onColumnFilterChanged(int column, const QStringList& selectedValues);
+    void applyFilters();
+    void onPositionsUpdated(const QVector<XTS::Position>& positions);
     void onRefreshClicked();
     void onExportClicked();
-    void toggleFilterRow();
-    void onPositionsUpdated(const QVector<XTS::Position>& positions);
     void onSquareOffClicked();
+    void toggleFilterRow();
+
+protected:
+    void setupUI() override;
+    void onColumnFilterChanged(int column, const QStringList& selectedValues) override;
 
 private:
-    void setupUI();
-    QWidget* createFilterWidget();
-    void setupTableView();
-    void loadInitialProfile();
-    void applyFilters();
+    void setupTable();
+    void setupConnections();
     void updateSummaryRow();
-    void recreateFilterWidgets();
-
-    QComboBox* m_cbExchange;
-    QComboBox* m_cbSegment;
-    QComboBox* m_cbPeriodicity;
-    QComboBox* m_cbUser;
-    QComboBox* m_cbClient;
-    QComboBox* m_cbSecurity;
-    QPushButton* m_btnRefresh;
-    QPushButton* m_btnExport;
-    QWidget* m_topFilterWidget;
-
-    CustomNetPosition* m_tableView;
-    PositionModel* m_model;
-    QSortFilterProxyModel* m_proxyModel;
-
-    bool m_filterRowVisible;
-    QShortcut* m_filterShortcut;
-    QShortcut* m_escShortcut;
-    QList<GenericTableFilter*> m_filterWidgets;
-    QMap<int, QStringList> m_columnFilters;
-    GenericTableProfile m_columnProfile;
-
+    QWidget* createFilterWidget();
+    
     TradingDataService* m_tradingDataService;
     QList<PositionData> m_allPositions;
 
-    QString m_filterExchange;
-    QString m_filterSegment;
-    QString m_filterPeriodicity;
-    QString m_filterUser;
-    QString m_filterClient;
-    QString m_filterSecurity;
-    
-protected:
-    void closeEvent(QCloseEvent *event) override;
+    QComboBox *m_cbExchange, *m_cbSegment, *m_cbPeriodicity, *m_cbUser, *m_cbClient;
+    QPushButton *m_btnRefresh, *m_btnExport;
+    QMap<int, QStringList> m_columnFilters;
 };
 
 #endif // POSITIONWINDOW_H

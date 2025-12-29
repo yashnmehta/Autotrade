@@ -14,14 +14,15 @@ CustomMDIArea::CustomMDIArea(QWidget *parent)
       m_nextY(20),
       m_snapPreview(nullptr)
 {
-    // Light background
-    setStyleSheet("background-color: #f5f5f5;");
+    // Dark premium background (VS Code style)
+    setStyleSheet("background-color: #9b9b9b;");
 
-    // Create snap preview overlay
+    // Create snap preview overlay with refined visuals
     m_snapPreview = new QWidget(this);
     m_snapPreview->setStyleSheet(
-        "background-color: rgba(0, 122, 204, 80);"
-        "border: 2px solid #007acc;");
+        "background-color: rgba(0, 122, 204, 40);" // More subtle alpha
+        "border: 1px solid #007acc;"              // Thinner border
+        "border-radius: 4px;");
     m_snapPreview->hide();
 
     // Main layout with taskbar at bottom
@@ -71,6 +72,20 @@ void CustomMDIArea::addWindow(CustomMDISubWindow *window)
     // Install event filter to track activation
     window->installEventFilter(this);
 
+    // Connect window signals
+    connect(window, &CustomMDISubWindow::minimizeRequested, this, [this, window]() {
+        minimizeWindow(window);
+    });
+    connect(window, &CustomMDISubWindow::maximizeRequested, this, [this, window]() {
+        if (window->isMaximized())
+            window->restore();
+        else
+            window->maximize();
+    });
+    connect(window, &CustomMDISubWindow::windowActivated, this, [this, window]() {
+        activateWindow(window);
+    });
+
     emit windowAdded(window);
 
     qDebug() << "CustomMDIArea: Window added" << window->title();
@@ -98,6 +113,15 @@ void CustomMDIArea::removeWindow(CustomMDISubWindow *window)
     emit windowRemoved(window);
 
     qDebug() << "CustomMDIArea: Window removed" << window->title();
+}
+
+void CustomMDIArea::closeAllSubWindows()
+{
+    QList<CustomMDISubWindow*> copy = m_windows;
+    for (auto* window : copy)
+    {
+        window->close();
+    }
 }
 
 void CustomMDIArea::activateWindow(CustomMDISubWindow *window)

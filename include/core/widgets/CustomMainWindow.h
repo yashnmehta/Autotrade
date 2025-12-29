@@ -48,8 +48,10 @@ public:
     // Title Bar Access (for adding custom buttons/widgets)
     CustomTitleBar *titleBar() const { return m_titleBar; }
 
-    // Toolbar Management
-    void addToolBar(QToolBar *toolbar) { QMainWindow::addToolBar(toolbar); }
+    // Custom Placement (to keep UI components inside the custom frameless container)
+    void setCustomMenuBar(QWidget *menubar);
+    void addCustomToolBar(QWidget *toolbar);
+    void setCustomStatusBar(QWidget *statusbar);
 
 public slots:
     void showMinimized();
@@ -99,8 +101,9 @@ private:
 
     // UI Components
     CustomTitleBar *m_titleBar;
-    QWidget *m_centralWidget;
-    QVBoxLayout *m_mainLayout;
+    QWidget *m_headerContainer;
+    QVBoxLayout *m_headerLayout;
+    QWidget *m_centralWidget; // The user-provided central widget
 
     // Window Management State
     bool m_isMaximized;

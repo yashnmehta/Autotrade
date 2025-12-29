@@ -55,6 +55,7 @@ private slots:
     void createTradeBookWindow();
     void createOrderBookWindow();
     void createPositionWindow();
+    void focusScripBar();
     void onAddToWatchRequested(const InstrumentData &instrument);
     void resetLayout();
     
@@ -70,16 +71,17 @@ private slots:
     void manageWorkspaces();
     void showPreferences();
     
-    // UDP Broadcast receivers
+    // Broadcast receiver slots
+    void onUdpTickReceived(const XTS::Tick& tick);
     void startBroadcastReceiver();
     void stopBroadcastReceiver();
-    
-    // UDP tick queue drain (1ms timer)
     void drainTickQueue();
 
 private:
     void setupContent();
     void setupShortcuts();
+    void setupConnections();
+    void setupNetwork();
     void createMenuBar();
     void createToolBar();
     void createConnectionBar();
@@ -96,12 +98,13 @@ private:
     void closeEvent(QCloseEvent *event) override;
 
     CustomMDIArea *m_mdiArea;
+    QMenuBar *m_menuBar;
     QToolBar *m_toolBar;
     QToolBar *m_connectionToolBar;
     QWidget *m_connectionBar;
     QStatusBar *m_statusBar;
-    QDockWidget *m_infoDock;
     InfoBar *m_infoBar;
+    QDockWidget *m_infoDock; // Added dock widget
     QAction *m_statusBarAction;
     QAction *m_infoBarAction;
     ScripBar *m_scripBar;
@@ -114,18 +117,15 @@ private:
     // Trading data service
     TradingDataService *m_tradingDataService;
     
-    // UDP Broadcast receiver
+    // UDP Broadcast Receiver
     std::unique_ptr<MulticastReceiver> m_udpReceiver;
+    QTimer *m_tickDrainTimer;
+    LockFreeQueue<XTS::Tick> m_udpTickQueue;
     
-    // UDP tick queue (lock-free SPSC for ultra-low latency)
-    LockFreeQueue<XTS::Tick> m_udpTickQueue{8192};  // 8K capacity
-    QTimer *m_tickDrainTimer;  // Drain queue every 1ms
-    
-    // UDP message counters
+    // UI message counters
     std::atomic<uint64_t> m_msg7200Count{0};
     std::atomic<uint64_t> m_msg7201Count{0};
     std::atomic<uint64_t> m_msg7202Count{0};
-    std::atomic<uint64_t> m_msg7208Count{0};
     std::atomic<uint64_t> m_depthCount{0};
 };
 

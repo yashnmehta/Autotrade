@@ -12,6 +12,7 @@ public:
     explicit CustomTradeBook(QWidget *parent = nullptr);
     ~CustomTradeBook();
 
+public slots:
     void setSummaryRowEnabled(bool enabled);
     bool isSummaryRowEnabled() const { return m_summaryRowEnabled; }
 

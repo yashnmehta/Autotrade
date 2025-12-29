@@ -116,6 +116,8 @@ set(CORE_WIDGET_SOURCES
     src/core/widgets/CustomNetPosition.cpp
     src/core/widgets/CustomTradeBook.cpp
     src/core/widgets/CustomOrderBook.cpp
+    src/core/GlobalShortcuts.cpp
+    src/core/GlobalConnections.cpp
 )
 
 set(CORE_WIDGET_HEADERS
@@ -139,7 +141,10 @@ set(CORE_WIDGET_HEADERS
 # ========================================
 set(APP_SOURCES
     src/main.cpp
-    src/app/MainWindow.cpp
+    src/app/MainWindow/MainWindow.cpp
+    src/app/MainWindow/UI.cpp
+    src/app/MainWindow/Windows.cpp
+    src/app/MainWindow/Network.cpp
     src/app/ScripBar.cpp
 )
 
@@ -167,21 +172,30 @@ set(UI_HEADERS
 # ✅ Actively developed
 # ========================================
 set(VIEW_SOURCES
+    src/views/BaseOrderWindow.cpp
+    src/views/BaseBookWindow.cpp
     src/views/BuyWindow.cpp
     src/views/SellWindow.cpp
-    src/views/MarketWatchWindow.cpp
-    src/views/SnapQuoteWindow.cpp
-    src/views/PositionWindow.cpp
-    src/views/TradeBookWindow.cpp
-    src/views/OrderBookWindow.cpp
+    src/views/MarketWatchWindow/MarketWatchWindow.cpp
+    src/views/MarketWatchWindow/UI.cpp
+    src/views/MarketWatchWindow/Data.cpp
+    src/views/MarketWatchWindow/Actions.cpp
+    src/views/SnapQuoteWindow/SnapQuoteWindow.cpp
+    src/views/SnapQuoteWindow/UI.cpp
+    src/views/SnapQuoteWindow/Actions.cpp
+    src/views/PositionWindow/PositionWindow.cpp
+    src/views/TradeBookWindow/TradeBookWindow.cpp
+    src/views/OrderBookWindow/OrderBookWindow.cpp
     src/views/ColumnProfileDialog.cpp
     src/views/GenericProfileDialog.cpp
-    src/views/PreferenceDialog.cpp
+    src/views/PreferenceDialog/PreferenceDialog.cpp
     src/views/CustomizeDialog.cpp
     src/ui/OptionChainWindow.cpp
 )
 
 set(VIEW_HEADERS
+    include/views/BaseOrderWindow.h
+    include/views/BaseBookWindow.h
     include/views/BuyWindow.h
     include/views/SellWindow.h
     include/views/MarketWatchWindow.h
@@ -192,7 +206,7 @@ set(VIEW_HEADERS
     include/views/OrderBookWindow.h
     include/views/ColumnProfileDialog.h
     include/views/GenericProfileDialog.h
-    include/views/Preference.h
+    include/views/PreferenceDialog.h
     include/views/CustomizeDialog.h
 )
 
@@ -228,6 +242,7 @@ set(SERVICE_SOURCES
     src/services/TradingDataService.cpp
     src/services/PriceCache.cpp
     src/services/FeedHandler.cpp
+    src/services/UdpBroadcastService.cpp
 )
 
 set(SERVICE_HEADERS
@@ -236,6 +251,7 @@ set(SERVICE_HEADERS
     include/services/TradingDataService.h
     include/services/PriceCache.h
     include/services/FeedHandler.h
+    include/services/UdpBroadcastService.h
 )
 
 # ========================================
