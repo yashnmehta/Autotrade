@@ -4,12 +4,15 @@
 #include <iostream>
 #include <chrono>
 
+namespace nsecm {
+
 void parse_message_7208(const MS_BCAST_ONLY_MBP* msg) {
     // Convert NoOfRecords from Big Endian
     uint16_t numRecords = be16toh_func(msg->noOfRecords);
     
     // Capture timestamps for latency tracking
     static uint64_t refNoCounter = 0;
+    uint64_t refNo = ++refNoCounter;
     auto now = std::chrono::duration_cast<std::chrono::microseconds>(
         std::chrono::steady_clock::now().time_since_epoch()).count();
     
@@ -20,8 +23,6 @@ void parse_message_7208(const MS_BCAST_ONLY_MBP* msg) {
         uint32_t token = be32toh_func(data.token);
         
         if (token > 0) {
-            uint64_t refNo = ++refNoCounter;
-            
             // Parse touchline data
             TouchlineData touchline;
             touchline.token = token;
@@ -79,3 +80,5 @@ void parse_message_7208(const MS_BCAST_ONLY_MBP* msg) {
 void parse_bcast_only_mbp(const MS_BCAST_ONLY_MBP* msg) {
     parse_message_7208(msg);
 }
+
+} // namespace nsecm

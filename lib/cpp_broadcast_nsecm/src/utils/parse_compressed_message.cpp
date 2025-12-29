@@ -1,12 +1,14 @@
 #include "../../include/utils/parse_compressed_message.h"
-#include "../../include/udp_receiver.h"  // For UDPStats
-#include "../../include/lzo_decompress.h"
+#include "../../include/nsecm_udp_receiver.h"  // For UDPStats
+#include "lzo_decompress.h"  // Common LZO decompressor
 #include "../../include/protocol.h"
 #include "../../include/constants.h"
 #include "../../include/nse_parsers.h"
 #include <iostream>
 #include <iomanip>
 #include <vector>
+
+namespace nsecm {
 
 void parse_compressed_message(const char* data, int16_t length, UDPStats& stats) {
     // Statistics tracking
@@ -22,7 +24,7 @@ void parse_compressed_message(const char* data, int16_t length, UDPStats& stats)
     
     int result;
     try {
-        result = LzoDecompressor::decompressWithLibrary(input, output);
+        result = common::LzoDecompressor::decompressWithLibrary(input, output);
         successful_decompressions++;
     } catch (const std::exception& e) {
         failed_decompressions++;
@@ -94,3 +96,5 @@ void parse_compressed_message(const char* data, int16_t length, UDPStats& stats)
             break;
     }
 }
+
+} // namespace nsecm

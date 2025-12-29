@@ -7,6 +7,8 @@
 #include <sstream>
 #include <iostream>
 
+namespace nsecm {
+
 enum class LogLevel {
     DEBUG = 0,
     INFO = 1,
@@ -90,5 +92,7 @@ private:
     
     friend class Config;
 };
+
+} // namespace nsecm
 
 #endif // LOGGER_H

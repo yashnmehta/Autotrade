@@ -4,6 +4,8 @@
 #include <chrono>
 #include <ctime>
 
+namespace nsefo {
+
 // Static member initialization
 LogLevel Logger::current_level = LogLevel::INFO;
 std::ofstream Logger::file_stream;
@@ -65,3 +67,5 @@ LogLevel Logger::stringToLevel(const std::string& str) {
     if (str == "ERROR") return LogLevel::ERROR;
     return LogLevel::INFO;  // Default
 }
+
+} // namespace nsefo

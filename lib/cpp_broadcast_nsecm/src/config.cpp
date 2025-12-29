@@ -1,8 +1,10 @@
-#include "config.h"
+#include "nsecm_config.h"
 #include <fstream>
 #include <sstream>
 #include <cstdlib>
 #include <algorithm>
+
+namespace nsecm {
 
 Config::Config() {
     setDefaults();
@@ -148,3 +150,5 @@ void Config::print() const {
     std::cout << "  hex_dump_size = " << hex_dump_size << std::endl;
     std::cout << std::endl;
 }
+
+} // namespace nsecm

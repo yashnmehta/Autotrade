@@ -3,6 +3,8 @@
 #include "../../include/market_data_callback.h"
 #include <iostream>
 
+namespace nsecm {
+
 void parse_message_7201(const MS_BCAST_INQ_RESP_2* msg) {
     uint16_t numRecords = be16toh_func(msg->noOfRecords);
     
@@ -36,3 +38,5 @@ void parse_message_7201(const MS_BCAST_INQ_RESP_2* msg) {
 void parse_market_watch(const MS_BCAST_INQ_RESP_2* msg) {
     parse_message_7201(msg);
 }
+
+} // namespace nsecm

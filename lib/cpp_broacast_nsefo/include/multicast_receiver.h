@@ -8,6 +8,8 @@
 
 constexpr size_t kBufferSize = 65535;
 
+namespace nsefo {
+
 class MulticastReceiver {
 public:
     MulticastReceiver(const std::string& ip, int port);
@@ -33,5 +35,7 @@ private:
     UDPStats stats;
     uint32_t lastSeqNo;
 };
+
+} // namespace nsefo
 
 #endif // MULTICAST_RECEIVER_H

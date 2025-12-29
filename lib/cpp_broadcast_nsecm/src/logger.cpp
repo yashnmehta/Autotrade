@@ -1,8 +1,10 @@
-#include "logger.h"
+#include "nsecm_logger.h"
 #include <iostream>
 #include <iomanip>
 #include <chrono>
 #include <ctime>
+
+namespace nsecm {
 
 // Static member initialization
 LogLevel Logger::current_level = LogLevel::INFO;
@@ -65,3 +67,5 @@ LogLevel Logger::stringToLevel(const std::string& str) {
     if (str == "ERROR") return LogLevel::ERROR;
     return LogLevel::INFO;  // Default
 }
+
+} // namespace nsecm

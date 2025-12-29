@@ -4,6 +4,8 @@
 #include <iostream>
 #include <chrono>
 
+namespace nsecm {
+
 void parse_message_7200(const MS_BCAST_MBO_MBP* msg) {
     uint32_t token = be32toh_func(msg->mboData.token);
     
@@ -71,3 +73,5 @@ void parse_message_7200(const MS_BCAST_MBO_MBP* msg) {
 void parse_bcast_mbo_mbp(const MS_BCAST_MBO_MBP* msg) {
     parse_message_7200(msg);
 }
+
+} // namespace nsecm

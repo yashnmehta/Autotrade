@@ -5,6 +5,8 @@
 #include <iostream>
 #include <iomanip>
 
+namespace nsecm {
+
 void parse_uncompressed_message(const char* data, int16_t length) {
     // std::cout << "    [Uncompressed] " << length << " bytes" << std::endl;
     
@@ -51,3 +53,5 @@ void parse_uncompressed_message(const char* data, int16_t length) {
             break;
     }
 }
+
+} // namespace nsecm

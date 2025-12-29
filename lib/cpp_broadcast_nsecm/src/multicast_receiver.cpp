@@ -1,8 +1,8 @@
-#include "multicast_receiver.h"
-#include "packet.h"
+#include "nsecm_multicast_receiver.h"
+#include "nsecm_packet.h"
 #include "protocol.h" 
-#include "utils/parse_compressed_message.h"
-#include "utils/parse_uncompressed_packet.h"
+#include "../include/utils/parse_compressed_message.h"
+#include "../include/utils/parse_uncompressed_packet.h"
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -12,6 +12,7 @@
 #include <stdexcept>
 #include <cerrno>
 
+namespace nsecm {
 
 MulticastReceiver::MulticastReceiver(const std::string& ip, int port) 
     : sockfd(-1), running(false), lastSeqNo(0) {
@@ -180,3 +181,5 @@ void MulticastReceiver::start() {
 void MulticastReceiver::stop() {
     running = false;
 }
+
+} // namespace nsecm

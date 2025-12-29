@@ -5,6 +5,8 @@
 #include <map>
 #include <iostream>
 
+namespace nsefo {
+
 class Config {
 public:
     // Network settings
@@ -42,5 +44,7 @@ private:
     void setDefaults();
     std::string trim(const std::string& str);
 };
+
+} // namespace nsefo
 
 #endif // CONFIG_H

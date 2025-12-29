@@ -1,0 +1,16 @@
+benchmark_price_cache_autogen/timestamp: \
+	/Users/yashmehta/Desktop/go_proj/trading_terminal_cpp/src/services/PriceCache.cpp \
+	/Users/yashmehta/Desktop/go_proj/trading_terminal_cpp/tests/CMakeLists.txt \
+	/Users/yashmehta/Desktop/go_proj/trading_terminal_cpp/tests/benchmark_price_cache.cpp \
+	/opt/homebrew/opt/qt@5/lib/cmake/Qt5/Qt5Config.cmake \
+	/opt/homebrew/opt/qt@5/lib/cmake/Qt5/Qt5ConfigVersion.cmake \
+	/opt/homebrew/opt/qt@5/lib/cmake/Qt5/Qt5ModuleLocation.cmake \
+	/opt/homebrew/opt/qt@5/lib/cmake/Qt5Core/Qt5CoreConfig.cmake \
+	/opt/homebrew/opt/qt@5/lib/cmake/Qt5Core/Qt5CoreConfigVersion.cmake \
+	/opt/homebrew/opt/qt@5/lib/cmake/Qt5Network/Qt5NetworkConfig.cmake \
+	/opt/homebrew/opt/qt@5/lib/cmake/Qt5Network/Qt5NetworkConfigVersion.cmake \
+	/opt/homebrew/share/cmake/Modules/FindOpenGL.cmake \
+	/opt/homebrew/share/cmake/Modules/FindPackageHandleStandardArgs.cmake \
+	/opt/homebrew/share/cmake/Modules/FindPackageMessage.cmake \
+	/opt/homebrew/share/cmake/Modules/FindPkgConfig.cmake \
+	/opt/homebrew/bin/cmake

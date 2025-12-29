@@ -118,7 +118,7 @@ private:
     TradingDataService *m_tradingDataService;
     
     // UDP Broadcast Receiver
-    std::unique_ptr<MulticastReceiver> m_udpReceiver;
+    std::unique_ptr<nsefo::MulticastReceiver> m_udpReceiver;
     QTimer *m_tickDrainTimer;
     LockFreeQueue<XTS::Tick> m_udpTickQueue;
     

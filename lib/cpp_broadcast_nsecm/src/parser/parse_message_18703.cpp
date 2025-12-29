@@ -4,6 +4,8 @@
 #include <iostream>
 #include <chrono>
 
+namespace nsecm {
+
 void parse_message_18703(const MS_TICKER_TRADE_DATA* msg) {
     uint16_t numRecords = be16toh_func(msg->numberOfRecords);
     
@@ -40,3 +42,5 @@ void parse_message_18703(const MS_TICKER_TRADE_DATA* msg) {
 void parse_ticker_trade_data(const MS_TICKER_TRADE_DATA* msg) {
     parse_message_18703(msg);
 }
+
+} // namespace nsecm

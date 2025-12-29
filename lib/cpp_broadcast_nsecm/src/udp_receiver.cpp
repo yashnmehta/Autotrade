@@ -1,4 +1,4 @@
-#include "udp_receiver.h"
+#include "nsecm_udp_receiver.h"
 #include "protocol.h"
 #include "constants.h"
 #include "lzo_decompress.h"
@@ -11,6 +11,8 @@
 #include <cstring>
 #include <iomanip>
 #include <thread>
+
+namespace nsecm {
 
 UDPStats::UDPStats() {
     startTime = std::chrono::steady_clock::now();
@@ -180,7 +182,7 @@ void UDPReceiver::startListener(int port, UDPStats& stats) {
             decompressBuffer.resize(65535*4); // Reset size
 
             try {
-                int decompLen = LzoDecompressor::decompress(src, decompressBuffer);
+                int decompLen = common::LzoDecompressor::decompress(src, decompressBuffer);
                 rawSize = decompLen;
                 
                 // Get transaction code from offset 18 of DECOMPRESSED data
@@ -282,3 +284,5 @@ void UDPReceiver::startListener(int port, UDPStats& stats) {
     
     close(sockfd);
 }
+
+} // namespace nsecm

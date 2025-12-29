@@ -3,6 +3,8 @@
 #include <iostream>
 #include <stdexcept>
 
+namespace nsecm {
+
 // LZO1Z Constants
 const int M2_MAX_OFFSET = 0x0700;
 
@@ -276,3 +278,5 @@ int LzoDecompressor::decompress(const std::vector<uint8_t>& src, std::vector<uin
     #undef CHECK_IP
     #undef CHECK_OP
 }
+
+} // namespace nsecm

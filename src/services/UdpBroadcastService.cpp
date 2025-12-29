@@ -22,7 +22,7 @@ void UdpBroadcastService::start(const std::string& ip, int port) {
     if (m_active) return;
 
     qDebug() << "[UdpBroadcastService] Starting receiver on" << QString::fromStdString(ip) << ":" << port;
-    m_receiver = std::make_unique<MulticastReceiver>(ip, port);
+    m_receiver = std::make_unique<nsefo::MulticastReceiver>(ip, port);
     
     if (!m_receiver->isValid()) {
         emit statusChanged(false);

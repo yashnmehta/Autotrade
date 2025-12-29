@@ -4,6 +4,8 @@
 #include <iostream>
 #include <string>
 
+namespace nsecm {
+
 void parse_circuit_check(const MS_BC_CIRCUIT_CHECK* msg) {
     (void)msg;
     // std::cout << "[ADMIN] Circuit Check received" << std::endl;
@@ -43,3 +45,5 @@ void parse_symbol_status_change(const BC_SYMBOL_STATUS_CHANGE_ACTION* msg) {
     
     MarketDataCallbackRegistry::instance().dispatchAdmin(admin);
 }
+
+} // namespace nsecm

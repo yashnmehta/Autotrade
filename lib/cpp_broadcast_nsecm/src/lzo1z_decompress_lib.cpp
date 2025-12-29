@@ -3,6 +3,8 @@
 #include <stdexcept>
 #include <cstring>
 
+namespace nsecm {
+
 // LZO Library-based decompression
 // Uses official lzo1z_decompress_safe function from liblzo2
 
@@ -58,3 +60,5 @@ int LzoDecompressor::decompressWithLibrary(const std::vector<uint8_t>& src, std:
             throw std::runtime_error("LZO: Decompression failed with error code " + std::to_string(result));
     }
 }
+
+} // namespace nsecm

@@ -79,23 +79,32 @@ struct DecodedHeader {
 };
 
 struct DecodedDepthLevel {
-    double price;
-    int32_t quantity;
+    int32_t price;
+    uint64_t quantity; // V5.0: Long Long
+    uint32_t numOrders; // V5.0: Unsigned Long
+    uint64_t impliedQty; // V5.0: Long Long
 };
 
 struct DecodedRecord {
     uint32_t token;
-    uint64_t packetTimestamp; // System time of packet receipt
-    double open;
-    double high;
-    double low;
-    double close; // prevClose
-    double ltp;
-    double atp;
-    int32_t volume;
-    double turnoverLakhs;
-    uint32_t lotSize;
-    uint32_t sequenceNumber;
+    uint64_t packetTimestamp; // System time of receipt
+    
+    // V5.0 Protocol Fields
+    uint32_t noOfTrades;   // V5.0: Unsigned Long
+    uint64_t volume;       // V5.0: Long Long
+    uint64_t turnover;     // V5.0: Long Long (Traded Value)
+    uint64_t ltq;          // V5.0: Long Long
+    
+    int32_t ltp;
+    int32_t open;
+    int32_t high;
+    int32_t low;
+    int32_t close;         // prevClose
+    
+    // Additional fields from manual
+    int32_t weightedAvgPrice; 
+    int32_t lowerCircuit;
+    int32_t upperCircuit;
     
     std::vector<DecodedDepthLevel> bids;
     std::vector<DecodedDepthLevel> asks;

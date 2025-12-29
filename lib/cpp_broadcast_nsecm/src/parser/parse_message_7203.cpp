@@ -4,6 +4,8 @@
 #include <vector>
 #include <cstring>
 
+namespace nsecm {
+
 void parse_message_7203(const MS_BCAST_INDUSTRY_INDICES* msg) {
     uint16_t numRecords = be16toh_func(msg->noOfRecs);
     IndicesUpdate update;
@@ -23,3 +25,5 @@ void parse_message_7203(const MS_BCAST_INDUSTRY_INDICES* msg) {
 void parse_bcast_industry_indices(const MS_BCAST_INDUSTRY_INDICES* msg) {
     parse_message_7203(msg);
 }
+
+} // namespace nsecm

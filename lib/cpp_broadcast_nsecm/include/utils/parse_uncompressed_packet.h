@@ -3,6 +3,10 @@
 
 #include <cstdint>
 
+namespace nsecm {
+
 void parse_uncompressed_message(const char* data, int16_t length);
+
+} // namespace nsecm
 
 #endif

@@ -1,9 +1,11 @@
-#ifndef LZO_DECOMPRESS_H
-#define LZO_DECOMPRESS_H
+#ifndef NSECM_LZO_DECOMPRESS_H
+#define NSECM_LZO_DECOMPRESS_H
 
 #include <vector>
 #include <cstdint>
 #include <stdexcept>
+
+namespace nsecm {
 
 // Error codes
 enum class LzoError {
@@ -24,4 +26,6 @@ public:
     static int decompressWithLibrary(const std::vector<uint8_t>& src, std::vector<uint8_t>& dst);
 };
 
-#endif // LZO_DECOMPRESS_H
+} // namespace nsecm
+
+#endif // NSECM_LZO_DECOMPRESS_H

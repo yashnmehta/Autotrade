@@ -95,6 +95,7 @@ include_directories(
     ${CMAKE_SOURCE_DIR}/include/repository
     ${CMAKE_SOURCE_DIR}/include/utils
     ${CMAKE_SOURCE_DIR}/include/data
+    ${CMAKE_SOURCE_DIR}/lib/common/include
     ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/include
     ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_nsecm/include
     ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_bsefo/include
@@ -416,8 +417,6 @@ set(NSEFO_BROADCAST_SOURCES
     ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/multicast_receiver.cpp
     ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/udp_receiver.cpp
     ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/nse_parsers.cpp
-    ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/lzo_decompress.cpp
-    ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/lzo1z_decompress_lib.cpp
     ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/config.cpp
     ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/logger.cpp
     ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/utils/parse_compressed_message.cpp
@@ -437,8 +436,6 @@ set(NSECM_BROADCAST_SOURCES
     ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_nsecm/src/multicast_receiver.cpp
     ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_nsecm/src/udp_receiver.cpp
     ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_nsecm/src/nse_parsers.cpp
-    ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_nsecm/src/lzo_decompress.cpp
-    ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_nsecm/src/lzo1z_decompress_lib.cpp
     ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_nsecm/src/config.cpp
     ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_nsecm/src/logger.cpp
     ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_nsecm/src/utils/parse_compressed_message.cpp
@@ -453,6 +450,12 @@ set(NSECM_BROADCAST_SOURCES
 )
 
 
+# Common LZO Library (shared by NSE CM and NSE FO)
+set(COMMON_LZO_SOURCES
+    ${CMAKE_SOURCE_DIR}/lib/common/src/lzo_decompress.cpp
+    ${CMAKE_SOURCE_DIR}/lib/common/src/lzo1z_decompress_lib.cpp
+)
+
 # BSE FO Broadcast Library
 set(BSEFO_BROADCAST_SOURCES
     ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_bsefo/src/bse_receiver.cpp
@@ -465,8 +468,9 @@ add_executable(TradingTerminal
     ${HEADERS}
     ${FORMS}
     ${RESOURCES}
+    ${COMMON_LZO_SOURCES}
     ${NSEFO_BROADCAST_SOURCES}
-    # ${NSECM_BROADCAST_SOURCES}
+    ${NSECM_BROADCAST_SOURCES}
     ${BSEFO_BROADCAST_SOURCES}
 )
 

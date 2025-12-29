@@ -4,9 +4,11 @@
 #include <string>
 #include <netinet/in.h>
 #include <atomic>
-#include "udp_receiver.h"
+#include "nsecm_udp_receiver.h"
 
 constexpr size_t kBufferSize = 65535;
+
+namespace nsecm {
 
 class MulticastReceiver {
 public:
@@ -33,5 +35,7 @@ private:
     UDPStats stats;
     uint32_t lastSeqNo;
 };
+
+} // namespace nsecm
 
 #endif // MULTICAST_RECEIVER_H

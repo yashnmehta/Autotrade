@@ -132,7 +132,7 @@ void MainWindow::startBroadcastReceiver() {
     std::string multicastIP = "233.1.2.5";
     int port = 34331;
     
-    m_udpReceiver = std::make_unique<MulticastReceiver>(multicastIP, port);
+    m_udpReceiver = std::make_unique<nsefo::MulticastReceiver>(multicastIP, port);
     
     if (!m_udpReceiver->isValid()) {
         qWarning() << "[UDP] ❌ Failed to initialize receiver!";

@@ -8,6 +8,8 @@
 #include <iomanip>
 #include <vector>
 
+namespace nsefo {
+
 void parse_compressed_message(const char* data, int16_t length, UDPStats& stats) {
     // Statistics tracking
     static int total_messages = 0;
@@ -18,26 +20,13 @@ void parse_compressed_message(const char* data, int16_t length, UDPStats& stats)
     
     total_messages++;
     
-    /*
-    if (msg_count <= 5) {
-        std::cout << "\n=== Compressed Message #" << msg_count << " ===" << std::endl;
-        std::cout << "Input length: " << length << " bytes" << std::endl;
-        std::cout << "First 32 bytes of compressed data:" << std::endl;
-        for (int i = 0; i < std::min((int)length, 32); i++) {
-            printf("%02X ", (unsigned char)data[i]);
-            if ((i + 1) % 16 == 0) printf("\n");
-        }
-        std::cout << std::endl;
-    }
-    */
-    
     // Decompress using official LZO library
     std::vector<uint8_t> input(data, data + length);
     std::vector<uint8_t> output(65535);  // Large output buffer for decompressed data
     
     int result;
     try {
-        result = LzoDecompressor::decompressWithLibrary(input, output);
+        result = common::LzoDecompressor::decompressWithLibrary(input, output);
         successful_decompressions++;
     } catch (const std::exception& e) {
         failed_decompressions++;
@@ -79,21 +68,6 @@ void parse_compressed_message(const char* data, int16_t length, UDPStats& stats)
         // std::cout << "  [Error] Decompression failed with result: " << result << std::endl;
         return;
     }
-    
-    /*
-    // Show hex dump for first 5 packets
-    static int hex_count = 0;
-    hex_count++;
-    if (hex_count <= 5) {
-        std::cout << "\n========== Decompressed Packet #" << hex_count << " (" << result << " bytes) ==========" << std::endl;
-        std::cout << "BEFORE skipping 8 bytes - First 64 bytes:" << std::endl;
-        for (int i = 0; i < std::min(result, 64); i++) {
-            printf("%02X ", output[i]);
-            if ((i + 1) % 16 == 0) printf("\n");
-        }
-        std::cout << std::endl;
-    }
-    */
     
     // Resize output to actual decompressed size
     output.resize(result);
@@ -178,3 +152,5 @@ void parse_compressed_message(const char* data, int16_t length, UDPStats& stats)
             break;
     }
 }
+
+} // namespace nsefo

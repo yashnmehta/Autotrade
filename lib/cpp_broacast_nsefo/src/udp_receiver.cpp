@@ -12,6 +12,8 @@
 #include <iomanip>
 #include <thread>
 
+namespace nsefo {
+
 UDPStats::UDPStats() {
     startTime = std::chrono::steady_clock::now();
 }
@@ -97,7 +99,6 @@ std::ostream& operator<<(std::ostream& os, const UDPStats& stats) {
     return os;
 }
 
-
 void UDPReceiver::startListener(int port, UDPStats& stats) {
     WinsockLoader::init(); socket_t sockfd = socket(AF_INET, SOCK_DGRAM, 0);
     if (sockfd == socket_invalid) {
@@ -180,7 +181,7 @@ void UDPReceiver::startListener(int port, UDPStats& stats) {
             decompressBuffer.resize(65535*4); // Reset size
 
             try {
-                int decompLen = LzoDecompressor::decompress(src, decompressBuffer);
+                int decompLen = common::LzoDecompressor::decompress(src, decompressBuffer);
                 rawSize = decompLen;
                 
                 // Get transaction code from offset 18 of DECOMPRESSED data
@@ -282,3 +283,5 @@ void UDPReceiver::startListener(int port, UDPStats& stats) {
     
     socket_close(sockfd);
 }
+
+} // namespace nsefo

@@ -4,6 +4,8 @@
 #include "nse_structures.h"
 #include <cstdint>
 
+namespace nsecm {
+
 // ============================================================================
 // MARKET DATA MESSAGE PARSERS
 // ============================================================================
@@ -44,5 +46,7 @@ void parse_circuit_check(const MS_BC_CIRCUIT_CHECK* msg);
 void parse_vct_messages(const BCAST_VCT_MESSAGES* msg);
 void parse_jrnl_vct_msg(const MS_BCAST_MESSAGE* msg);
 void parse_symbol_status_change(const BC_SYMBOL_STATUS_CHANGE_ACTION* msg);
+
+} // namespace nsecm
 
 #endif // NSE_PARSERS_H

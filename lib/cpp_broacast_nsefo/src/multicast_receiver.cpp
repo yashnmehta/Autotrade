@@ -5,13 +5,12 @@
 #include "utils/parse_uncompressed_packet.h"
 #include "socket_platform.h"
 
-
-
 #include <iostream>
 #include <cstring>
 #include <stdexcept>
 #include <cerrno>
 
+namespace nsefo {
 
 MulticastReceiver::MulticastReceiver(const std::string& ip, int port) 
     : sockfd(socket_invalid), running(false), lastSeqNo(0) {
@@ -123,7 +122,6 @@ void MulticastReceiver::start() {
                 int16_t iCompLen = be16toh_func(*((int16_t*)ptr));
                 
                 if (iCompLen > 0) {
-                    // std::cout << "Processing compressed message of length " << iCompLen << std::endl;
                     // Compressed message
                     ptr += sizeof(int16_t);
                     
@@ -132,7 +130,7 @@ void MulticastReceiver::start() {
                         break;
                     }
                     
-                    // Parse compressed message and update stats with transaction code
+                    // Parse compressed message and update stats
                     parse_compressed_message(ptr, iCompLen, stats);
                     
                     ptr += iCompLen;
@@ -181,3 +179,5 @@ void MulticastReceiver::start() {
 void MulticastReceiver::stop() {
     running = false;
 }
+
+} // namespace nsefo
