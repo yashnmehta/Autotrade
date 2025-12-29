@@ -57,6 +57,13 @@ namespace TxCodes {
     constexpr uint16_t GI_INDICES_ASSETS = 7732;
 }
 
+namespace CommonConfig {
+    // Replaces magic number 8 for compressed header offset
+    constexpr size_t COMPRESSED_HEADER_OFFSET = 8;
+    // Replaces magic number 8 for transaction codes in broadcast header
+    constexpr size_t BCAST_HEADER_TXCODE_OFFSET = 8;
+}
+
 // Helper to check compression
 inline bool isCompressed(uint16_t code) {
     switch(code) {

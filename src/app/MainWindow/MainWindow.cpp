@@ -175,11 +175,11 @@ void MainWindow::startBroadcastReceiver() {
             tick.exchangeSegment = 2;
             tick.exchangeInstrumentID = data.token;
             
-            if (!data.bids.empty()) {
+            if (data.bids[0].quantity > 0) {
                 tick.bidPrice = data.bids[0].price;
                 tick.bidQuantity = data.bids[0].quantity;
             }
-            if (!data.asks.empty()) {
+            if (data.asks[0].quantity > 0) {
                 tick.askPrice = data.asks[0].price;
                 tick.askQuantity = data.asks[0].quantity;
             }

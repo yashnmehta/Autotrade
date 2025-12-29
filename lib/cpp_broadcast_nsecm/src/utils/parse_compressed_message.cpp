@@ -1,9 +1,9 @@
-#include "utils/parse_compressed_message.h"
-#include "udp_receiver.h"  // For UDPStats
-#include "lzo_decompress.h"
-#include "protocol.h"
-#include "constants.h"
-#include "nse_parsers.h"
+#include "../../include/utils/parse_compressed_message.h"
+#include "../../include/udp_receiver.h"  // For UDPStats
+#include "../../include/lzo_decompress.h"
+#include "../../include/protocol.h"
+#include "../../include/constants.h"
+#include "../../include/nse_parsers.h"
 #include <iostream>
 #include <iomanip>
 #include <vector>

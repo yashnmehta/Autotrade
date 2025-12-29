@@ -453,6 +453,12 @@ set(NSECM_BROADCAST_SOURCES
 )
 
 
+# BSE FO Broadcast Library
+set(BSEFO_BROADCAST_SOURCES
+    ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_bsefo/src/bse_receiver.cpp
+)
+
+
 # Add executable
 add_executable(TradingTerminal
     ${SOURCES}
@@ -460,7 +466,8 @@ add_executable(TradingTerminal
     ${FORMS}
     ${RESOURCES}
     ${NSEFO_BROADCAST_SOURCES}
-    ${NSECM_BROADCAST_SOURCES}
+    # ${NSECM_BROADCAST_SOURCES}
+    ${BSEFO_BROADCAST_SOURCES}
 )
 
 # Link libraries

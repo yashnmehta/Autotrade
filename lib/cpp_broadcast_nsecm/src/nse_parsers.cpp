@@ -1,6 +1,6 @@
-#include "nse_parsers.h"
-#include "protocol.h"
-#include "market_data_callback.h"
+#include "../include/nse_parsers.h"
+#include "../include/protocol.h"
+#include "../include/market_data_callback.h"
 #include <iostream>
 #include <string>
 
@@ -11,7 +11,7 @@ void parse_circuit_check(const MS_BC_CIRCUIT_CHECK* msg) {
 
 void parse_vct_messages(const BCAST_VCT_MESSAGES* msg) {
     AdminMessage admin;
-    admin.token = (uint32_t)be16toh_func(msg->token);
+    admin.token = 0; // Token not present in BCAST_VCT_MESSAGES
     admin.timestamp = be32toh_func(msg->header.logTime);
     uint16_t msgLen = be16toh_func(msg->broadcastMessageLength);
     if (msgLen > 240) msgLen = 240;

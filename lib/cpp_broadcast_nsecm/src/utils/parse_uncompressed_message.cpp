@@ -1,7 +1,7 @@
-#include "utils/parse_uncompressed_packet.h"
-#include "protocol.h"
-#include "constants.h"
-#include "nse_parsers.h"
+#include "../../include/utils/parse_uncompressed_packet.h"
+#include "../../include/protocol.h"
+#include "../../include/constants.h"
+#include "../../include/nse_parsers.h"
 #include <iostream>
 #include <iomanip>
 
