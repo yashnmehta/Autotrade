@@ -5,7 +5,7 @@
 #include <chrono>
 
 void parse_message_7200(const MS_BCAST_MBO_MBP* msg) {
-    int32_t token = be32toh_func(msg->data.token);
+    uint32_t token = be32toh_func(msg->data.token);
     
     // Capture timestamps for latency tracking
     static uint64_t refNoCounter = 0;
@@ -20,13 +20,6 @@ void parse_message_7200(const MS_BCAST_MBO_MBP* msg) {
     touchline.timestampRecv = now;
     touchline.timestampParsed = now;
     touchline.ltp = be32toh_func(msg->data.lastTradedPrice) / 100.0;
-    
-    // Debug logging for token 49543
-    if (token == 49543) {
-        std::cout << "[7200-TOUCHLINE] Token: 49543 | RefNo: " << refNo 
-                  << " | LTP: " << touchline.ltp
-                  << " | timestampParsed: " << touchline.timestampParsed << " µs" << std::endl;
-    }
     touchline.open = be32toh_func(msg->openPrice) / 100.0;
     touchline.high = be32toh_func(msg->highPrice) / 100.0;
     touchline.low = be32toh_func(msg->lowPrice) / 100.0;
@@ -53,20 +46,18 @@ void parse_message_7200(const MS_BCAST_MBO_MBP* msg) {
     depth.totalSellQty = msg->totalSellQuantity;
     
     // Parse bid/ask levels (5 levels from recordBuffer)
+    // Parse bid/ask levels (5 levels from recordBuffer)
     for (int i = 0; i < 5; i++) {
-        DepthLevel bid;
-        bid.quantity = be32toh_func(msg->recordBuffer[i].qty);
-        bid.price = be32toh_func(msg->recordBuffer[i].price) / 100.0;
-        bid.orders = be16toh_func(msg->recordBuffer[i].noOfOrders);
-        depth.bids.push_back(bid);
+        depth.bids[i].quantity = be32toh_func(msg->recordBuffer[i].qty);
+        depth.bids[i].price = be32toh_func(msg->recordBuffer[i].price) / 100.0;
+        depth.bids[i].orders = be16toh_func(msg->recordBuffer[i].noOfOrders);
     }
     
     for (int i = 5; i < 10; i++) {
-        DepthLevel ask;
-        ask.quantity = be32toh_func(msg->recordBuffer[i].qty);
-        ask.price = be32toh_func(msg->recordBuffer[i].price) / 100.0;
-        ask.orders = be16toh_func(msg->recordBuffer[i].noOfOrders);
-        depth.asks.push_back(ask);
+        int idx = i - 5;
+        depth.asks[idx].quantity = be32toh_func(msg->recordBuffer[i].qty);
+        depth.asks[idx].price = be32toh_func(msg->recordBuffer[i].price) / 100.0;
+        depth.asks[idx].orders = be16toh_func(msg->recordBuffer[i].noOfOrders);
     }
     
     // Dispatch market depth callback

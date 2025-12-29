@@ -14,7 +14,7 @@ void parse_message_7202(const MS_TICKER_TRADE_DATA* msg) {
     
     for (int i = 0; i < numRecords && i < 17; i++) {
         const auto& rec = msg->records[i];
-        int32_t token = be32toh_func(rec.token);
+        uint32_t token = be32toh_func(rec.token);
         
         if (token > 0) {
             uint64_t refNo = ++refNoCounter;
@@ -26,13 +26,6 @@ void parse_message_7202(const MS_TICKER_TRADE_DATA* msg) {
             ticker.timestampRecv = now;
             ticker.timestampParsed = now;
             ticker.fillPrice = be32toh_func(rec.fillPrice) / 100.0;
-            
-            // Debug logging for token 49543
-            if (token == 49543) {
-                std::cout << "[7202-TICKER] Token: 49543 | RefNo: " << refNo
-                          << " | OI: " << be32toh_func(rec.openInterest)
-                          << " | timestampParsed: " << ticker.timestampParsed << " µs" << std::endl;
-            }
             ticker.fillVolume = be32toh_func(rec.fillVolume);
             ticker.openInterest = be32toh_func(rec.openInterest);
             ticker.dayHiOI = be32toh_func(rec.dayHiOI);

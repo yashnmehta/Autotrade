@@ -1,0 +1,168 @@
+#ifndef NSE_MARKET_DATA_H
+#define NSE_MARKET_DATA_H
+
+#include "nse_common.h"
+
+// Ensure 1-byte alignment for all structures
+#pragma pack(push, 1)
+
+// ============================================================================
+// BCAST_ONLY_MBP (7208) - Only Market By Price
+// ============================================================================
+
+// MBP_INFORMATION - 16 bytes
+struct MBP_INFORMATION {
+    int64_t quantity;                  // Offset 0 (LONG LONG)
+    int32_t price;                     // Offset 8 (LONG)
+    int16_t numberOfOrders;            // Offset 12 (SHORT)
+    int16_t bbBuySellFlag;             // Offset 14 (SHORT)
+};
+
+// INTERACTIVE_ONLY_MBP_DATA - 262 bytes
+struct INTERACTIVE_ONLY_MBP_DATA {
+    uint32_t token;                        // Offset 0
+    uint16_t bookType;                     // Offset 4
+    uint16_t tradingStatus;                // Offset 6
+    int64_t volumeTradedToday;             // Offset 8 (LONG LONG)
+    int32_t lastTradedPrice;               // Offset 16 (LONG)
+    char netChangeIndicator;               // Offset 20
+    char filler;                           // Offset 21
+    int32_t netPriceChangeFromClosingPrice;// Offset 22 (LONG)
+    int32_t lastTradeQuantity;             // Offset 26 (LONG)
+    int32_t lastTradeTime;                 // Offset 30 (LONG)
+    int32_t averageTradePrice;             // Offset 34 (LONG)
+    uint16_t auctionNumber;                // Offset 38
+    uint16_t auctionStatus;                // Offset 40
+    uint16_t initiatorType;                // Offset 42
+    int32_t initiatorPrice;                // Offset 44
+    int32_t initiatorQuantity;             // Offset 48
+    int32_t auctionPrice;                  // Offset 52
+    int32_t auctionQuantity;               // Offset 56
+    MBP_INFORMATION recordBuffer[10];      // Offset 60 (160 bytes)
+    uint16_t bbTotalBuyFlag;               // Offset 220
+    uint16_t bbTotalSellFlag;              // Offset 222
+    int64_t totalBuyQuantity;              // Offset 224 (LONG LONG)
+    int64_t totalSellQuantity;             // Offset 232 (LONG LONG)
+    ST_INDICATOR stIndicator;              // Offset 240 (2 bytes)
+    int32_t closingPrice;                  // Offset 242
+    int32_t openPrice;                     // Offset 246
+    int32_t highPrice;                     // Offset 250
+    int32_t lowPrice;                      // Offset 254
+    int32_t indicativeClosePrice;          // Offset 258
+};
+
+// MS_BCAST_ONLY_MBP - 566 bytes
+// Transaction Code: 7208
+struct MS_BCAST_ONLY_MBP {
+    BCAST_HEADER header;                       // Offset 0 (40 bytes)
+    uint16_t noOfRecords;                      // Offset 40
+    INTERACTIVE_ONLY_MBP_DATA data[2];         // Offset 42 (524 bytes)
+};
+
+// ============================================================================
+// BCAST_MBO_MBP_UPDATE (7200) - Market By Order / Market By Price
+// ============================================================================
+
+// MBO_INFORMATION - 18 bytes
+struct MBO_INFORMATION {
+    int32_t traderId;                  // Offset 0 (LONG)
+    int32_t quantity;                  // Offset 4 (LONG)
+    int32_t price;                     // Offset 8 (LONG)
+    uint16_t terms;                    // Offset 12 (ST MBO MBP TERMS)
+    int32_t minFillQty;                // Offset 14 (LONG)
+};
+
+// INTERACTIVE_MBO_DATA - 240 bytes
+struct INTERACTIVE_MBO_DATA {
+    uint32_t token;                        // Offset 0
+    uint16_t bookType;                     // Offset 4
+    uint16_t tradingStatus;                // Offset 6
+    int64_t volumeTradedToday;             // Offset 8 (LONG LONG)
+    int32_t lastTradedPrice;               // Offset 16 (LONG)
+    char netChangeIndicator;               // Offset 20
+    char filler;                           // Offset 21
+    int32_t netPriceChangeFromClosingPrice;// Offset 22 (LONG)
+    int32_t lastTradeQuantity;             // Offset 26 (LONG)
+    int32_t lastTradeTime;                 // Offset 30 (LONG)
+    int32_t averageTradePrice;             // Offset 34 (LONG)
+    uint16_t auctionNumber;                // Offset 38
+    uint16_t auctionStatus;                // Offset 40
+    uint16_t initiatorType;                // Offset 42
+    int32_t initiatorPrice;                // Offset 44
+    int32_t initiatorQuantity;             // Offset 48
+    int32_t auctionPrice;                  // Offset 52
+    int32_t auctionQuantity;               // Offset 56
+    MBO_INFORMATION mboBuffer[10];         // Offset 60 (180 bytes)
+};
+
+// MS_BCAST_MBO_MBP - 482 bytes
+// Transaction Code: 7200
+struct MS_BCAST_MBO_MBP {
+    BCAST_HEADER header;                   // Offset 0 (40 bytes)
+    INTERACTIVE_MBO_DATA mboData;          // Offset 40 (240 bytes)
+    MBP_INFORMATION mbpBuffer[10];         // Offset 280 (160 bytes)
+    uint16_t bbTotalBuyFlag;               // Offset 440
+    uint16_t bbTotalSellFlag;              // Offset 442
+    int64_t totalBuyQuantity;              // Offset 444 (LONG LONG)
+    int64_t totalSellQuantity;             // Offset 452 (LONG LONG)
+    ST_INDICATOR stIndicator;              // Offset 460 (2 bytes)
+    int32_t closingPrice;                  // Offset 462
+    int32_t openPrice;                     // Offset 466
+    int32_t highPrice;                     // Offset 470
+    int32_t lowPrice;                      // Offset 474
+    uint8_t reserved[4];                   // Offset 478
+};
+
+// ============================================================================
+// BCAST_TICKER_AND_MKT_INDEX (18703) - Ticker and Market Index
+// ============================================================================
+
+// ST_TICKER_INDEX_INFO - 18 bytes
+struct ST_TICKER_INDEX_INFO {
+    uint32_t token;                    // Offset 0
+    uint16_t marketType;               // Offset 4
+    int32_t fillPrice;                 // Offset 6
+    int32_t fillVolume;                // Offset 10
+    int32_t marketIndexValue;          // Offset 14
+};
+
+// MS_TICKER_TRADE_DATA - 546 bytes
+// Transaction Code: 18703
+struct MS_TICKER_TRADE_DATA {
+    BCAST_HEADER header;               // Offset 0 (40 bytes)
+    uint16_t numberOfRecords;          // Offset 40
+    ST_TICKER_INDEX_INFO records[28];  // Offset 42 (504 bytes)
+};
+
+// ============================================================================
+// BCAST_MW_ROUND_ROBIN (7201) - Market Watch Round Robin
+// ============================================================================
+
+// ST_MKT_WISE_INFO - 34 bytes
+struct ST_MKT_WISE_INFO {
+    ST_INDICATOR stIndicator;          // Offset 0
+    int64_t buyVolume;                 // Offset 2 (LONG LONG)
+    int32_t buyPrice;                  // Offset 10 (LONG)
+    int64_t sellVolume;                // Offset 14 (LONG LONG)
+    int32_t sellPrice;                 // Offset 22 (LONG)
+    int32_t lastTradePrice;            // Offset 26 (LONG)
+    int32_t lastTradeTime;             // Offset 30 (LONG)
+};
+
+// ST_MARKET_WATCH_BCAST - 106 bytes
+struct ST_MARKET_WATCH_BCAST {
+    uint32_t token;                    // Offset 0
+    ST_MKT_WISE_INFO mktWiseInfo[3];   // Offset 4 (102 bytes)
+};
+
+// MS_BCAST_INQ_RESP_2 - 466 bytes
+// Transaction Code: 7201
+struct MS_BCAST_INQ_RESP_2 {
+    BCAST_HEADER header;               // Offset 0 (40 bytes)
+    uint16_t noOfRecords;              // Offset 40
+    ST_MARKET_WATCH_BCAST records[4];  // Offset 42 (424 bytes)
+};
+
+#pragma pack(pop)
+
+#endif // NSE_MARKET_DATA_H

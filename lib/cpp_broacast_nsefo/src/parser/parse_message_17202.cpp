@@ -11,7 +11,7 @@ void parse_message_17202(const MS_ENHNCD_TICKER_TRADE_DATA* msg) {
     
     for (int i = 0; i < numRecords && i < 12; i++) {
         const auto& rec = msg->records[i];
-        int32_t token = be32toh_func(rec.token);
+        uint32_t token = be32toh_func(rec.token);
         
         if (token > 0) {
             // Parse enhanced ticker data

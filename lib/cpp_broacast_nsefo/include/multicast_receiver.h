@@ -6,7 +6,7 @@
 #include <atomic>
 #include "udp_receiver.h"
 
-#define BUFFER_SIZE 2048    
+constexpr size_t kBufferSize = 65535;
 
 class MulticastReceiver {
 public:
@@ -27,11 +27,11 @@ private:
     struct sockaddr_in addr;
     std::atomic<bool> running;
     
-    char buffer[BUFFER_SIZE];
+    alignas(8) char buffer[kBufferSize];
     
     // Statistics tracking
     UDPStats stats;
-    uint32_t last_seq_no;
+    uint32_t lastSeqNo;
 };
 
 #endif // MULTICAST_RECEIVER_H

@@ -1,0 +1,53 @@
+#include "utils/parse_uncompressed_packet.h"
+#include "protocol.h"
+#include "constants.h"
+#include "nse_parsers.h"
+#include <iostream>
+#include <iomanip>
+
+void parse_uncompressed_message(const char* data, int16_t length) {
+    // std::cout << "    [Uncompressed] " << length << " bytes" << std::endl;
+    
+    if (length < 20) {
+        std::cout << "    [Error] Message too small" << std::endl;
+        return;
+    }
+    
+    // data points to BCAST_HEADER (starts at packet offset 14)
+    // TransCode is at offset 10 of BCAST_HEADER
+    uint16_t txCode = be16toh_func(*((uint16_t*)(data + 10)));
+    // std::cout << "    [TxCode] " << txCode << " (" << getTxCodeName(txCode) << ")" << std::endl;
+    
+    // Cast to appropriate structure and parse
+    switch (txCode) {
+        case TxCodes::BC_OPEN_MSG:
+        case TxCodes::BC_CLOSE_MSG:
+        case TxCodes::BC_PRE_OR_POST_DAY_MSG:
+        case TxCodes::BC_NORMAL_MKT_PREOPEN_ENDED:
+        case 6583: // BC_CLOSING_START
+        case 6584: // BC_CLOSING_END
+            if (length >= sizeof(BCAST_VCT_MESSAGES)) {
+                parse_vct_messages(reinterpret_cast<const BCAST_VCT_MESSAGES*>(data));
+            }
+            break;
+
+        case TxCodes::BCAST_JRNL_VCT_MSG:
+            if (length >= sizeof(MS_BCAST_MESSAGE)) {
+                parse_jrnl_vct_msg(reinterpret_cast<const MS_BCAST_MESSAGE*>(data));
+            }
+            break;
+
+        case TxCodes::BC_CIRCUIT_CHECK:
+            parse_circuit_check(reinterpret_cast<const MS_BC_CIRCUIT_CHECK*>(data));
+            break;
+
+        case TxCodes::BC_SYMBOL_STATUS_CHANGE_ACTION:
+            if (length >= sizeof(BC_SYMBOL_STATUS_CHANGE_ACTION)) {
+                parse_symbol_status_change(reinterpret_cast<const BC_SYMBOL_STATUS_CHANGE_ACTION*>(data));
+            }
+            break;
+
+        default:
+            break;
+    }
+}

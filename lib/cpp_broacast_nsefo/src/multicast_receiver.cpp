@@ -12,8 +12,9 @@
 #include <stdexcept>
 #include <cerrno>
 
+
 MulticastReceiver::MulticastReceiver(const std::string& ip, int port) 
-    : sockfd(socket_invalid), running(false), last_seq_no(0) {
+    : sockfd(socket_invalid), running(false), lastSeqNo(0) {
     WinsockLoader::init();
     
     // Create socket
@@ -62,7 +63,7 @@ MulticastReceiver::MulticastReceiver(const std::string& ip, int port)
         throw std::runtime_error("Failed to join multicast group: " + std::string(socket_error_string(socket_errno)));
     }
     
-    std::cout << "MulticastReceiver initialized successfully (buffer size: " << BUFFER_SIZE << " bytes)" << std::endl;
+    std::cout << "MulticastReceiver initialized successfully (buffer size: " << kBufferSize << " bytes)" << std::endl;
 }
 
 MulticastReceiver::~MulticastReceiver() {
@@ -85,8 +86,7 @@ void MulticastReceiver::start() {
     int packet_count = 0;
     
     while (running) {
-        // std::cout << "Waiting for UDP packets..." << BUFFER_SIZE << std::endl;
-        ssize_t n = recv(sockfd, buffer, BUFFER_SIZE, 0);
+        ssize_t n = recv(sockfd, buffer, kBufferSize, 0);
         
         // Handle timeout (allows checking running flag)
         if (n < 0) {
@@ -103,31 +103,6 @@ void MulticastReceiver::start() {
         }
 
         packet_count++;
-        
-        /*
-        // Hex dump first 10 packets for debugging
-        if (packet_count <= 10) {
-            std::cout << "\n========== Packet #" << packet_count << " (" << n << " bytes) ==========" << std::endl;
-            std::cout << "First 128 bytes (hex):" << std::endl;
-            for (ssize_t i = 0; i < std::min(n, (ssize_t)128); i++) {
-                printf("%02X ", (unsigned char)buffer[i]);
-                if ((i + 1) % 16 == 0) printf("\n");
-            }
-            std::cout << std::endl;
-            
-            // Show packet structure interpretation
-            Packet* pkt_debug = reinterpret_cast<Packet*>(buffer);
-            std::cout << "Packet Header Interpretation:" << std::endl;
-            std::cout << "  NetID (offset 0-1): 0x";
-            printf("%02X%02X", (unsigned char)pkt_debug->cNetID[0], (unsigned char)pkt_debug->cNetID[1]);
-            std::cout << std::endl;
-            std::cout << "  NoOfMsgs (offset 2-3): " << be16toh_func(pkt_debug->iNoOfMsgs) << std::endl;
-            std::cout << "  First 2 bytes of cPackData (offset 4-5): 0x";
-            printf("%02X%02X", (unsigned char)pkt_debug->cPackData[0], (unsigned char)pkt_debug->cPackData[1]);
-            std::cout << " (iCompLen if compressed)" << std::endl;
-            std::cout << std::endl;
-        }
-        */
 
         // Parse packet header
         Packet* pkt = reinterpret_cast<Packet*>(buffer);
