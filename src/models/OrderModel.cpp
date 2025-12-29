@@ -3,6 +3,9 @@
 #include <QBrush>
 #include <QFont>
 #include <QDateTime>
+#include <QSet>
+#include <QMap>
+
 
 OrderModel::OrderModel(QObject* parent)
     : QAbstractTableModel(parent)
@@ -60,13 +63,13 @@ QVariant OrderModel::data(const QModelIndex& index, int role) const
         switch (col) {
             case User: return order.loginID;
             case Group: return "DEFAULT";
-            case ClientOrderNo: return order.appOrderID;
+            case ClientOrderNo: return (qlonglong)order.appOrderID;
             case ExchangeCode: return order.exchangeSegment;
             case MemberId: return "1"; // Static for now or find in order
             case TraderId: return order.loginID;
             case InstrumentType: return order.exchangeSegment;
             case InstrumentName: return order.tradingSymbol;
-            case Code: return order.exchangeInstrumentID;
+            case Code: return (qlonglong)order.exchangeInstrumentID;
             case Symbol: return order.tradingSymbol;
             case StrikePrice: return (order.exchangeSegment.contains("FO")) ? QString::number(order.orderPrice, 'f', 2) : ""; // Placeholder logic
             case ScripName: return order.tradingSymbol;
@@ -91,8 +94,9 @@ QVariant OrderModel::data(const QModelIndex& index, int role) const
         }
     } else if (role == Qt::UserRole) {
         switch (col) {
-            case Code: return order.exchangeInstrumentID;
+            case Code: return (qlonglong)order.exchangeInstrumentID;
             case Price: return order.orderPrice;
+
             case TotalQty: return order.orderQuantity;
             case ExchOrdNo: return (qlonglong)order.exchangeOrderID.toLongLong();
             case ServerEntryTime: return QDateTime::fromString(order.orderTimestamp(), "dd-MM-yyyy HH:mm:ss");

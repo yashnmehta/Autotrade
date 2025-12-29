@@ -5,6 +5,8 @@
 #include "core/widgets/CustomMDISubWindow.h"
 #include <QMessageBox>
 #include <QDebug>
+#include <cmath>
+
 
 SellWindow* SellWindow::s_instance = nullptr;
 

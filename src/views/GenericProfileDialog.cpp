@@ -212,7 +212,7 @@ void GenericProfileDialog::onMoveUp() {
     int idx = order.indexOf(id);
     int prevIdx = order.indexOf(prevId);
     if (idx != -1 && prevIdx != -1) {
-        order.swapItemsAt(idx, prevIdx);
+        order.swap(idx, prevIdx);
         m_profile.setColumnOrder(order);
         updateSelectedColumns();
         m_selectedList->setCurrentRow(row - 1);
@@ -228,7 +228,7 @@ void GenericProfileDialog::onMoveDown() {
     int idx = order.indexOf(id);
     int nextIdx = order.indexOf(nextId);
     if (idx != -1 && nextIdx != -1) {
-        order.swapItemsAt(idx, nextIdx);
+        order.swap(idx, nextIdx);
         m_profile.setColumnOrder(order);
         updateSelectedColumns();
         m_selectedList->setCurrentRow(row + 1);

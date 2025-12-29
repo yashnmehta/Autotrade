@@ -65,8 +65,9 @@ QVariant MarketWatchModel::data(const QModelIndex &index, int role) const
     
     // User role + 1 - return token for lookups
     else if (role == Qt::UserRole + 1) {
-        return scrip.token;
+        return (qlonglong)scrip.token;
     }
+
     
     // User role + 2 - return exchange
     else if (role == Qt::UserRole + 2) {

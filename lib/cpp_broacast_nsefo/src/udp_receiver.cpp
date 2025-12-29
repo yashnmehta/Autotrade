@@ -2,10 +2,10 @@
 #include "protocol.h"
 #include "constants.h"
 #include "lzo_decompress.h"
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <unistd.h>
+#include "socket_platform.h"
+
+
+
 #include <iostream>
 #include <vector>
 #include <cstring>
@@ -99,17 +99,17 @@ std::ostream& operator<<(std::ostream& os, const UDPStats& stats) {
 
 
 void UDPReceiver::startListener(int port, UDPStats& stats) {
-    int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
-    if (sockfd < 0) {
-        perror("socket");
+    WinsockLoader::init(); socket_t sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sockfd == socket_invalid) {
+        std::cerr << "socket: " << socket_error_string(socket_errno) << std::endl;
         return;
     }
 
     // Allow multiple sockets to use the same PORT number
     int reuse = 1;
     if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, (char *)&reuse, sizeof(reuse)) < 0) {
-        perror("setting SO_REUSEADDR");
-        close(sockfd);
+        std::cerr << "setting SO_REUSEADDR: " << socket_error_string(socket_errno) << std::endl;
+        socket_close(sockfd);
         return;
     }
 
@@ -120,8 +120,8 @@ void UDPReceiver::startListener(int port, UDPStats& stats) {
     local_addr.sin_port = htons(port);
 
     if (bind(sockfd, (struct sockaddr*)&local_addr, sizeof(local_addr)) < 0) {
-        perror("bind");
-        close(sockfd);
+        std::cerr << "bind: " << socket_error_string(socket_errno) << std::endl;
+        socket_close(sockfd);
         return;
     }
 
@@ -130,8 +130,8 @@ void UDPReceiver::startListener(int port, UDPStats& stats) {
     group.imr_multiaddr.s_addr = inet_addr("233.1.2.5");
     group.imr_interface.s_addr = INADDR_ANY;
     if (setsockopt(sockfd, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char *)&group, sizeof(group)) < 0) {
-        perror("adding multicast group");
-        close(sockfd);
+        std::cerr << "adding multicast group: " << socket_error_string(socket_errno) << std::endl;
+        socket_close(sockfd);
         return;
     }
 
@@ -280,5 +280,5 @@ void UDPReceiver::startListener(int port, UDPStats& stats) {
         }
     }
     
-    close(sockfd);
+    socket_close(sockfd);
 }

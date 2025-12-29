@@ -3,6 +3,9 @@
 #include <QBrush>
 #include <QFont>
 #include <QDateTime>
+#include <QSet>
+#include <QMap>
+
 
 TradeModel::TradeModel(QObject* parent)
     : QAbstractTableModel(parent)

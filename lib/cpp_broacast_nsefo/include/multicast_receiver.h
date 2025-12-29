@@ -2,7 +2,7 @@
 #define MULTICAST_RECEIVER_H
 
 #include <string>
-#include <netinet/in.h>
+#include "socket_platform.h"
 #include <atomic>
 #include "udp_receiver.h"
 
@@ -17,13 +17,13 @@ public:
     void stop();
     
     // Check if receiver is properly initialized
-    bool isValid() const { return sockfd >= 0; }
+    bool isValid() const { return sockfd != socket_invalid; }
     
     // Get statistics
     const UDPStats& getStats() const { return stats; }
 
 private:
-    int sockfd;
+    socket_t sockfd;
     struct sockaddr_in addr;
     std::atomic<bool> running;
     

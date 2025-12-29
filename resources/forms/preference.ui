@@ -1,0 +1,1950 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>PreferenceDialog</class>
+ <widget class="QDialog" name="PreferenceDialog">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>620</width>
+    <height>480</height>
+   </rect>
+  </property>
+  <property name="sizePolicy">
+   <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+    <horstretch>0</horstretch>
+    <verstretch>0</verstretch>
+   </sizepolicy>
+  </property>
+  <property name="minimumSize">
+   <size>
+    <width>620</width>
+    <height>480</height>
+   </size>
+  </property>
+  <property name="maximumSize">
+   <size>
+    <width>620</width>
+    <height>480</height>
+   </size>
+  </property>
+  <property name="windowTitle">
+   <string>Preferences</string>
+  </property>
+  <property name="sizeGripEnabled">
+   <bool>false</bool>
+  </property>
+  <property name="modal">
+   <bool>true</bool>
+  </property>
+  <property name="styleSheet">
+   <string notr="true">QDialog {
+    background-color: #f0f0f0;
+}
+
+QTabWidget::pane {
+    border: 1px solid #cccccc;
+    background-color: white;
+    padding: 2px;
+}
+
+QTabBar::tab {
+    background-color: #e0e0e0;
+    border: 1px solid #cccccc;
+    padding: 6px 14px;
+    margin-right: 2px;
+    font-size: 9pt;
+    font-weight: normal;
+    min-width: 60px;
+}
+
+QTabBar::tab:selected {
+    background-color: white;
+    border-bottom-color: white;
+    font-weight: bold;
+}
+
+QTabBar::tab:hover {
+    background-color: #d5d5d5;
+}
+
+QGroupBox {
+    font-weight: bold;
+    font-size: 9pt;
+    border: 1px solid #b0b0b0;
+    border-radius: 4px;
+    margin-top: 12px;
+    padding-top: 10px;
+    padding-bottom: 8px;
+    padding-left: 6px;
+    padding-right: 6px;
+    background-color: white;
+}
+
+QGroupBox::title {
+    subcontrol-origin: margin;
+    subcontrol-position: top left;
+    padding: 2px 8px;
+    color: #0066cc;
+    font-weight: bold;
+    background-color: white;
+}
+
+QPushButton {
+    background-color: #e0e0e0;
+    border: 1px solid #999999;
+    padding: 4px 12px;
+    border-radius: 3px;
+    font-size: 9pt;
+    min-width: 60px;
+}
+
+QPushButton:hover {
+    background-color: #d0d0d0;
+    border: 1px solid #777777;
+}
+
+QPushButton:pressed {
+    background-color: #c0c0c0;
+}
+
+QCheckBox, QRadioButton {
+    spacing: 6px;
+    font-size: 9pt;
+    padding: 2px;
+}
+
+QComboBox, QSpinBox, QLineEdit {
+    border: 1px solid #cccccc;
+    padding: 3px 5px;
+    background-color: white;
+    font-size: 9pt;
+    min-height: 18px;
+}
+
+QComboBox:focus, QSpinBox:focus, QLineEdit:focus {
+    border: 1px solid #0078d7;
+}
+
+QComboBox::drop-down {
+    border: none;
+    width: 20px;
+}
+
+QLabel {
+    font-size: 9pt;
+    padding: 2px;
+}
+
+QScrollArea {
+    border: none;
+    background-color: transparent;
+}
+
+QScrollBar:vertical {
+    background: #f0f0f0;
+    width: 14px;
+    margin: 0px;
+    border-radius: 7px;
+}
+
+QScrollBar::handle:vertical {
+    background: #c0c0c0;
+    min-height: 30px;
+    border-radius: 7px;
+    margin: 2px;
+}
+
+QScrollBar::handle:vertical:hover {
+    background: #a0a0a0;
+}
+
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+    height: 0px;
+}
+
+QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+    background: none;
+}
+
+/* Make spacing more compact */
+QVBoxLayout {
+    spacing: 4px;
+}
+
+QFormLayout {
+    spacing: 6px;
+}
+
+QGridLayout {
+    spacing: 6px;
+}
+</string>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout">
+   <item>
+    <widget class="QTabWidget" name="tabWidget">
+     <property name="currentIndex">
+      <number>0</number>
+     </property>
+     <widget class="QWidget" name="generalTab">
+      <attribute name="title">
+       <string>General</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="verticalLayout_2">
+       <item>
+        <widget class="QGroupBox" name="marketWatchGroup">
+         <property name="title">
+          <string>Market Watch / Derivatives Watch</string>
+         </property>
+         <layout class="QFormLayout" name="formLayout">
+          <item row="0" column="0">
+           <widget class="QLabel" name="label">
+            <property name="text">
+             <string>Market Watch:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QComboBox" name="marketWatchCombo">
+            <item>
+             <property name="text">
+              <string>21</string>
+             </property>
+            </item>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QCheckBox" name="symbolTrendColorCheckBox">
+            <property name="text">
+             <string>Symbol Trend Color On/Off  ( LTP v/s Prev. Close)</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="0">
+           <widget class="QLabel" name="label_2">
+            <property name="text">
+             <string>Derivatives Watch Preferences:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="0">
+           <widget class="QCheckBox" name="includeUnderlyingCheckBox">
+            <property name="text">
+             <string>Include Underlying</string>
+            </property>
+           </widget>
+          </item>
+          <item row="4" column="0">
+           <widget class="QCheckBox" name="includeOtherFUTCheckBox">
+            <property name="text">
+             <string>Include Other FUT-OPT</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QGroupBox" name="tickerGroup">
+         <property name="title">
+          <string>Ticker</string>
+         </property>
+         <layout class="QFormLayout" name="formLayout_2">
+          <item row="0" column="0">
+           <widget class="QLabel" name="label_3">
+            <property name="text">
+             <string>Select the default portfolio for Market Watch, Equity Ticker, Derivatives Ticker and Integrated Ticker.</string>
+            </property>
+            <property name="wordWrap">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QLabel" name="label_4">
+            <property name="text">
+             <string>Equity Ticker:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QComboBox" name="equityTickerCombo">
+            <item>
+             <property name="text">
+              <string>[None]</string>
+             </property>
+            </item>
+           </widget>
+          </item>
+          <item row="2" column="0">
+           <widget class="QLabel" name="label_5">
+            <property name="text">
+             <string>Derivatives Ticker:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="1">
+           <widget class="QComboBox" name="derivativesTickerCombo">
+            <item>
+             <property name="text">
+              <string>[None]</string>
+             </property>
+            </item>
+           </widget>
+          </item>
+          <item row="3" column="0">
+           <widget class="QLabel" name="label_6">
+            <property name="text">
+             <string>Integrated Ticker:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="1">
+           <widget class="QComboBox" name="integratedTickerCombo">
+            <item>
+             <property name="text">
+              <string>[None]</string>
+             </property>
+            </item>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QGroupBox" name="conditionalTickerGroup">
+         <property name="title">
+          <string>Conditional Ticker</string>
+         </property>
+         <layout class="QFormLayout" name="formLayout_3">
+          <item row="0" column="0">
+           <widget class="QLabel" name="label_7">
+            <property name="text">
+             <string>Portfolio:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QComboBox" name="conditionalPortfolioCombo">
+            <item>
+             <property name="text">
+              <string>[None]</string>
+             </property>
+            </item>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QLabel" name="label_8">
+            <property name="text">
+             <string>Condition:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QComboBox" name="conditionCombo">
+            <item>
+             <property name="text">
+              <string>[None]</string>
+             </property>
+            </item>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QGroupBox" name="indexInfoGroup">
+         <property name="title">
+          <string>Index Information</string>
+         </property>
+         <layout class="QHBoxLayout" name="horizontalLayout">
+          <item>
+           <widget class="QCheckBox" name="refreshAfterFixedTimeCheckBox">
+            <property name="text">
+             <string>Refresh after fixed time interval</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QSpinBox" name="refreshIntervalSpinBox">
+            <property name="minimum">
+             <number>0</number>
+            </property>
+            <property name="maximum">
+             <number>9999</number>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="label_9">
+            <property name="text">
+             <string>Sec</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QGroupBox" name="expiryStrategyGroup">
+         <property name="title">
+          <string>Expiry Strategy</string>
+         </property>
+         <layout class="QFormLayout" name="formLayout_4">
+          <item row="0" column="0">
+           <widget class="QLabel" name="label_10">
+            <property name="text">
+             <string>Expiry Strategy:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QComboBox" name="expiryStrategyCombo">
+            <item>
+             <property name="text">
+              <string>[None]</string>
+             </property>
+            </item>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QGroupBox" name="popUpModeGroup">
+         <property name="title">
+          <string>Pop Up Mode</string>
+         </property>
+         <layout class="QVBoxLayout" name="verticalLayout_3">
+          <item>
+           <widget class="QRadioButton" name="alertMessageRadio">
+            <property name="text">
+             <string>Alert Message</string>
+            </property>
+            <property name="checked">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QRadioButton" name="gridOrderEntryRadio">
+            <property name="text">
+             <string>Grid Order Entry Window</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QGroupBox" name="optimizationGroup">
+         <property name="title">
+          <string>Optimization Settings</string>
+         </property>
+         <layout class="QGridLayout" name="gridLayout">
+          <item row="0" column="0">
+           <widget class="QCheckBox" name="greekRequiredCheckBox">
+            <property name="text">
+             <string>Greek Required</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QCheckBox" name="alertRequiredCheckBox">
+            <property name="text">
+             <string>Alert Required</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="2">
+           <widget class="QCheckBox" name="algoRequiredCheckBox">
+            <property name="text">
+             <string>Algo Required</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="3">
+           <widget class="QCheckBox" name="globalDealerCheckBox">
+            <property name="text">
+             <string>Global Dealer Required</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QGroupBox" name="sawSequenceGroup">
+         <property name="title">
+          <string>S&amp;W Sequence</string>
+         </property>
+         <layout class="QVBoxLayout" name="verticalLayout_4">
+          <item>
+           <widget class="QCheckBox" name="enableSAWForEQCheckBox">
+            <property name="text">
+             <string>Enable S&amp;W For EQ</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <layout class="QHBoxLayout" name="horizontalLayout_2">
+            <item>
+             <widget class="QCheckBox" name="nseCheckBox">
+              <property name="text">
+               <string>NSE</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QCheckBox" name="bseCheckBox">
+              <property name="text">
+               <string>BSE</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="moveUpButton">
+              <property name="text">
+               <string>Move Up</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="moveDownButton">
+              <property name="text">
+               <string>Move Down</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item>
+           <layout class="QFormLayout" name="formLayout_5">
+            <item row="0" column="0">
+             <widget class="QLabel" name="label_11">
+              <property name="text">
+               <string>S&amp;W Default Profile:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="1">
+             <widget class="QComboBox" name="sawDefaultProfileCombo">
+              <item>
+               <property name="text">
+                <string>[None]</string>
+               </property>
+              </item>
+             </widget>
+            </item>
+            <item row="1" column="0">
+             <widget class="QCheckBox" name="symbolTrendColorCheckBox_2">
+              <property name="text">
+               <string>Symbol Trend Color On/Off(LTP v/s Prev Close)</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <spacer name="verticalSpacer">
+         <property name="orientation">
+          <enum>Qt::Vertical</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>40</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="orderTab">
+      <attribute name="title">
+       <string>Order</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="verticalLayout_5">
+       <item>
+        <widget class="QGroupBox" name="marketSegmentGroup">
+         <property name="title">
+          <string>Market Segment</string>
+         </property>
+         <layout class="QFormLayout" name="formLayout_6">
+          <item row="0" column="0">
+           <widget class="QLabel" name="label_12">
+            <property name="text">
+             <string>Market Segment:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QComboBox" name="marketSegmentCombo">
+            <item>
+             <property name="text">
+              <string>NSE EQ</string>
+             </property>
+            </item>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QLabel" name="label_13">
+            <property name="text">
+             <string>Product Type:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QComboBox" name="productTypeCombo">
+            <item>
+             <property name="text">
+              <string>Margin</string>
+             </property>
+            </item>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QGroupBox" name="orderConfirmationGroup">
+         <property name="title">
+          <string>Select an option to prompt for a confirmation in the form of a message</string>
+         </property>
+         <layout class="QGridLayout" name="gridLayout_2">
+          <item row="0" column="0">
+           <widget class="QCheckBox" name="freshOrderCheckBox">
+            <property name="text">
+             <string>Fresh Order</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QCheckBox" name="orderModificationCheckBox">
+            <property name="text">
+             <string>Order Modification</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="2">
+           <widget class="QCheckBox" name="marketOrderCheckBox">
+            <property name="text">
+             <string>Market Order</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="3">
+           <widget class="QCheckBox" name="orderCancellationCheckBox">
+            <property name="text">
+             <string>Order Cancellation</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QCheckBox" name="openOrderEntryCheckBox">
+            <property name="text">
+             <string>Open Order Entry with Market Order</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QGroupBox" name="alertsGroup">
+         <property name="title">
+          <string>Alerts</string>
+         </property>
+         <layout class="QGridLayout" name="gridLayout_3">
+          <item row="0" column="0">
+           <widget class="QCheckBox" name="alwaysUseMinOrderCheckBox">
+            <property name="text">
+             <string>Always use Min. Order Qty given here</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QCheckBox" name="setDefaultButtonCheckBox">
+            <property name="text">
+             <string>Set Default Button As Yes For Orders After Market Closed</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="0">
+           <widget class="QCheckBox" name="marketOrderWithPrefCheckBox">
+            <property name="text">
+             <string>Market Order with Pref :</string>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="0">
+           <widget class="QLabel" name="label_14">
+            <property name="text">
+             <string>Always use Derivative Order Qty</string>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="1">
+           <widget class="QComboBox" name="derivativeOrderQtyCombo">
+            <item>
+             <property name="text">
+              <string>MIN LOT</string>
+             </property>
+            </item>
+           </widget>
+          </item>
+          <item row="4" column="0">
+           <widget class="QLabel" name="label_15">
+            <property name="text">
+             <string>For Orders Alert Msg:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="4" column="1">
+           <widget class="QComboBox" name="ordersAlertMsgCombo">
+            <item>
+             <property name="text">
+              <string>Yes/No Default No</string>
+             </property>
+            </item>
+           </widget>
+          </item>
+          <item row="5" column="0">
+           <widget class="QLabel" name="label_16">
+            <property name="text">
+             <string>Default DD 's age:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="5" column="1">
+           <widget class="QComboBox" name="defaultDDCombo">
+            <item>
+             <property name="text">
+              <string></string>
+             </property>
+            </item>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QGroupBox" name="orderPreferencesGroup">
+         <property name="title">
+          <string>Comm Order Preferences</string>
+         </property>
+         <layout class="QGridLayout" name="gridLayout_4">
+          <item row="0" column="0">
+           <widget class="QRadioButton" name="qtyLotsRadio">
+            <property name="text">
+             <string>Qty Lots</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QRadioButton" name="valueRadio">
+            <property name="text">
+             <string>Value</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QLabel" name="label_17">
+            <property name="text">
+             <string>Min Order:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="0">
+           <widget class="QLabel" name="label_18">
+            <property name="text">
+             <string>Price Alert (% of LTP)</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="1">
+           <widget class="QLineEdit" name="priceAlertLineEdit">
+            <property name="text">
+             <string>0.00</string>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="0">
+           <widget class="QLabel" name="label_19">
+            <property name="text">
+             <string>Qty Alert (In Market Lots)</string>
+            </property>
+           </widget>
+          </item>
+          <item row="4" column="0">
+           <widget class="QLabel" name="label_20">
+            <property name="text">
+             <string>Value Alert (Qty*Price)</string>
+            </property>
+           </widget>
+          </item>
+          <item row="5" column="0">
+           <widget class="QLabel" name="label_21">
+            <property name="text">
+             <string>Sq Off Validity</string>
+            </property>
+           </widget>
+          </item>
+          <item row="5" column="1">
+           <widget class="QComboBox" name="sqOffValidityCombo">
+            <item>
+             <property name="text">
+              <string>DAY</string>
+             </property>
+            </item>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QGroupBox" name="prodClJGroup">
+         <property name="title">
+          <string>PROD CLJ (Default)</string>
+         </property>
+         <layout class="QFormLayout" name="formLayout_7">
+          <item row="0" column="0">
+           <widget class="QComboBox" name="prodCLJCombo">
+            <item>
+             <property name="text">
+              <string>PRO</string>
+             </property>
+            </item>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QLabel" name="label_22">
+            <property name="text">
+             <string>Client / SubBroker ScripCode Prefix :</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="0">
+           <widget class="QCheckBox" name="prefixLastClientCheckBox">
+            <property name="text">
+             <string>Prefix Last Client Id</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="1">
+           <widget class="QCheckBox" name="prefixSubBrokerCheckBox">
+            <property name="text">
+             <string>Prefix SubBroker/Id With</string>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="0">
+           <widget class="QCheckBox" name="roundLotCheckBox">
+            <property name="text">
+             <string>Round Lot to Nearest Tick Size</string>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="1">
+           <widget class="QCheckBox" name="setFocusCheckBox">
+            <property name="text">
+             <string>Set Focus on Order Entry Price</string>
+            </property>
+           </widget>
+          </item>
+          <item row="4" column="0">
+           <widget class="QCheckBox" name="reorderCheckBox">
+            <property name="text">
+             <string>Retain User Remarks</string>
+            </property>
+           </widget>
+          </item>
+          <item row="4" column="1">
+           <widget class="QCheckBox" name="useGroupCheckBox">
+            <property name="text">
+             <string>Use Group for bulk order</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QGroupBox" name="alertMessageGroup">
+         <property name="title">
+          <string>Alert Message</string>
+         </property>
+         <layout class="QHBoxLayout" name="horizontalLayout_3">
+          <item>
+           <widget class="QComboBox" name="alertMessageCombo"/>
+          </item>
+          <item>
+           <widget class="QPushButton" name="restoreDefaultsButton">
+            <property name="text">
+             <string>Restore Defaults</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="applyButton">
+            <property name="text">
+             <string>Apply</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <spacer name="verticalSpacer_2">
+         <property name="orientation">
+          <enum>Qt::Vertical</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>40</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="portfolioTab">
+      <attribute name="title">
+       <string>Portfolio</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="verticalLayout_6">
+       <item>
+        <spacer name="verticalSpacer_3">
+         <property name="orientation">
+          <enum>Qt::Vertical</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>40</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="workSpaceTab">
+      <attribute name="title">
+       <string>Work Space</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="verticalLayout_7">
+       <item>
+        <widget class="QGroupBox" name="workspaceGroup">
+         <property name="title">
+          <string>Workspace / Worksitation</string>
+         </property>
+         <layout class="QFormLayout" name="formLayout_8">
+          <item row="0" column="0">
+           <widget class="QLabel" name="label_23">
+            <property name="text">
+             <string>Select Default Work Space:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QComboBox" name="defaultWorkspaceCombo">
+            <item>
+             <property name="text">
+              <string>HARSHIL01</string>
+             </property>
+            </item>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QPushButton" name="browseButton">
+            <property name="text">
+             <string>Browse...</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="0">
+           <widget class="QCheckBox" name="autoLockWorkstationCheckBox">
+            <property name="text">
+             <string>Auto Lock Work Station/ Auto Lock</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="1">
+           <layout class="QHBoxLayout" name="horizontalLayout_4">
+            <item>
+             <widget class="QSpinBox" name="autoLockMinutesSpinBox">
+              <property name="maximum">
+               <number>9999</number>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QLabel" name="label_24">
+              <property name="text">
+               <string>minutes</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item row="3" column="0">
+           <widget class="QCheckBox" name="addToSaveEsnFileCheckBox">
+            <property name="text">
+             <string>Add To Save Esn/ File For Bulk Order</string>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="1">
+           <widget class="QCheckBox" name="timeWithSecondsCheckBox">
+            <property name="text">
+             <string>Time with seconds</string>
+            </property>
+           </widget>
+          </item>
+          <item row="4" column="0">
+           <widget class="QCheckBox" name="showDateTimeCheckBox">
+            <property name="text">
+             <string>Show Date/Time</string>
+            </property>
+           </widget>
+          </item>
+          <item row="5" column="0">
+           <widget class="QLabel" name="label_25">
+            <property name="text">
+             <string>DPR Price Decode:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="5" column="1">
+           <widget class="QComboBox" name="dprPriceDecodeCombo">
+            <item>
+             <property name="text">
+              <string>5</string>
+             </property>
+            </item>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QGroupBox" name="columnProfileGroup">
+         <property name="title">
+          <string>Column Profile</string>
+         </property>
+         <layout class="QHBoxLayout" name="horizontalLayout_5">
+          <item>
+           <widget class="QLabel" name="label_26">
+            <property name="text">
+             <string>Open All Views with</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QRadioButton" name="allColumnsRadio">
+            <property name="text">
+             <string>AI Columns</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QRadioButton" name="defaultProfileRadio">
+            <property name="text">
+             <string>Default Profile</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QRadioButton" name="lastUsedRadio">
+            <property name="text">
+             <string>Last Used</string>
+            </property>
+            <property name="checked">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QGroupBox" name="stockWatchGroup">
+         <property name="title">
+          <string>Stock Watch Sequence</string>
+         </property>
+         <layout class="QVBoxLayout" name="verticalLayout_8">
+          <item>
+           <widget class="QListWidget" name="stockWatchList">
+            <item>
+             <property name="text">
+              <string>BSE</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>NSE</string>
+             </property>
+            </item>
+           </widget>
+          </item>
+          <item>
+           <layout class="QHBoxLayout" name="horizontalLayout_6">
+            <item>
+             <widget class="QPushButton" name="moveUpButton_2">
+              <property name="text">
+               <string>Move Up</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="moveDownButton_2">
+              <property name="text">
+               <string>Move Down</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="restoreDefaultsButton_2">
+              <property name="text">
+               <string>Restore Defaults</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QGroupBox" name="marketWatchDoubleClickGroup">
+         <property name="title">
+          <string>Market Watch</string>
+         </property>
+         <layout class="QVBoxLayout" name="verticalLayout_9">
+          <item>
+           <widget class="QLabel" name="label_27">
+            <property name="text">
+             <string>Double click on security :</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <layout class="QGridLayout" name="gridLayout_5">
+            <item row="0" column="0">
+             <widget class="QRadioButton" name="marketPictureRadio">
+              <property name="text">
+               <string>Market Picture</string>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="1">
+             <widget class="QRadioButton" name="chartsRadio">
+              <property name="text">
+               <string>Charts</string>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="2">
+             <widget class="QComboBox" name="chartsCombo">
+              <item>
+               <property name="text">
+                <string>Intraday Chart</string>
+               </property>
+              </item>
+             </widget>
+            </item>
+            <item row="0" column="3">
+             <widget class="QRadioButton" name="derivativeChainRadio">
+              <property name="text">
+               <string>Derivative Chain</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="0">
+             <widget class="QRadioButton" name="marketPictureChartRadio">
+              <property name="text">
+               <string>Market Picture-Chart</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="1">
+             <widget class="QRadioButton" name="orderEntryRadio">
+              <property name="text">
+               <string>Order Entry</string>
+              </property>
+              <property name="checked">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item>
+           <layout class="QFormLayout" name="formLayout_9">
+            <item row="0" column="0">
+             <widget class="QLabel" name="label_28">
+              <property name="text">
+               <string>52 week High/low  Lifetime High/low</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="0">
+             <widget class="QLabel" name="label_29">
+              <property name="text">
+               <string>Select Color for</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="1">
+             <widget class="QComboBox" name="selectColorCombo">
+              <item>
+               <property name="text">
+                <string>Foreground</string>
+               </property>
+              </item>
+             </widget>
+            </item>
+            <item row="1" column="2">
+             <widget class="QPushButton" name="colorButton">
+              <property name="text">
+               <string></string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <spacer name="verticalSpacer_4">
+         <property name="orientation">
+          <enum>Qt::Vertical</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>40</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="derivativesTab">
+      <attribute name="title">
+       <string>Derivatives</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="verticalLayout_10">
+       <item>
+        <widget class="QGroupBox" name="greekNeutralizerGroup">
+         <property name="title">
+          <string>Greek Neutralizer</string>
+         </property>
+         <layout class="QFormLayout" name="formLayout_10">
+          <item row="0" column="0">
+           <widget class="QLabel" name="label_30">
+            <property name="text">
+             <string>User:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QComboBox" name="greekUserCombo">
+            <item>
+             <property name="text">
+              <string>ASCIB02</string>
+             </property>
+            </item>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QLabel" name="label_31">
+            <property name="text">
+             <string>Def. Exch:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QComboBox" name="defExchCombo">
+            <item>
+             <property name="text">
+              <string>NSE</string>
+             </property>
+            </item>
+           </widget>
+          </item>
+          <item row="2" column="0">
+           <widget class="QLabel" name="label_32">
+            <property name="text">
+             <string>Def. Symbol:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="1">
+           <widget class="QLineEdit" name="defSymbolLineEdit"/>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QGroupBox" name="dividendGroup">
+         <property name="title">
+          <string>Dividend / Interest Rate</string>
+         </property>
+         <layout class="QFormLayout" name="formLayout_11">
+          <item row="0" column="0">
+           <widget class="QLabel" name="label_33">
+            <property name="text">
+             <string>Dividend %:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QLineEdit" name="dividendLineEdit">
+            <property name="text">
+             <string>0.00</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QLabel" name="label_34">
+            <property name="text">
+             <string>Interest Rate %:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QLineEdit" name="interestRateLineEdit">
+            <property name="text">
+             <string>0.00</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="0">
+           <widget class="QCheckBox" name="considerForIndexCheckBox">
+            <property name="text">
+             <string>Consider for Indxg scpies</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QGroupBox" name="calculationGroup">
+         <property name="title">
+          <string>Values to be used for Calculation of Fair Value</string>
+         </property>
+         <layout class="QGridLayout" name="gridLayout_6">
+          <item row="0" column="0">
+           <widget class="QLabel" name="label_35">
+            <property name="text">
+             <string>Volatility %:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QLabel" name="label_36">
+            <property name="text">
+             <string>C</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="2">
+           <widget class="QLineEdit" name="volatilityCLineEdit">
+            <property name="text">
+             <string>0.00</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="3">
+           <widget class="QLabel" name="label_37">
+            <property name="text">
+             <string>P</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="4">
+           <widget class="QLineEdit" name="volatilityPLineEdit">
+            <property name="text">
+             <string>0.00</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QLabel" name="label_38">
+            <property name="text">
+             <string>Underlying Price:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QRadioButton" name="spotPriceRadio">
+            <property name="text">
+             <string>Spot Price</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="2">
+           <widget class="QRadioButton" name="futuresRadio">
+            <property name="text">
+             <string>Futures</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="0">
+           <widget class="QRadioButton" name="equitiesRadio">
+            <property name="text">
+             <string>Equities</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="1">
+           <widget class="QRadioButton" name="blackScholesRadio">
+            <property name="text">
+             <string>Black &amp; Scholes</string>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="0">
+           <widget class="QRadioButton" name="futuresRadio_2">
+            <property name="text">
+             <string>Futures</string>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="1">
+           <widget class="QRadioButton" name="binomialStepsRadio">
+            <property name="text">
+             <string>Binomial Steps:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="4" column="0">
+           <widget class="QLabel" name="label_39">
+            <property name="text">
+             <string>Options Pricing Model</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QGroupBox" name="parametersGroup">
+         <property name="title">
+          <string>Parameters</string>
+         </property>
+         <layout class="QGridLayout" name="gridLayout_7">
+          <item row="0" column="0">
+           <widget class="QCheckBox" name="onlineVolatilityCheckBox">
+            <property name="text">
+             <string>Online Volatility Update</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QCheckBox" name="theoreticalPriceCheckBox">
+            <property name="text">
+             <string>Theoretical Price</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QCheckBox" name="useATMCheckBox">
+            <property name="text">
+             <string>Use ATM Implied Volatility</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QCheckBox" name="openPayoffCheckBox">
+            <property name="text">
+             <string>Open Payoff Chart</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="0">
+           <widget class="QCheckBox" name="calcGreeksCheckBox">
+            <property name="text">
+             <string>Calc Greeks From Last IV in N</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="1">
+           <widget class="QCheckBox" name="includeRealizedCheckBox">
+            <property name="text">
+             <string>Include Realized Profit In Payoff</string>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="0">
+           <widget class="QCheckBox" name="stopTimeCheckBox">
+            <property name="text">
+             <string>Stop Time</string>
+            </property>
+           </widget>
+          </item>
+          <item row="4" column="0">
+           <widget class="QCheckBox" name="carryForwardCheckBox">
+            <property name="text">
+             <string>Carry Forward EQ</string>
+            </property>
+           </widget>
+          </item>
+          <item row="4" column="1">
+           <widget class="QLabel" name="label_40">
+            <property name="text">
+             <string>Greek Neutralize Price:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="4" column="2">
+           <widget class="QComboBox" name="greekNeutralizeCombo">
+            <item>
+             <property name="text">
+              <string>Counter touch</string>
+             </property>
+            </item>
+           </widget>
+          </item>
+          <item row="5" column="0">
+           <widget class="QCheckBox" name="messageDisplayCheckBox">
+            <property name="text">
+             <string>Message Display on undefined condition</string>
+            </property>
+           </widget>
+          </item>
+          <item row="6" column="0">
+           <widget class="QCheckBox" name="weeklyFuturesCheckBox">
+            <property name="text">
+             <string>Weekly Futures Calc</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QGroupBox" name="expiryGroup">
+         <property name="title">
+          <string>Expiry DTE</string>
+         </property>
+         <layout class="QFormLayout" name="formLayout_12">
+          <item row="0" column="0">
+           <widget class="QLabel" name="label_41">
+            <property name="text">
+             <string>Expiry DTE:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QLineEdit" name="expiryDTELineEdit">
+            <property name="text">
+             <string>0.00</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QLabel" name="label_42">
+            <property name="text">
+             <string>Tool Tip Lines:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QLineEdit" name="toolTipLinesLineEdit">
+            <property name="text">
+             <string>1</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QGroupBox" name="analyzerStopGroup">
+         <property name="title">
+          <string>Analyzer Stop Time</string>
+         </property>
+         <layout class="QFormLayout" name="formLayout_13">
+          <item row="0" column="0">
+           <widget class="QLabel" name="label_43">
+            <property name="text">
+             <string>Mon-Fri</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <layout class="QHBoxLayout" name="horizontalLayout_7">
+            <item>
+             <widget class="QTimeEdit" name="monFriTimeEdit">
+              <property name="displayFormat">
+               <string>HH:mm:ss</string>
+              </property>
+              <property name="time">
+               <time>
+                <hour>23</hour>
+                <minute>59</minute>
+                <second>55</second>
+               </time>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QLabel" name="label_44">
+              <property name="text">
+               <string>Sat</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QTimeEdit" name="satTimeEdit">
+              <property name="displayFormat">
+               <string>HH:mm:ss</string>
+              </property>
+              <property name="time">
+               <time>
+                <hour>23</hour>
+                <minute>59</minute>
+                <second>55</second>
+               </time>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <spacer name="verticalSpacer_5">
+         <property name="orientation">
+          <enum>Qt::Vertical</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>40</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="alertsMsgTab">
+      <attribute name="title">
+       <string>Alerts Msg</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="verticalLayout_11">
+       <item>
+        <widget class="QGroupBox" name="onEventGroup">
+         <property name="title">
+          <string>On Event    Do</string>
+         </property>
+         <layout class="QGridLayout" name="gridLayout_8">
+          <item row="0" column="0">
+           <widget class="QLabel" name="label_45">
+            <property name="text">
+             <string>Event</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QComboBox" name="eventCombo">
+            <item>
+             <property name="text">
+              <string>Order Error</string>
+             </property>
+            </item>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QCheckBox" name="beepCheckBox">
+            <property name="text">
+             <string>Beep</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QCheckBox" name="staticMsgCheckBox">
+            <property name="text">
+             <string>Static Message Box</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="2">
+           <widget class="QCheckBox" name="messageBoxCheckBox">
+            <property name="text">
+             <string>Message Box</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="1">
+           <widget class="QCheckBox" name="playSoundCheckBox">
+            <property name="text">
+             <string>Play Sound</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="2">
+           <widget class="QPushButton" name="browseButton_2">
+            <property name="text">
+             <string>Browse</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QGroupBox" name="beepOnOrderGroup">
+         <property name="title">
+          <string>Select the action when a particular event occurs e.g. Beep on Order Confirmation</string>
+         </property>
+         <layout class="QGridLayout" name="gridLayout_9">
+          <item row="0" column="0">
+           <widget class="QLabel" name="label_46">
+            <property name="text">
+             <string>Working Orders</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QLabel" name="label_47">
+            <property name="text">
+             <string>Snapshot Broadcast :</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QComboBox" name="snapshotBroadcastCombo">
+            <item>
+             <property name="text">
+              <string>Working Orders</string>
+             </property>
+            </item>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QGroupBox" name="transactionBackupGroup">
+         <property name="title">
+          <string>Transaction Backup</string>
+         </property>
+         <layout class="QGridLayout" name="gridLayout_10">
+          <item row="0" column="0">
+           <widget class="QCheckBox" name="automaticCheckBox">
+            <property name="text">
+             <string>Automatic</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QCheckBox" name="retainBackupPathCheckBox">
+            <property name="text">
+             <string>Retain Backup Path</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QCheckBox" name="retainLastSettingCheckBox">
+            <property name="text">
+             <string>Retain Last Setting</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QCheckBox" name="defaultOnlinePathCheckBox">
+            <property name="text">
+             <string>Default Online Path</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QGroupBox" name="preferredFilterGroup">
+         <property name="title">
+          <string>Preferred Filter</string>
+         </property>
+         <layout class="QFormLayout" name="formLayout_14">
+          <item row="0" column="0">
+           <widget class="QLabel" name="label_48">
+            <property name="text">
+             <string>Preferred Filter</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QComboBox" name="preferredFilterCombo">
+            <item>
+             <property name="text">
+              <string>Exchange</string>
+             </property>
+            </item>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QGroupBox" name="tickDataGroup">
+         <property name="title">
+          <string>Tick Data Window</string>
+         </property>
+         <layout class="QGridLayout" name="gridLayout_11">
+          <item row="0" column="0">
+           <widget class="QCheckBox" name="differentWindowsCheckBox">
+            <property name="text">
+             <string>Different Windows For Open Types</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QCheckBox" name="trendColorBasedCheckBox">
+            <property name="text">
+             <string>Trend color based on</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="2">
+           <widget class="QRadioButton" name="execRadio">
+            <property name="text">
+             <string>Exec</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="3">
+           <widget class="QRadioButton" name="volumeRadio">
+            <property name="text">
+             <string>Volume</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QGroupBox" name="timeFormatGroup">
+         <property name="title">
+          <string>Time Format to be used in Views</string>
+         </property>
+         <layout class="QFormLayout" name="formLayout_15">
+          <item row="0" column="0">
+           <widget class="QLabel" name="label_49">
+            <property name="text">
+             <string>Time Format to be used in Views :</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QComboBox" name="timeFormatCombo">
+            <item>
+             <property name="text">
+              <string>Time in 12-Hour Format</string>
+             </property>
+            </item>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QLabel" name="label_50">
+            <property name="text">
+             <string>Sorting in Mapped Client/SubBroker</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="0">
+           <widget class="QLabel" name="label_51">
+            <property name="text">
+             <string>Always open the Order Book with</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="1">
+           <widget class="QComboBox" name="orderBookCombo">
+            <item>
+             <property name="text">
+              <string>Pending</string>
+             </property>
+            </item>
+           </widget>
+          </item>
+          <item row="3" column="0">
+           <widget class="QLabel" name="label_52">
+            <property name="text">
+             <string>Max No. of</string>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="1">
+           <widget class="QComboBox" name="maxNoCombo">
+            <item>
+             <property name="text">
+              <string>Orders</string>
+             </property>
+            </item>
+           </widget>
+          </item>
+          <item row="4" column="0">
+           <widget class="QLabel" name="label_53">
+            <property name="text">
+             <string>Add Quantity from Net Position</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <spacer name="verticalSpacer_6">
+         <property name="orientation">
+          <enum>Qt::Vertical</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>40</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+      </layout>
+     </widget>
+    </widget>
+   </item>
+   <item>
+    <widget class="QDialogButtonBox" name="buttonBox">
+     <property name="standardButtons">
+      <set>QDialogButtonBox::Apply|QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
+     </property>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>accepted()</signal>
+   <receiver>PreferenceDialog</receiver>
+   <slot>accept()</slot>
+  </connection>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>rejected()</signal>
+   <receiver>PreferenceDialog</receiver>
+   <slot>reject()</slot>
+  </connection>
+ </connections>
+</ui>

@@ -3,30 +3,31 @@
 #include "protocol.h" 
 #include "utils/parse_compressed_message.h"
 #include "utils/parse_uncompressed_packet.h"
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <unistd.h>
+#include "socket_platform.h"
+
+
+
 #include <iostream>
 #include <cstring>
 #include <stdexcept>
 #include <cerrno>
 
 MulticastReceiver::MulticastReceiver(const std::string& ip, int port) 
-    : sockfd(-1), running(false), last_seq_no(0) {
+    : sockfd(socket_invalid), running(false), last_seq_no(0) {
+    WinsockLoader::init();
     
     // Create socket
     sockfd = socket(AF_INET, SOCK_DGRAM, 0);
-    if (sockfd < 0) {
-        throw std::runtime_error("Failed to create socket: " + std::string(strerror(errno)));
+    if (sockfd == socket_invalid) {
+        throw std::runtime_error("Failed to create socket: " + std::string(socket_error_string(socket_errno)));
     }
 
     // Set socket options
     int reuse = 1;
     if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, (char *)&reuse, sizeof(reuse)) < 0) {
-        close(sockfd);
+        socket_close(sockfd);
         sockfd = -1;
-        throw std::runtime_error("Failed to set SO_REUSEADDR: " + std::string(strerror(errno)));
+        throw std::runtime_error("Failed to set SO_REUSEADDR: " + std::string(socket_error_string(socket_errno)));
     }
     
     // Set receive timeout (1 second) for graceful shutdown
@@ -34,9 +35,9 @@ MulticastReceiver::MulticastReceiver(const std::string& ip, int port)
     tv.tv_sec = 1;
     tv.tv_usec = 0;
     if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) < 0) {
-        close(sockfd);
+        socket_close(sockfd);
         sockfd = -1;
-        throw std::runtime_error("Failed to set SO_RCVTIMEO: " + std::string(strerror(errno)));
+        throw std::runtime_error("Failed to set SO_RCVTIMEO: " + std::string(socket_error_string(socket_errno)));
     }
 
     // Bind socket
@@ -46,9 +47,9 @@ MulticastReceiver::MulticastReceiver(const std::string& ip, int port)
     addr.sin_port = htons(port);
 
     if (bind(sockfd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
-        close(sockfd);
+        socket_close(sockfd);
         sockfd = -1;
-        throw std::runtime_error("Failed to bind socket: " + std::string(strerror(errno)));
+        throw std::runtime_error("Failed to bind socket: " + std::string(socket_error_string(socket_errno)));
     }
 
     // Join multicast group
@@ -56,9 +57,9 @@ MulticastReceiver::MulticastReceiver(const std::string& ip, int port)
     group.imr_multiaddr.s_addr = inet_addr(ip.c_str());
     group.imr_interface.s_addr = INADDR_ANY;
     if (setsockopt(sockfd, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char *)&group, sizeof(group)) < 0) {
-        close(sockfd);
+        socket_close(sockfd);
         sockfd = -1;
-        throw std::runtime_error("Failed to join multicast group: " + std::string(strerror(errno)));
+        throw std::runtime_error("Failed to join multicast group: " + std::string(socket_error_string(socket_errno)));
     }
     
     std::cout << "MulticastReceiver initialized successfully (buffer size: " << BUFFER_SIZE << " bytes)" << std::endl;
@@ -66,14 +67,14 @@ MulticastReceiver::MulticastReceiver(const std::string& ip, int port)
 
 MulticastReceiver::~MulticastReceiver() {
     stop();
-    if (sockfd >= 0) {
-        close(sockfd);
+    if (sockfd != socket_invalid) {
+        socket_close(sockfd);
         sockfd = -1;
     }
 }
 
 void MulticastReceiver::start() {
-    if (sockfd < 0) {
+    if (sockfd == socket_invalid) {
         std::cerr << "Error: Cannot start - receiver not properly initialized" << std::endl;
         return;
     }
@@ -89,10 +90,10 @@ void MulticastReceiver::start() {
         
         // Handle timeout (allows checking running flag)
         if (n < 0) {
-            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+            if (socket_errno == EAGAIN || socket_errno == EWOULDBLOCK) {
                 continue;  // Timeout, check running flag and continue
             }
-            std::cerr << "recv() error: " << strerror(errno) << std::endl;
+            std::cerr << "recv() error: " << socket_error_string(socket_errno) << std::endl;
             break;
         }
 

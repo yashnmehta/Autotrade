@@ -37,12 +37,15 @@ if(USE_SYSTEM_LZO)
         # Fallback to find_library
         find_library(LZO_LIBRARY
             NAMES lzo2 liblzo2
-            PATHS /usr/lib /usr/local/lib /opt/homebrew/lib
+            PATHS /usr/lib /usr/local/lib /opt/homebrew/lib 
+                  C:/vcpkg/installed/x64-windows/lib C:/vcpkg/installed/x86/lib
         )
         find_path(LZO_INCLUDE_DIR
             NAMES lzo/lzo1z.h
             PATHS /usr/include /usr/local/include /opt/homebrew/include
+                  C:/vcpkg/installed/x64-windows/include C:/vcpkg/installed/x86/include
         )
+
         if(LZO_LIBRARY AND LZO_INCLUDE_DIR)
             set(LZO_FOUND TRUE)
             set(LZO_LIBRARIES ${LZO_LIBRARY})
@@ -450,6 +453,10 @@ target_link_libraries(TradingTerminal PRIVATE
     Threads::Threads
     ${LZO_LIBRARIES}
 )
+
+if(WIN32)
+    target_link_libraries(TradingTerminal PRIVATE Ws2_32 Iphlpapi)
+endif()
 
 # Include Boost headers (Beast is header-only)
 target_include_directories(TradingTerminal PRIVATE ${Boost_INCLUDE_DIRS})
