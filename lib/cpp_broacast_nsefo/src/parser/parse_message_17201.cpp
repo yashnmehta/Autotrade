@@ -18,7 +18,7 @@ void parse_message_17201(const MS_ENHNCD_BCAST_INQ_RESP_2* msg) {
             // Parse enhanced market watch data
             MarketWatchData mw;
             mw.token = token;
-            mw.openInterest = (uint32_t)be64toh_func((uint64_t)rec.openInterest);
+            mw.openInterest = be64toh_func((uint64_t)rec.openInterest);
             
             std::cout << "[17201-ENHNCD-MARKETWATCH] Token: " << token 
                       << " | Open Interest: " << mw.openInterest << std::endl;

@@ -12,7 +12,9 @@
 #include "views/CustomizeDialog.h"
 #include "app/ScripBar.h"
 #include "services/PriceCache.h"
+#include "repository/RepositoryManager.h"
 #include <QDebug>
+
 
 // Helper to count windows
 int MainWindow::countWindowsOfType(const QString& type)
@@ -240,7 +242,10 @@ void MainWindow::onAddToWatchRequested(const InstrumentData &instrument)
     
     if (marketWatch) {
         // Simple add scrip for now (snippet had complex mapping, simplifying for compilation safety)
-        marketWatch->addScrip(instrument.symbol, QString::number(instrument.exchangeSegment), (int)instrument.exchangeInstrumentID);
+        marketWatch->addScrip(instrument.symbol, 
+                             RepositoryManager::getExchangeSegmentName(instrument.exchangeSegment), 
+                             (int)instrument.exchangeInstrumentID);
+
         
         // Apply cached price if available
         auto cached = PriceCache::instance().getPrice(instrument.exchangeInstrumentID);

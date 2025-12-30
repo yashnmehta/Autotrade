@@ -58,9 +58,9 @@ struct TickerData {
     int32_t token;
     double fillPrice;
     uint32_t fillVolume;
-    uint32_t openInterest;
-    uint32_t dayHiOI;
-    uint32_t dayLoOI;
+    int64_t openInterest;
+    int64_t dayHiOI;
+    int64_t dayLoOI;
     uint16_t marketType;
     
     // Latency tracking fields
@@ -72,7 +72,7 @@ struct TickerData {
 // Market watch data (from 7201)
 struct MarketWatchData {
     int32_t token;
-    uint32_t openInterest;
+    int64_t openInterest;
     
     // Market wise info (3 levels - Normal, Stop Loss, Auction)
     struct MarketLevel {

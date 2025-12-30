@@ -15,6 +15,10 @@ void MarketWatchWindow::setupUI()
     // Set model on base class (which wraps it in proxy model)
     setSourceModel(m_model);
     
+    // Enable ultra-low latency (65ns vs 15ms) mode by registering direct callback ✅
+    m_model->setViewCallback(this);
+
+    
     // Create token address book
     m_tokenAddressBook = new TokenAddressBook(this);
 

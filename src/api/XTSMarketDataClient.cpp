@@ -737,6 +737,9 @@ XTS::Tick XTSMarketDataClient::parseTickFromJson(const QJsonObject &json) const
         tick.high = touchline["High"].toDouble();
         tick.low = touchline["Low"].toDouble();
         tick.close = touchline["Close"].toDouble();
+        tick.averagePrice = touchline["AverageTradedPrice"].toDouble(); // Added
+        tick.openInterest = touchline["OpenInterest"].toVariant().toLongLong(); // Added
+
         
         // Bid/Ask from nested objects
         QJsonObject bidInfo = touchline["BidInfo"].toObject();
@@ -769,10 +772,8 @@ void XTSMarketDataClient::processTickData(const QJsonObject &json)
 {
     XTS::Tick tick = parseTickFromJson(json);
     
-    // Cache the tick data globally (10x faster native C++)
-    PriceCache::instance().updatePrice(tick.exchangeInstrumentID, tick);
-    
     // Call handler if set
+
     if (m_tickHandler) {
         m_tickHandler(tick);
     }

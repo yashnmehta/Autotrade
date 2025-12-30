@@ -5,6 +5,8 @@
 #include <QDateTime>
 #include <QSet>
 #include <QMap>
+#include "repository/RepositoryManager.h"
+
 
 
 OrderModel::OrderModel(QObject* parent)
@@ -64,10 +66,21 @@ QVariant OrderModel::data(const QModelIndex& index, int role) const
             case User: return order.loginID;
             case Group: return "DEFAULT";
             case ClientOrderNo: return (qlonglong)order.appOrderID;
-            case ExchangeCode: return order.exchangeSegment;
+            case ExchangeCode: {
+                bool isNumeric;
+                int segId = order.exchangeSegment.toInt(&isNumeric);
+                if (isNumeric) return RepositoryManager::getExchangeSegmentName(segId);
+                return order.exchangeSegment;
+            }
             case MemberId: return "1"; // Static for now or find in order
             case TraderId: return order.loginID;
-            case InstrumentType: return order.exchangeSegment;
+            case InstrumentType: {
+                bool isNumeric;
+                int segId = order.exchangeSegment.toInt(&isNumeric);
+                if (isNumeric) return RepositoryManager::getExchangeSegmentName(segId);
+                return order.exchangeSegment;
+            }
+
             case InstrumentName: return order.tradingSymbol;
             case Code: return (qlonglong)order.exchangeInstrumentID;
             case Symbol: return order.tradingSymbol;

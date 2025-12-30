@@ -1,7 +1,9 @@
 #include "views/PositionWindow.h"
 #include "core/widgets/CustomNetPosition.h"
 #include "services/TradingDataService.h"
+#include "repository/RepositoryManager.h"
 #include <QVBoxLayout>
+
 #include <QHBoxLayout>
 #include <QComboBox>
 #include <QPushButton>
@@ -84,8 +86,19 @@ void PositionWindow::onPositionsUpdated(const QVector<XTS::Position>& positions)
     m_allPositions.clear();
     for (const auto& p : positions) {
         PositionData pd;
-        pd.scripCode = p.exchangeInstrumentID; pd.symbol = p.tradingSymbol; pd.exchange = p.exchangeSegment;
+        pd.scripCode = p.exchangeInstrumentID; 
+        pd.symbol = p.tradingSymbol; 
+        
+        bool isNumeric;
+        int segId = p.exchangeSegment.toInt(&isNumeric);
+        if (isNumeric) {
+            pd.exchange = RepositoryManager::getExchangeSegmentName(segId);
+        } else {
+            pd.exchange = p.exchangeSegment;
+        }
+        
         pd.netQty = p.quantity; pd.buyAvg = p.buyAveragePrice; pd.sellAvg = p.sellAveragePrice;
+
         pd.mtm = p.mtm; pd.productType = p.productType; pd.client = p.accountID;
         m_allPositions.append(pd);
     }

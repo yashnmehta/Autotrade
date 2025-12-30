@@ -583,6 +583,19 @@ int RepositoryManager::getExchangeSegmentID(const QString& exchange, const QStri
     return -1;
 }
 
+QString RepositoryManager::getExchangeSegmentName(int exchangeSegmentID) {
+    switch (exchangeSegmentID) {
+        case 1:  return "NSECM";
+        case 2:  return "NSEFO";
+        case 11: return "BSECM";
+        case 12: return "BSEFO";
+        case 13: return "NSECD";
+        case 51: return "MCXFO";
+        default: return QString::number(exchangeSegmentID);
+    }
+}
+
+
 bool RepositoryManager::saveProcessedCSVs(const QString& mastersPath) {
     bool anySaved = false;
     

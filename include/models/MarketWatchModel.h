@@ -133,8 +133,10 @@ public:
         COL_LOW,
         COL_OPEN,
         COL_OPEN_INTEREST,
+        COL_AVG_PRICE,     // Added
         COL_COUNT  // Always last - total column count
     };
+
 
     explicit MarketWatchModel(QObject *parent = nullptr);
     virtual ~MarketWatchModel() = default;
@@ -200,8 +202,12 @@ public:
     void updatePrice(int row, double ltp, double change, double changePercent);
     void updateVolume(int row, qint64 volume);
     void updateBidAsk(int row, double bid, double ask);
+    void updateLastTradedQuantity(int row, qint64 ltq); // Added
     void updateHighLow(int row, double high, double low);
+
     void updateOpenInterest(int row, qint64 oi);
+    void updateAveragePrice(int row, double avgPrice); // Added
+
     void updateOHLC(int row, double open, double high, double low, double close);
     void updateBidAskQuantities(int row, int bidQty, int askQty);
     void updateTotalBuySellQty(int row, int totalBuyQty, int totalSellQty);

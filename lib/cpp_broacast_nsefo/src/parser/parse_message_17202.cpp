@@ -19,9 +19,9 @@ void parse_message_17202(const MS_ENHNCD_TICKER_TRADE_DATA* msg) {
             ticker.token = token;
             ticker.fillPrice = be32toh_func(rec.fillPrice) / 100.0;
             ticker.fillVolume = be32toh_func(rec.fillVolume);
-            ticker.openInterest = (uint32_t)be64toh_func((uint64_t)rec.openInterest);
-            ticker.dayHiOI = (uint32_t)be64toh_func((uint64_t)rec.dayHiOI);
-            ticker.dayLoOI = (uint32_t)be64toh_func((uint64_t)rec.dayLoOI);
+            ticker.openInterest = be64toh_func((uint64_t)rec.openInterest);
+            ticker.dayHiOI = be64toh_func((uint64_t)rec.dayHiOI);
+            ticker.dayLoOI = be64toh_func((uint64_t)rec.dayLoOI);
             ticker.marketType = be16toh_func(rec.marketType);
             
             // Dispatch ticker callback

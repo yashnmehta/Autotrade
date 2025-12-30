@@ -5,6 +5,8 @@
 #include <QDateTime>
 #include <QSet>
 #include <QMap>
+#include "repository/RepositoryManager.h"
+
 
 
 TradeModel::TradeModel(QObject* parent)
@@ -59,10 +61,21 @@ QVariant TradeModel::data(const QModelIndex& index, int role) const
         switch (col) {
             case User: return trade.loginID;
             case Group: return "DEFAULT";
-            case ExchangeCode: return trade.exchangeSegment;
+            case ExchangeCode: {
+                bool isNumeric;
+                int segId = trade.exchangeSegment.toInt(&isNumeric);
+                if (isNumeric) return RepositoryManager::getExchangeSegmentName(segId);
+                return trade.exchangeSegment;
+            }
             case MemberId: return "1";
             case TraderId: return trade.loginID;
-            case InstrumentType: return trade.exchangeSegment;
+            case InstrumentType: {
+                bool isNumeric;
+                int segId = trade.exchangeSegment.toInt(&isNumeric);
+                if (isNumeric) return RepositoryManager::getExchangeSegmentName(segId);
+                return trade.exchangeSegment;
+            }
+
             case InstrumentName: return trade.tradingSymbol;
             case Code: return QString::number(trade.exchangeInstrumentID);
             case Symbol: return trade.tradingSymbol;

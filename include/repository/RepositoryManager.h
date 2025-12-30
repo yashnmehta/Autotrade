@@ -235,6 +235,14 @@ public:
     static int getExchangeSegmentID(const QString& exchange, const QString& segment);
     
     /**
+     * @brief Get exchange segment name from XTS segment ID
+     * @param exchangeSegmentID XTS segment ID (1=NSECM, 2=NSEFO, etc.)
+     * @return Segment name like "NSECM", "NSEFO", etc.
+     */
+    static QString getExchangeSegmentName(int exchangeSegmentID);
+
+    
+    /**
      * @brief Get OS-specific Masters directory path
      * 
      * Returns platform-appropriate path for master data:

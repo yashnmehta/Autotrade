@@ -59,28 +59,69 @@ void MarketWatchWindow::updateOpenInterest(int token, qint64 oi, double oiChange
     }
 }
 
+void MarketWatchWindow::updateLastTradedQuantity(int token, qint64 ltq)
+{
+    QList<int> rows = m_tokenAddressBook->getRowsForToken(token);
+    for (int row : rows) {
+        m_model->updateLastTradedQuantity(row, ltq);
+    }
+}
+
 void MarketWatchWindow::onTickUpdate(const XTS::Tick& tick)
 {
     int token = (int)tick.exchangeInstrumentID;
     int64_t timestampModelStart = LatencyTracker::now();
     
-    double change = tick.lastTradedPrice - tick.close;
-    double changePercent = (tick.close != 0) ? (change / tick.close) * 100.0 : 0.0;
+    // 1. Update LTP and OHLC if LTP is present (> 0)
+    if (tick.lastTradedPrice > 0) {
+        double change = 0;
+        double changePercent = 0;
+        
+        // Use the close price from the tick if available, otherwise it will remain 0
+        if (tick.close > 0) {
+            change = tick.lastTradedPrice - tick.close;
+            changePercent = (change / tick.close) * 100.0;
+        }
+
+        updatePrice(token, tick.lastTradedPrice, change, changePercent);
+        
+        if (tick.open > 0 || tick.high > 0 || tick.low > 0 || tick.close > 0) {
+            updateOHLC(token, tick.open, tick.high, tick.low, tick.close);
+        }
+    }
     
-    updatePrice(token, tick.lastTradedPrice, change, changePercent);
-    updateOHLC(token, tick.open, tick.high, tick.low, tick.close);
-    
+    // 2. Update LTQ if present
+    if (tick.lastTradedQuantity > 0) {
+        updateLastTradedQuantity(token, tick.lastTradedQuantity);
+    }
+
+    // 3. Update Average Price if provided
+    if (tick.averagePrice > 0) {
+        QList<int> rows = m_tokenAddressBook->getRowsForToken(token);
+        for (int row : rows) {
+            m_model->updateAveragePrice(row, tick.averagePrice);
+        }
+    }
+
+    // 4. Update Volume if provided
     if (tick.volume > 0) {
         updateVolume(token, tick.volume);
     }
     
+    // 5. Update Bid/Ask and Market Depth
     if (tick.bidPrice > 0 || tick.askPrice > 0) {
         updateBidAsk(token, tick.bidPrice, tick.askPrice);
         updateBidAskQuantities(token, tick.bidQuantity, tick.askQuantity);
     }
     
+    // 6. Update Total Buy/Sell Qty
     if (tick.totalBuyQuantity > 0 || tick.totalSellQuantity > 0) {
         updateTotalBuySellQty(token, tick.totalBuyQuantity, tick.totalSellQuantity);
+    }
+    
+    // 7. Update Open Interest
+    if (tick.openInterest > 0) {
+        updateOpenInterest(token, tick.openInterest, 0.0);
     }
     
     int64_t timestampModelEnd = LatencyTracker::now();
@@ -95,23 +136,11 @@ void MarketWatchWindow::onTickUpdate(const XTS::Tick& tick)
             timestampModelStart,
             timestampModelEnd
         );
-        
-        static int trackedCount = 0;
-        if (++trackedCount % 100 == 1) {
-            LatencyTracker::printLatencyBreakdown(
-                tick.refNo,
-                token,
-                tick.timestampUdpRecv,
-                tick.timestampParsed,
-                tick.timestampQueued,
-                tick.timestampDequeued,
-                tick.timestampFeedHandler,
-                timestampModelStart,
-                timestampModelEnd
-            );
-        }
     }
 }
+
+
+
 
 int MarketWatchWindow::findTokenRow(int token) const
 {

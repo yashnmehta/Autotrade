@@ -124,10 +124,26 @@ bool MarketWatchWindow::hasValidSelection() const
     return false;
 }
 
-void MarketWatchWindow::onRowUpdated(int row, int firstColumn, int lastColumn) {}
-void MarketWatchWindow::onRowsInserted(int firstRow, int lastRow) { viewport()->repaint(); }
-void MarketWatchWindow::onRowsRemoved(int firstRow, int lastRow) {}
-void MarketWatchWindow::onModelReset() {}
+void MarketWatchWindow::onRowUpdated(int row, int firstColumn, int lastColumn) {
+    // Map source row to proxy row (sorting/filtering)
+    int proxyRow = mapToProxy(row);
+    if (proxyRow < 0) return;
+
+    // Use ultra-fast direct viewport update (bypasses Qt's signal system) ✅
+    // Only update the rect of the affected cells for maximum performance
+    QRect firstRect = visualRect(proxyModel()->index(proxyRow, firstColumn));
+    QRect lastRect = visualRect(proxyModel()->index(proxyRow, lastColumn));
+    QRect updateRect = firstRect.united(lastRect);
+    
+    if (updateRect.isValid()) {
+        viewport()->update(updateRect);
+    }
+}
+void MarketWatchWindow::onRowsInserted(int firstRow, int lastRow) { viewport()->update(); }
+void MarketWatchWindow::onRowsRemoved(int firstRow, int lastRow) { viewport()->update(); }
+void MarketWatchWindow::onModelReset() { viewport()->update(); }
+
+
 
 void MarketWatchWindow::closeEvent(QCloseEvent *event) {
     WindowSettingsHelper::saveWindowSettings(this, "MarketWatch");

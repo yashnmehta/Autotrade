@@ -258,21 +258,20 @@ void MarketWatchModel::updatePrice(int row, double ltp, double change, double ch
         scrip.change = change;
         scrip.changePercent = changePercent;
         
-        // Use native callback if enabled (65ns), else Qt signal (500ns-15ms)
-        notifyRowUpdated(row, COL_LTP, COL_CHANGE_PERCENT);
-        
-        // ❌ REMOVED: emit priceUpdated() - adds 500ns-15ms Qt signal latency!
-        // Native callback above is 200x faster (50ns vs 15ms)
+        // Notify entire row to support dynamic column profiles correctly
+        notifyRowUpdated(row, 0, columnCount() - 1);
     }
 }
+
 
 void MarketWatchModel::updateVolume(int row, qint64 volume)
 {
     if (row >= 0 && row < m_scrips.count() && !m_scrips.at(row).isBlankRow) {
         m_scrips[row].volume = volume;
-        notifyRowUpdated(row, COL_VOLUME, COL_VOLUME);
+        notifyRowUpdated(row, 0, columnCount() - 1);
     }
 }
+
 
 void MarketWatchModel::updateBidAsk(int row, double bid, double ask)
 {
@@ -283,27 +282,47 @@ void MarketWatchModel::updateBidAsk(int row, double bid, double ask)
         scrip.buyPrice = bid;   // Buy Price = Bid
         scrip.sellPrice = ask;  // Sell Price = Ask
         
-        // Notify view (native callback if enabled, else Qt signal)
-        notifyRowUpdated(row, COL_BID, COL_ASK);
+        notifyRowUpdated(row, 0, columnCount() - 1);
     }
 }
+
+void MarketWatchModel::updateLastTradedQuantity(int row, qint64 ltq)
+{
+    if (row >= 0 && row < m_scrips.count() && !m_scrips.at(row).isBlankRow) {
+        m_scrips[row].ltq = ltq;
+        notifyRowUpdated(row, 0, columnCount() - 1);
+    }
+}
+
+
 
 void MarketWatchModel::updateHighLow(int row, double high, double low)
 {
     if (row >= 0 && row < m_scrips.count() && !m_scrips.at(row).isBlankRow) {
         m_scrips[row].high = high;
         m_scrips[row].low = low;
-        notifyRowUpdated(row, COL_HIGH, COL_LOW);
+        notifyRowUpdated(row, 0, columnCount() - 1);
     }
 }
+
 
 void MarketWatchModel::updateOpenInterest(int row, qint64 oi)
 {
     if (row >= 0 && row < m_scrips.count() && !m_scrips.at(row).isBlankRow) {
         m_scrips[row].openInterest = oi;
-        notifyRowUpdated(row, COL_OPEN_INTEREST, COL_OPEN_INTEREST);
+        // Notify entire row to support dynamic column profiles correctly
+        notifyRowUpdated(row, 0, columnCount() - 1);
     }
 }
+
+void MarketWatchModel::updateAveragePrice(int row, double avgPrice)
+{
+    if (row >= 0 && row < m_scrips.count() && !m_scrips.at(row).isBlankRow) {
+        m_scrips[row].avgTradedPrice = avgPrice;
+        notifyRowUpdated(row, 0, columnCount() - 1);
+    }
+}
+
 
 void MarketWatchModel::updateOHLC(int row, double open, double high, double low, double close)
 {
@@ -314,10 +333,10 @@ void MarketWatchModel::updateOHLC(int row, double open, double high, double low,
         scrip.low = low;
         scrip.close = close;
         
-        // Use native callback (covers OHLC column range)
-        notifyRowUpdated(row, COL_OPEN, COL_LOW);
+        notifyRowUpdated(row, 0, columnCount() - 1);
     }
 }
+
 
 void MarketWatchModel::updateBidAskQuantities(int row, int bidQty, int askQty)
 {
@@ -384,14 +403,16 @@ void MarketWatchModel::emitCellChanged(int row, int column)
 
 void MarketWatchModel::notifyRowUpdated(int row, int firstColumn, int lastColumn)
 {
+    // ALWAYS emit dataChanged. Proxy models and the view's internal cache 
+    // rely on this signal to know when to refresh.
+    emit dataChanged(index(row, firstColumn), index(row, lastColumn));
+
     if (m_viewCallback) {
-        // Native C++ callback: 10-50ns (direct viewport invalidation) ✅
+        // Optional native C++ callback for even faster viewport invalidation
         m_viewCallback->onRowUpdated(row, firstColumn, lastColumn);
-    } else {
-        // Fallback to Qt signal: 500ns-15ms (signal queue latency) ❌
-        emit dataChanged(index(row, firstColumn), index(row, lastColumn));
     }
 }
+
 
 // ============================================================================
 // Column Profile Management

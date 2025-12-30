@@ -1,5 +1,6 @@
 #include "views/helpers/MarketWatchHelpers.h"
 #include "models/MarketWatchModel.h"  // For ScripData struct
+#include "repository/RepositoryManager.h"
 #include <QDebug>
 
 bool MarketWatchHelpers::parseScripFromTSV(const QString &line, ScripData &scrip)
@@ -15,6 +16,13 @@ bool MarketWatchHelpers::parseScripFromTSV(const QString &line, ScripData &scrip
     QString exchange = fields.at(1).trimmed();
     bool ok;
     int token = fields.at(2).toInt(&ok);
+
+    // If exchange is numeric, convert to name
+    bool isNumeric;
+    int exchangeId = exchange.toInt(&isNumeric);
+    if (isNumeric) {
+        exchange = RepositoryManager::getExchangeSegmentName(exchangeId);
+    }
     
     // Validate basic fields
     if (symbol.isEmpty() || symbol.startsWith("─") || !ok || token <= 0) {
@@ -25,6 +33,7 @@ bool MarketWatchHelpers::parseScripFromTSV(const QString &line, ScripData &scrip
     scrip.symbol = symbol;
     scrip.exchange = exchange;
     scrip.token = token;
+
     scrip.isBlankRow = false;
     
     // Parse optional price data (fields 3-11)

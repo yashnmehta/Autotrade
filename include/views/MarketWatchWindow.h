@@ -146,6 +146,7 @@ public:
      * @param ask Ask price
      */
     void updateBidAsk(int token, double bid, double ask);
+    void updateLastTradedQuantity(int token, qint64 ltq);
     
     /**
      * @brief Update OHLC data for a token

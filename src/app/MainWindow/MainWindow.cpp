@@ -120,9 +120,9 @@ MarketWatchWindow* MainWindow::getActiveMarketWatch() const {
 void MainWindow::onTickReceived(const XTS::Tick &tick)
 {
     // Direct callback architecture
-    PriceCache::instance().updatePrice((int)tick.exchangeInstrumentID, tick);
     FeedHandler::instance().onTickReceived(tick);
 }
+
 
 // UDP Broadcast Logic
 void MainWindow::startBroadcastReceiver() {
@@ -142,7 +142,6 @@ void MainWindow::startBroadcastReceiver() {
     // Register Callbacks
     MarketDataCallbackRegistry::instance().registerTouchlineCallback(
         [this](const TouchlineData& data) {
-            m_msg7200Count++;
             XTS::Tick tick;
             tick.exchangeSegment = 2; // NSEFO
             tick.exchangeInstrumentID = data.token;
@@ -154,23 +153,23 @@ void MainWindow::startBroadcastReceiver() {
             tick.low = data.low;
             tick.close = data.close;
             tick.lastUpdateTime = data.lastTradeTime;
+            tick.averagePrice = data.avgPrice;
+
             
             // Latency tracking
             tick.refNo = data.refNo;
             tick.timestampUdpRecv = data.timestampRecv;
             tick.timestampParsed = data.timestampParsed;
             tick.timestampQueued = LatencyTracker::now();
-            tick.timestampDequeued = LatencyTracker::now();
             
-            QMetaObject::invokeMethod(this, [this, tick]() {
-                 FeedHandler::instance().onTickReceived(tick);
-            }, Qt::AutoConnection);
+            // USE LOCK-FREE QUEUE (Zero signal latency) ✅
+            m_udpTickQueue.enqueue(tick);
         }
     );
+
     
     MarketDataCallbackRegistry::instance().registerMarketDepthCallback(
         [this](const MarketDepthData& data) {
-            m_depthCount++;            
             XTS::Tick tick;
             tick.exchangeSegment = 2;
             tick.exchangeInstrumentID = data.token;
@@ -190,35 +189,54 @@ void MainWindow::startBroadcastReceiver() {
             tick.timestampUdpRecv = data.timestampRecv;
             tick.timestampParsed = data.timestampParsed;
             tick.timestampQueued = LatencyTracker::now();
-            tick.timestampDequeued = LatencyTracker::now();
             
-            QMetaObject::invokeMethod(this, [this, tick]() {
-                FeedHandler::instance().onTickReceived(tick);
-            }, Qt::AutoConnection);
+            // USE LOCK-FREE QUEUE (Zero signal latency) ✅
+            m_udpTickQueue.enqueue(tick);
         }
     );
+
     
     MarketDataCallbackRegistry::instance().registerTickerCallback(
          [this](const TickerData& data) {
-            m_msg7202Count++;
             if (data.fillVolume > 0) {
                 XTS::Tick tick;
                 tick.exchangeSegment = 2;
                 tick.exchangeInstrumentID = data.token;
-                tick.volume = data.fillVolume;
+                tick.lastTradedQuantity = (int)data.fillVolume; // Use LTQ for trade volume
+                tick.lastTradedPrice = data.fillPrice;
+                tick.openInterest = data.openInterest;
                 
                 tick.refNo = data.refNo;
                 tick.timestampUdpRecv = data.timestampRecv;
+
                 tick.timestampParsed = data.timestampParsed;
                 tick.timestampQueued = LatencyTracker::now();
-                tick.timestampDequeued = LatencyTracker::now();
                 
-                QMetaObject::invokeMethod(this, [this, tick]() {
-                    FeedHandler::instance().onTickReceived(tick);
-                }, Qt::AutoConnection);
+                // USE LOCK-FREE QUEUE (Zero signal latency) ✅
+                m_udpTickQueue.enqueue(tick);
+
             }
          }
     );
+    MarketDataCallbackRegistry::instance().registerMarketWatchCallback(
+        [this](const MarketWatchData& data) {
+            XTS::Tick tick;
+            tick.exchangeSegment = 2;
+            tick.exchangeInstrumentID = data.token;
+            tick.openInterest = data.openInterest;
+            
+            if (!data.levels.empty()) {
+                tick.bidPrice = data.levels[0].buyPrice;
+                tick.bidQuantity = data.levels[0].buyVolume;
+                tick.askPrice = data.levels[0].sellPrice;
+                tick.askQuantity = data.levels[0].sellVolume;
+            }
+            
+            tick.timestampQueued = LatencyTracker::now();
+            m_udpTickQueue.enqueue(tick);
+        }
+    );
+
     
     // Start background thread
     std::thread udpThread([this]() {

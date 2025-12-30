@@ -121,12 +121,7 @@ private:
     std::unique_ptr<MulticastReceiver> m_udpReceiver;
     QTimer *m_tickDrainTimer;
     LockFreeQueue<XTS::Tick> m_udpTickQueue;
-    
-    // UI message counters
-    std::atomic<uint64_t> m_msg7200Count{0};
-    std::atomic<uint64_t> m_msg7201Count{0};
-    std::atomic<uint64_t> m_msg7202Count{0};
-    std::atomic<uint64_t> m_depthCount{0};
 };
+
 
 #endif // MAINWINDOW_H

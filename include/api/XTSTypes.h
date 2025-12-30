@@ -36,6 +36,8 @@ struct Tick {
     int bidQuantity;
     double askPrice;
     int askQuantity;
+    double averagePrice;         // New: Average Traded Price
+    int64_t openInterest;       // New: Open Interest
     
     // === Latency Tracking Fields ===
     // Used to measure end-to-end latency from UDP → Screen
@@ -55,11 +57,13 @@ struct Tick {
              volume(0), open(0.0), high(0.0), low(0.0), close(0.0),
              lastUpdateTime(0), bidPrice(0.0), bidQuantity(0),
              askPrice(0.0), askQuantity(0),
+             averagePrice(0.0), openInterest(0),
              refNo(0), timestampUdpRecv(0), timestampParsed(0),
              timestampQueued(0), timestampDequeued(0),
              timestampFeedHandler(0), timestampModelUpdate(0),
              timestampViewUpdate(0) {}
 };
+
 
 // Instrument data structure
 struct Instrument {
