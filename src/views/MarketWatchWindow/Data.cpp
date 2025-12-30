@@ -77,10 +77,18 @@ void MarketWatchWindow::onTickUpdate(const XTS::Tick& tick)
         double change = 0;
         double changePercent = 0;
         
-        // Use the close price from the tick if available, otherwise it will remain 0
-        if (tick.close > 0) {
-            change = tick.lastTradedPrice - tick.close;
-            changePercent = (change / tick.close) * 100.0;
+        // Find stored close price if tick doesn't have it
+        double closePrice = tick.close;
+        if (closePrice <= 0) {
+            int row = findTokenRow(token);
+            if (row >= 0) {
+                closePrice = m_model->getScripAt(row).close;
+            }
+        }
+
+        if (closePrice > 0) {
+            change = tick.lastTradedPrice - closePrice;
+            changePercent = (change / closePrice) * 100.0;
         }
 
         updatePrice(token, tick.lastTradedPrice, change, changePercent);

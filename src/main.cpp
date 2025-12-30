@@ -168,7 +168,7 @@ int main(int argc, char *argv[])
                         mainWindow->refreshScripBar();
                     });
                     
-                    loginService->setCompleteCallback([loginWindow, mainWindow, loginService, tradingDataService]() {
+                    loginService->setCompleteCallback([loginWindow, mainWindow, loginService, tradingDataService, config]() {
                         qDebug() << "✅ Login complete! Showing main window...";
                         
                         // Pass XTS clients to main window
@@ -179,6 +179,9 @@ int main(int argc, char *argv[])
                         
                         // Pass trading data service to main window
                         mainWindow->setTradingDataService(tradingDataService);
+                        
+                        // Pass config loader to main window
+                        mainWindow->setConfigLoader(config);
                         
                         // Show continue button
                         loginWindow->showContinueButton();
@@ -218,7 +221,8 @@ int main(int argc, char *argv[])
                             mdAppKey, mdSecretKey,
                             iaAppKey, iaSecretKey,
                             loginID, downloadMasters,
-                            baseURL  // Will be split into MD and IA URLs in service
+                            baseURL,
+                            config->getSource()
                         );
                     });
                     

@@ -60,8 +60,8 @@ namespace TxCodes {
 namespace CommonConfig {
     // Replaces magic number 8 for compressed header offset
     constexpr size_t COMPRESSED_HEADER_OFFSET = 8;
-    // Replaces magic number 8 for transaction codes in broadcast header
-    constexpr size_t BCAST_HEADER_TXCODE_OFFSET = 8;
+    // Replaces magic number 10 for transaction codes in broadcast header
+    constexpr size_t BCAST_HEADER_TXCODE_OFFSET = 10;
 }
 
 // Helper to check compression

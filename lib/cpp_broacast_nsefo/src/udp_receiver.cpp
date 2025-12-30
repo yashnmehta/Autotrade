@@ -252,7 +252,7 @@ void UDPReceiver::startListener(int port, UDPStats& stats) {
                      const uint8_t* ptr = decompressBuffer.data();
                      transactionCode = be16toh_func(*reinterpret_cast<const uint16_t*>(ptr + 18));
                      // printf("Decompressed TxCode: %u\n", transactionCode); // Debug
-                     std::cout << "  [Decompressed] TxCode at offset 18: " << transactionCode << std::endl;
+                    //  std::cout << "  [Decompressed] TxCode at offset 18: " << transactionCode << std::endl;
                 }
 
             } catch (const std::exception& e) {

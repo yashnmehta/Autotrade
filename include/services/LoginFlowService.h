@@ -23,7 +23,8 @@ public:
         const QString &iaSecretKey,
         const QString &loginID,
         bool downloadMasters,
-        const QString &baseURL = "https://ttblaze.iifl.com"
+        const QString &baseURL,
+        const QString &source = "WEBAPI"
     );
 
     // Getters for API clients

@@ -1,14 +1,12 @@
-#ifndef NSECM_MULTICAST_RECEIVER_H
-#define NSECM_MULTICAST_RECEIVER_H
+#ifndef MULTICAST_RECEIVER_H
+#define MULTICAST_RECEIVER_H
 
 #include <string>
 #include <netinet/in.h>
 #include <atomic>
-#include "nsecm_udp_receiver.h"
+#include "udp_receiver.h"
 
-namespace nsecm {
-
-constexpr size_t kBufferSize = 65535;
+#define BUFFER_SIZE 2048    
 
 class MulticastReceiver {
 public:
@@ -29,13 +27,11 @@ private:
     struct sockaddr_in addr;
     std::atomic<bool> running;
     
-    alignas(8) char buffer[kBufferSize];
+    char buffer[BUFFER_SIZE];
     
     // Statistics tracking
     UDPStats stats;
-    uint32_t lastSeqNo;
+    uint32_t last_seq_no;
 };
 
-} // namespace nsecm
-
-#endif // NSECM_MULTICAST_RECEIVER_H
+#endif // MULTICAST_RECEIVER_H

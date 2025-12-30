@@ -6,6 +6,7 @@
 #include <QDateTime>
 #include <QDir>
 #include <QMutex>
+#include <QDebug>
 
 static QFile *logFile = nullptr;
 static QMutex logMutex;

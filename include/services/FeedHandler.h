@@ -2,15 +2,29 @@
 #define FEEDHANDLER_H
 
 #include <QObject>
-#include <QTimer>
-#include <functional>
+#include <QDebug>
 #include <unordered_map>
 #include <vector>
 #include <mutex>
-#include <atomic>
 #include <memory>
 #include "api/XTSTypes.h"
-#include "utils/LockFreeQueue.h"
+
+/**
+ * @brief Helper object that emits signals for a specific token
+ */
+class TokenPublisher : public QObject {
+    Q_OBJECT
+public:
+    explicit TokenPublisher(int token, QObject* parent = nullptr) : QObject(parent), m_token(token) {}
+    void publish(const XTS::Tick& tick) { emit tickUpdated(tick); }
+    int token() const { return m_token; }
+
+signals:
+    void tickUpdated(const XTS::Tick& tick);
+
+private:
+    int m_token;
+};
 
 /**
  * @brief Centralized feed handler for real-time market data distribution
@@ -44,104 +58,48 @@ class FeedHandler : public QObject {
     Q_OBJECT
 
 public:
-    using TickCallback = std::function<void(const XTS::Tick&)>;
-    using SubscriptionID = uint64_t;
-
-    /**
-     * @brief Get singleton instance
-     * @return Reference to global FeedHandler
-     */
     static FeedHandler& instance();
 
     /**
-     * @brief Subscribe to tick updates for a specific token
+     * @brief Subscribe a receiver's slot to tick updates for a specific token
      * @param token Exchange instrument token
-     * @param callback Function to call when tick arrives (runs on IO thread)
-     * @param owner Optional QObject owner for automatic cleanup
-     * @return Subscription ID for later unsubscribe
+     * @param receiver The QObject that will receive the tick
+     * @param slot The slot signature or member function pointer to call
      * 
-     * @note Callback executes on IO thread. Use QMetaObject::invokeMethod
-     *       to marshal to UI thread if needed.
+     * Example: 
+     * FeedHandler::instance().subscribe(49508, this, &MyWindow::onTickUpdate);
      */
-    SubscriptionID subscribe(int token, TickCallback callback, QObject* owner = nullptr);
+    template<typename Receiver, typename Slot>
+    void subscribe(int token, Receiver* receiver, Slot slot) {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        TokenPublisher* pub = getOrCreatePublisher(token);
+        connect(pub, &TokenPublisher::tickUpdated, receiver, slot);
+        
+        qDebug() << "[FeedHandler] Connected slot for token" << token;
+        emit subscriptionCountChanged(token, 1); // Approximate for UI status
+    }
 
     /**
-     * @brief Subscribe to multiple tokens with single callback
-     * @param tokens Vector of tokens to subscribe
-     * @param callback Function to call when any tick arrives
-     * @param owner Optional QObject owner for automatic cleanup
-     * @return Vector of subscription IDs (one per token)
+     * @brief Unsubscribe a receiver from a specific token
      */
-    std::vector<SubscriptionID> subscribe(const std::vector<int>& tokens, 
-                                          TickCallback callback,
-                                          QObject* owner = nullptr);
+    void unsubscribe(int token, QObject* receiver);
 
     /**
-     * @brief Unsubscribe from tick updates
-     * @param id Subscription ID returned by subscribe()
+     * @brief Unsubscribe a receiver from all tick updates
      */
-    void unsubscribe(SubscriptionID id);
+    void unsubscribeAll(QObject* receiver);
 
     /**
-     * @brief Unsubscribe multiple subscriptions
-     * @param ids Vector of subscription IDs
-     */
-    void unsubscribe(const std::vector<SubscriptionID>& ids);
-
-    /**
-     * @brief Unsubscribe all subscriptions for an owner
-     * @param owner QObject that owns subscriptions
-     */
-    void unsubscribeAll(QObject* owner);
-
-    /**
-     * @brief Publish tick to all subscribers (called by XTS client)
-     * @param tick Tick data to distribute
-     * 
-     * @note This is called from IO thread. Subscribers' callbacks
-     *       will execute on this same thread.
+     * @brief Publish tick (called by MainWindow/UDP thread)
      */
     void onTickReceived(const XTS::Tick& tick);
 
     /**
-     * @brief Publish multiple ticks efficiently
-     * @param ticks Vector of ticks to distribute
-     * 
-     * More efficient than calling onTickReceived() in a loop
-     * due to reduced lock overhead.
-     */
-    void onTickBatch(const std::vector<XTS::Tick>& ticks);
-
-    /**
-     * @brief Get number of subscribers for a token
-     * @param token Exchange instrument token
-     * @return Number of active subscribers
-     */
-    size_t subscriberCount(int token) const;
-
-    /**
-     * @brief Get total number of active subscriptions
-     * @return Total subscriptions across all tokens
+     * @brief Get number of active publishers (monitoring)
      */
     size_t totalSubscriptions() const;
 
-    /**
-     * @brief Get all subscribed tokens
-     * @return Vector of tokens with active subscriptions
-     */
-    std::vector<int> getSubscribedTokens() const;
-
-    /**
-     * @brief Clear all subscriptions (for testing/cleanup)
-     */
-    void clear();
-
 signals:
-    /**
-     * @brief Emitted when subscription count changes (for monitoring)
-     * @param token Token that changed
-     * @param count New subscriber count
-     */
     void subscriptionCountChanged(int token, size_t count);
 
 private:
@@ -152,24 +110,11 @@ private:
     FeedHandler(const FeedHandler&) = delete;
     FeedHandler& operator=(const FeedHandler&) = delete;
 
-    struct Subscription {
-        SubscriptionID id;
-        int token;
-        TickCallback callback;
-        QObject* owner;  // For automatic cleanup on owner destruction
-    };
+    TokenPublisher* getOrCreatePublisher(int token);
 
-    // Token -> list of subscriptions
-    std::unordered_map<int, std::vector<std::shared_ptr<Subscription>>> m_subscribers;
-    
-    // Subscription ID -> subscription (for fast unsubscribe)
-    std::unordered_map<SubscriptionID, std::shared_ptr<Subscription>> m_subscriptionById;
-    
-    // Owner -> subscription IDs (for automatic cleanup)
-    std::unordered_map<QObject*, std::vector<SubscriptionID>> m_subscriptionsByOwner;
-    
+    // Token -> Publisher
+    std::unordered_map<int, TokenPublisher*> m_publishers;
     mutable std::mutex m_mutex;
-    std::atomic<SubscriptionID> m_nextID{1};
 };
 
 #endif // FEEDHANDLER_H

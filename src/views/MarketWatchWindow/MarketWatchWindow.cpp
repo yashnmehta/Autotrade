@@ -23,7 +23,6 @@ MarketWatchWindow::MarketWatchWindow(QWidget *parent)
 MarketWatchWindow::~MarketWatchWindow()
 {
     FeedHandler::instance().unsubscribeAll(this);
-    m_feedSubscriptions.clear();
     
     if (m_model) {
         for (int row = 0; row < m_model->rowCount(); ++row) {

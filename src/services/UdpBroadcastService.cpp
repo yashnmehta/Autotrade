@@ -1,5 +1,5 @@
 #include "services/UdpBroadcastService.h"
-#include "market_data_callback.h"
+#include "nsefo_callback.h"
 #include "services/FeedHandler.h"
 #include "utils/LatencyTracker.h"
 #include <QMetaObject>
@@ -32,7 +32,7 @@ void UdpBroadcastService::start(const std::string& ip, int port) {
     m_active = true;
 
     // Register callbacks
-    MarketDataCallbackRegistry::instance().registerTouchlineCallback([this](const TouchlineData& data) {
+    nsefo::MarketDataCallbackRegistry::instance().registerTouchlineCallback([this](const nsefo::TouchlineData& data) {
         m_msg7200Count++;
         XTS::Tick tick;
         tick.exchangeSegment = 2; // NSEFO
@@ -59,7 +59,7 @@ void UdpBroadcastService::start(const std::string& ip, int port) {
         emit tickReceived(tick);
     });
 
-    MarketDataCallbackRegistry::instance().registerMarketDepthCallback([this](const MarketDepthData& data) {
+    nsefo::MarketDataCallbackRegistry::instance().registerMarketDepthCallback([this](const nsefo::MarketDepthData& data) {
         m_depthCount++;
         XTS::Tick tick;
         tick.exchangeSegment = 2;
@@ -83,7 +83,7 @@ void UdpBroadcastService::start(const std::string& ip, int port) {
         emit tickReceived(tick);
     });
 
-    MarketDataCallbackRegistry::instance().registerTickerCallback([this](const TickerData& data) {
+    nsefo::MarketDataCallbackRegistry::instance().registerTickerCallback([this](const nsefo::TickerData& data) {
         m_msg7202Count++;
         if (data.fillVolume > 0) {
             XTS::Tick tick;

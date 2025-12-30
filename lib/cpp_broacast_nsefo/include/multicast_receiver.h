@@ -1,14 +1,14 @@
-#ifndef MULTICAST_RECEIVER_H
-#define MULTICAST_RECEIVER_H
+#ifndef NSEFO_MULTICAST_RECEIVER_H
+#define NSEFO_MULTICAST_RECEIVER_H
 
 #include <string>
 #include "socket_platform.h"
 #include <atomic>
 #include "udp_receiver.h"
 
-constexpr size_t kBufferSize = 65535;
-
 namespace nsefo {
+
+constexpr size_t kBufferSize = 65535;
 
 class MulticastReceiver {
 public:
@@ -38,4 +38,4 @@ private:
 
 } // namespace nsefo
 
-#endif // MULTICAST_RECEIVER_H
+#endif // NSEFO_MULTICAST_RECEIVER_H

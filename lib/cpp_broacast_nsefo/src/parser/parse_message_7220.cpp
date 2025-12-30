@@ -2,6 +2,9 @@
 #include "protocol.h"
 #include <iostream>
 
+namespace nsefo {
+
+
 void parse_message_7220(const MS_BCAST_LIMIT_PRICE_PROTECTION_RANGE* msg) {
     uint32_t msgCount = be32toh_func(msg->data.msgCount);
     // std::cout << "  [LIMIT_PRICE_PROTECTION] Count: " << msgCount << std::endl;
@@ -22,3 +25,5 @@ void parse_message_7220(const MS_BCAST_LIMIT_PRICE_PROTECTION_RANGE* msg) {
 void parse_limit_price_protection(const MS_BCAST_LIMIT_PRICE_PROTECTION_RANGE* msg) {
     parse_message_7220(msg);
 }
+
+} // namespace nsefo

@@ -783,7 +783,7 @@ int ScripBar::getCurrentExchangeSegmentCode() const
     // NSE mappings
     if (exchange == "NSE") {
         if (segment == "E") return 1;   // NSECM
-        if (segment == "F" || segment == "O") return 2;  // NSEFO (both F and O)
+        if (segment == "F" || segment == "O" || segment == "D") return 2;  // NSEFO (F, O, D)
     }
     
     // NSECDS mappings

@@ -1,9 +1,11 @@
-#ifndef MARKET_DATA_CALLBACK_H
-#define MARKET_DATA_CALLBACK_H
+#ifndef NSECM_MARKET_DATA_CALLBACK_H
+#define NSECM_MARKET_DATA_CALLBACK_H
 
 #include <cstdint>
 #include <functional>
 #include <vector>
+
+namespace nsecm {
 
 // ============================================================================
 // PARSED DATA STRUCTURES FOR CALLBACKS
@@ -224,4 +226,6 @@ private:
     AdminCallback adminCallback;
 };
 
-#endif // MARKET_DATA_CALLBACK_H
+} // namespace nsecm
+
+#endif // NSECM_MARKET_DATA_CALLBACK_H

@@ -1,4 +1,4 @@
-#include "nsecm_udp_receiver.h"
+#include "udp_receiver.h"
 #include "protocol.h"
 #include "constants.h"
 #include "lzo_decompress.h"
@@ -11,8 +11,6 @@
 #include <cstring>
 #include <iomanip>
 #include <thread>
-
-namespace nsecm {
 
 UDPStats::UDPStats() {
     startTime = std::chrono::steady_clock::now();
@@ -182,7 +180,7 @@ void UDPReceiver::startListener(int port, UDPStats& stats) {
             decompressBuffer.resize(65535*4); // Reset size
 
             try {
-                int decompLen = common::LzoDecompressor::decompress(src, decompressBuffer);
+                int decompLen = LzoDecompressor::decompress(src, decompressBuffer);
                 rawSize = decompLen;
                 
                 // Get transaction code from offset 18 of DECOMPRESSED data
@@ -253,7 +251,7 @@ void UDPReceiver::startListener(int port, UDPStats& stats) {
                      const uint8_t* ptr = decompressBuffer.data();
                      transactionCode = be16toh_func(*reinterpret_cast<const uint16_t*>(ptr + 18));
                      // printf("Decompressed TxCode: %u\n", transactionCode); // Debug
-                    //  std::cout << "  [Decompressed] TxCode at offset 18: " << transactionCode << std::endl;
+                     std::cout << "  [Decompressed] TxCode at offset 18: " << transactionCode << std::endl;
                 }
 
             } catch (const std::exception& e) {
@@ -284,5 +282,3 @@ void UDPReceiver::startListener(int port, UDPStats& stats) {
     
     close(sockfd);
 }
-
-} // namespace nsecm

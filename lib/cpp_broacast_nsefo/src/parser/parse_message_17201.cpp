@@ -1,7 +1,10 @@
 #include "nse_parsers.h"
 #include "protocol.h"
-#include "market_data_callback.h"
+#include "nsefo_callback.h"
 #include <iostream>
+
+namespace nsefo {
+
 
 void parse_message_17201(const MS_ENHNCD_BCAST_INQ_RESP_2* msg) {
     uint16_t numRecords = be16toh_func(msg->noOfRecords);
@@ -36,3 +39,5 @@ void parse_message_17201(const MS_ENHNCD_BCAST_INQ_RESP_2* msg) {
 void parse_enhncd_market_watch(const MS_ENHNCD_BCAST_INQ_RESP_2* msg) {
     parse_message_17201(msg);
 }
+
+} // namespace nsefo

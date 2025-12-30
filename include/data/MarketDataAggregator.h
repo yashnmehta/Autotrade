@@ -11,22 +11,17 @@
 
 // Include broadcast library headers
 #include "multicast_receiver.h"
-#include "market_data_callback.h"
+#include "nsefo_callback.h"
+#include "nsecm_callback.h"
 
 // Forward declarations (actual classes from broadcast libraries)
 class MulticastReceiver;
 
-// Data structures are imported from market_data_callback.h:
-// - TouchlineData
-// - MarketDepthData (with vector<DepthLevel> bids/asks)
-// - TickerData
-// - MarketWatchData
-
 /**
- * @brief Singleton class that aggregates market data from 4 UDP broadcast sources
+ * @brief Singleton class that aggregates market data from UDP broadcast sources
  * 
  * Architecture:
- * - Runs 4 native C++ MulticastReceiver instances in std::threads
+ * - Runs native C++ MulticastReceiver instances in std::threads
  * - Receives callbacks from parsers (executed in worker threads)
  * - Maintains thread-safe cache with single mutex
  * - Emits Qt signals to main thread for UI updates
@@ -46,7 +41,7 @@ public:
     static MarketDataAggregator& instance();
     
     /**
-     * @brief Start all 4 broadcast receivers in separate threads
+     * @brief Start all broadcast receivers in separate threads
      */
     void start();
     
@@ -60,48 +55,32 @@ public:
      */
     bool isRunning() const { return m_running.load(); }
     
-    /**
-     * @brief Thread-safe cache access for touchline data
-     * @param token Instrument token
-     * @return TouchlineData (empty struct if not found)
-     */
-    TouchlineData getTouchline(int32_t token);
+    // =========================================================================
+    // FO DATA ACCESS
+    // =========================================================================
     
-    /**
-     * @brief Thread-safe cache access for depth data
-     * @param token Instrument token
-     * @return MarketDepthData (empty struct if not found)
-     */
-    MarketDepthData getDepth(int32_t token);
+    nsefo::TouchlineData getTouchlineFO(int32_t token);
+    nsefo::MarketDepthData getDepthFO(int32_t token);
+    nsefo::TickerData getTickerFO(int32_t token);
     
-    /**
-     * @brief Thread-safe cache access for ticker data
-     * @param token Instrument token
-     * @return TickerData (empty struct if not found)
-     */
-    TickerData getTicker(int32_t token);
+    // =========================================================================
+    // CM DATA ACCESS
+    // =========================================================================
+    
+    nsecm::TouchlineData getTouchlineCM(int32_t token);
+    nsecm::MarketDepthData getDepthCM(int32_t token);
+    nsecm::TickerData getTickerCM(int32_t token);
     
 signals:
-    /**
-     * @brief Emitted when touchline data is updated
-     * @note Connected with Qt::QueuedConnection - safe to update UI directly
-     */
-    void touchlineUpdated(int32_t token, const TouchlineData& data);
+    // FO SIGNALS
+    void touchlineUpdatedFO(int32_t token, const nsefo::TouchlineData& data);
+    void depthUpdatedFO(int32_t token, const nsefo::MarketDepthData& data);
+    void tickerUpdatedFO(int32_t token, const nsefo::TickerData& data);
     
-    /**
-     * @brief Emitted when market depth data is updated
-     */
-    void depthUpdated(int32_t token, const MarketDepthData& data);
-    
-    /**
-     * @brief Emitted when ticker data is updated
-     */
-    void tickerUpdated(int32_t token, const TickerData& data);
-    
-    /**
-     * @brief Emitted when market watch data is updated
-     */
-    void marketWatchUpdated(int32_t token, const MarketWatchData& data);
+    // CM SIGNALS
+    void touchlineUpdatedCM(int32_t token, const nsecm::TouchlineData& data);
+    void depthUpdatedCM(int32_t token, const nsecm::MarketDepthData& data);
+    void tickerUpdatedCM(int32_t token, const nsecm::TickerData& data);
     
 private:
     MarketDataAggregator();
@@ -111,45 +90,40 @@ private:
     MarketDataAggregator(const MarketDataAggregator&) = delete;
     MarketDataAggregator& operator=(const MarketDataAggregator&) = delete;
     
-    /**
-     * @brief Static callback functions registered with broadcast parsers
-     * @note These are called from worker threads - must be thread-safe
-     */
-    static void onTouchlineCallback(const TouchlineData& data);
-    static void onDepthCallback(const MarketDepthData& data);
-    static void onTickerCallback(const TickerData& data);
-    static void onMarketWatchCallback(const MarketWatchData& data);
+    // STATIC CALLBACKS (FO)
+    static void onTouchlineCallbackFO(const nsefo::TouchlineData& data);
+    static void onDepthCallbackFO(const nsefo::MarketDepthData& data);
+    static void onTickerCallbackFO(const nsefo::TickerData& data);
     
-    /**
-     * @brief Thread-safe cache update methods
-     * @note These acquire mutex, update cache, then emit Qt signal
-     */
-    void updateTouchlineCache(const TouchlineData& data);
-    void updateDepthCache(const MarketDepthData& data);
-    void updateTickerCache(const TickerData& data);
-    void updateMarketWatchCache(const MarketWatchData& data);
+    // STATIC CALLBACKS (CM)
+    static void onTouchlineCallbackCM(const nsecm::TouchlineData& data);
+    static void onDepthCallbackCM(const nsecm::MarketDepthData& data);
+    static void onTickerCallbackCM(const nsecm::TickerData& data);
     
-    // Native C++ receivers (no Qt wrappers) - TEMPORARILY DISABLED
-    // std::unique_ptr<MulticastReceiver> m_nseFOReceiver;
-    // std::unique_ptr<MulticastReceiver> m_nseCMReceiver;
-    // std::unique_ptr<MulticastReceiver> m_bseFOReceiver;
-    // std::unique_ptr<MulticastReceiver> m_bseCMReceiver;
+    // CACHE UPDATE METHODS
+    void updateTouchlineCacheFO(const nsefo::TouchlineData& data);
+    void updateDepthCacheFO(const nsefo::MarketDepthData& data);
+    void updateTickerCacheFO(const nsefo::TickerData& data);
     
-    // Standard C++11 threads - TEMPORARILY DISABLED
-    // std::thread m_nseFOThread;
-    // std::thread m_nseCMThread;
-    // std::thread m_bseFOThread;
-    // std::thread m_bseCMThread;
+    void updateTouchlineCacheCM(const nsecm::TouchlineData& data);
+    void updateDepthCacheCM(const nsecm::MarketDepthData& data);
+    void updateTickerCacheCM(const nsecm::TickerData& data);
     
     // Running state flag
     std::atomic<bool> m_running{false};
     
     // Thread-safe cache with single mutex
     mutable std::mutex m_cacheMutex;
-    std::unordered_map<int32_t, TouchlineData> m_touchlineCache;
-    std::unordered_map<int32_t, MarketDepthData> m_depthCache;
-    std::unordered_map<int32_t, TickerData> m_tickerCache;
-    std::unordered_map<int32_t, MarketWatchData> m_marketWatchCache;
+    
+    // FO CACHES
+    std::unordered_map<int32_t, nsefo::TouchlineData> m_touchlineCacheFO;
+    std::unordered_map<int32_t, nsefo::MarketDepthData> m_depthCacheFO;
+    std::unordered_map<int32_t, nsefo::TickerData> m_tickerCacheFO;
+    
+    // CM CACHES
+    std::unordered_map<int32_t, nsecm::TouchlineData> m_touchlineCacheCM;
+    std::unordered_map<int32_t, nsecm::MarketDepthData> m_depthCacheCM;
+    std::unordered_map<int32_t, nsecm::TickerData> m_tickerCacheCM;
 };
 
 #endif // MARKETDATAAGGREGATOR_H

@@ -4,6 +4,8 @@
 #include "nse_structures.h"
 #include <cstdint>
 
+namespace nsefo {
+
 // ============================================================================
 // MARKET DATA MESSAGE PARSERS
 // ============================================================================
@@ -47,5 +49,7 @@ void parse_limit_price_protection(const MS_BCAST_LIMIT_PRICE_PROTECTION_RANGE* m
 void parse_circuit_check(const MS_BC_CIRCUIT_CHECK* msg);
 void parse_market_open(const MS_BC_OPEN_MSG* msg);
 void parse_market_close(const MS_BC_CLOSE_MSG* msg);
+
+} // namespace nsefo
 
 #endif // NSE_PARSERS_H

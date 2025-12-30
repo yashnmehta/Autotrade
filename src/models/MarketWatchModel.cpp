@@ -524,8 +524,13 @@ QString MarketWatchModel::formatColumnData(const ScripData& scrip, MarketWatchCo
         case MarketWatchColumn::ISIN_CODE:
         case MarketWatchColumn::DPR:
         case MarketWatchColumn::TREND_INDICATOR:
-        case MarketWatchColumn::TRADE_EXECUTION_RANGE:
-            return getColumnData(scrip, column).toString();
+        case MarketWatchColumn::TRADE_EXECUTION_RANGE: {
+            QString val = getColumnData(scrip, column).toString();
+            if (column == MarketWatchColumn::INSTRUMENT_TYPE || column == MarketWatchColumn::OPTION_TYPE) {
+                // qDebug() << "[MarketWatchModel] formatting string col" << (int)column << "for" << scrip.symbol << "val:" << val;
+            }
+            return val;
+        }
             
         case MarketWatchColumn::SERIES_EXPIRY: {
             // For F&O instruments, show expiry date

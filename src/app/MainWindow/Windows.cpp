@@ -250,9 +250,21 @@ void MainWindow::onAddToWatchRequested(const InstrumentData &instrument)
         // Apply cached price if available
         auto cached = PriceCache::instance().getPrice(instrument.exchangeInstrumentID);
         if (cached.has_value()) {
-            double change = cached->lastTradedPrice - cached->close;
-            double pct = (cached->close != 0) ? (change / cached->close) * 100 : 0;
-            marketWatch->updatePrice(instrument.exchangeInstrumentID, cached->lastTradedPrice, change, pct);
+            double closePrice = cached->close;
+            if (closePrice <= 0) {
+                const ContractData* contract = RepositoryManager::getInstance()->getContractByToken(
+                    RepositoryManager::getExchangeSegmentName(instrument.exchangeSegment), 
+                    instrument.exchangeInstrumentID);
+                if (contract) closePrice = contract->prevClose;
+            }
+
+            if (closePrice > 0) {
+                double change = cached->lastTradedPrice - closePrice;
+                double pct = (change / closePrice) * 100;
+                marketWatch->updatePrice(instrument.exchangeInstrumentID, cached->lastTradedPrice, change, pct);
+            } else {
+                marketWatch->updatePrice(instrument.exchangeInstrumentID, cached->lastTradedPrice, 0, 0);
+            }
         }
     }
 }

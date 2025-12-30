@@ -1,9 +1,11 @@
-#ifndef MARKET_DATA_CALLBACK_H
-#define MARKET_DATA_CALLBACK_H
+#ifndef NSEFO_MARKET_DATA_CALLBACK_H
+#define NSEFO_MARKET_DATA_CALLBACK_H
 
 #include <cstdint>
 #include <functional>
 #include <vector>
+
+namespace nsefo {
 
 // ============================================================================
 // PARSED DATA STRUCTURES FOR CALLBACKS
@@ -166,4 +168,6 @@ private:
     MarketWatchCallback marketWatchCallback;
 };
 
-#endif // MARKET_DATA_CALLBACK_H
+} // namespace nsefo
+
+#endif // NSEFO_MARKET_DATA_CALLBACK_H

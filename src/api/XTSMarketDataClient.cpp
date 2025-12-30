@@ -12,11 +12,13 @@
 XTSMarketDataClient::XTSMarketDataClient(const QString &baseURL,
                                            const QString &apiKey,
                                            const QString &secretKey,
+                                           const QString &source,
                                            QObject *parent)
     : QObject(parent)
     , m_baseURL(baseURL)
     , m_apiKey(apiKey)
     , m_secretKey(secretKey)
+    , m_source(source)
     , m_httpClient(std::make_unique<NativeHTTPClient>())
     , m_nativeWS(std::make_unique<NativeWebSocketClient>())
     , m_wsConnected(false)
@@ -40,7 +42,7 @@ void XTSMarketDataClient::login(std::function<void(bool, const QString&)> callba
     QJsonObject loginData;
     loginData["appKey"] = m_apiKey;
     loginData["secretKey"] = m_secretKey;
-    loginData["source"] = "WEBAPI";
+    loginData["source"] = m_source;
     
     QJsonDocument doc(loginData);
     std::string body = doc.toJson().toStdString();

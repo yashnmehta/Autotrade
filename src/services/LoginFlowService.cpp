@@ -46,7 +46,8 @@ void LoginFlowService::executeLogin(
     const QString &iaSecretKey,
     const QString &loginID,
     bool downloadMasters,
-    const QString &baseURL)
+    const QString &baseURL,
+    const QString &source)
 {
     updateStatus("init", "Starting login process...", 0);
 
@@ -56,8 +57,8 @@ void LoginFlowService::executeLogin(
     // Interactive API uses base URL directly
     QString iaBaseURL = baseURL;
     
-    m_mdClient = new XTSMarketDataClient(mdBaseURL, mdAppKey, mdSecretKey, this);
-    m_iaClient = new XTSInteractiveClient(iaBaseURL, iaAppKey, iaSecretKey, "TWSAPI", this);
+    m_mdClient = new XTSMarketDataClient(mdBaseURL, mdAppKey, mdSecretKey, source, this);
+    m_iaClient = new XTSInteractiveClient(iaBaseURL, iaAppKey, iaSecretKey, source, this);
 
     // Phase 1: Market Data API Login
     updateStatus("md_login", "Connecting to Market Data API...", 10);

@@ -1,8 +1,11 @@
 #include "nse_parsers.h"
 #include "protocol.h"
-#include "market_data_callback.h"
+#include "nsefo_callback.h"
 #include <iostream>
 #include <chrono>
+
+namespace nsefo {
+
 
 void parse_message_7208(const MS_BCAST_ONLY_MBP* msg) {
     // Convert NoOfRecords from Big Endian
@@ -107,3 +110,5 @@ void parse_message_7208(const MS_BCAST_ONLY_MBP* msg) {
 void parse_bcast_only_mbp(const MS_BCAST_ONLY_MBP* msg) {
     parse_message_7208(msg);
 }
+
+} // namespace nsefo

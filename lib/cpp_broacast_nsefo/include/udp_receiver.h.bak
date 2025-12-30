@@ -1,13 +1,11 @@
-#ifndef NSECM_UDP_RECEIVER_H
-#define NSECM_UDP_RECEIVER_H
+#ifndef UDP_RECEIVER_H
+#define UDP_RECEIVER_H
 
 #include <string>
 #include <atomic>
 #include <map>
 #include <chrono>
 #include <iostream>
-
-namespace nsecm {
 
 struct MessageStats {
     uint16_t transactionCode;
@@ -40,6 +38,4 @@ public:
     static void startListener(int port, UDPStats& stats);
 };
 
-} // namespace nsecm
-
-#endif // NSECM_UDP_RECEIVER_H
+#endif // UDP_RECEIVER_H

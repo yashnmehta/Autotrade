@@ -89,7 +89,7 @@ void parse_compressed_message(const char* data, int16_t length, UDPStats& stats)
     if (txCode != 7208 and txCode != 17202 and txCode != 7220 and txCode != 7211)
     {
     
-    std::cout << "  [Decompressed] TxCode at offset 10: " << txCode << std::endl;
+    // std::cout << "  [Decompressed] TxCode at offset 10: " << txCode << std::endl;
 
     }
     // UPDATE STATISTICS: Track this message by transaction code

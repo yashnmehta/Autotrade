@@ -561,7 +561,7 @@ QString RepositoryManager::getSegmentKey(const QString& exchange, const QString&
     // MCX F/O=MCXFO
     
     if (key == "NSECM" || key == "NSEE") return "NSECM";
-    if (key == "NSEFO" || key == "NSEF" || key == "NSEO") return "NSEFO";  // Both F and O map to NSEFO
+    if (key == "NSEFO" || key == "NSEF" || key == "NSEO" || key == "NSED" || key == "NFO") return "NSEFO";  // F, O, D and NFO map to NSEFO
     if (key == "NSECDSF" || key == "NSECDSO") return "NSECD";  // NSECDS F and O map to NSECD
     if (key == "BSECM" || key == "BSEE") return "BSECM";
     if (key == "BSEFO" || key == "BSEF") return "BSEFO";
@@ -574,9 +574,9 @@ int RepositoryManager::getExchangeSegmentID(const QString& exchange, const QStri
     QString segmentKey = getSegmentKey(exchange, segment);
     
     // XTS API exchange segment IDs
-    // E = Equity/CM, F = F&O, O = Currency/CD
+    // E = Equity/CM, F = F&O, O = Currency/CD, D = Derivative (XTS specific)
     if (segmentKey == "NSECM") return 1;  // NSE Cash Market (E)
-    if (segmentKey == "NSEFO") return 2;  // NSE F&O (F)
+    if (segmentKey == "NSEFO") return 2;  // NSE F&O (F, D)
     if (segmentKey == "BSECM") return 11; // BSE Cash Market (E)
     if (segmentKey == "BSEFO") return 12; // BSE F&O (F)
     

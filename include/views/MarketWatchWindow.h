@@ -298,9 +298,6 @@ private:
     // Data Components
     MarketWatchModel *m_model;
     TokenAddressBook *m_tokenAddressBook;
-    
-    // Phase 2: Track FeedHandler subscriptions (token -> SubscriptionID)
-    std::unordered_map<int, FeedHandler::SubscriptionID> m_feedSubscriptions;
 };
 
 #endif // MARKETWATCHWINDOW_H

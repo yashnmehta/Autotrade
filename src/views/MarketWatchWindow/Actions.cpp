@@ -17,25 +17,42 @@ bool MarketWatchWindow::addScrip(const QString &symbol, const QString &exchange,
     if (hasDuplicate(token)) return false;
     
     ScripData scrip;
-    scrip.symbol = symbol;
-    scrip.exchange = exchange;
-    scrip.token = token;
+    
+    qDebug() << "[MarketWatch] addScrip requested - Symbol:" << symbol << "Exchange:" << exchange << "Token:" << token;
+    
+    // Try to get full contract details from repository to populate missing fields
+    const ContractData* contract = RepositoryManager::getInstance()->getContractByToken(exchange, token);
+    if (contract) {
+        qDebug() << "[MarketWatch] contract found in repository:" << contract->displayName 
+                 << "Series:" << contract->series << "Strike:" << contract->strikePrice;
+        scrip.symbol = contract->displayName;
+        if (scrip.symbol.isEmpty()) scrip.symbol = contract->name;
+        scrip.exchange = exchange;
+        scrip.token = token;
+        scrip.instrumentType = contract->series;
+        scrip.strikePrice = contract->strikePrice;
+        scrip.optionType = contract->optionType;
+        scrip.seriesExpiry = contract->expiryDate;
+        scrip.close = contract->prevClose; // Essential for change calculation if not in tick
+        scrip.code = token;
+    } else {
+        qDebug() << "[MarketWatch] ⚠ contract NOT found in repository for" << exchange << token;
+        scrip.symbol = symbol;
+        scrip.exchange = exchange;
+        scrip.token = token;
+        scrip.code = token;
+    }
+    
     scrip.isBlankRow = false;
-    scrip.code = token;
     
     int newRow = m_model->rowCount();
     m_model->addScrip(scrip);
     
     TokenSubscriptionManager::instance()->subscribe(exchange, token);
-    auto subId = FeedHandler::instance().subscribe(
-        (uint32_t)token,
-        [this](const XTS::Tick& tick) { this->onTickUpdate(tick); },
-        this
-    );
-    m_feedSubscriptions[token] = subId;
+    FeedHandler::instance().subscribe(token, this, &MarketWatchWindow::onTickUpdate);
     m_tokenAddressBook->addToken(token, newRow);
     
-    emit scripAdded(symbol, exchange, token);
+    emit scripAdded(scrip.symbol, exchange, token);
     return true;
 }
 
@@ -44,19 +61,28 @@ bool MarketWatchWindow::addScripFromContract(const ScripData &contractData)
     if (contractData.token <= 0) return false;
     if (hasDuplicate(contractData.token)) return false;
     
+    ScripData scrip = contractData;
+    
+    // Enrich from repository if crucial metadata is missing
+    if (scrip.instrumentType.isEmpty() || (scrip.strikePrice == 0 && scrip.optionType.isEmpty())) {
+        const ContractData* contract = RepositoryManager::getInstance()->getContractByToken(scrip.exchange, scrip.token);
+        if (contract) {
+            if (scrip.instrumentType.isEmpty()) scrip.instrumentType = contract->series;
+            if (scrip.strikePrice == 0) scrip.strikePrice = contract->strikePrice;
+            if (scrip.optionType.isEmpty()) scrip.optionType = contract->optionType;
+            if (scrip.seriesExpiry.isEmpty()) scrip.seriesExpiry = contract->expiryDate;
+            if (scrip.close <= 0) scrip.close = contract->prevClose;
+        }
+    }
+    
     int newRow = m_model->rowCount();
-    m_model->addScrip(contractData);
+    m_model->addScrip(scrip);
     
-    TokenSubscriptionManager::instance()->subscribe(contractData.exchange, contractData.token);
-    auto subId = FeedHandler::instance().subscribe(
-        (uint32_t)contractData.token,
-        [this](const XTS::Tick& tick) { this->onTickUpdate(tick); },
-        this
-    );
-    m_feedSubscriptions[contractData.token] = subId;
-    m_tokenAddressBook->addToken(contractData.token, newRow);
+    TokenSubscriptionManager::instance()->subscribe(scrip.exchange, scrip.token);
+    FeedHandler::instance().subscribe(scrip.token, this, &MarketWatchWindow::onTickUpdate);
+    m_tokenAddressBook->addToken(scrip.token, newRow);
     
-    emit scripAdded(contractData.symbol, contractData.exchange, contractData.token);
+    emit scripAdded(scrip.symbol, scrip.exchange, scrip.token);
     return true;
 }
 
@@ -66,11 +92,9 @@ void MarketWatchWindow::removeScrip(int row)
     const ScripData &scrip = m_model->getScripAt(row);
     if (!scrip.isBlankRow && scrip.isValid()) {
         TokenSubscriptionManager::instance()->unsubscribe(scrip.exchange, scrip.token);
-        auto it = m_feedSubscriptions.find(scrip.token);
-        if (it != m_feedSubscriptions.end()) {
-            FeedHandler::instance().unsubscribe(it->second);
-            m_feedSubscriptions.erase(it);
-        }
+        // Note: Individual token unsubscription for a specific receiver 
+        // will be handled by FeedHandler::unsubscribe(token, this)
+        FeedHandler::instance().unsubscribe(scrip.token, this);
         m_tokenAddressBook->removeToken(scrip.token, row);
         emit scripRemoved(scrip.token);
     }
@@ -79,6 +103,7 @@ void MarketWatchWindow::removeScrip(int row)
 
 void MarketWatchWindow::clearAll()
 {
+    FeedHandler::instance().unsubscribeAll(this);
     for (int row = 0; row < m_model->rowCount(); ++row) {
         const ScripData &scrip = m_model->getScripAt(row);
         if (scrip.isValid()) {
@@ -143,8 +168,20 @@ void MarketWatchWindow::pasteFromClipboard()
         QString line = fields.join('\t');
         ScripData scrip;
         if (MarketWatchHelpers::parseScripFromTSV(line, scrip) && MarketWatchHelpers::isValidScrip(scrip) && !hasDuplicate(scrip.token)) {
+            
+            // Enrich from repository
+            const ContractData* contract = RepositoryManager::getInstance()->getContractByToken(scrip.exchange, scrip.token);
+            if (contract) {
+                scrip.instrumentType = contract->series;
+                scrip.strikePrice = contract->strikePrice;
+                scrip.optionType = contract->optionType;
+                scrip.seriesExpiry = contract->expiryDate;
+                if (scrip.close <= 0) scrip.close = contract->prevClose;
+            }
+
             m_model->insertScrip(currentInsertPos, scrip);
             TokenSubscriptionManager::instance()->subscribe(scrip.exchange, scrip.token);
+            FeedHandler::instance().subscribe(scrip.token, this, &MarketWatchWindow::onTickUpdate);
             m_tokenAddressBook->addToken(scrip.token, currentInsertPos);
             emit scripAdded(scrip.symbol, scrip.exchange, scrip.token);
             currentInsertPos++;

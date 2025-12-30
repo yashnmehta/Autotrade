@@ -70,8 +70,14 @@ int main(int argc, char** argv) {
     
     // Load configuration
     Config config;
-    if (!config.loadFromFile("../../configs/config.ini")) {
-        std::cerr << "Failed to load config. Using defaults.\n";
+    // Try multiple paths for config.ini
+    bool loaded = config.loadFromFile("configs/config.ini");
+    if (!loaded) loaded = config.loadFromFile("../configs/config.ini");
+    if (!loaded) loaded = config.loadFromFile("../../configs/config.ini");
+    if (!loaded) loaded = config.loadFromFile("../../../configs/config.ini");
+    
+    if (!loaded) {
+        std::cerr << "Warning: Failed to load config.ini from any standard location. Using defaults.\n";
     }
     
     // Get multicast settings from config

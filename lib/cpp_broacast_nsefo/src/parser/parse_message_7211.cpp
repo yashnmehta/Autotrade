@@ -2,6 +2,9 @@
 #include "protocol.h"
 #include <iostream>
 
+namespace nsefo {
+
+
 void parse_message_7211(const MS_SPD_MKT_INFO* msg) {
     uint32_t token1 = be32toh_func(msg->token1);
     uint32_t token2 = be32toh_func(msg->token2);
@@ -19,3 +22,5 @@ void parse_message_7211(const MS_SPD_MKT_INFO* msg) {
 void parse_spd_mbp_delta(const MS_SPD_MKT_INFO* msg) {
     parse_message_7211(msg);
 }
+
+} // namespace nsefo

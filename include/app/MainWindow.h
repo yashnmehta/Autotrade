@@ -4,6 +4,7 @@
 #include "core/widgets/CustomMainWindow.h"
 #include "api/XTSMarketDataClient.h"
 #include "multicast_receiver.h"
+#include "nsecm_multicast_receiver.h"
 #include "utils/LockFreeQueue.h"
 #include <memory>
 #include <QTimer>
@@ -42,6 +43,9 @@ public:
     // Trading data service
     void setTradingDataService(class TradingDataService *tradingDataService);
     
+    // Config Loader
+    void setConfigLoader(class ConfigLoader *configLoader);
+    
     // ScripBar refresh
     void refreshScripBar();
 
@@ -79,7 +83,6 @@ private slots:
     void onUdpTickReceived(const XTS::Tick& tick);
     void startBroadcastReceiver();
     void stopBroadcastReceiver();
-    void drainTickQueue();
 
 private:
     void setupContent();
@@ -121,10 +124,15 @@ private:
     // Trading data service
     TradingDataService *m_tradingDataService;
     
-    // UDP Broadcast Receiver
+    // Config Loader
+    class ConfigLoader *m_configLoader;
+    
+    // UDP Broadcast Receivers
     std::unique_ptr<nsefo::MulticastReceiver> m_udpReceiver;
-    QTimer *m_tickDrainTimer;
-    LockFreeQueue<XTS::Tick> m_udpTickQueue;
+    std::thread m_udpThread;
+    
+    std::unique_ptr<nsecm::MulticastReceiver> m_udpReceiverCM;
+    std::thread m_udpThreadCM;
 };
 
 

@@ -46,6 +46,9 @@ public:
     QString getMDToken() const;
 
     // UDP Config
+    QString getNSEFOMulticastIP() const;
+    int getNSEFOPort() const;
+
     QJsonObject getUDPConfig() const;
 
 private:

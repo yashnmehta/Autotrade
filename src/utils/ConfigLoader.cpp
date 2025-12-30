@@ -167,6 +167,18 @@ QString ConfigLoader::getMDToken() const
     return getValue("MDTOKEN", "token");
 }
 
+QString ConfigLoader::getNSEFOMulticastIP() const
+{
+    return getValue("UDP", "nse_fo_multicast_ip", "233.1.2.5");
+}
+
+int ConfigLoader::getNSEFOPort() const
+{
+    int p = getInt("UDP", "nse_fo_port", 0);
+    if (p == 0) p = getInt("UDP", "udp_fo", 34330);
+    return p;
+}
+
 QJsonObject ConfigLoader::getUDPConfig() const
 {
     QJsonObject config;
@@ -175,32 +187,32 @@ QJsonObject ConfigLoader::getUDPConfig() const
     // NSE FO Config
     QJsonObject nseFo;
     nseFo["enabled"] = true;
-    nseFo["multicastGroup"] = "233.1.2.5";
-    nseFo["port"] = getInt("UDP", "udp_fo", 34331);
+    nseFo["multicastGroup"] = getNSEFOMulticastIP();
+    nseFo["port"] = getNSEFOPort();
     nseFo["protocol"] = "binary";
     exchanges["NSEFO"] = nseFo;
     
     // NSE CM Config 
     QJsonObject nseCm;
     nseCm["enabled"] = true;
-    nseCm["multicastGroup"] = "233.1.2.5";
-    nseCm["port"] = getInt("UDP", "udp_cash", 8270);
+    nseCm["multicastGroup"] = getValue("UDP", "nse_cm_multicast_ip", "233.1.2.5");
+    nseCm["port"] = getInt("UDP", "nse_cm_port", 8222);
     nseCm["protocol"] = "binary";
     exchanges["NSECM"] = nseCm;
 
-    // BSE FO Config (Placeholder)
+    // BSE FO Config
     QJsonObject bseFo;
-    bseFo["enabled"] = false; // Default false until we have IPs/Ports
-    bseFo["multicastGroup"] = "0.0.0.0";
-    bseFo["port"] = 0;
+    bseFo["enabled"] = true;
+    bseFo["multicastGroup"] = getValue("UDP", "bse_fo_multicast_ip", "239.1.2.5");
+    bseFo["port"] = getInt("UDP", "bse_fo_port", 26001);
     bseFo["protocol"] = "binary";
     exchanges["BSEFO"] = bseFo;
 
-    // BSE CM Config (Placeholder)
+    // BSE CM Config
     QJsonObject bseCm;
-    bseCm["enabled"] = false;
-    bseCm["multicastGroup"] = "0.0.0.0";
-    bseCm["port"] = 0;
+    bseCm["enabled"] = true;
+    bseCm["multicastGroup"] = getValue("UDP", "bse_cm_multicast_ip", "239.1.2.5");
+    bseCm["port"] = getInt("UDP", "bse_cm_port", 26002);
     bseCm["protocol"] = "binary";
     exchanges["BSECM"] = bseCm;
     
