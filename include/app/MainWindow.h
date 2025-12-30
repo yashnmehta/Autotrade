@@ -71,6 +71,10 @@ private slots:
     void manageWorkspaces();
     void showPreferences();
     
+    // Window cycling (Ctrl+Tab / Ctrl+Shift+Tab)
+    void cycleWindowsForward();
+    void cycleWindowsBackward();
+    
     // Broadcast receiver slots
     void onUdpTickReceived(const XTS::Tick& tick);
     void startBroadcastReceiver();

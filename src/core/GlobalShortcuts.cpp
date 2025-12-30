@@ -24,6 +24,18 @@ void setupMainWindowShortcuts(MainWindow* window) {
     new QShortcut(QKeySequence("Alt+W"), window, SLOT(loadWorkspace()));
     new QShortcut(QKeySequence("Alt+S"), window, SLOT(saveCurrentWorkspace()));
     
+    // Window cycling shortcuts (Ctrl+Tab / Ctrl+Shift+Tab)
+    // Use explicit key codes and SLOT() macro for private slots
+    QShortcut *cycleForward = new QShortcut(QKeySequence(Qt::CTRL | Qt::Key_Tab), window);
+    cycleForward->setContext(Qt::ApplicationShortcut);
+    QObject::connect(cycleForward, SIGNAL(activated()), window, SLOT(cycleWindowsForward()));
+    
+    QShortcut *cycleBackward = new QShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_Tab), window);
+    cycleBackward->setContext(Qt::ApplicationShortcut);
+    QObject::connect(cycleBackward, SIGNAL(activated()), window, SLOT(cycleWindowsBackward()));
+    
+    qDebug() << "[GlobalShortcuts] Window cycling shortcuts registered (Ctrl+Tab / Ctrl+Shift+Tab)";
+    
     // Additional window shortcuts
     new QShortcut(QKeySequence(Qt::Key_F3), window, SLOT(createOrderBookWindow()));
     new QShortcut(QKeySequence(Qt::Key_F4), window, SLOT(createMarketWatch()));
