@@ -44,8 +44,6 @@ TradingTerminal.app/
 
 reference_code/
 
-# Ignore build artifacts in lib directory (but track source code)
-lib
 
 # Temporary directories
 masters_actual

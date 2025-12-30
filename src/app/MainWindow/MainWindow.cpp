@@ -132,7 +132,7 @@ void MainWindow::startBroadcastReceiver() {
     std::string multicastIP = "233.1.2.5";
     int port = 34331;
     
-    m_udpReceiver = std::make_unique<MulticastReceiver>(multicastIP, port);
+    m_udpReceiver = std::make_unique<nsefo::MulticastReceiver>(multicastIP, port);
     
     if (!m_udpReceiver->isValid()) {
         qWarning() << "[UDP] ❌ Failed to initialize receiver!";
@@ -174,11 +174,11 @@ void MainWindow::startBroadcastReceiver() {
             tick.exchangeSegment = 2;
             tick.exchangeInstrumentID = data.token;
             
-            if (!data.bids.empty()) {
+            if (data.bids[0].quantity > 0) {
                 tick.bidPrice = data.bids[0].price;
                 tick.bidQuantity = data.bids[0].quantity;
             }
-            if (!data.asks.empty()) {
+            if (data.asks[0].quantity > 0) {
                 tick.askPrice = data.asks[0].price;
                 tick.askQuantity = data.asks[0].quantity;
             }

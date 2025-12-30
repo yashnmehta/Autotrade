@@ -17,7 +17,7 @@ void parse_message_7208(const MS_BCAST_ONLY_MBP* msg) {
         const auto& data = msg->data[i];
         
         // Convert all multi-byte fields from Big Endian to host byte order
-        int32_t token = be32toh_func(data.token);
+        uint32_t token = be32toh_func(data.token);
         
         if (token > 0) {
             uint64_t refNo = ++refNoCounter;
@@ -64,19 +64,16 @@ void parse_message_7208(const MS_BCAST_ONLY_MBP* msg) {
             
             // Parse bid/ask levels (5 levels each from recordBuffer)
             for (int j = 0; j < 5; j++) {
-                DepthLevel bid;
-                bid.quantity = be32toh_func(data.recordBuffer[j].quantity);
-                bid.price = be32toh_func(data.recordBuffer[j].price) / 100.0;
-                bid.orders = be16toh_func(data.recordBuffer[j].numberOfOrders);
-                depth.bids.push_back(bid);
+                depth.bids[j].quantity = be32toh_func(data.recordBuffer[j].quantity);
+                depth.bids[j].price = be32toh_func(data.recordBuffer[j].price) / 100.0;
+                depth.bids[j].orders = be16toh_func(data.recordBuffer[j].numberOfOrders);
             }
             
             for (int j = 5; j < 10; j++) {
-                DepthLevel ask;
-                ask.quantity = be32toh_func(data.recordBuffer[j].quantity);
-                ask.price = be32toh_func(data.recordBuffer[j].price) / 100.0;
-                ask.orders = be16toh_func(data.recordBuffer[j].numberOfOrders);
-                depth.asks.push_back(ask);
+                int idx = j - 5;
+                depth.asks[idx].quantity = be32toh_func(data.recordBuffer[j].quantity);
+                depth.asks[idx].price = be32toh_func(data.recordBuffer[j].price) / 100.0;
+                depth.asks[idx].orders = be16toh_func(data.recordBuffer[j].numberOfOrders);
             }
             
             // Dispatch market depth callback

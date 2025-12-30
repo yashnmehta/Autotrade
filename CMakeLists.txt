@@ -95,6 +95,7 @@ include_directories(
     ${CMAKE_SOURCE_DIR}/include/repository
     ${CMAKE_SOURCE_DIR}/include/utils
     ${CMAKE_SOURCE_DIR}/include/data
+    ${CMAKE_SOURCE_DIR}/lib/common/include
     ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/include
     ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_nsecm/include
     ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_bsefo/include
@@ -142,12 +143,26 @@ set(CORE_WIDGET_HEADERS
 # APPLICATION LAYER
 # ✅ Main application logic
 # ========================================
+
+# Development mode option (bypasses login, loads cached masters)
+option(DEV_MODE "Use development main (bypasses XTS login)" OFF)
+
+# Select main file based on mode
+if(DEV_MODE)
+    message(STATUS "🔧 DEV_MODE enabled - using main_work.cpp (login bypassed)")
+    set(MAIN_SOURCE src/main_work.cpp)
+else()
+    message(STATUS "🚀 Production mode - using main.cpp (full login flow)")
+    set(MAIN_SOURCE src/main.cpp)
+endif()
+
 set(APP_SOURCES
-    src/main.cpp
+    ${MAIN_SOURCE}
     src/app/MainWindow/MainWindow.cpp
     src/app/MainWindow/UI.cpp
     src/app/MainWindow/Windows.cpp
     src/app/MainWindow/Network.cpp
+    src/app/MainWindow/WindowCycling.cpp
     src/app/ScripBar.cpp
 )
 
@@ -416,8 +431,6 @@ set(NSEFO_BROADCAST_SOURCES
     ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/multicast_receiver.cpp
     ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/udp_receiver.cpp
     ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/nse_parsers.cpp
-    ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/lzo_decompress.cpp
-    ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/lzo1z_decompress_lib.cpp
     ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/config.cpp
     ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/logger.cpp
     ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/utils/parse_compressed_message.cpp
@@ -432,6 +445,36 @@ set(NSEFO_BROADCAST_SOURCES
     ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/parser/parse_message_17201.cpp
     ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/parser/parse_message_17202.cpp
 )
+# NSE CM Broadcast Library
+set(NSECM_BROADCAST_SOURCES
+    ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_nsecm/src/multicast_receiver.cpp
+    ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_nsecm/src/udp_receiver.cpp
+    ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_nsecm/src/nse_parsers.cpp
+    ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_nsecm/src/config.cpp
+    ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_nsecm/src/logger.cpp
+    ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_nsecm/src/utils/parse_compressed_message.cpp
+    ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_nsecm/src/utils/parse_uncompressed_message.cpp
+    # Message parsers
+    ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_nsecm/src/parser/parse_message_7200.cpp
+    ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_nsecm/src/parser/parse_message_7201.cpp
+    ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_nsecm/src/parser/parse_message_7208.cpp
+    ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_nsecm/src/parser/parse_message_18703.cpp
+    ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_nsecm/src/parser/parse_message_7207.cpp
+    ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_nsecm/src/parser/parse_message_7203.cpp
+)
+
+
+# Common LZO Library (shared by NSE CM and NSE FO)
+set(COMMON_LZO_SOURCES
+    ${CMAKE_SOURCE_DIR}/lib/common/src/lzo_decompress.cpp
+    ${CMAKE_SOURCE_DIR}/lib/common/src/lzo1z_decompress_lib.cpp
+)
+
+# BSE FO Broadcast Library
+set(BSEFO_BROADCAST_SOURCES
+    ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_bsefo/src/bse_receiver.cpp
+)
+
 
 # Add executable
 add_executable(TradingTerminal
@@ -439,7 +482,10 @@ add_executable(TradingTerminal
     ${HEADERS}
     ${FORMS}
     ${RESOURCES}
+    ${COMMON_LZO_SOURCES}
     ${NSEFO_BROADCAST_SOURCES}
+    ${NSECM_BROADCAST_SOURCES}
+    ${BSEFO_BROADCAST_SOURCES}
 )
 
 # Link libraries

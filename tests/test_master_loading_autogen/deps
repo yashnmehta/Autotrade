@@ -1,0 +1,21 @@
+test_master_loading_autogen/timestamp: \
+	/Users/yashmehta/Desktop/go_proj/trading_terminal_cpp/src/repository/BSECMRepository.cpp \
+	/Users/yashmehta/Desktop/go_proj/trading_terminal_cpp/src/repository/BSEFORepository.cpp \
+	/Users/yashmehta/Desktop/go_proj/trading_terminal_cpp/src/repository/MasterFileParser.cpp \
+	/Users/yashmehta/Desktop/go_proj/trading_terminal_cpp/src/repository/NSECMRepository.cpp \
+	/Users/yashmehta/Desktop/go_proj/trading_terminal_cpp/src/repository/NSEFORepository.cpp \
+	/Users/yashmehta/Desktop/go_proj/trading_terminal_cpp/src/repository/RepositoryManager.cpp \
+	/Users/yashmehta/Desktop/go_proj/trading_terminal_cpp/tests/CMakeLists.txt \
+	/Users/yashmehta/Desktop/go_proj/trading_terminal_cpp/tests/test_master_loading.cpp \
+	/opt/homebrew/opt/qt@5/lib/cmake/Qt5/Qt5Config.cmake \
+	/opt/homebrew/opt/qt@5/lib/cmake/Qt5/Qt5ConfigVersion.cmake \
+	/opt/homebrew/opt/qt@5/lib/cmake/Qt5/Qt5ModuleLocation.cmake \
+	/opt/homebrew/opt/qt@5/lib/cmake/Qt5Core/Qt5CoreConfig.cmake \
+	/opt/homebrew/opt/qt@5/lib/cmake/Qt5Core/Qt5CoreConfigVersion.cmake \
+	/opt/homebrew/opt/qt@5/lib/cmake/Qt5Network/Qt5NetworkConfig.cmake \
+	/opt/homebrew/opt/qt@5/lib/cmake/Qt5Network/Qt5NetworkConfigVersion.cmake \
+	/opt/homebrew/share/cmake/Modules/FindOpenGL.cmake \
+	/opt/homebrew/share/cmake/Modules/FindPackageHandleStandardArgs.cmake \
+	/opt/homebrew/share/cmake/Modules/FindPackageMessage.cmake \
+	/opt/homebrew/share/cmake/Modules/FindPkgConfig.cmake \
+	/opt/homebrew/bin/cmake

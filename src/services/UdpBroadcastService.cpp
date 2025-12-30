@@ -22,7 +22,7 @@ void UdpBroadcastService::start(const std::string& ip, int port) {
     if (m_active) return;
 
     qDebug() << "[UdpBroadcastService] Starting receiver on" << QString::fromStdString(ip) << ":" << port;
-    m_receiver = std::make_unique<MulticastReceiver>(ip, port);
+    m_receiver = std::make_unique<nsefo::MulticastReceiver>(ip, port);
     
     if (!m_receiver->isValid()) {
         emit statusChanged(false);
@@ -64,11 +64,11 @@ void UdpBroadcastService::start(const std::string& ip, int port) {
         XTS::Tick tick;
         tick.exchangeSegment = 2;
         tick.exchangeInstrumentID = data.token;
-        if (!data.bids.empty()) {
+        if (data.bids[0].quantity > 0) {
             tick.bidPrice = data.bids[0].price;
             tick.bidQuantity = data.bids[0].quantity;
         }
-        if (!data.asks.empty()) {
+        if (data.asks[0].quantity > 0) {
             tick.askPrice = data.asks[0].price;
             tick.askQuantity = data.asks[0].quantity;
         }

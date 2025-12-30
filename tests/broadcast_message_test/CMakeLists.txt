@@ -11,8 +11,8 @@ add_executable(test_broadcast_messages
     ../../lib/cpp_broacast_nsefo/src/logger.cpp
     ../../lib/cpp_broacast_nsefo/src/config.cpp
     ../../lib/cpp_broacast_nsefo/src/nse_parsers.cpp
-    ../../lib/cpp_broacast_nsefo/src/lzo_decompress.cpp
-    ../../lib/cpp_broacast_nsefo/src/lzo1z_decompress_lib.cpp
+    ../../lib/common/src/lzo_decompress.cpp
+    ../../lib/common/src/lzo1z_decompress_lib.cpp
     ../../lib/cpp_broacast_nsefo/src/utils/parse_compressed_message.cpp
     ../../lib/cpp_broacast_nsefo/src/utils/parse_uncompressed_message.cpp
     ../../lib/cpp_broacast_nsefo/src/parser/parse_message_7200.cpp
@@ -27,6 +27,7 @@ add_executable(test_broadcast_messages
 
 # Include directories
 target_include_directories(test_broadcast_messages PRIVATE
+    ../../lib/common/include
     ../../lib/cpp_broacast_nsefo/include
     ../../include
     ${LZO_INCLUDE_DIRS}

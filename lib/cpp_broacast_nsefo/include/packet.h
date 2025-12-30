@@ -1,3 +1,10 @@
+#ifndef PACKET_H
+#define PACKET_H
+
+#include <cstdint>
+
+namespace nsefo {
+
 #pragma pack(push, 1)
 
 struct MessageData {
@@ -14,3 +21,7 @@ struct Packet {
 };
 
 #pragma pack(pop)
+
+} // namespace nsefo
+
+#endif // PACKET_H

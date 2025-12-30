@@ -4,6 +4,8 @@
 #include <cstdlib>
 #include <algorithm>
 
+namespace nsefo {
+
 Config::Config() {
     setDefaults();
 }
@@ -148,3 +150,5 @@ void Config::print() const {
     std::cout << "  hex_dump_size = " << hex_dump_size << std::endl;
     std::cout << std::endl;
 }
+
+} // namespace nsefo

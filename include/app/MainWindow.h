@@ -71,6 +71,10 @@ private slots:
     void manageWorkspaces();
     void showPreferences();
     
+    // Window cycling (Ctrl+Tab / Ctrl+Shift+Tab)
+    void cycleWindowsForward();
+    void cycleWindowsBackward();
+    
     // Broadcast receiver slots
     void onUdpTickReceived(const XTS::Tick& tick);
     void startBroadcastReceiver();
@@ -118,7 +122,7 @@ private:
     TradingDataService *m_tradingDataService;
     
     // UDP Broadcast Receiver
-    std::unique_ptr<MulticastReceiver> m_udpReceiver;
+    std::unique_ptr<nsefo::MulticastReceiver> m_udpReceiver;
     QTimer *m_tickDrainTimer;
     LockFreeQueue<XTS::Tick> m_udpTickQueue;
 };

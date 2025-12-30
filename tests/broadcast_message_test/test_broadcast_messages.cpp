@@ -9,6 +9,10 @@
 #include <map>
 #include <iomanip>
 
+using nsefo::Config;
+using nsefo::MulticastReceiver;
+using nsefo::UDPStats;
+
 // Global flag for graceful shutdown
 std::atomic<bool> keep_running{true};
 

@@ -23,7 +23,7 @@ public:
         uint64_t msg7201Count;
         uint64_t msg7202Count;
         uint64_t depthCount;
-        UDPStats udpStats;
+        nsefo::UDPStats udpStats;
     };
     Stats getStats() const;
 
@@ -35,7 +35,7 @@ private:
     UdpBroadcastService(QObject* parent = nullptr);
     ~UdpBroadcastService();
 
-    std::unique_ptr<MulticastReceiver> m_receiver;
+    std::unique_ptr<nsefo::MulticastReceiver> m_receiver;
     std::atomic<bool> m_active{false};
     
     std::atomic<uint64_t> m_msg7200Count{0};

@@ -4,6 +4,7 @@
 #include "services/LoginFlowService.h"
 #include "services/TradingDataService.h"
 #include "utils/ConfigLoader.h"
+#include "utils/FileLogger.h"  // File logging
 #include "api/XTSTypes.h"  // For XTS::Tick
 #include <QApplication>
 #include <QThread>
@@ -16,6 +17,9 @@
 
 int main(int argc, char *argv[])
 {
+    // Setup file logging FIRST (before any qDebug calls)
+    setupFileLogging();
+    
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
     QCoreApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);
@@ -257,5 +261,10 @@ int main(int argc, char *argv[])
     
     splashTimer.start(300); // Update every 300ms
 
-    return app.exec();
+    int exitCode = app.exec();
+    
+    // Cleanup file logging
+    cleanupFileLogging();
+    
+    return exitCode;
 }

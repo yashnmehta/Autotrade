@@ -7,6 +7,8 @@
 #include <chrono>
 #include <iostream>
 
+namespace nsefo {
+
 struct MessageStats {
     uint16_t transactionCode;
     uint64_t count;
@@ -37,5 +39,7 @@ class UDPReceiver {
 public:
     static void startListener(int port, UDPStats& stats);
 };
+
+} // namespace nsefo
 
 #endif // UDP_RECEIVER_H
