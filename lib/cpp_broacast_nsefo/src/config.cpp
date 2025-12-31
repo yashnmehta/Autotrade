@@ -13,7 +13,7 @@ Config::Config() {
 void Config::setDefaults() {
     // Network settings
     multicast_ip = "233.1.2.5";
-    port = 34331;
+    port = 34330;
     buffer_size = 2048;  // Must be at least 65535 for NSE packets
     socket_timeout_sec = 1;
     

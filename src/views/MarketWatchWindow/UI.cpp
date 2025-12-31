@@ -7,6 +7,45 @@
 #include <QMenu>
 #include <QDebug>
 
+#include <QStyledItemDelegate>
+#include <QPainter>
+
+/**
+ * @brief Custom delegate for Market Watch to handle special background coloring
+ * 
+ * Ensures that background colors provided by the model (e.g., for LTP/Bid/Ask ticks)
+ * take precedence over the standard selection highlighting.
+ */
+class MarketWatchDelegate : public QStyledItemDelegate {
+public:
+    explicit MarketWatchDelegate(QObject *parent = nullptr) : QStyledItemDelegate(parent) {}
+
+    void paint(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const override {
+        QStyleOptionViewItem opt = option;
+        initStyleOption(&opt, index);
+
+        // Look for model-provided background color (Ticks)
+        QVariant bg = index.data(Qt::BackgroundRole);
+        
+        if (bg.isValid()) {
+            painter->save();
+            // Fill cell with model color - this overrides the standard selection blue
+            painter->fillRect(opt.rect, bg.value<QColor>());
+            painter->restore();
+
+            // Set text color to white for contrast on vibrant tick backgrounds
+            opt.palette.setColor(QPalette::Text, Qt::white);
+            opt.palette.setColor(QPalette::HighlightedText, Qt::white);
+            
+            // Prevent standard delegate from drawing its own background (including selection)
+            opt.backgroundBrush = Qt::NoBrush;
+            opt.state &= ~QStyle::State_Selected;
+        }
+
+        QStyledItemDelegate::paint(painter, opt, index);
+    }
+};
+
 void MarketWatchWindow::setupUI()
 {
     // Create model
@@ -14,6 +53,9 @@ void MarketWatchWindow::setupUI()
     
     // Set model on base class (which wraps it in proxy model)
     setSourceModel(m_model);
+    
+    // Set custom delegate for tick highlighting behavior
+    setItemDelegate(new MarketWatchDelegate(this));
     
     // Enable ultra-low latency (65ns vs 15ms) mode by registering direct callback ✅
     m_model->setViewCallback(this);

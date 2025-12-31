@@ -154,156 +154,176 @@ void MainWindow::startBroadcastReceiver() {
     }
     
     // ==========================================
+    // 0. STOP EXISTING THREADS FIRST (Crucial to prevent race)
+    // ==========================================
+    if (m_udpReceiver) m_udpReceiver->stop();
+    if (m_udpThread.joinable()) m_udpThread.join();
+    m_udpReceiver.reset();
+
+    if (m_udpReceiverCM) m_udpReceiverCM->stop();
+    if (m_udpThreadCM.joinable()) m_udpThreadCM.join();
+    m_udpReceiverCM.reset();
+
+    // ==========================================
     // 1. NSE FO RECEIVER SETUP
     // ==========================================
-    m_udpReceiver = std::make_unique<nsefo::MulticastReceiver>(nseFoIp, nseFoPort);
-    if (m_udpReceiver->isValid()) {
-        // Register FO Callbacks
-        nsefo::MarketDataCallbackRegistry::instance().registerTouchlineCallback(
-            [this](const nsefo::TouchlineData& data) {
-                XTS::Tick tick;
-                tick.exchangeSegment = 2; // NSEFO
-                tick.exchangeInstrumentID = data.token;
-                tick.lastTradedPrice = data.ltp;
-                tick.lastTradedQuantity = data.lastTradeQty;
-                tick.volume = data.volume;
-                tick.open = data.open;
-                tick.high = data.high;
-                tick.low = data.low;
-                tick.close = data.close;
-                tick.lastUpdateTime = data.lastTradeTime;
-                tick.averagePrice = data.avgPrice;
-                tick.refNo = data.refNo;
-                tick.timestampUdpRecv = data.timestampRecv;
-                tick.timestampParsed = data.timestampParsed;
-                QMetaObject::invokeMethod(this, "onUdpTickReceived", Qt::QueuedConnection, Q_ARG(XTS::Tick, tick));
-            }
-        );
-
-        nsefo::MarketDataCallbackRegistry::instance().registerMarketDepthCallback(
-            [this](const nsefo::MarketDepthData& data) {
-                XTS::Tick tick;
-                tick.exchangeSegment = 2;
-                tick.exchangeInstrumentID = data.token;
-                if (data.bids[0].quantity > 0) {
-                    tick.bidPrice = data.bids[0].price;
-                    tick.bidQuantity = data.bids[0].quantity;
-                }
-                if (data.asks[0].quantity > 0) {
-                    tick.askPrice = data.asks[0].price;
-                    tick.askQuantity = data.asks[0].quantity;
-                }
-                tick.totalBuyQuantity = (int)data.totalBuyQty;
-                tick.totalSellQuantity = (int)data.totalSellQty;
-                tick.refNo = data.refNo;
-                tick.timestampUdpRecv = data.timestampRecv;
-                tick.timestampParsed = data.timestampParsed;
-                QMetaObject::invokeMethod(this, "onUdpTickReceived", Qt::QueuedConnection, Q_ARG(XTS::Tick, tick));
-            }
-        );
-
-        nsefo::MarketDataCallbackRegistry::instance().registerTickerCallback(
-             [this](const nsefo::TickerData& data) {
-                if (data.fillVolume > 0) {
+    try {
+        m_udpReceiver = std::make_unique<nsefo::MulticastReceiver>(nseFoIp, nseFoPort);
+        if (m_udpReceiver->isValid()) {
+            // Register FO Callbacks
+            nsefo::MarketDataCallbackRegistry::instance().registerTouchlineCallback(
+                [this](const nsefo::TouchlineData& data) {
                     XTS::Tick tick;
-                    tick.exchangeSegment = 2;
+                    tick.exchangeSegment = 2; // NSEFO
                     tick.exchangeInstrumentID = data.token;
-                    tick.lastTradedQuantity = (int)data.fillVolume;
-                    tick.lastTradedPrice = data.fillPrice;
-                    tick.openInterest = data.openInterest;
+                    tick.lastTradedPrice = data.ltp;
+                    tick.lastTradedQuantity = data.lastTradeQty;
+                    tick.volume = data.volume;
+                    tick.open = data.open;
+                    tick.high = data.high;
+                    tick.low = data.low;
+                    tick.close = data.close;
+                    tick.lastUpdateTime = data.lastTradeTime;
+                    tick.averagePrice = data.avgPrice;
                     tick.refNo = data.refNo;
                     tick.timestampUdpRecv = data.timestampRecv;
                     tick.timestampParsed = data.timestampParsed;
                     QMetaObject::invokeMethod(this, "onUdpTickReceived", Qt::QueuedConnection, Q_ARG(XTS::Tick, tick));
                 }
-             }
-        );
+            );
+
+            nsefo::MarketDataCallbackRegistry::instance().registerMarketDepthCallback(
+                [this](const nsefo::MarketDepthData& data) {
+                    XTS::Tick tick;
+                    tick.exchangeSegment = 2;
+                    tick.exchangeInstrumentID = data.token;
+                    if (data.bids[0].quantity > 0) {
+                        tick.bidPrice = data.bids[0].price;
+                        tick.bidQuantity = data.bids[0].quantity;
+                    }
+                    if (data.asks[0].quantity > 0) {
+                        tick.askPrice = data.asks[0].price;
+                        tick.askQuantity = data.asks[0].quantity;
+                    }
+                    tick.totalBuyQuantity = (int)data.totalBuyQty;
+                    tick.totalSellQuantity = (int)data.totalSellQty;
+                    tick.refNo = data.refNo;
+                    tick.timestampUdpRecv = data.timestampRecv;
+                    tick.timestampParsed = data.timestampParsed;
+                    QMetaObject::invokeMethod(this, "onUdpTickReceived", Qt::QueuedConnection, Q_ARG(XTS::Tick, tick));
+                }
+            );
+
+            nsefo::MarketDataCallbackRegistry::instance().registerTickerCallback(
+                 [this](const nsefo::TickerData& data) {
+                    if (data.fillVolume > 0) {
+                        XTS::Tick tick;
+                        tick.exchangeSegment = 2;
+                        tick.exchangeInstrumentID = data.token;
+                        tick.lastTradedQuantity = (int)data.fillVolume;
+                        tick.lastTradedPrice = data.fillPrice;
+                        tick.openInterest = data.openInterest;
+                        tick.refNo = data.refNo;
+                        tick.timestampUdpRecv = data.timestampRecv;
+                        tick.timestampParsed = data.timestampParsed;
+                        QMetaObject::invokeMethod(this, "onUdpTickReceived", Qt::QueuedConnection, Q_ARG(XTS::Tick, tick));
+                    }
+                 }
+            );
+
+            // Start FO Thread
+            m_udpThread = std::thread([this]() {
+                try {
+                    if (m_udpReceiver) m_udpReceiver->start();
+                } catch (const std::exception& e) {
+                    qCritical() << "[UDP] NSE FO Thread Error:" << e.what();
+                }
+            });
+        }
+    } catch (const std::exception& e) {
+        qCritical() << "[UDP] Failed to initialize FO receiver:" << e.what();
+        if (m_statusBar) m_statusBar->showMessage(QString("NSE FO Error: %1").arg(e.what()), 5000);
     }
 
     // ==========================================
     // 2. NSE CM RECEIVER SETUP
     // ==========================================
-    m_udpReceiverCM = std::make_unique<nsecm::MulticastReceiver>(nseCmIp, nseCmPort);
-    if (m_udpReceiverCM->isValid()) {
-        // Register CM Callbacks
-        nsecm::MarketDataCallbackRegistry::instance().registerTouchlineCallback(
-            [this](const nsecm::TouchlineData& data) {
-                XTS::Tick tick;
-                tick.exchangeSegment = 1; // NSECM
-                tick.exchangeInstrumentID = data.token;
-                tick.lastTradedPrice = data.ltp;
-                tick.lastTradedQuantity = data.lastTradeQty;
-                tick.volume = (uint32_t)data.volume; // Truncate if extreme, but fits in uint32 for most stocks
-                tick.open = data.open;
-                tick.high = data.high;
-                tick.low = data.low;
-                tick.close = data.close;
-                tick.lastUpdateTime = data.lastTradeTime;
-                tick.averagePrice = data.avgPrice;
-                tick.refNo = data.refNo;
-                tick.timestampUdpRecv = data.timestampRecv;
-                tick.timestampParsed = data.timestampParsed;
-                QMetaObject::invokeMethod(this, "onUdpTickReceived", Qt::QueuedConnection, Q_ARG(XTS::Tick, tick));
-            }
-        );
-
-        nsecm::MarketDataCallbackRegistry::instance().registerMarketDepthCallback(
-            [this](const nsecm::MarketDepthData& data) {
-                XTS::Tick tick;
-                tick.exchangeSegment = 1;
-                tick.exchangeInstrumentID = data.token;
-                if (data.bids[0].quantity > 0) {
-                    tick.bidPrice = data.bids[0].price;
-                    tick.bidQuantity = (int)data.bids[0].quantity;
+    try {
+        m_udpReceiverCM = std::make_unique<nsecm::MulticastReceiver>(nseCmIp, nseCmPort);
+        if (m_udpReceiverCM->isValid()) {
+            // Register CM Callbacks
+            nsecm::MarketDataCallbackRegistry::instance().registerTouchlineCallback(
+                [this](const nsecm::TouchlineData& data) {
+                    XTS::Tick tick;
+                    tick.exchangeSegment = 1; // NSECM
+                    tick.exchangeInstrumentID = data.token;
+                    tick.lastTradedPrice = data.ltp;
+                    tick.lastTradedQuantity = data.lastTradeQty;
+                    tick.volume = (uint32_t)data.volume;
+                    tick.open = data.open;
+                    tick.high = data.high;
+                    tick.low = data.low;
+                    tick.close = data.close;
+                    tick.lastUpdateTime = data.lastTradeTime;
+                    tick.averagePrice = data.avgPrice;
+                    tick.refNo = data.refNo;
+                    tick.timestampUdpRecv = data.timestampRecv;
+                    tick.timestampParsed = data.timestampParsed;
+                    QMetaObject::invokeMethod(this, "onUdpTickReceived", Qt::QueuedConnection, Q_ARG(XTS::Tick, tick));
                 }
-                if (data.asks[0].quantity > 0) {
-                    tick.askPrice = data.asks[0].price;
-                    tick.askQuantity = (int)data.asks[0].quantity;
+            );
+
+            nsecm::MarketDataCallbackRegistry::instance().registerMarketDepthCallback(
+                [this](const nsecm::MarketDepthData& data) {
+                    XTS::Tick tick;
+                    tick.exchangeSegment = 1;
+                    tick.exchangeInstrumentID = data.token;
+                    if (data.bids[0].quantity > 0) {
+                        tick.bidPrice = data.bids[0].price;
+                        tick.bidQuantity = (int)data.bids[0].quantity;
+                    }
+                    if (data.asks[0].quantity > 0) {
+                        tick.askPrice = data.asks[0].price;
+                        tick.askQuantity = (int)data.asks[0].quantity;
+                    }
+                    tick.totalBuyQuantity = (int)data.totalBuyQty;
+                    tick.totalSellQuantity = (int)data.totalSellQty;
+                    tick.refNo = data.refNo;
+                    tick.timestampUdpRecv = data.timestampRecv;
+                    tick.timestampParsed = data.timestampParsed;
+                    QMetaObject::invokeMethod(this, "onUdpTickReceived", Qt::QueuedConnection, Q_ARG(XTS::Tick, tick));
                 }
-                tick.totalBuyQuantity = (int)data.totalBuyQty;
-                tick.totalSellQuantity = (int)data.totalSellQty;
-                tick.refNo = data.refNo;
-                tick.timestampUdpRecv = data.timestampRecv;
-                tick.timestampParsed = data.timestampParsed;
-                QMetaObject::invokeMethod(this, "onUdpTickReceived", Qt::QueuedConnection, Q_ARG(XTS::Tick, tick));
-            }
-        );
-    }
+            );
 
-    // ==========================================
-    // 3. START THREADS
-    // ==========================================
-    
-    // NSE FO Thread
-    if (m_udpThread.joinable()) {
-        m_udpReceiver->stop();
-        m_udpThread.join();
+            // Start CM Thread
+            m_udpThreadCM = std::thread([this]() {
+                try {
+                    if (m_udpReceiverCM) m_udpReceiverCM->start();
+                } catch (const std::exception& e) {
+                    qCritical() << "[UDP] NSE CM Thread Error:" << e.what();
+                }
+            });
+        }
+    } catch (const std::exception& e) {
+        qCritical() << "[UDP] Failed to initialize CM receiver:" << e.what();
+        if (m_statusBar) m_statusBar->showMessage(QString("NSE CM Error: %1").arg(e.what()), 5000);
     }
-    m_udpThread = std::thread([this]() {
-        if (m_udpReceiver) m_udpReceiver->start();
-    });
-
-    // NSE CM Thread
-    if (m_udpThreadCM.joinable()) {
-        m_udpReceiverCM->stop();
-        m_udpThreadCM.join();
-    }
-    m_udpThreadCM = std::thread([this]() {
-        if (m_udpReceiverCM) m_udpReceiverCM->start();
-    });
     
-    if (m_statusBar) m_statusBar->showMessage("NSE Broadcast Receivers: FO & CM ACTIVE");
+    if (m_statusBar && m_udpReceiver && m_udpReceiverCM) {
+        m_statusBar->showMessage("NSE Broadcast Receivers: FO & CM ACTIVE", 2000);
+    }
 }
 
 void MainWindow::stopBroadcastReceiver() {
-    if (m_udpReceiver) {
-        m_udpReceiver->stop();
-        if (m_udpThread.joinable()) {
-            m_udpThread.join();
-        }
-        m_udpReceiver.reset();
-        if (m_statusBar) m_statusBar->showMessage("NSE Broadcast Receiver: STOPPED");
-    }
+    if (m_udpReceiver) m_udpReceiver->stop();
+    if (m_udpThread.joinable()) m_udpThread.join();
+    m_udpReceiver.reset();
+
+    if (m_udpReceiverCM) m_udpReceiverCM->stop();
+    if (m_udpThreadCM.joinable()) m_udpThreadCM.join();
+    m_udpReceiverCM.reset();
+
+    if (m_statusBar) m_statusBar->showMessage("NSE Broadcast Receivers: STOPPED");
 }
 
 void MainWindow::onUdpTickReceived(const XTS::Tick& tick) {

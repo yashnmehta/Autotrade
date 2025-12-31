@@ -14,7 +14,7 @@ class UdpBroadcastService : public QObject {
 public:
     static UdpBroadcastService& instance();
 
-    void start(const std::string& ip = "233.1.2.5", int port = 34331);
+    void start(const std::string& ip = "233.1.2.5", int port = 34330);
     void stop();
     bool isActive() const;
 

@@ -22,88 +22,98 @@ void UdpBroadcastService::start(const std::string& ip, int port) {
     if (m_active) return;
 
     qDebug() << "[UdpBroadcastService] Starting receiver on" << QString::fromStdString(ip) << ":" << port;
-    m_receiver = std::make_unique<nsefo::MulticastReceiver>(ip, port);
     
-    if (!m_receiver->isValid()) {
-        emit statusChanged(false);
-        return;
-    }
-
-    m_active = true;
-
-    // Register callbacks
-    nsefo::MarketDataCallbackRegistry::instance().registerTouchlineCallback([this](const nsefo::TouchlineData& data) {
-        m_msg7200Count++;
-        XTS::Tick tick;
-        tick.exchangeSegment = 2; // NSEFO
-        tick.exchangeInstrumentID = data.token;
-        tick.lastTradedPrice = data.ltp;
-        tick.lastTradedQuantity = data.lastTradeQty;
-        tick.volume = data.volume;
-        tick.open = data.open;
-        tick.high = data.high;
-        tick.low = data.low;
-        tick.close = data.close;
-        tick.lastUpdateTime = data.lastTradeTime;
-        tick.refNo = data.refNo;
-        tick.timestampUdpRecv = data.timestampRecv;
-        tick.timestampParsed = data.timestampParsed;
-        tick.timestampQueued = LatencyTracker::now();
-        tick.timestampDequeued = LatencyTracker::now();
-
-        if (data.token == 49543) {
-             std::cout << "[UDP-TOUCHLINE] Token: 49543 | RefNo: " << tick.refNo
-                       << " | LTP: " << tick.lastTradedPrice << std::endl;
+    try {
+        m_receiver = std::make_unique<nsefo::MulticastReceiver>(ip, port);
+        
+        if (!m_receiver->isValid()) {
+            emit statusChanged(false);
+            return;
         }
 
-        emit tickReceived(tick);
-    });
+        m_active = true;
 
-    nsefo::MarketDataCallbackRegistry::instance().registerMarketDepthCallback([this](const nsefo::MarketDepthData& data) {
-        m_depthCount++;
-        XTS::Tick tick;
-        tick.exchangeSegment = 2;
-        tick.exchangeInstrumentID = data.token;
-        if (data.bids[0].quantity > 0) {
-            tick.bidPrice = data.bids[0].price;
-            tick.bidQuantity = data.bids[0].quantity;
-        }
-        if (data.asks[0].quantity > 0) {
-            tick.askPrice = data.asks[0].price;
-            tick.askQuantity = data.asks[0].quantity;
-        }
-        tick.totalBuyQuantity = (int)data.totalBuyQty;
-        tick.totalSellQuantity = (int)data.totalSellQty;
-        tick.refNo = data.refNo;
-        tick.timestampUdpRecv = data.timestampRecv;
-        tick.timestampParsed = data.timestampParsed;
-        tick.timestampQueued = LatencyTracker::now();
-        tick.timestampDequeued = LatencyTracker::now();
-
-        emit tickReceived(tick);
-    });
-
-    nsefo::MarketDataCallbackRegistry::instance().registerTickerCallback([this](const nsefo::TickerData& data) {
-        m_msg7202Count++;
-        if (data.fillVolume > 0) {
+        // Register callbacks
+        nsefo::MarketDataCallbackRegistry::instance().registerTouchlineCallback([this](const nsefo::TouchlineData& data) {
+            m_msg7200Count++;
             XTS::Tick tick;
-            tick.exchangeSegment = 2;
+            tick.exchangeSegment = 2; // NSEFO
             tick.exchangeInstrumentID = data.token;
-            tick.volume = data.fillVolume;
+            tick.lastTradedPrice = data.ltp;
+            tick.lastTradedQuantity = data.lastTradeQty;
+            tick.volume = data.volume;
+            tick.open = data.open;
+            tick.high = data.high;
+            tick.low = data.low;
+            tick.close = data.close;
+            tick.lastUpdateTime = data.lastTradeTime;
             tick.refNo = data.refNo;
             tick.timestampUdpRecv = data.timestampRecv;
             tick.timestampParsed = data.timestampParsed;
             tick.timestampQueued = LatencyTracker::now();
             tick.timestampDequeued = LatencyTracker::now();
+
+            if (data.token == 49543) {
+                 std::cout << "[UDP-TOUCHLINE] Token: 49543 | RefNo: " << tick.refNo
+                           << " | LTP: " << tick.lastTradedPrice << std::endl;
+            }
+
             emit tickReceived(tick);
-        }
-    });
+        });
 
-    std::thread([this]() {
-        m_receiver->start();
-    }).detach();
+        nsefo::MarketDataCallbackRegistry::instance().registerMarketDepthCallback([this](const nsefo::MarketDepthData& data) {
+            m_depthCount++;
+            XTS::Tick tick;
+            tick.exchangeSegment = 2;
+            tick.exchangeInstrumentID = data.token;
+            if (data.bids[0].quantity > 0) {
+                tick.bidPrice = data.bids[0].price;
+                tick.bidQuantity = data.bids[0].quantity;
+            }
+            if (data.asks[0].quantity > 0) {
+                tick.askPrice = data.asks[0].price;
+                tick.askQuantity = data.asks[0].quantity;
+            }
+            tick.totalBuyQuantity = (int)data.totalBuyQty;
+            tick.totalSellQuantity = (int)data.totalSellQty;
+            tick.refNo = data.refNo;
+            tick.timestampUdpRecv = data.timestampRecv;
+            tick.timestampParsed = data.timestampParsed;
+            tick.timestampQueued = LatencyTracker::now();
+            tick.timestampDequeued = LatencyTracker::now();
 
-    emit statusChanged(true);
+            emit tickReceived(tick);
+        });
+
+        nsefo::MarketDataCallbackRegistry::instance().registerTickerCallback([this](const nsefo::TickerData& data) {
+            m_msg7202Count++;
+            if (data.fillVolume > 0) {
+                XTS::Tick tick;
+                tick.exchangeSegment = 2;
+                tick.exchangeInstrumentID = data.token;
+                tick.volume = data.fillVolume;
+                tick.refNo = data.refNo;
+                tick.timestampUdpRecv = data.timestampRecv;
+                tick.timestampParsed = data.timestampParsed;
+                tick.timestampQueued = LatencyTracker::now();
+                tick.timestampDequeued = LatencyTracker::now();
+                emit tickReceived(tick);
+            }
+        });
+
+        std::thread([this]() {
+            try {
+                if (m_receiver) m_receiver->start();
+            } catch (const std::exception& e) {
+                std::cerr << "[UdpBroadcastService] Thread Exception: " << e.what() << std::endl;
+            }
+        }).detach();
+
+        emit statusChanged(true);
+    } catch (const std::exception& e) {
+        qCritical() << "[UdpBroadcastService] Failed to start:" << e.what();
+        emit statusChanged(false);
+    }
 }
 
 void UdpBroadcastService::stop() {

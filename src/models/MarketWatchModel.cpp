@@ -74,19 +74,16 @@ QVariant MarketWatchModel::data(const QModelIndex &index, int role) const
         return scrip.exchange;
     }
 
-    // Background coloring for value changes
+    // Background coloring for value changes (Ticks)
     else if (role == Qt::BackgroundRole) {
-        if (column == MarketWatchColumn::LAST_TRADED_PRICE) {
-            if (scrip.ltpTick > 0) return QColor(220, 235, 255); // Soft Blue for UP
-            if (scrip.ltpTick < 0) return QColor(255, 230, 230); // Soft Red for DOWN
-        }
-        else if (column == MarketWatchColumn::BUY_PRICE) {
-            if (scrip.bidTick > 0) return QColor(220, 235, 255); // Soft Blue for UP
-            if (scrip.bidTick < 0) return QColor(255, 230, 230); // Soft Red for DOWN
-        }
-        else if (column == MarketWatchColumn::SELL_PRICE) {
-            if (scrip.askTick > 0) return QColor(220, 235, 255); // Soft Blue for UP
-            if (scrip.askTick < 0) return QColor(255, 230, 230); // Soft Red for DOWN
+        if (column == MarketWatchColumn::LAST_TRADED_PRICE || column == MarketWatchColumn::BUY_PRICE || column == MarketWatchColumn::SELL_PRICE) {
+            int tick = 0;
+            if (column == MarketWatchColumn::LAST_TRADED_PRICE) tick = scrip.ltpTick;
+            else if (column == MarketWatchColumn::BUY_PRICE) tick = scrip.bidTick;
+            else if (column == MarketWatchColumn::SELL_PRICE) tick = scrip.askTick;
+
+            if (tick > 0) return QColor(0, 80, 160); // Dark Vibrant Blue for UP
+            if (tick < 0) return QColor(140, 20, 20); // Dark Vibrant Red for DOWN
         }
     }
 
