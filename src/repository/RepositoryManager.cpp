@@ -94,13 +94,19 @@ bool RepositoryManager::loadAll(const QString& mastersPath) {
     // FAST PATH: Check for processed CSV files first (10x faster loading)
     QString nsefoCSV = mastersPath + "/processed_csv/nsefo_processed.csv";
     QString nsecmCSV = mastersPath + "/processed_csv/nsecm_processed.csv";
+    QString bsefoCSV = mastersPath + "/processed_csv/bsefo_processed.csv";
+    QString bsecmCSV = mastersPath + "/processed_csv/bsecm_processed.csv";
     
+    // Check if at least NSE files exist (BSE is optional)
     if (QFile::exists(nsefoCSV) && QFile::exists(nsecmCSV)) {
         qDebug() << "[RepositoryManager] Found processed CSV files, loading from cache...";
         
         bool nsefoLoaded = false;
         bool nsecmLoaded = false;
+        bool bsefoLoaded = false;
+        bool bsecmLoaded = false;
         
+        // Load NSE segments
         if (m_nsefo->loadProcessedCSV(nsefoCSV)) {
             nsefoLoaded = true;
             anyLoaded = true;
@@ -115,6 +121,27 @@ bool RepositoryManager::loadAll(const QString& mastersPath) {
             qWarning() << "[RepositoryManager] Failed to load NSE CM CSV";
         }
         
+        // Load BSE segments (optional - don't fail if missing)
+        if (QFile::exists(bsefoCSV)) {
+            if (m_bsefo->loadProcessedCSV(bsefoCSV)) {
+                bsefoLoaded = true;
+                anyLoaded = true;
+                qDebug() << "[RepositoryManager] BSE F&O CSV loaded successfully";
+            } else {
+                qWarning() << "[RepositoryManager] Failed to load BSE F&O CSV";
+            }
+        }
+        
+        if (QFile::exists(bsecmCSV)) {
+            if (m_bsecm->loadProcessedCSV(bsecmCSV)) {
+                bsecmLoaded = true;
+                anyLoaded = true;
+                qDebug() << "[RepositoryManager] BSE CM CSV loaded successfully";
+            } else {
+                qWarning() << "[RepositoryManager] Failed to load BSE CM CSV";
+            }
+        }
+        
         if (nsefoLoaded && nsecmLoaded) {
             m_loaded = true;
             
@@ -123,6 +150,8 @@ bool RepositoryManager::loadAll(const QString& mastersPath) {
             qDebug() << "[RepositoryManager] CSV loading complete (FAST PATH):";
             qDebug() << "  NSE F&O:" << stats.nsefo << "contracts";
             qDebug() << "  NSE CM:" << stats.nsecm << "contracts";
+            qDebug() << "  BSE F&O:" << stats.bsefo << "contracts";
+            qDebug() << "  BSE CM:" << stats.bsecm << "contracts";
             qDebug() << "  Total:" << getTotalContractCount() << "contracts";
             
             return true;
@@ -385,7 +414,36 @@ QVector<ContractData> RepositoryManager::searchScrips(
             }
         }
     }
-    // TODO: Add BSE support
+    else if (segmentKey == "BSEFO" && m_bsefo->isLoaded()) {
+        // Search BSE F&O by series
+        QVector<ContractData> allContracts = m_bsefo->getContractsBySeries(series);
+        
+        for (const ContractData& contract : allContracts) {
+            // Match by symbol prefix
+            if (contract.name.startsWith(searchUpper, Qt::CaseInsensitive) ||
+                contract.displayName.contains(searchUpper, Qt::CaseInsensitive)) {
+                results.append(contract);
+                if (results.size() >= maxResults) {
+                    break;
+                }
+            }
+        }
+    }
+    else if (segmentKey == "BSECM" && m_bsecm->isLoaded()) {
+        // Search BSE CM by series
+        QVector<ContractData> allContracts = m_bsecm->getContractsBySeries(series);
+        
+        for (const ContractData& contract : allContracts) {
+            // Match by symbol prefix
+            if (contract.name.startsWith(searchUpper, Qt::CaseInsensitive) ||
+                contract.displayName.contains(searchUpper, Qt::CaseInsensitive)) {
+                results.append(contract);
+                if (results.size() >= maxResults) {
+                    break;
+                }
+            }
+        }
+    }
     
     qDebug() << "[RepositoryManager] Search results:" << results.size()
              << "for" << exchange << segment << series << searchText;
@@ -425,7 +483,12 @@ QVector<ContractData> RepositoryManager::getScrips(
     else if (segmentKey == "NSECM" && m_nsecm->isLoaded()) {
         return m_nsecm->getContractsBySeries(series);
     }
-    // TODO: Add BSE support
+    else if (segmentKey == "BSEFO" && m_bsefo->isLoaded()) {
+        return m_bsefo->getContractsBySeries(series);
+    }
+    else if (segmentKey == "BSECM" && m_bsecm->isLoaded()) {
+        return m_bsecm->getContractsBySeries(series);
+    }
     
     return QVector<ContractData>();
 }
@@ -465,7 +528,9 @@ QVector<ContractData> RepositoryManager::getOptionChain(
     if (exchange == "NSE" && m_nsefo->isLoaded()) {
         return m_nsefo->getContractsBySymbol(symbol);
     }
-    // TODO: Add BSE support
+    else if (exchange == "BSE" && m_bsefo->isLoaded()) {
+        return m_bsefo->getContractsBySymbol(symbol);
+    }
     
     return QVector<ContractData>();
 }
@@ -485,7 +550,14 @@ void RepositoryManager::updateLiveData(
     else if (segmentKey == "NSECM" && m_nsecm->isLoaded()) {
         m_nsecm->updateLiveData(token, ltp, volume);
     }
-    // TODO: Add BSE support
+    else if (segmentKey == "BSEFO" && m_bsefo->isLoaded()) {
+        // BSE FO uses extended signature (includes OHLC)
+        m_bsefo->updateLiveData(token, ltp, 0, 0, 0, 0, 0, volume);
+    }
+    else if (segmentKey == "BSECM" && m_bsecm->isLoaded()) {
+        // BSE CM uses extended signature (includes OHLC)
+        m_bsecm->updateLiveData(token, ltp, 0, 0, 0, 0, 0, volume);
+    }
 }
 
 void RepositoryManager::updateBidAsk(
@@ -503,7 +575,8 @@ void RepositoryManager::updateBidAsk(
     else if (segmentKey == "NSECM" && m_nsecm->isLoaded()) {
         m_nsecm->updateBidAsk(token, bidPrice, askPrice);
     }
-    // TODO: Add BSE support
+    // Note: BSE repositories don't have updateBidAsk method
+    // Bid/Ask data is stored in the extended updateLiveData call
 }
 
 void RepositoryManager::updateGreeks(
@@ -521,7 +594,11 @@ void RepositoryManager::updateGreeks(
         return;
     }
     
-    // TODO: Try BSE F&O
+    // Try BSE F&O
+    if (m_bsefo->isLoaded() && m_bsefo->hasContract(token)) {
+        m_bsefo->updateGreeks(token, iv, delta, gamma, vega, theta);
+        return;
+    }
 }
 
 int RepositoryManager::getTotalContractCount() const {
@@ -533,7 +610,12 @@ int RepositoryManager::getTotalContractCount() const {
     if (m_nsecm->isLoaded()) {
         total += m_nsecm->getTotalCount();
     }
-    // TODO: Add BSE counts
+    if (m_bsefo->isLoaded()) {
+        total += m_bsefo->getTotalCount();
+    }
+    if (m_bsecm->isLoaded()) {
+        total += m_bsecm->getTotalCount();
+    }
     
     return total;
 }
@@ -564,7 +646,7 @@ QString RepositoryManager::getSegmentKey(const QString& exchange, const QString&
     if (key == "NSEFO" || key == "NSEF" || key == "NSEO" || key == "NSED" || key == "NFO") return "NSEFO";  // F, O, D and NFO map to NSEFO
     if (key == "NSECDSF" || key == "NSECDSO") return "NSECD";  // NSECDS F and O map to NSECD
     if (key == "BSECM" || key == "BSEE") return "BSECM";
-    if (key == "BSEFO" || key == "BSEF") return "BSEFO";
+    if (key == "BSEFO" || key == "BSEF" || key == "BSEO") return "BSEFO";
     if (key == "MCXF" || key == "MCXO") return "MCXFO";  // Both F and O map to MCXFO
     
     return key;

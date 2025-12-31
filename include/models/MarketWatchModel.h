@@ -86,6 +86,11 @@ struct ScripData
     double bid = 0.0;               // Best bid price (alias for buyPrice)
     double ask = 0.0;               // Best ask price (alias for sellPrice)
     
+    // Tick directions for background coloring (1: up, -1: down, 0: same)
+    int ltpTick = 0;
+    int bidTick = 0;
+    int askTick = 0;
+    
     /**
      * @brief Create a blank separator row for organizing scrips
      * @return ScripData configured as a blank row

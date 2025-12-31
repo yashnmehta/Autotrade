@@ -56,13 +56,14 @@ void ScripBar::setupUI()
     connect(m_instrumentCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &ScripBar::onInstrumentChanged);
 
-    // BSE Scrip Code line edit (only visible for BSE + E segment)
-    m_bseScripCodeEdit = new QLineEdit(this);
-    m_bseScripCodeEdit->setMinimumWidth(100);
-    m_bseScripCodeEdit->setPlaceholderText("BSE Code");
-    m_bseScripCodeEdit->setReadOnly(true);  // Display only
-    m_layout->addWidget(m_bseScripCodeEdit);
-    m_bseScripCodeEdit->setVisible(false);  // Hidden by default
+    // BSE Scrip Code combo (only visible for BSE + E segment)
+    m_bseScripCodeCombo = new CustomScripComboBox(this);
+    m_bseScripCodeCombo->setSortMode(CustomScripComboBox::AlphabeticalSort);
+    m_bseScripCodeCombo->setMinimumWidth(120);
+    m_bseScripCodeCombo->setMaximumWidth(150);
+    m_layout->addWidget(m_bseScripCodeCombo);
+    m_bseScripCodeCombo->setVisible(false);  // Hidden by default
+    connect(m_bseScripCodeCombo, &CustomScripComboBox::itemSelected, this, &ScripBar::onBseScripCodeChanged);
 
     // Symbol combo (custom)
     m_symbolCombo = new CustomScripComboBox(this);
@@ -133,6 +134,9 @@ void ScripBar::setupUI()
         "QWidget { background-color: #2d2d30; border: none; }"
         "CustomScripComboBox { color: #d4d4d8; background: #3e3e42; border: 1px solid #454545; padding: 2px 4px; border-radius: 4px; }"
         "CustomScripComboBox:hover { border: 1px solid #007acc; }"
+        // "CustomScripComboBox::drop-down { subcontrol-origin: padding; subcontrol-position: top right; width: 20px; border-left: 1px solid #454545; background: #3e3e42; }"
+        // "CustomScripComboBox::down-arrow { image: url(none); width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 6px solid #d4d4d8; margin-right: 6px; }"
+        // "CustomScripComboBox::down-arrow:hover { border-top-color: #007acc; }"
         "CustomScripComboBox QAbstractItemView { background: #252526; color: #d4d4d8; selection-background-color: #094771; selection-color: #ffffff; outline: none; border: 1px solid #454545; }"
         "QPushButton { background: #007acc; color: #ffffff; border: none; border-radius: 4px; font-weight: bold; padding: 4px 12px; }"
         "QPushButton:hover { background: #0062a3; }"
@@ -141,6 +145,12 @@ void ScripBar::setupUI()
         "QLabel { color: #cccccc; }"
     );
 }
+
+// future implementation 
+// exchange and segment should be populated from client profile api so if client has nsecm or nsefo then nse should be populated in exchange so on and so forth 
+ 
+
+
 
 void ScripBar::populateExchanges()
 {
@@ -165,7 +175,7 @@ void ScripBar::populateSegments(const QString &exchange)
     else if (exchange == "NSECDS")
         segs << "F" << "O";  // F=NSECD, O=NSECD
     else if (exchange == "BSE")
-        segs << "E" << "F";
+        segs << "E" << "F" << "O";
     else if (exchange == "MCX")
         segs << "F" << "O";  // F=MCX, O=MCX
     else
@@ -188,20 +198,32 @@ void ScripBar::populateInstruments(const QString &segment)
     
     QString exchange = getCurrentExchange();
     
+ // 
     if (segment == "E") {
         instruments << "EQUITY";
-    } else if (segment == "F" || segment == "O") {
-        // For NSE: Both F and O show F&O instruments (NSEFO)
-        // For NSECDS: Both F and O show currency instruments (NSECD)
-        // For MCX: Both F and O show commodity instruments (MCX)
+    } else if (segment == "F") {
         if (exchange == "NSE") {
-            instruments << "FUTIDX" << "FUTSTK" << "OPTIDX" << "OPTSTK";
+            instruments << "FUTIDX" << "FUTSTK";
         } else if (exchange == "NSECDS") {
-            instruments << "FUTCUR" << "OPTCUR";
+            instruments << "FUTCUR";
         } else if (exchange == "MCX") {
-            instruments << "FUTCOM" << "OPTFUT";
+            instruments << "FUTCOM";
+        } else if (exchange == "BSE") {
+            instruments << "FUTIDX" << "FUTSTK";
         } else {
-            instruments << "FUTIDX" << "FUTSTK" << "OPTIDX" << "OPTSTK";
+            instruments << "FUTIDX" << "FUTSTK";
+        }
+    } else if (segment == "O") {
+        if (exchange == "NSE") {
+            instruments << "OPTIDX" << "OPTSTK";
+        } else if (exchange == "NSECDS") {
+            instruments << "OPTCUR";
+        } else if (exchange == "MCX") {
+            instruments << "OPTFUT";
+        } else if (exchange == "BSE") {
+            instruments << "OPTIDX" << "OPTSTK";
+        } else {
+            instruments << "OPTIDX" << "OPTSTK";
         }
     } else {
         instruments << "EQUITY";
@@ -269,6 +291,13 @@ void ScripBar::populateSymbols(const QString &instrument)
     int exchangeSegmentId = RepositoryManager::getExchangeSegmentID(exchange, segment);
     
     for (const ContractData& contract : contracts) {
+        // Filter out dummy/test symbols
+        QString upperName = contract.name.toUpper();
+        if (upperName.contains("DUMMY") || upperName.contains("TEST") || 
+            upperName == "SCRIP" || upperName.startsWith("ZZZ")) {
+            continue;
+        }
+
         if (!contract.name.isEmpty()) {
             uniqueSymbols.insert(contract.name);
         }
@@ -504,11 +533,13 @@ void ScripBar::updateBseScripCodeVisibility()
 {
     // Show BSE Scrip Code field only when exchange=BSE and segment=E
     bool showBseCode = (m_currentExchange == "BSE" && m_currentSegment == "E");
-    m_bseScripCodeEdit->setVisible(showBseCode);
+    m_bseScripCodeCombo->setVisible(showBseCode);
     
-    // Clear when not visible
-    if (!showBseCode) {
-        m_bseScripCodeEdit->clear();
+    // Populate BSE scrip codes when visible
+    if (showBseCode) {
+        populateBseScripCodes();
+    } else {
+        m_bseScripCodeCombo->clearItems();
     }
 }
 
@@ -607,7 +638,7 @@ InstrumentData ScripBar::getCurrentInstrument() const
     result.strikePrice = (strike != "N/A" && !strike.isEmpty()) ? strike.toDouble() : 0.0;
     result.optionType = (isOption && !optionType.isEmpty()) ? optionType : "XX";
     result.exchangeSegment = getCurrentExchangeSegmentCode();
-    result.scripCode = m_bseScripCodeEdit->text();
+    result.scripCode = m_bseScripCodeCombo->currentText();
     
     return result;
 }
@@ -627,7 +658,7 @@ void ScripBar::updateTokenDisplay()
     
     if (symbol.isEmpty()) {
         m_tokenEdit->clear();
-        m_bseScripCodeEdit->clear();
+        m_bseScripCodeCombo->clearItems();
         return;
     }
     
@@ -690,7 +721,7 @@ void ScripBar::updateTokenDisplay()
         if (isEquity && matchSymbol) {
             m_tokenEdit->setText(QString::number(inst.exchangeInstrumentID));
             if (m_currentExchange == "BSE" && !inst.scripCode.isEmpty()) {
-                m_bseScripCodeEdit->setText(inst.scripCode);
+                if (m_bseScripCodeCombo->lineEdit()) m_bseScripCodeCombo->lineEdit()->setText(inst.scripCode);
             }
             return;
         }
@@ -701,7 +732,7 @@ void ScripBar::updateTokenDisplay()
             if (matchExpiry && inst.strikePrice == 0.0) {  // Futures have strike = 0
                 m_tokenEdit->setText(QString::number(inst.exchangeInstrumentID));
                 if (m_currentExchange == "BSE" && !inst.scripCode.isEmpty()) {
-                    m_bseScripCodeEdit->setText(inst.scripCode);
+                    if (m_bseScripCodeCombo->lineEdit()) m_bseScripCodeCombo->lineEdit()->setText(inst.scripCode);
                 }
                 return;
             }
@@ -739,7 +770,7 @@ void ScripBar::updateTokenDisplay()
                          << "Expiry:" << inst.expiryDate << "Strike:" << inst.strikePrice << "OptionType:" << inst.optionType;
                 m_tokenEdit->setText(QString::number(inst.exchangeInstrumentID));
                 if (m_currentExchange == "BSE" && !inst.scripCode.isEmpty()) {
-                    m_bseScripCodeEdit->setText(inst.scripCode);
+                    if (m_bseScripCodeCombo->lineEdit()) m_bseScripCodeCombo->lineEdit()->setText(inst.scripCode);
                 }
                 return;
             }
@@ -750,7 +781,7 @@ void ScripBar::updateTokenDisplay()
     qDebug() << "[ScripBar] updateTokenDisplay: ❌ NO matching contract found - clearing token";
     qDebug() << "[ScripBar] Cache size:" << m_instrumentCache.size() << "contracts";
     m_tokenEdit->clear();
-    m_bseScripCodeEdit->clear();
+    m_bseScripCodeCombo->clearItems();
 }
 
 // Slot implementations
@@ -794,7 +825,7 @@ int ScripBar::getCurrentExchangeSegmentCode() const
     // BSE mappings
     if (exchange == "BSE") {
         if (segment == "E") return 11;  // BSECM
-        if (segment == "F") return 12;  // BSEFO
+        if (segment == "F" || segment == "O") return 12;  // BSEFO
     }
     
     // MCX mappings
@@ -813,12 +844,21 @@ QString ScripBar::mapInstrumentToSeries(const QString &instrument) const
     
     if (instrument == "EQUITY") {
         // For NSE CM, series is "EQ", "BE", "BZ", etc.
-        // For BSE CM, series is also equity-related codes
-        // Return "EQ" as the most common equity series
-        return "EQ";
+        // For BSE CM, series is "A", "B", "X", "F", "G", etc. (NO "EQ"!)
+        // Return empty string to get ALL equity series (RepositoryManager will handle this)
+        return "";  // Empty = get all series for this segment
     }
     
-    // For F&O instruments, the series field matches the instrument type
+    // BSE F&O uses different series codes than NSE
+    if (m_currentExchange == "BSE") {
+        if (instrument == "FUTIDX") return "IF";  // BSE Index Futures
+        if (instrument == "OPTIDX") return "IO";  // BSE Index Options
+        // BSE doesn't have stock futures/options currently, but keep for future
+        if (instrument == "FUTSTK") return "SF";  // BSE Stock Futures (if added)
+        if (instrument == "OPTSTK") return "SO";  // BSE Stock Options (if added)
+    }
+    
+    // For NSE F&O, the series field matches the instrument type
     // FUTIDX -> FUTIDX
     // FUTSTK -> FUTSTK
     // OPTIDX -> OPTIDX
@@ -878,4 +918,50 @@ void ScripBar::onInstrumentsReceived(const QVector<InstrumentData> &instruments)
     m_symbolCombo->addItems(symbols);
     
     qDebug() << "Received" << instruments.size() << "instruments," << symbols.size() << "unique symbols";
+}
+
+void ScripBar::populateBseScripCodes()
+{
+    m_bseScripCodeCombo->clearItems();
+    
+    // Only populate if BSE + E is selected
+    if (m_currentExchange != "BSE" || m_currentSegment != "E") {
+        return;
+    }
+    
+    // Extract unique scrip codes from instrument cache
+    QSet<QString> uniqueScripCodes;
+    for (const auto &inst : m_instrumentCache) {
+        if (!inst.scripCode.isEmpty()) {
+            uniqueScripCodes.insert(inst.scripCode);
+        }
+    }
+    
+    // Convert to sorted list
+    QStringList scripCodes = uniqueScripCodes.values();
+    scripCodes.sort();
+    
+    qDebug() << "[ScripBar] Populated" << scripCodes.size() << "BSE scrip codes";
+    
+    // Populate combo box
+    m_bseScripCodeCombo->addItems(scripCodes);
+}
+
+void ScripBar::onBseScripCodeChanged(const QString &text)
+{
+    qDebug() << "[ScripBar] BSE scrip code selected:" << text;
+    
+    // Find the instrument with this scrip code in the cache
+    for (const auto &inst : m_instrumentCache) {
+        if (inst.scripCode == text) {
+            // Update symbol combo to show this instrument's symbol
+            if (m_symbolCombo->lineEdit()) {
+                m_symbolCombo->lineEdit()->setText(inst.symbol);
+            }
+            
+            // Update token display
+            updateTokenDisplay();
+            break;
+        }
+    }
 }

@@ -144,20 +144,8 @@ set(CORE_WIDGET_HEADERS
 # ✅ Main application logic
 # ========================================
 
-# Development mode option (bypasses login, loads cached masters)
-option(DEV_MODE "Use development main (bypasses XTS login)" OFF)
-
-# Select main file based on mode
-if(DEV_MODE)
-    message(STATUS "🔧 DEV_MODE enabled - using main_work.cpp (login bypassed)")
-    set(MAIN_SOURCE src/main_work.cpp)
-else()
-    message(STATUS "🚀 Production mode - using main.cpp (full login flow)")
-    set(MAIN_SOURCE src/main.cpp)
-endif()
-
 set(APP_SOURCES
-    ${MAIN_SOURCE}
+    src/main.cpp
     src/app/MainWindow/MainWindow.cpp
     src/app/MainWindow/UI.cpp
     src/app/MainWindow/Windows.cpp

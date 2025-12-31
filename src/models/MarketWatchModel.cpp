@@ -74,6 +74,22 @@ QVariant MarketWatchModel::data(const QModelIndex &index, int role) const
         return scrip.exchange;
     }
 
+    // Background coloring for value changes
+    else if (role == Qt::BackgroundRole) {
+        if (column == MarketWatchColumn::LAST_TRADED_PRICE) {
+            if (scrip.ltpTick > 0) return QColor(220, 235, 255); // Soft Blue for UP
+            if (scrip.ltpTick < 0) return QColor(255, 230, 230); // Soft Red for DOWN
+        }
+        else if (column == MarketWatchColumn::BUY_PRICE) {
+            if (scrip.bidTick > 0) return QColor(220, 235, 255); // Soft Blue for UP
+            if (scrip.bidTick < 0) return QColor(255, 230, 230); // Soft Red for DOWN
+        }
+        else if (column == MarketWatchColumn::SELL_PRICE) {
+            if (scrip.askTick > 0) return QColor(220, 235, 255); // Soft Blue for UP
+            if (scrip.askTick < 0) return QColor(255, 230, 230); // Soft Red for DOWN
+        }
+    }
+
     return QVariant();
 }
 
@@ -254,6 +270,11 @@ void MarketWatchModel::updatePrice(int row, double ltp, double change, double ch
 {
     if (row >= 0 && row < m_scrips.count() && !m_scrips.at(row).isBlankRow) {
         ScripData &scrip = m_scrips[row];
+        
+        // Determine tick direction for LTP
+        if (ltp > scrip.ltp && scrip.ltp > 0) scrip.ltpTick = 1;
+        else if (ltp < scrip.ltp && scrip.ltp > 0) scrip.ltpTick = -1;
+        
         scrip.ltp = ltp;
         scrip.change = change;
         scrip.changePercent = changePercent;
@@ -277,6 +298,15 @@ void MarketWatchModel::updateBidAsk(int row, double bid, double ask)
 {
     if (row >= 0 && row < m_scrips.count() && !m_scrips.at(row).isBlankRow) {
         ScripData &scrip = m_scrips[row];
+        
+        // Determine tick direction for Bid
+        if (bid > scrip.bid && scrip.bid > 0) scrip.bidTick = 1;
+        else if (bid < scrip.bid && scrip.bid > 0) scrip.bidTick = -1;
+        
+        // Determine tick direction for Ask
+        if (ask > scrip.ask && scrip.ask > 0) scrip.askTick = 1;
+        else if (ask < scrip.ask && scrip.ask > 0) scrip.askTick = -1;
+        
         scrip.bid = bid;
         scrip.ask = ask;
         scrip.buyPrice = bid;   // Buy Price = Bid

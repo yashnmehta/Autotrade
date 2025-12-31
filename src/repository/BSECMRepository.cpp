@@ -235,13 +235,16 @@ QVector<ContractData> BSECMRepository::getContractsBySeries(const QString& serie
     QVector<ContractData> contracts;
     
     for (int32_t idx = 0; idx < m_contractCount; ++idx) {
-        if (m_series[idx] == series) {
+        // If series is empty, return all contracts (used for BSE equity search)
+        // Otherwise, match exact series
+        if (series.isEmpty() || m_series[idx] == series) {
             ContractData contract;
             contract.exchangeInstrumentID = m_token[idx];
             contract.name = m_name[idx];
             contract.displayName = m_displayName[idx];
             contract.series = m_series[idx];
             contract.lotSize = m_lotSize[idx];
+            contract.scripCode = QString::number(m_token[idx]);  // BSE scrip code = token
             
             contracts.append(contract);
         }

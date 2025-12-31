@@ -248,7 +248,10 @@ QVector<ContractData> BSEFORepository::getAllContracts() const {
         contract.lotSize = m_lotSize[idx];
         contract.expiryDate = m_expiryDate[idx];
         contract.strikePrice = m_strikePrice[idx];
-        contract.optionType = m_optionType[idx];
+        
+        if (m_optionType[idx] == 3) contract.optionType = "CE";
+        else if (m_optionType[idx] == 4) contract.optionType = "PE";
+        else contract.optionType = "XX";
         
         contracts.append(contract);
     }
@@ -269,6 +272,12 @@ QVector<ContractData> BSEFORepository::getContractsBySeries(const QString& serie
             contract.displayName = m_displayName[idx];
             contract.series = m_series[idx];
             contract.lotSize = m_lotSize[idx];
+            contract.expiryDate = m_expiryDate[idx];
+            contract.strikePrice = m_strikePrice[idx];
+            
+            if (m_optionType[idx] == 3) contract.optionType = "CE";
+            else if (m_optionType[idx] == 4) contract.optionType = "PE";
+            else contract.optionType = "XX";
             
             contracts.append(contract);
         }
@@ -290,6 +299,12 @@ QVector<ContractData> BSEFORepository::getContractsBySymbol(const QString& symbo
             contract.displayName = m_displayName[idx];
             contract.series = m_series[idx];
             contract.lotSize = m_lotSize[idx];
+            contract.expiryDate = m_expiryDate[idx];
+            contract.strikePrice = m_strikePrice[idx];
+            
+            if (m_optionType[idx] == 3) contract.optionType = "CE";
+            else if (m_optionType[idx] == 4) contract.optionType = "PE";
+            else contract.optionType = "XX";
             
             contracts.append(contract);
         }

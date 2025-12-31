@@ -32,102 +32,134 @@
    <string>Sell Order</string>
   </property>
   <property name="styleSheet">
-   <string notr="true">QWidget {
-    background-color: #ff8f8f; /* light red */
+   <string notr="true">QWidget#SellWindowForm {
+    background-color: #f8fafc;
+}
+
+/* Header/Indicative bar at top */
+QWidget#headerBar {
+    background-color: #ef4444; /* Sell Red */
+    border-top-left-radius: 4px;
+    border-top-right-radius: 4px;
 }
 
 QLabel {
-    color: #1b1b1b;
+    color: #475569;
     font-size: 11px;
-    font-weight: 600;
-    padding: 2px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    background-color: transparent;
+}
+
+QLabel#lblSymbol {
+    color: #991b1b;
+    font-size: 14px;
+    font-weight: 800;
 }
 
 QLineEdit {
     background-color: #ffffff;
-    color: #000000;
-    border-radius: 3px;
-    padding: 4px 8px;
-    font-size: 12px;
-    selection-background-color: #940000;
+    color: #0f172a;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 13px;
+    font-weight: 500;
 }
 
 QLineEdit:focus {
-    border: 1px solid #0078D7;
+    border: 2px solid #ef4444;
     background-color: #ffffff;
 }
 
+QLineEdit:hover {
+    border: 1px solid #94a3b8;
+}
+
 QLineEdit:read-only {
-    background-color: #f5f5f5;
-    color: #7a7a7a;
+    background-color: #f1f5f9;
+    color: #64748b;
+    border: 1px solid #e2e8f0;
 }
 
 QComboBox {
     background-color: #ffffff;
-    color: #000000;
-    border-radius: 3px;
-    padding: 4px 8px;
+    color: #0f172a;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    padding: 6px 10px;
     font-size: 12px;
+    font-weight: 500;
 }
 
 QComboBox:hover {
-    border: 1px solid #0078D7;
+    border: 1px solid #ef4444;
 }
 
 QComboBox:focus {
-    border: 1px solid #0078D7;
+    border: 2px solid #ef4444;
 }
 
 QComboBox::drop-down {
     border: none;
-    width: 20px;
+    width: 24px;
 }
 
 QComboBox::down-arrow {
     image: none;
-    border-left: 4px solid transparent;
-    border-right: 4px solid transparent;
-    border-top: 5px solid #b0b0b0;
-    margin-right: 5px;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 6px solid #64748b;
+    margin-right: 8px;
 }
 
 QComboBox QAbstractItemView {
     background-color: #ffffff;
-    color: #000000;
-    selection-background-color: #940000;
-    border: 1px solid #3e3e42;
+    color: #0f172a;
+    selection-background-color: #ef4444;
+    selection-color: #ffffff;
+    border: 1px solid #e2e8f0;
+    outline: none;
+}
+
+QPushButton {
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 8px 16px;
+    text-transform: uppercase;
 }
 
 QPushButton#pbSubmit {
-    background-color: #c62828;
+    background-color: #dc2626; /* Sell Red */
     color: #ffffff;
     border: none;
-    border-radius: 3px;
-    padding: 8px 20px;
-    font-size: 13px;
-    font-weight: 600;
 }
 
 QPushButton#pbSubmit:hover {
-    background-color: #d32f2f;
+    background-color: #b91c1c;
 }
 
 QPushButton#pbSubmit:pressed {
-    background-color: #b71c1c;
+    background-color: #991b1b;
 }
 
 QPushButton#pbClear {
-    background-color: #e0e0e0;
-    color: #000000;
-    border: none;
-    border-radius: 3px;
-    padding: 8px 12px;
+    background-color: #ffffff;
+    color: #64748b;
+    border: 1px solid #e2e8f0;
 }
 
 QPushButton#pbClear:hover {
-    background-color: #cfcfcf;
+    background-color: #f8fafc;
+    border: 1px solid #cbd5e1;
 }
-</string>
+
+/* Sections */
+QWidget#verticalWidget, QWidget#verticalWidget_2 {
+    background-color: transparent;
+}</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <property name="spacing">
@@ -137,7 +169,7 @@ QPushButton#pbClear:hover {
     <number>0</number>
    </property>
    <property name="topMargin">
-    <number>20</number>
+    <number>0</number>
    </property>
    <property name="rightMargin">
     <number>0</number>
@@ -145,6 +177,22 @@ QPushButton#pbClear:hover {
    <property name="bottomMargin">
     <number>0</number>
    </property>
+   <item>
+    <widget class="QWidget" name="headerBar" native="true">
+     <property name="minimumSize">
+      <size>
+       <width>0</width>
+       <height>4</height>
+      </size>
+     </property>
+     <property name="maximumSize">
+      <size>
+       <width>16777215</width>
+       <height>4</height>
+      </size>
+     </property>
+    </widget>
+   </item>
    <item>
     <layout class="QVBoxLayout" name="verticalLayout_2">
      <property name="spacing">
@@ -196,7 +244,7 @@ QPushButton#pbClear:hover {
            </widget>
           </item>
           <item row="0" column="2">
-           <widget class="QLabel" name="label_9">
+           <widget class="QLabel" name="lblType">
             <property name="text">
              <string>Type:</string>
             </property>
@@ -216,7 +264,7 @@ QPushButton#pbClear:hover {
            </widget>
           </item>
           <item row="0" column="5">
-           <widget class="QLabel" name="label_4">
+           <widget class="QLabel" name="lblSymbol">
             <property name="text">
              <string>Symbol:</string>
             </property>

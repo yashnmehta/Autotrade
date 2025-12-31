@@ -52,6 +52,7 @@ private slots:
     void onSegmentChanged(const QString &text);
     void onInstrumentChanged(int index);
     void onSymbolChanged(const QString &text);
+    void onBseScripCodeChanged(const QString &text);  // BSE scrip code search
     void onExpiryChanged(int index);
     void onStrikeChanged(int index);
     void onOptionTypeChanged(int index);
@@ -63,6 +64,7 @@ private:
     void populateSegments(const QString &exchange);
     void populateInstruments(const QString &segment);
     void populateSymbols(const QString &instrument);
+    void populateBseScripCodes();  // Populate BSE scrip codes for search
     void populateExpiries(const QString &symbol);
     void populateStrikes(const QString &expiry);
     void populateOptionTypes(const QString &strike);
@@ -85,11 +87,10 @@ private:
     QVector<InstrumentData> m_instrumentCache;
     QVector<InstrumentData> m_filteredInstruments;
     
-    // Custom combo boxes (using existing CustomScripComboBox)
     CustomScripComboBox *m_exchangeCombo;
     CustomScripComboBox *m_segmentCombo;
     CustomScripComboBox *m_instrumentCombo;
-    QLineEdit *m_bseScripCodeEdit;  // Only visible for BSE + E segment
+    CustomScripComboBox *m_bseScripCodeCombo;  // BSE scrip code search (BSE + E only)
     CustomScripComboBox *m_symbolCombo;
     CustomScripComboBox *m_expiryCombo;
     CustomScripComboBox *m_strikeCombo;
