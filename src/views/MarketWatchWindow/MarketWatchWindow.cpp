@@ -97,6 +97,7 @@ WindowContext MarketWatchWindow::getSelectedContractContext() const
     
     const ContractData *contract = repo->getContractByToken(exchangeName, segment, scrip.token);
     if (contract) {
+        context.symbol = contract->name;
         context.lotSize = contract->lotSize;
         context.tickSize = contract->tickSize;
         context.freezeQty = contract->freezeQty;

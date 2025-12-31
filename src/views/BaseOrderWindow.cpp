@@ -91,7 +91,7 @@ void BaseOrderWindow::setupBaseConnections() {
 
 void BaseOrderWindow::populateBaseComboBoxes() {
     if (m_cbEx) m_cbEx->addItems({"NSE", "BSE", "MCX"});
-    if (m_cbInstrName) m_cbInstrName->addItems({"RL", "FUTIDX", "FUTSTK", "OPTIDX", "OPTSTK"});
+    if (m_cbInstrName) m_cbInstrName->addItems({"FUTIDX", "FUTSTK", "OPTIDX", "OPTSTK"});
     if (m_cbOrdType) m_cbOrdType->addItems({"LIMIT", "MARKET", "SL", "SL-M"});
     if (m_cbOrderType2) m_cbOrderType2->addItems({"CarryForward", "DELIVERY", "INTRADAY"});
     if (m_cbOptType) m_cbOptType->addItems({"CE", "PE"});
@@ -147,8 +147,22 @@ void BaseOrderWindow::onAMOClicked() {
 
 void BaseOrderWindow::setScripDetails(const QString &exchange, int token, const QString &symbol) {
     if (m_cbEx) {
-        int idx = m_cbEx->findText(exchange, Qt::MatchStartsWith);
-        if (idx >= 0) m_cbEx->setCurrentIndex(idx);
+        // Try to find an item in m_cbEx that is a prefix of 'exchange'
+        // e.g. "NSE" matches "NSEFO"
+        int foundIdx = -1;
+        for (int i = 0; i < m_cbEx->count(); ++i) {
+            if (exchange.startsWith(m_cbEx->itemText(i), Qt::CaseInsensitive)) {
+                foundIdx = i;
+                break;
+            }
+        }
+        if (foundIdx >= 0) {
+            m_cbEx->setCurrentIndex(foundIdx);
+        } else {
+            // Fallback to exact match or starts with
+            int idx = m_cbEx->findText(exchange, Qt::MatchStartsWith);
+            if (idx >= 0) m_cbEx->setCurrentIndex(idx);
+        }
     }
     if (m_leToken) m_leToken->setText(QString::number(token));
     if (m_leSymbol) m_leSymbol->setText(symbol);
@@ -169,18 +183,43 @@ void BaseOrderWindow::loadFromContext(const WindowContext &context) {
 }
 
 bool BaseOrderWindow::focusNextPrevChild(bool next) {
+    // Define a fast-path sequence for trading
     QList<QWidget*> widgets;
+    
+    // 1. Order Type
+    if (m_cbOrdType && m_cbOrdType->isEnabled()) widgets << m_cbOrdType;
+    
+    // 2. Quantity
     if (m_leQty && m_leQty->isEnabled()) widgets << m_leQty;
+    
+    // 3. Price (if enabled)
     if (m_leRate && m_leRate->isEnabled()) widgets << m_leRate;
+    
+    // 4. Trigger Price (if enabled)
     if (m_leTrigPrice && m_leTrigPrice->isEnabled()) widgets << m_leTrigPrice;
+    
+    // 5. Submit Button
     if (m_pbSubmit && m_pbSubmit->isEnabled()) widgets << m_pbSubmit;
 
-    if (widgets.isEmpty()) return false;
+    if (widgets.isEmpty()) return QWidget::focusNextPrevChild(next);
+    
     QWidget *curr = QApplication::focusWidget();
     int idx = widgets.indexOf(curr);
-    if (idx == -1) { widgets.first()->setFocus(); return true; }
+    
+    // If current focused widget is not in our fast-path, let default logic handle it
+    if (idx == -1) {
+        // Exception: if starting tab from somewhere else, maybe jump into the fast path?
+        // For now, let default logic find the next widget based on UI tab order
+        return QWidget::focusNextPrevChild(next);
+    }
+    
     int nextIdx = next ? (idx + 1) % widgets.size() : (idx - 1 + widgets.size()) % widgets.size();
     widgets[nextIdx]->setFocus();
+    
+    // Select all text if it's a line edit for easier replacement
+    QLineEdit *le = qobject_cast<QLineEdit*>(widgets[nextIdx]);
+    if (le) le->selectAll();
+    
     return true;
 }
 

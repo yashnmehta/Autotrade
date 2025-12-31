@@ -25,8 +25,11 @@ bool MarketWatchWindow::addScrip(const QString &symbol, const QString &exchange,
     if (contract) {
         qDebug() << "[MarketWatch] contract found in repository:" << contract->displayName 
                  << "Series:" << contract->series << "Strike:" << contract->strikePrice;
-        scrip.symbol = contract->displayName;
-        if (scrip.symbol.isEmpty()) scrip.symbol = contract->name;
+        
+        // Prefer 'name' (Symbol) over 'displayName' (Description) for the symbol field
+        scrip.symbol = contract->name;
+        if (scrip.symbol.isEmpty()) scrip.symbol = contract->displayName;
+        
         scrip.exchange = exchange;
         scrip.token = token;
         scrip.instrumentType = contract->series;

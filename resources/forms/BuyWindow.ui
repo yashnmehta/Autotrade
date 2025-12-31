@@ -668,7 +668,7 @@ QWidget#verticalWidget, QWidget#verticalWidget_2 {
             </widget>
            </item>
            <item row="1" column="0">
-            <widget class="QComboBox" name="comboBox"/>
+            <widget class="QComboBox" name="cbEx"/>
            </item>
           </layout>
          </widget>
