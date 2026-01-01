@@ -80,7 +80,14 @@ bool BSEFORepository::loadProcessedCSV(const QString& filename) {
         contract.tickSize = fields[6].toDouble();
         contract.expiryDate = trimQuotes(fields[7]);
         contract.strikePrice = fields[8].toDouble();
-        contract.optionType = fields[9].toInt();
+        contract.optionType = 0; // Placeholder, will be converted in loadFromContracts if needed
+        contract.instrumentType = fields[fields.size() - 1].toInt();
+        
+        // Better: reconstruct the option marker from instrumentType and series
+        if (contract.instrumentType == 2) {
+            if (contract.series.contains("CE")) contract.optionType = 3;
+            else if (contract.series.contains("PE")) contract.optionType = 4;
+        }
         
         contracts.append(contract);
     }
@@ -144,8 +151,26 @@ bool BSEFORepository::loadFromContracts(const QVector<MasterContract>& contracts
         m_tickSize.push_back(contract.tickSize);
         m_expiryDate.push_back(contract.expiryDate);
         m_strikePrice.push_back(contract.strikePrice);
-        m_optionType.push_back(contract.optionType);
+        
+        // Convert optionType
+        if (contract.instrumentType == 4) {
+            m_optionType.push_back("SPD");
+        } else if (contract.instrumentType == 2) {
+            if (contract.nameWithSeries.contains("CE") || contract.displayName.contains("CE")) {
+                m_optionType.push_back("CE");
+            } else if (contract.nameWithSeries.contains("PE") || contract.displayName.contains("PE")) {
+                m_optionType.push_back("PE");
+            } else {
+                m_optionType.push_back("XX");
+            }
+        } else if (contract.instrumentType == 1) {
+            m_optionType.push_back("FUT");
+        } else {
+            m_optionType.push_back("XX");
+        }
+
         m_assetToken.push_back(0);
+        m_instrumentType.push_back(contract.instrumentType);
         m_priceBandHigh.push_back(contract.freezeQty);
         m_priceBandLow.push_back(0);
         
@@ -190,7 +215,7 @@ bool BSEFORepository::saveProcessedCSV(const QString& filename) const {
     QTextStream out(&file);
     
     // Write header
-    out << "Token,Symbol,DisplayName,Description,Series,LotSize,TickSize,ExpiryDate,StrikePrice,OptionType,UnderlyingSymbol,AssetToken,PriceBandHigh,PriceBandLow,LTP,Open,High,Low,Close,PrevClose,Volume,IV,Delta,Gamma,Vega,Theta\n";
+    out << "Token,Symbol,DisplayName,Description,Series,LotSize,TickSize,ExpiryDate,StrikePrice,OptionType,UnderlyingSymbol,AssetToken,PriceBandHigh,PriceBandLow,LTP,Open,High,Low,Close,PrevClose,Volume,IV,Delta,Gamma,Vega,Theta,InstrumentType\n";
     
     // Write all contracts
     for (int32_t idx = 0; idx < m_contractCount; ++idx) {
@@ -209,7 +234,8 @@ bool BSEFORepository::saveProcessedCSV(const QString& filename) const {
             << m_priceBandHigh[idx] << ","
             << m_priceBandLow[idx] << ","
             << "0,0,0,0,0,0,0,"  // Live data (not persisted)
-            << "0,0,0,0,0\n";    // Greeks (not persisted)
+            << "0,0,0,0,0,"      // Greeks (not persisted)
+            << m_instrumentType[idx] << "\n";
     }
     
     file.close();
@@ -244,14 +270,14 @@ QVector<ContractData> BSEFORepository::getAllContracts() const {
         contract.exchangeInstrumentID = m_token[idx];
         contract.name = m_name[idx];
         contract.displayName = m_displayName[idx];
+        contract.description = m_description[idx];
         contract.series = m_series[idx];
         contract.lotSize = m_lotSize[idx];
+        contract.tickSize = m_tickSize[idx];
         contract.expiryDate = m_expiryDate[idx];
         contract.strikePrice = m_strikePrice[idx];
-        
-        if (m_optionType[idx] == 3) contract.optionType = "CE";
-        else if (m_optionType[idx] == 4) contract.optionType = "PE";
-        else contract.optionType = "XX";
+        contract.optionType = m_optionType[idx];
+        contract.instrumentType = m_instrumentType[idx];
         
         contracts.append(contract);
     }
@@ -270,14 +296,14 @@ QVector<ContractData> BSEFORepository::getContractsBySeries(const QString& serie
             contract.exchangeInstrumentID = m_token[idx];
             contract.name = m_name[idx];
             contract.displayName = m_displayName[idx];
+            contract.description = m_description[idx];
             contract.series = m_series[idx];
             contract.lotSize = m_lotSize[idx];
+            contract.tickSize = m_tickSize[idx];
             contract.expiryDate = m_expiryDate[idx];
             contract.strikePrice = m_strikePrice[idx];
-            
-            if (m_optionType[idx] == 3) contract.optionType = "CE";
-            else if (m_optionType[idx] == 4) contract.optionType = "PE";
-            else contract.optionType = "XX";
+            contract.optionType = m_optionType[idx];
+            contract.instrumentType = m_instrumentType[idx];
             
             contracts.append(contract);
         }
@@ -297,14 +323,14 @@ QVector<ContractData> BSEFORepository::getContractsBySymbol(const QString& symbo
             contract.exchangeInstrumentID = m_token[idx];
             contract.name = m_name[idx];
             contract.displayName = m_displayName[idx];
+            contract.description = m_description[idx];
             contract.series = m_series[idx];
             contract.lotSize = m_lotSize[idx];
+            contract.tickSize = m_tickSize[idx];
             contract.expiryDate = m_expiryDate[idx];
             contract.strikePrice = m_strikePrice[idx];
-            
-            if (m_optionType[idx] == 3) contract.optionType = "CE";
-            else if (m_optionType[idx] == 4) contract.optionType = "PE";
-            else contract.optionType = "XX";
+            contract.optionType = m_optionType[idx];
+            contract.instrumentType = m_instrumentType[idx];
             
             contracts.append(contract);
         }

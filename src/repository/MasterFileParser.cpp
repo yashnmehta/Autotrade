@@ -122,8 +122,9 @@ bool MasterFileParser::parseNSEFO(const QStringList& fields, MasterContract& con
     // field[15] = UnderlyingName/InstrumentID (not stored)
     contract.expiryDate = trimQuotes(fields[16]);
     
-    // Check if this is OPTIONS or FUTURES
-    bool isOption = contract.series.startsWith("OPT");
+    // Check if this is OPTIONS or FUTURES or SPREADS based on instrumentType
+    bool isOption = (contract.instrumentType == 2);
+    bool isSpread = (contract.instrumentType == 4);
     
     if (isOption && fields.size() >= 19) {
         // OPTIONS: fields 17=Strike, 18=OptionType, 19=DisplayName
@@ -134,6 +135,14 @@ bool MasterFileParser::parseNSEFO(const QStringList& fields, MasterContract& con
         }
         if (fields.size() >= 21) {
             contract.isin = trimQuotes(fields[20]);
+        }
+    } else if (isSpread && fields.size() >= 17) {
+        // SPREADS: fields similar to futures but mark as spread
+        contract.strikePrice = 0.0;
+        contract.optionType = 0;
+        contract.displayName = trimQuotes(fields[17]);
+        if (fields.size() >= 19) {
+            contract.isin = trimQuotes(fields[18]);
         }
     } else {
         // FUTURES: field 17=DisplayName, no strike price (0), optionType=0
@@ -273,9 +282,10 @@ bool MasterFileParser::parseBSEFO(const QStringList& fields, MasterContract& con
     // field[15] = UnderlyingName/InstrumentID (not stored)
     contract.expiryDate = trimQuotes(fields[16]);
     
-    // Check if this is OPTIONS or FUTURES
-    // BSE: IF=Index Futures, IO=Index Options, SO=Stock Options, etc.
-    bool isOption = (contract.series.contains("O"));  // IO, SO, etc. contain 'O'
+    // Check if this is OPTIONS, FUTURES or SPREADS based on instrumentType
+    // BSE: 1=IF/SF (Futures), 2=IO/SO (Options), 4=SPD (Spreads)
+    bool isOption = (contract.instrumentType == 2);
+    bool isSpread = (contract.instrumentType == 4);
     
     if (isOption && fields.size() >= 20) {
         // OPTIONS: field 17=StrikePrice, 18=OptionType, 19=DisplayName
@@ -284,6 +294,14 @@ bool MasterFileParser::parseBSEFO(const QStringList& fields, MasterContract& con
         contract.displayName = trimQuotes(fields[19]);
         if (fields.size() >= 21) {
             contract.isin = trimQuotes(fields[20]);
+        }
+    } else if (isSpread && fields.size() >= 17) {
+        // SPREADS: similar layout to futures
+        contract.strikePrice = 0.0;
+        contract.optionType = 0;
+        contract.displayName = trimQuotes(fields[17]);
+        if (fields.size() >= 19) {
+            contract.isin = trimQuotes(fields[18]);
         }
     } else {
         // FUTURES: field 17=DisplayName, no strike price (0), optionType=0

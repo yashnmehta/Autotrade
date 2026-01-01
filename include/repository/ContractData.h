@@ -22,6 +22,7 @@ struct ContractData {
     QString description;            // Contract description (e.g., MANAPPURAM26JAN372.5PE)
     QString series;                 // Series type (OPTSTK, OPTIDX, FUTSTK, FUTIDX, EQ, etc.)
     QString scripCode;              // BSE scrip code (11-14 digits, BSE CM/FO only)
+    int32_t instrumentType;         // 1=Future, 2=Option, 4=Spread (BSE/NSE FO)
     
     // ===== TRADING PARAMETERS =====
     int32_t lotSize;                // Contract lot size
@@ -86,6 +87,7 @@ struct ContractData {
         , vega(0.0)
         , theta(0.0)
         , rho(0.0)
+        , instrumentType(0)
     {}
 };
 
@@ -157,15 +159,28 @@ struct MasterContract {
         data.expiryDate = expiryDate;
         data.strikePrice = strikePrice;
         data.assetToken = assetToken;
+        data.instrumentType = instrumentType;
         
-        // Convert optionType from int to string
-        // Based on actual data: 3=CE, 4=PE, others=XX
-        if (optionType == 3) {
-            data.optionType = "CE";
-        } else if (optionType == 4) {
-            data.optionType = "PE";
+        // Convert optionType from int to string based on exchange and instrumentType
+        if (exchange == "NSECM" || exchange == "BSECM") {
+            data.optionType = "EQ";
         } else {
-            data.optionType = "XX";
+            // F&O Segments
+            if (instrumentType == 4) {
+                data.optionType = "SPD";
+            } else if (instrumentType == 2) {
+                if (optionType == 3) {
+                    data.optionType = "CE";
+                } else if (optionType == 4) {
+                    data.optionType = "PE";
+                } else {
+                    data.optionType = "XX";
+                }
+            } else if (instrumentType == 1) {
+                data.optionType = "FUT";
+            } else {
+                data.optionType = "XX";
+            }
         }
         
         return data;

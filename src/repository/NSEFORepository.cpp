@@ -101,6 +101,7 @@ void NSEFORepository::allocateArrays() {
     m_strikePrice.resize(ARRAY_SIZE);
     m_optionType.resize(ARRAY_SIZE);
     m_assetToken.resize(ARRAY_SIZE);
+    m_instrumentType.resize(ARRAY_SIZE);
     
     // Greeks (6 fields)
     m_iv.resize(ARRAY_SIZE);
@@ -186,6 +187,7 @@ bool NSEFORepository::loadMasterFile(const QString& filename) {
             m_expiryDate[idx] = contract.expiryDate;
             m_strikePrice[idx] = contract.strikePrice;
             m_assetToken[idx] = getUnderlyingAssetToken(contract.name, contract.assetToken);
+            m_instrumentType[idx] = contract.instrumentType;
             
             // Convert optionType from int to string
             // Based on actual data: 3=CE, 4=PE, others=XX
@@ -194,7 +196,9 @@ bool NSEFORepository::loadMasterFile(const QString& filename) {
                          << "Raw optionType:" << contract.optionType;
             }
             
-            if (contract.optionType == 3) {
+            if (contract.instrumentType == 4) {
+                m_optionType[idx] = "SPD";
+            } else if (contract.optionType == 3) {
                 m_optionType[idx] = "CE";
             } else if (contract.optionType == 4) {
                 m_optionType[idx] = "PE";
@@ -291,7 +295,7 @@ bool NSEFORepository::loadProcessedCSV(const QString& filename) {
         QString qLine = QString::fromStdString(line);
         QStringList fields = qLine.split(',');
         
-        if (fields.size() < 27) {  // NSEFO CSV now has 27 columns (added FreezeQty)
+        if (fields.size() < 28) {  // Added instrumentType
             continue;
         }
         
@@ -320,6 +324,7 @@ bool NSEFORepository::loadProcessedCSV(const QString& filename) {
             m_freezeQty[idx] = fields[12].toInt();
             m_priceBandHigh[idx] = fields[13].toDouble();
             m_priceBandLow[idx] = fields[14].toDouble();
+            m_instrumentType[idx] = fields[27].toInt();      // Added
             
             // Live market data (initialized to 0 in CSV)
             m_ltp[idx] = fields[15].toDouble();
@@ -374,6 +379,7 @@ bool NSEFORepository::loadProcessedCSV(const QString& filename) {
             contractData->gamma = fields[24].toDouble();
             contractData->vega = fields[25].toDouble();
             contractData->theta = fields[26].toDouble();
+            contractData->instrumentType = fields[27].toInt();
             
             m_spreadContracts[token] = contractData;
             spreadLoadedCount++;
@@ -438,6 +444,7 @@ const ContractData* NSEFORepository::getContract(int64_t token) const {
         tempContract.strikePrice = m_strikePrice[idx];
         tempContract.optionType = m_optionType[idx];
         tempContract.assetToken = m_assetToken[idx];
+        tempContract.instrumentType = m_instrumentType[idx];
         tempContract.iv = m_iv[idx];
         tempContract.delta = m_delta[idx];
         tempContract.gamma = m_gamma[idx];
@@ -578,6 +585,7 @@ QVector<ContractData> NSEFORepository::getAllContracts() const {
             contract.volume = m_volume[idx];
             contract.iv = m_iv[idx];
             contract.delta = m_delta[idx];
+            contract.instrumentType = m_instrumentType[idx];
             
             contracts.append(contract);
         }
@@ -611,6 +619,7 @@ QVector<ContractData> NSEFORepository::getContractsBySeries(const QString& serie
             contract.expiryDate = m_expiryDate[idx];
             contract.strikePrice = m_strikePrice[idx];
             contract.optionType = m_optionType[idx];
+            contract.instrumentType = m_instrumentType[idx];
             
             contracts.append(contract);
         }
@@ -636,6 +645,7 @@ QVector<ContractData> NSEFORepository::getContractsBySymbol(const QString& symbo
             contract.expiryDate = m_expiryDate[idx];
             contract.strikePrice = m_strikePrice[idx];
             contract.optionType = m_optionType[idx];
+            contract.instrumentType = m_instrumentType[idx];
             
             contracts.append(contract);
         }
@@ -685,14 +695,18 @@ bool NSEFORepository::loadFromContracts(const QVector<MasterContract>& contracts
             m_expiryDate[idx] = contract.expiryDate;
             m_strikePrice[idx] = contract.strikePrice;
             
-            // Convert optionType from int to string (3=CE, 4=PE)
-            if (contract.optionType == 3) {
+            // Convert optionType from int to string
+            if (contract.instrumentType == 4) {
+                m_optionType[idx] = "SPD";
+            } else if (contract.optionType == 3) {
                 m_optionType[idx] = "CE";
             } else if (contract.optionType == 4) {
                 m_optionType[idx] = "PE";
             } else {
                 m_optionType[idx] = "XX";
             }
+            
+            m_instrumentType[idx] = contract.instrumentType;
             
             m_assetToken[idx] = getUnderlyingAssetToken(contract.name, contract.assetToken);
             // why we are using freezeQty for priceBandHigh???
@@ -732,17 +746,7 @@ bool NSEFORepository::loadFromContracts(const QVector<MasterContract>& contracts
             // Spread contract: store in map
             QWriteLocker locker(&m_mutexes[0]);
             
-            auto contractData = std::make_unique<ContractData>();
-            contractData->exchangeInstrumentID = token;
-            contractData->name = contract.name;
-            contractData->displayName = contract.displayName;
-            contractData->description = contract.description;
-            contractData->series = contract.series;
-            contractData->lotSize = contract.lotSize;
-            contractData->tickSize = contract.tickSize;
-            contractData->expiryDate = contract.expiryDate;
-            contractData->strikePrice = contract.strikePrice;
-            contractData->optionType = contract.optionType;
+            auto contractData = std::make_shared<ContractData>(contract.toContractData());
             
             m_spreadContracts.insert(token, std::move(contractData));
             m_spreadCount++;
@@ -767,7 +771,7 @@ bool NSEFORepository::saveProcessedCSV(const QString& filename) const {
     QTextStream out(&file);
     
     // Write header
-    out << "Token,Symbol,DisplayName,Description,Series,LotSize,TickSize,ExpiryDate,StrikePrice,OptionType,UnderlyingSymbol,AssetToken,FreezeQty,PriceBandHigh,PriceBandLow,LTP,Open,High,Low,Close,PrevClose,Volume,IV,Delta,Gamma,Vega,Theta\n";
+    out << "Token,Symbol,DisplayName,Description,Series,LotSize,TickSize,ExpiryDate,StrikePrice,OptionType,UnderlyingSymbol,AssetToken,FreezeQty,PriceBandHigh,PriceBandLow,LTP,Open,High,Low,Close,PrevClose,Volume,IV,Delta,Gamma,Vega,Theta,InstrumentType\n";
     
     // Write regular contracts
     for (int32_t idx = 0; idx < ARRAY_SIZE; ++idx) {
@@ -790,7 +794,8 @@ bool NSEFORepository::saveProcessedCSV(const QString& filename) const {
             << m_priceBandHigh[idx] << ","
             << m_priceBandLow[idx] << ","
             << "0,0,0,0,0,0,0,"  // Live data (not persisted)
-            << "0,0,0,0,0\n";    // Greeks (not persisted)
+            << "0,0,0,0,0,"      // Greeks (not persisted)
+            << m_instrumentType[idx] << "\n";
     }
     
     // Write spread contracts
@@ -812,7 +817,8 @@ bool NSEFORepository::saveProcessedCSV(const QString& filename) const {
             << contract->priceBandHigh << ","
             << contract->priceBandLow << ","
             << "0,0,0,0,0,0,0,"  // Live data
-            << "0,0,0,0,0\n";    // Greeks
+            << "0,0,0,0,0,"      // Greeks
+            << contract->instrumentType << "\n";
     }
     
     file.close();
