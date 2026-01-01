@@ -14,34 +14,32 @@
 
 #include "bse_receiver.h"
 #include "bse_utils.h"
+#include "socket_platform.h"
 
 #include <iostream>
 #include <cstring>
-#include <sys/socket.h>
-#include <arpa/inet.h>
-#include <unistd.h>
-#include <fcntl.h>
 #include <chrono>
 
 namespace bse {
 using namespace bse_utils;
 
 BSEReceiver::BSEReceiver(const std::string& ip, int port, const std::string& segment)
-    : ip_(ip), port_(port), segment_(segment), sockfd_(-1), running_(false) {
+    : ip_(ip), port_(port), segment_(segment), sockfd_(socket_invalid), running_(false) {
+    WinsockLoader::init();
     
     // Create socket
     sockfd_ = socket(AF_INET, SOCK_DGRAM, 0);
-    if (sockfd_ < 0) {
-        std::cerr << "Failed to create socket" << std::endl;
+    if (sockfd_ == socket_invalid) {
+        std::cerr << "Failed to create socket: " << socket_error_string(socket_errno) << std::endl;
         return;
     }
 
     // Allow multiple sockets to use the same addr and port
     int reuse = 1;
     if (setsockopt(sockfd_, SOL_SOCKET, SO_REUSEADDR, (char *)&reuse, sizeof(reuse)) < 0) {
-        perror("Reusing ADDR failed");
-        close(sockfd_);
-        sockfd_ = -1;
+        std::cerr << "Reusing ADDR failed: " << socket_error_string(socket_errno) << std::endl;
+        socket_close(sockfd_);
+        sockfd_ = socket_invalid;
         return;
     }
 #ifdef SO_REUSEPORT
@@ -50,11 +48,13 @@ BSEReceiver::BSEReceiver(const std::string& ip, int port, const std::string& seg
     }
 #endif
     
-    // Set receive timeout (1 second)
-    struct timeval tv;
-    tv.tv_sec = 1;
-    tv.tv_usec = 0;
-    setsockopt(sockfd_, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof tv);
+    // Set receive timeout (1 second) - use cross-platform helper
+    if (set_socket_timeout(sockfd_, 1) < 0) {
+        std::cerr << "Failed to set timeout: " << socket_error_string(socket_errno) << std::endl;
+        socket_close(sockfd_);
+        sockfd_ = socket_invalid;
+        return;
+    }
 
     // Bind to the port
     memset(&addr_, 0, sizeof(addr_));
@@ -63,9 +63,9 @@ BSEReceiver::BSEReceiver(const std::string& ip, int port, const std::string& seg
     addr_.sin_port = htons(port_);
 
     if (bind(sockfd_, (struct sockaddr*)&addr_, sizeof(addr_)) < 0) {
-        perror("Bind failed");
-        close(sockfd_);
-        sockfd_ = -1;
+        std::cerr << "Bind failed: " << socket_error_string(socket_errno) << std::endl;
+        socket_close(sockfd_);
+        sockfd_ = socket_invalid;
         return;
     }
 
@@ -75,9 +75,9 @@ BSEReceiver::BSEReceiver(const std::string& ip, int port, const std::string& seg
     mreq.imr_interface.s_addr = htonl(INADDR_ANY);
     
     if (setsockopt(sockfd_, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char *)&mreq, sizeof(mreq)) < 0) {
-        perror("mreq");
-        close(sockfd_);
-        sockfd_ = -1;
+        std::cerr << "Failed to join multicast group: " << socket_error_string(socket_errno) << std::endl;
+        socket_close(sockfd_);
+        sockfd_ = socket_invalid;
         return;
     }
 
@@ -86,8 +86,8 @@ BSEReceiver::BSEReceiver(const std::string& ip, int port, const std::string& seg
 
 BSEReceiver::~BSEReceiver() {
     stop();
-    if (sockfd_ >= 0) {
-        close(sockfd_);
+    if (sockfd_ != socket_invalid) {
+        socket_close(sockfd_);
     }
 }
 
@@ -109,7 +109,11 @@ void BSEReceiver::receiveLoop() {
     
     while (running_) {
         // Receive packet
+#ifdef _WIN32
+        ssize_t n = recv(sockfd_, reinterpret_cast<char*>(buffer_), sizeof(buffer_), 0);
+#else
         ssize_t n = recv(sockfd_, buffer_, sizeof(buffer_), 0);
+#endif
         
         if (n < 0) {
             // Timeout or error (EAGAIN/EWOULDBLOCK means timeout)

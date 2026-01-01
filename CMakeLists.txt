@@ -166,11 +166,13 @@ set(APP_HEADERS
 set(UI_SOURCES
     src/ui/SplashScreen.cpp
     src/ui/LoginWindow.cpp
+    src/ui/OptionChainWindow.cpp
 )
 
 set(UI_HEADERS
     include/ui/SplashScreen.h
     include/ui/LoginWindow.h
+    include/ui/OptionChainWindow.h
 )
 
 # ========================================
@@ -196,7 +198,6 @@ set(VIEW_SOURCES
     src/views/GenericProfileDialog.cpp
     src/views/PreferenceDialog/PreferenceDialog.cpp
     src/views/CustomizeDialog.cpp
-    src/ui/OptionChainWindow.cpp
 )
 
 set(VIEW_HEADERS
@@ -206,7 +207,6 @@ set(VIEW_HEADERS
     include/views/SellWindow.h
     include/views/MarketWatchWindow.h
     include/views/SnapQuoteWindow.h
-    include/views/OptionChainWindow.h
     include/views/PositionWindow.h
     include/views/TradeBookWindow.h
     include/views/OrderBookWindow.h
@@ -514,7 +514,7 @@ add_subdirectory(tests)
 # target_link_libraries(test_xts_api Qt5::Core Qt5::Network)
 # set_target_properties(test_xts_api PROPERTIES AUTOMOC ON)
 
-# Performance Benchmark: Qt vs Native C++
-add_executable(benchmark_qt_vs_native tests/benchmark_qt_vs_native.cpp)
-target_link_libraries(benchmark_qt_vs_native Qt5::Core)
-set_target_properties(benchmark_qt_vs_native PROPERTIES AUTOMOC ON)
+# Performance Benchmark: Qt vs Native C++ (REMOVED - test file deleted)
+# add_executable(benchmark_qt_vs_native tests/benchmark_qt_vs_native.cpp)
+# target_link_libraries(benchmark_qt_vs_native Qt5::Core)
+# set_target_properties(benchmark_qt_vs_native PROPERTIES AUTOMOC ON)

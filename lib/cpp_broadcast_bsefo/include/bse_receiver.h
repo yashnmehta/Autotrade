@@ -6,7 +6,7 @@
 #include <vector>
 #include <functional>
 #include <thread>
-#include <netinet/in.h>
+#include "socket_platform.h"
 
 #include "bse_protocol.h"
 
@@ -50,7 +50,7 @@ private:
     int port_;
     std::string segment_;
     
-    int sockfd_;
+    socket_t sockfd_;
     struct sockaddr_in addr_;
     std::atomic<bool> running_;
     std::thread receiverThread_;

@@ -2,14 +2,22 @@
 #define BSE_UTILS_H
 
 #include <cstdint>
-#include <arpa/inet.h>
+#include "socket_platform.h"
 
 namespace bse {
 namespace bse_utils {
 
-// Endianness converters if not available
-inline uint16_t be16toh_func(uint16_t val) { return ntohs(val); }
-inline uint32_t be32toh_func(uint32_t val) { return ntohl(val); }
+// Endianness converters - cross-platform
+#ifdef _WIN32
+    // Windows: use winsock functions
+    inline uint16_t be16toh_func(uint16_t val) { return ntohs(val); }
+    inline uint32_t be32toh_func(uint32_t val) { return ntohl(val); }
+#else
+    // Unix/Linux/macOS: use standard functions
+    inline uint16_t be16toh_func(uint16_t val) { return ntohs(val); }
+    inline uint32_t be32toh_func(uint32_t val) { return ntohl(val); }
+#endif
+
 inline uint64_t be64toh_func(uint64_t val) {
     uint32_t high = ntohl(val >> 32);
     uint32_t low = ntohl(val & 0xFFFFFFFF);

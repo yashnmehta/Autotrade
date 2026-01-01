@@ -68,8 +68,9 @@ private:
     QVector<double> m_tickSize;
     QVector<QString> m_expiryDate;
     QVector<double> m_strikePrice;
-    QVector<int32_t> m_optionType;
+    QVector<QString> m_optionType;
     QVector<int64_t> m_assetToken;
+    QVector<int32_t> m_instrumentType;
     QVector<double> m_priceBandHigh;
     QVector<double> m_priceBandLow;
     

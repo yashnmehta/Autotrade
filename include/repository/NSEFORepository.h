@@ -225,6 +225,7 @@ private:
     QVector<double> m_strikePrice;
     QVector<QString> m_optionType;
     QVector<int64_t> m_assetToken;
+    QVector<int32_t> m_instrumentType;
     
     // Greeks (6 fields - for options)
     QVector<double> m_iv;

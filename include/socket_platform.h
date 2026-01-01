@@ -11,7 +11,7 @@
     #include <ws2tcpip.h>
     #include <windows.h>
     #pragma comment(lib, "ws2_32.lib")
-    typedef int ssize_t;
+    // MinGW already defines ssize_t, so don't redefine it
     typedef SOCKET socket_t;
     #define socket_close closesocket
     #define socket_invalid INVALID_SOCKET
@@ -73,5 +73,19 @@ public:
         static WinsockLoader loader;
     }
 };
+
+// Cross-platform socket timeout helper
+// Windows uses DWORD (milliseconds), Unix/Linux/macOS use struct timeval
+inline int set_socket_timeout(socket_t sockfd, int seconds) {
+#ifdef _WIN32
+    DWORD timeout = seconds * 1000;  // Convert to milliseconds
+    return setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (const char*)&timeout, sizeof(timeout));
+#else
+    struct timeval tv;
+    tv.tv_sec = seconds;
+    tv.tv_usec = 0;
+    return setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+#endif
+}
 
 #endif // SOCKET_PLATFORM_H

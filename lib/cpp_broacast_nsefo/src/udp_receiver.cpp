@@ -138,7 +138,11 @@ void UDPReceiver::startListener(int port, UDPStats& stats) {
 
     // Increase buffer size
     int rcvbuf = 2 * 1024 * 1024;
+#ifdef _WIN32
+    setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, reinterpret_cast<const char*>(&rcvbuf), sizeof(rcvbuf));
+#else
     setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(rcvbuf));
+#endif
 
     std::cout << "Listening on 233.1.2.5:" << port << std::endl;
 
@@ -150,7 +154,11 @@ void UDPReceiver::startListener(int port, UDPStats& stats) {
 
     while (true) {
         std::cout << "Waiting for UDP packets..." << std::endl;
+#ifdef _WIN32
+        ssize_t n = recv(sockfd, reinterpret_cast<char*>(buffer.data()), buffer.size(), 0);
+#else
         ssize_t n = recv(sockfd, buffer.data(), buffer.size(), 0);
+#endif
         if (n < 0) break;
         
         if (n < 4) continue; // Too short
