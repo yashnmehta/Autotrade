@@ -179,6 +179,36 @@ int ConfigLoader::getNSEFOPort() const
     return p;
 }
 
+QString ConfigLoader::getNSECMMulticastIP() const
+{
+    return getValue("UDP", "nse_cm_multicast_ip", "233.1.2.5");
+}
+
+int ConfigLoader::getNSECMPort() const
+{
+    return getInt("UDP", "nse_cm_port", 8222);
+}
+
+QString ConfigLoader::getBSEFOMulticastIP() const
+{
+    return getValue("UDP", "bse_fo_multicast_ip", "239.1.2.5");
+}
+
+int ConfigLoader::getBSEFOPort() const
+{
+    return getInt("UDP", "bse_fo_port", 26002);
+}
+
+QString ConfigLoader::getBSECMMulticastIP() const
+{
+    return getValue("UDP", "bse_cm_multicast_ip", "239.1.2.5");
+}
+
+int ConfigLoader::getBSECMPort() const
+{
+    return getInt("UDP", "bse_cm_port", 26001);
+}
+
 QJsonObject ConfigLoader::getUDPConfig() const
 {
     QJsonObject config;
@@ -204,7 +234,7 @@ QJsonObject ConfigLoader::getUDPConfig() const
     QJsonObject bseFo;
     bseFo["enabled"] = true;
     bseFo["multicastGroup"] = getValue("UDP", "bse_fo_multicast_ip", "239.1.2.5");
-    bseFo["port"] = getInt("UDP", "bse_fo_port", 26001);
+    bseFo["port"] = getInt("UDP", "bse_fo_port", 26002);
     bseFo["protocol"] = "binary";
     exchanges["BSEFO"] = bseFo;
 
@@ -212,7 +242,7 @@ QJsonObject ConfigLoader::getUDPConfig() const
     QJsonObject bseCm;
     bseCm["enabled"] = true;
     bseCm["multicastGroup"] = getValue("UDP", "bse_cm_multicast_ip", "239.1.2.5");
-    bseCm["port"] = getInt("UDP", "bse_cm_port", 26002);
+    bseCm["port"] = getInt("UDP", "bse_cm_port", 26001);
     bseCm["protocol"] = "binary";
     exchanges["BSECM"] = bseCm;
     

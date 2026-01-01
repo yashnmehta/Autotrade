@@ -72,6 +72,16 @@ void MarketWatchWindow::onTickUpdate(const XTS::Tick& tick)
     int token = (int)tick.exchangeInstrumentID;
     int64_t timestampModelStart = LatencyTracker::now();
     
+    // Debug logging for BSE tokens
+    if (tick.exchangeSegment == 12 || tick.exchangeSegment == 11) {
+        static int bseUpdateCount = 0;
+        if (bseUpdateCount++ < 10) {
+            int row = findTokenRow(token);
+            qDebug() << "[MarketWatch] BSE Tick Update - Token:" << token 
+                     << "LTP:" << tick.lastTradedPrice << "Row:" << row;
+        }
+    }
+    
     // 1. Update LTP and OHLC if LTP is present (> 0)
     if (tick.lastTradedPrice > 0) {
         double change = 0;

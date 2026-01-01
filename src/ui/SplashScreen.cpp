@@ -71,6 +71,9 @@ void SplashScreen::preloadMasters()
             auto stats = repo->getSegmentStats();
             qDebug() << "[SplashScreen]   NSE F&O:" << stats.nsefo << "contracts";
             qDebug() << "[SplashScreen]   NSE CM:" << stats.nsecm << "contracts";
+            qDebug() << "[SplashScreen]   BSE F&O:" << stats.bsefo << "contracts";
+            qDebug() << "[SplashScreen]   BSE CM:" << stats.bsecm << "contracts";
+            qDebug() << "[SplashScreen]   Total:" << repo->getTotalContractCount() << "contracts";
             setStatus("Master contracts loaded");
         } else {
             qDebug() << "[SplashScreen] ⚠ No cached masters found (will download on login)";

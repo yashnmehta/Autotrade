@@ -5,6 +5,7 @@
 #include "api/XTSMarketDataClient.h"
 #include "multicast_receiver.h"
 #include "nsecm_multicast_receiver.h"
+#include "bse_receiver.h"
 #include "utils/LockFreeQueue.h"
 #include <memory>
 #include <QTimer>
@@ -126,13 +127,6 @@ private:
     
     // Config Loader
     class ConfigLoader *m_configLoader;
-    
-    // UDP Broadcast Receivers
-    std::unique_ptr<nsefo::MulticastReceiver> m_udpReceiver;
-    std::thread m_udpThread;
-    
-    std::unique_ptr<nsecm::MulticastReceiver> m_udpReceiverCM;
-    std::thread m_udpThreadCM;
 };
 
 

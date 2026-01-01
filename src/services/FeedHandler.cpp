@@ -53,6 +53,15 @@ void FeedHandler::unsubscribeAll(QObject* receiver) {
 void FeedHandler::onTickReceived(const XTS::Tick& tick) {
     int token = (int)tick.exchangeInstrumentID;
     
+    // Debug logging for BSE tokens
+    if (tick.exchangeSegment == 12 || tick.exchangeSegment == 11) {
+        static int bseTickCount = 0;
+        if (bseTickCount++ < 10) {
+            qDebug() << "[FeedHandler] BSE Tick - Segment:" << tick.exchangeSegment 
+                     << "Token:" << token << "LTP:" << tick.lastTradedPrice;
+        }
+    }
+    
     // Mark FeedHandler processing timestamp
     XTS::Tick trackedTick = tick;
     trackedTick.timestampFeedHandler = LatencyTracker::now();
@@ -63,6 +72,15 @@ void FeedHandler::onTickReceived(const XTS::Tick& tick) {
         auto it = m_publishers.find(token);
         if (it != m_publishers.end()) {
             pub = it->second;
+        } else {
+            // Log missing subscription for BSE tokens
+            if (tick.exchangeSegment == 12 || tick.exchangeSegment == 11) {
+                static int missingSubCount = 0;
+                if (missingSubCount++ < 5) {
+                    qDebug() << "[FeedHandler] ⚠ No subscriber for BSE token:" << token 
+                             << "Segment:" << tick.exchangeSegment;
+                }
+            }
         }
     }
 

@@ -200,8 +200,29 @@ const ContractData* BSECMRepository::getContract(int64_t token) const {
         return nullptr;
     }
     
-    // Return nullptr (simplified - full implementation would return ContractData*)
-    return nullptr;
+    int32_t idx = it.value();
+    
+    // Create temporary ContractData from arrays
+    static thread_local ContractData tempContract;
+    tempContract.exchangeInstrumentID = token;
+    tempContract.name = m_name[idx];
+    tempContract.displayName = m_displayName[idx];
+    tempContract.description = m_description[idx];
+    tempContract.series = m_series[idx];
+    tempContract.lotSize = m_lotSize[idx];
+    tempContract.tickSize = m_tickSize[idx];
+    tempContract.priceBandHigh = m_priceBandHigh[idx];
+    tempContract.priceBandLow = m_priceBandLow[idx];
+    tempContract.ltp = m_ltp[idx];
+    tempContract.open = m_open[idx];
+    tempContract.high = m_high[idx];
+    tempContract.low = m_low[idx];
+    tempContract.close = m_close[idx];
+    tempContract.prevClose = m_prevClose[idx];
+    tempContract.volume = m_volume[idx];
+    tempContract.scripCode = QString::number(token); 
+    
+    return &tempContract;
 }
 
 bool BSECMRepository::hasContract(int64_t token) const {

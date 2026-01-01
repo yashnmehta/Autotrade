@@ -60,6 +60,18 @@ public:
     bool loadNSECM(const QString& mastersPath, bool preferCSV = true);
     
     /**
+     * @brief Load BSE F&O contracts
+     * @param preferCSV If true, try CSV first before master file
+     */
+    bool loadBSEFO(const QString& mastersPath, bool preferCSV = true);
+
+    /**
+     * @brief Load BSE CM contracts
+     * @param preferCSV If true, try CSV first before master file
+     */
+    bool loadBSECM(const QString& mastersPath, bool preferCSV = true);
+    
+    /**
      * @brief Load combined master file (all segments in one file from XTS)
      * @param filePath Path to combined master file
      * @return true if at least one segment loaded successfully
