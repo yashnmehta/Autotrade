@@ -460,6 +460,7 @@ set(COMMON_LZO_SOURCES
 )
 
 # BSE FO Broadcast Library
+add_subdirectory(lib/cpp_broadcast_bsefo)
 set(BSEFO_BROADCAST_SOURCES
     ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_bsefo/src/bse_receiver.cpp
 )

@@ -89,6 +89,12 @@ bool BSEFORepository::loadProcessedCSV(const QString& filename) {
             else if (contract.series.contains("PE")) contract.optionType = 4;
         }
         
+        // Detect spread contracts and mark them with a special series
+        // Spreads have "SPD" in their display name (e.g., "BANKEX 29JAN25MAR SPD")
+        if (contract.displayName.contains("SPD", Qt::CaseInsensitive)) {
+            contract.series = "SPREAD";  // Mark as spread for easy filtering
+        }
+        
         contracts.append(contract);
     }
     
@@ -251,7 +257,43 @@ const ContractData* BSEFORepository::getContract(int64_t token) const {
         return nullptr;
     }
     
-    return nullptr;  // Simplified
+    int32_t idx = it.value();
+    
+    // Create temporary ContractData from arrays
+    static thread_local ContractData tempContract;
+    tempContract.exchangeInstrumentID = token;
+    tempContract.name = m_name[idx];
+    tempContract.displayName = m_displayName[idx];
+    tempContract.description = m_description[idx];
+    tempContract.series = m_series[idx];
+    tempContract.lotSize = m_lotSize[idx];
+    tempContract.tickSize = m_tickSize[idx];
+    tempContract.priceBandHigh = m_priceBandHigh[idx];
+    tempContract.priceBandLow = m_priceBandLow[idx];
+    tempContract.ltp = m_ltp[idx];
+    tempContract.open = m_open[idx];
+    tempContract.high = m_high[idx];
+    tempContract.low = m_low[idx];
+    tempContract.close = m_close[idx];
+    tempContract.prevClose = m_prevClose[idx];
+    tempContract.volume = m_volume[idx];
+    tempContract.bidPrice = m_bidPrice[idx];
+    tempContract.askPrice = m_askPrice[idx];
+    tempContract.expiryDate = m_expiryDate[idx];
+    tempContract.strikePrice = m_strikePrice[idx];
+    
+    // BSE F&O Option Type Mapping
+    if (m_optionType[idx] == 3) tempContract.optionType = "CE";
+    else if (m_optionType[idx] == 4) tempContract.optionType = "PE";
+    else tempContract.optionType = "XX";
+    
+    tempContract.iv = m_iv[idx];
+    tempContract.delta = m_delta[idx];
+    tempContract.gamma = m_gamma[idx];
+    tempContract.vega = m_vega[idx];
+    tempContract.theta = m_theta[idx];
+    
+    return &tempContract;
 }
 
 bool BSEFORepository::hasContract(int64_t token) const {

@@ -16,8 +16,7 @@
 #include <QStatusBar>
 #include <QDockWidget>
 #include <QShortcut>
-#include <thread>
-#include "multicast_receiver.h"
+#include "services/UdpBroadcastService.h"
 #include "views/MarketWatchWindow.h" // Needed for getActiveMarketWatch cast
 
 MainWindow::MainWindow(QWidget *parent)
@@ -36,9 +35,13 @@ MainWindow::MainWindow(QWidget *parent)
     
     // Setup keyboard shortcuts
     setupShortcuts();
+
+    // Connect centralized UDP broadcast service
+    connect(&UdpBroadcastService::instance(), &UdpBroadcastService::tickReceived,
+            this, &MainWindow::onTickReceived);
     
-    // Initialize network (auto-start broadcast receiver if enabled)
-    setupNetwork();
+    // setupNetwork() will be called once configLoader is set
+    // to ensure we have the correct multicast IPs and ports.
     
     // Restore visibility preferences
     QSettings s("TradingCompany", "TradingTerminal");
@@ -73,6 +76,10 @@ void MainWindow::setTradingDataService(TradingDataService *service) {
 
 void MainWindow::setConfigLoader(ConfigLoader *loader) {
     m_configLoader = loader;
+    
+    // Once config is loaded, we can start the UDP broadcast receivers
+    // if auto-start is enabled.
+    setupNetwork();
 }
 
 void MainWindow::refreshScripBar() {
@@ -118,6 +125,15 @@ MarketWatchWindow* MainWindow::getActiveMarketWatch() const {
 
 void MainWindow::onTickReceived(const XTS::Tick &tick)
 {
+    // Debug logging for BSE tokens
+    if (tick.exchangeSegment == 12 || tick.exchangeSegment == 11) {
+        static int mainWindowBseCount = 0;
+        if (mainWindowBseCount++ < 10) {
+            qDebug() << "[MainWindow] BSE Tick received - Segment:" << tick.exchangeSegment 
+                     << "Token:" << tick.exchangeInstrumentID << "LTP:" << tick.lastTradedPrice;
+        }
+    }
+    
     // Direct callback architecture
     FeedHandler::instance().onTickReceived(tick);
 }
@@ -125,211 +141,46 @@ void MainWindow::onTickReceived(const XTS::Tick &tick)
 
 // UDP Broadcast Logic
 void MainWindow::startBroadcastReceiver() {
-    qDebug() << "[UDP] Starting NSE broadcast receivers (FO + CM)...";
-    
-    // Default values (fallback)
-    std::string nseFoIp = "233.1.2.5";
-    int nseFoPort = 34330; 
-    std::string nseCmIp = "233.1.2.5";
-    int nseCmPort = 34001;
-    
-    // Load from ConfigLoader
-    if (m_configLoader) {
-        nseFoIp = m_configLoader->getNSEFOMulticastIP().toStdString();
-        nseFoPort = m_configLoader->getNSEFOPort();
-        
-        QJsonObject udp = m_configLoader->getUDPConfig();
-        QJsonObject exchanges = udp["udp"].toObject()["exchanges"].toObject();
-        
-        if (exchanges.contains("NSECM")) {
-            QJsonObject nseCm = exchanges["NSECM"].toObject();
-            nseCmIp = nseCm["multicastGroup"].toString().toStdString();
-            nseCmPort = nseCm["port"].toInt();
-        }
-        
-        qDebug() << "[UDP] Config loaded for FO:" << QString::fromStdString(nseFoIp) << ":" << nseFoPort;
-        qDebug() << "[UDP] Config loaded for CM:" << QString::fromStdString(nseCmIp) << ":" << nseCmPort;
-    } else {
-        qWarning() << "[UDP] ConfigLoader is missing! Using built-in defaults.";
-    }
-    
-    // ==========================================
-    // 0. STOP EXISTING THREADS FIRST (Crucial to prevent race)
-    // ==========================================
-    if (m_udpReceiver) m_udpReceiver->stop();
-    if (m_udpThread.joinable()) m_udpThread.join();
-    m_udpReceiver.reset();
-
-    if (m_udpReceiverCM) m_udpReceiverCM->stop();
-    if (m_udpThreadCM.joinable()) m_udpThreadCM.join();
-    m_udpReceiverCM.reset();
-
-    // ==========================================
-    // 1. NSE FO RECEIVER SETUP
-    // ==========================================
-    try {
-        m_udpReceiver = std::make_unique<nsefo::MulticastReceiver>(nseFoIp, nseFoPort);
-        if (m_udpReceiver->isValid()) {
-            // Register FO Callbacks
-            nsefo::MarketDataCallbackRegistry::instance().registerTouchlineCallback(
-                [this](const nsefo::TouchlineData& data) {
-                    XTS::Tick tick;
-                    tick.exchangeSegment = 2; // NSEFO
-                    tick.exchangeInstrumentID = data.token;
-                    tick.lastTradedPrice = data.ltp;
-                    tick.lastTradedQuantity = data.lastTradeQty;
-                    tick.volume = data.volume;
-                    tick.open = data.open;
-                    tick.high = data.high;
-                    tick.low = data.low;
-                    tick.close = data.close;
-                    tick.lastUpdateTime = data.lastTradeTime;
-                    tick.averagePrice = data.avgPrice;
-                    tick.refNo = data.refNo;
-                    tick.timestampUdpRecv = data.timestampRecv;
-                    tick.timestampParsed = data.timestampParsed;
-                    QMetaObject::invokeMethod(this, "onUdpTickReceived", Qt::QueuedConnection, Q_ARG(XTS::Tick, tick));
-                }
-            );
-
-            nsefo::MarketDataCallbackRegistry::instance().registerMarketDepthCallback(
-                [this](const nsefo::MarketDepthData& data) {
-                    XTS::Tick tick;
-                    tick.exchangeSegment = 2;
-                    tick.exchangeInstrumentID = data.token;
-                    if (data.bids[0].quantity > 0) {
-                        tick.bidPrice = data.bids[0].price;
-                        tick.bidQuantity = data.bids[0].quantity;
-                    }
-                    if (data.asks[0].quantity > 0) {
-                        tick.askPrice = data.asks[0].price;
-                        tick.askQuantity = data.asks[0].quantity;
-                    }
-                    tick.totalBuyQuantity = (int)data.totalBuyQty;
-                    tick.totalSellQuantity = (int)data.totalSellQty;
-                    tick.refNo = data.refNo;
-                    tick.timestampUdpRecv = data.timestampRecv;
-                    tick.timestampParsed = data.timestampParsed;
-                    QMetaObject::invokeMethod(this, "onUdpTickReceived", Qt::QueuedConnection, Q_ARG(XTS::Tick, tick));
-                }
-            );
-
-            nsefo::MarketDataCallbackRegistry::instance().registerTickerCallback(
-                 [this](const nsefo::TickerData& data) {
-                    if (data.fillVolume > 0) {
-                        XTS::Tick tick;
-                        tick.exchangeSegment = 2;
-                        tick.exchangeInstrumentID = data.token;
-                        tick.lastTradedQuantity = (int)data.fillVolume;
-                        tick.lastTradedPrice = data.fillPrice;
-                        tick.openInterest = data.openInterest;
-                        tick.refNo = data.refNo;
-                        tick.timestampUdpRecv = data.timestampRecv;
-                        tick.timestampParsed = data.timestampParsed;
-                        QMetaObject::invokeMethod(this, "onUdpTickReceived", Qt::QueuedConnection, Q_ARG(XTS::Tick, tick));
-                    }
-                 }
-            );
-
-            // Start FO Thread
-            m_udpThread = std::thread([this]() {
-                try {
-                    if (m_udpReceiver) m_udpReceiver->start();
-                } catch (const std::exception& e) {
-                    qCritical() << "[UDP] NSE FO Thread Error:" << e.what();
-                }
-            });
-        }
-    } catch (const std::exception& e) {
-        qCritical() << "[UDP] Failed to initialize FO receiver:" << e.what();
-        if (m_statusBar) m_statusBar->showMessage(QString("NSE FO Error: %1").arg(e.what()), 5000);
+    if (!m_configLoader) {
+        qWarning() << "[MainWindow] startBroadcastReceiver failed: ConfigLoader is missing!";
+        return;
     }
 
-    // ==========================================
-    // 2. NSE CM RECEIVER SETUP
-    // ==========================================
-    try {
-        m_udpReceiverCM = std::make_unique<nsecm::MulticastReceiver>(nseCmIp, nseCmPort);
-        if (m_udpReceiverCM->isValid()) {
-            // Register CM Callbacks
-            nsecm::MarketDataCallbackRegistry::instance().registerTouchlineCallback(
-                [this](const nsecm::TouchlineData& data) {
-                    XTS::Tick tick;
-                    tick.exchangeSegment = 1; // NSECM
-                    tick.exchangeInstrumentID = data.token;
-                    tick.lastTradedPrice = data.ltp;
-                    tick.lastTradedQuantity = data.lastTradeQty;
-                    tick.volume = (uint32_t)data.volume;
-                    tick.open = data.open;
-                    tick.high = data.high;
-                    tick.low = data.low;
-                    tick.close = data.close;
-                    tick.lastUpdateTime = data.lastTradeTime;
-                    tick.averagePrice = data.avgPrice;
-                    tick.refNo = data.refNo;
-                    tick.timestampUdpRecv = data.timestampRecv;
-                    tick.timestampParsed = data.timestampParsed;
-                    QMetaObject::invokeMethod(this, "onUdpTickReceived", Qt::QueuedConnection, Q_ARG(XTS::Tick, tick));
-                }
-            );
+    UdpBroadcastService::Config config;
+    config.nseFoIp = m_configLoader->getNSEFOMulticastIP().toStdString();
+    config.nseFoPort = m_configLoader->getNSEFOPort();
+    config.nseCmIp = m_configLoader->getNSECMMulticastIP().toStdString();
+    config.nseCmPort = m_configLoader->getNSECMPort();
+    config.bseFoIp = m_configLoader->getBSEFOMulticastIP().toStdString();
+    config.bseFoPort = m_configLoader->getBSEFOPort();
+    config.bseCmIp = m_configLoader->getBSECMMulticastIP().toStdString();
+    config.bseCmPort = m_configLoader->getBSECMPort();
 
-            nsecm::MarketDataCallbackRegistry::instance().registerMarketDepthCallback(
-                [this](const nsecm::MarketDepthData& data) {
-                    XTS::Tick tick;
-                    tick.exchangeSegment = 1;
-                    tick.exchangeInstrumentID = data.token;
-                    if (data.bids[0].quantity > 0) {
-                        tick.bidPrice = data.bids[0].price;
-                        tick.bidQuantity = (int)data.bids[0].quantity;
-                    }
-                    if (data.asks[0].quantity > 0) {
-                        tick.askPrice = data.asks[0].price;
-                        tick.askQuantity = (int)data.asks[0].quantity;
-                    }
-                    tick.totalBuyQuantity = (int)data.totalBuyQty;
-                    tick.totalSellQuantity = (int)data.totalSellQty;
-                    tick.refNo = data.refNo;
-                    tick.timestampUdpRecv = data.timestampRecv;
-                    tick.timestampParsed = data.timestampParsed;
-                    QMetaObject::invokeMethod(this, "onUdpTickReceived", Qt::QueuedConnection, Q_ARG(XTS::Tick, tick));
-                }
-            );
+    if (config.bseFoIp.empty()) config.bseFoIp = "239.1.2.5";
+    if (config.bseFoPort == 0) config.bseFoPort = 26002;
+    if (config.bseCmIp.empty()) config.bseCmIp = "239.1.2.4"; // Standard BSE CM Multicast
+    if (config.bseCmPort == 0) config.bseCmPort = 26001;
 
-            // Start CM Thread
-            m_udpThreadCM = std::thread([this]() {
-                try {
-                    if (m_udpReceiverCM) m_udpReceiverCM->start();
-                } catch (const std::exception& e) {
-                    qCritical() << "[UDP] NSE CM Thread Error:" << e.what();
-                }
-            });
-        }
-    } catch (const std::exception& e) {
-        qCritical() << "[UDP] Failed to initialize CM receiver:" << e.what();
-        if (m_statusBar) m_statusBar->showMessage(QString("NSE CM Error: %1").arg(e.what()), 5000);
-    }
+    // TODO: Add NSE CM methods to ConfigLoader if they don't exist
+    // For now we start with what we have
     
-    if (m_statusBar && m_udpReceiver && m_udpReceiverCM) {
-        m_statusBar->showMessage("NSE Broadcast Receivers: FO & CM ACTIVE", 2000);
+    UdpBroadcastService::instance().start(config);
+
+    if (m_statusBar) {
+        m_statusBar->showMessage("Market Data Receivers: INITIALIZING...", 3000);
     }
 }
 
 void MainWindow::stopBroadcastReceiver() {
-    if (m_udpReceiver) m_udpReceiver->stop();
-    if (m_udpThread.joinable()) m_udpThread.join();
-    m_udpReceiver.reset();
-
-    if (m_udpReceiverCM) m_udpReceiverCM->stop();
-    if (m_udpThreadCM.joinable()) m_udpThreadCM.join();
-    m_udpReceiverCM.reset();
-
-    if (m_statusBar) m_statusBar->showMessage("NSE Broadcast Receivers: STOPPED");
+    UdpBroadcastService::instance().stop();
+    if (m_statusBar) m_statusBar->showMessage("Market Data Receivers: STOPPED");
 }
 
 void MainWindow::onUdpTickReceived(const XTS::Tick& tick) {
-    XTS::Tick processedTick = tick;
-    processedTick.timestampDequeued = LatencyTracker::now();
-    FeedHandler::instance().onTickReceived(processedTick);
+    // This is now redundant as tickReceived is connected to onTickReceived
+    // but we keep it for now if any specialized logic is needed.
+    // Actually, let's just forward it.
+    onTickReceived(tick);
 }
 
 void MainWindow::showPreferences() {

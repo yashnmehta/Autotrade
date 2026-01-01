@@ -48,6 +48,12 @@ public:
     // UDP Config
     QString getNSEFOMulticastIP() const;
     int getNSEFOPort() const;
+    QString getNSECMMulticastIP() const;
+    int getNSECMPort() const;
+    QString getBSEFOMulticastIP() const;
+    int getBSEFOPort() const;
+    QString getBSECMMulticastIP() const;
+    int getBSECMPort() const;
 
     QJsonObject getUDPConfig() const;
 

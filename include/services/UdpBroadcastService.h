@@ -5,25 +5,47 @@
 #include <memory>
 #include <atomic>
 #include <string>
-#include "multicast_receiver.h"
+#include <vector>
+
+// Exchange-specific headers
+#include "multicast_receiver.h"        // NSE FO
+#include "nsecm_multicast_receiver.h"  // NSE CM
+#include "bse_receiver.h"             // BSE FO
+
 #include "api/XTSTypes.h"
-#include "utils/LockFreeQueue.h"
 
 class UdpBroadcastService : public QObject {
     Q_OBJECT
 public:
     static UdpBroadcastService& instance();
 
-    void start(const std::string& ip = "233.1.2.5", int port = 34330);
+    // Start configuration for multiple segments
+    struct Config {
+        std::string nseFoIp;
+        int nseFoPort;
+        std::string nseCmIp;
+        int nseCmPort;
+        std::string bseFoIp;
+        int bseFoPort;
+        std::string bseCmIp;
+        int bseCmPort;
+        
+        bool enableNSEFO = true;
+        bool enableNSECM = true;
+        bool enableBSEFO = true;
+        bool enableBSECM = true;
+    };
+
+    void start(const Config& config);
     void stop();
     bool isActive() const;
 
     struct Stats {
-        uint64_t msg7200Count;
-        uint64_t msg7201Count;
-        uint64_t msg7202Count;
-        uint64_t depthCount;
-        nsefo::UDPStats udpStats;
+        uint64_t nseFoPackets;
+        uint64_t nseCmPackets;
+        uint64_t bseFoPackets;
+        uint64_t bseCmPackets;
+        uint64_t totalTicks;
     };
     Stats getStats() const;
 
@@ -35,13 +57,14 @@ private:
     UdpBroadcastService(QObject* parent = nullptr);
     ~UdpBroadcastService();
 
-    std::unique_ptr<nsefo::MulticastReceiver> m_receiver;
+    // Receivers
+    std::unique_ptr<nsefo::MulticastReceiver> m_nseFoReceiver;
+    std::unique_ptr<nsecm::MulticastReceiver> m_nseCmReceiver;
+    std::unique_ptr<bse::BSEReceiver> m_bseFoReceiver;
+    std::unique_ptr<bse::BSEReceiver> m_bseCmReceiver;
+
     std::atomic<bool> m_active{false};
-    
-    std::atomic<uint64_t> m_msg7200Count{0};
-    std::atomic<uint64_t> m_msg7201Count{0};
-    std::atomic<uint64_t> m_msg7202Count{0};
-    std::atomic<uint64_t> m_depthCount{0};
+    std::atomic<uint64_t> m_totalTicks{0};
 };
 
 #endif // UDPBROADCASTSERVICE_H

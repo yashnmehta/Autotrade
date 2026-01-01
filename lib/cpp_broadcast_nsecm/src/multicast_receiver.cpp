@@ -27,6 +27,11 @@ MulticastReceiver::MulticastReceiver(const std::string& ip, int port)
         sockfd = socket_invalid;
         throw std::runtime_error("Failed to set SO_REUSEADDR: " + std::string(socket_error_string(socket_errno)));
     }
+#ifdef SO_REUSEPORT
+    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEPORT, (char *)&reuse, sizeof(reuse)) < 0) {
+        std::cerr << "Warning: Failed to set SO_REUSEPORT" << std::endl;
+    }
+#endif
     
     // Set receive timeout (1 second) for graceful shutdown
     // Use cross-platform helper (handles Windows DWORD vs Unix timeval difference)

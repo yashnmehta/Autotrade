@@ -34,7 +34,7 @@ BSEReceiver::BSEReceiver(const std::string& ip, int port, const std::string& seg
         return;
     }
 
-    // Allow multiple sockets to use the same PORT number
+    // Allow multiple sockets to use the same addr and port
     int reuse = 1;
     if (setsockopt(sockfd_, SOL_SOCKET, SO_REUSEADDR, (char *)&reuse, sizeof(reuse)) < 0) {
         std::cerr << "Reusing ADDR failed: " << socket_error_string(socket_errno) << std::endl;
@@ -42,6 +42,11 @@ BSEReceiver::BSEReceiver(const std::string& ip, int port, const std::string& seg
         sockfd_ = socket_invalid;
         return;
     }
+#ifdef SO_REUSEPORT
+    if (setsockopt(sockfd_, SOL_SOCKET, SO_REUSEPORT, (char *)&reuse, sizeof(reuse)) < 0) {
+        perror("Reusing PORT failed");
+    }
+#endif
     
     // Set receive timeout (1 second) - use cross-platform helper
     if (set_socket_timeout(sockfd_, 1) < 0) {
@@ -100,7 +105,7 @@ void BSEReceiver::stop() {
 }
 
 void BSEReceiver::receiveLoop() {
-    std::cout << "[" << segment_ << "] Starting receive loop..." << std::endl;
+    std::cout << "[" << segment_ << "] Starting receive loop on " << ip_ << ":" << port_ << "..." << std::endl;
     
     while (running_) {
         // Receive packet
@@ -118,11 +123,18 @@ void BSEReceiver::receiveLoop() {
         stats_.packetsReceived++;
         stats_.bytesReceived += n;
         
+        if (stats_.packetsReceived % 100 == 0) {
+            std::cout << "[" << segment_ << "] Received " << stats_.packetsReceived << " packets, total bytes: " << stats_.bytesReceived << std::endl;
+        }
+
         if (validatePacket(buffer_, n)) {
             stats_.packetsValid++;
             decodeAndDispatch(buffer_, n);
         } else {
             stats_.packetsInvalid++;
+            if (stats_.packetsInvalid % 10 == 0) {
+                std::cerr << "[" << segment_ << "] ⚠ Invalid packet received! Length: " << n << std::endl;
+            }
         }
     }
 }
@@ -132,18 +144,28 @@ bool BSEReceiver::validatePacket(const uint8_t* buffer, size_t length) {
     
     // Check leading zeros (0-3) - Big Endian
     uint32_t leading = be32toh_func(*(uint32_t*)(buffer));
-    if (leading != LEADING_ZEROS) return false;
+    if (leading != LEADING_ZEROS) {
+        static int leadErrCount = 0;
+        if (++leadErrCount % 10 == 0) std::cerr << "[" << segment_ << "] Validation Fail: Leading Zeros=" << leading << std::endl;
+        return false;
+    }
     
     // Check Format ID (4-5) - VERIFIED: Little Endian (Python code confirmed)
     // Format ID = packet size in decimal
     uint16_t formatId = le16toh_func(*(uint16_t*)(buffer + 4));
     if (formatId != length) {
+        static int fmtErrCount = 0;
+        if (++fmtErrCount % 10 == 0) std::cerr << "[" << segment_ << "] Validation Fail: FormatID=" << formatId << " != Length=" << length << std::endl;
         return false;
     }
     
-    // Check Msg Type (8-9) - VERIFIED: Little Endian
+    // Check Msg Type (8-9)
     uint16_t msgType = le16toh_func(*(uint16_t*)(buffer + 8));
-    if (msgType != MSG_TYPE_MARKET_PICTURE && msgType != MSG_TYPE_MARKET_PICTURE_COMPLEX) {
+    if (msgType != MSG_TYPE_MARKET_PICTURE && 
+        msgType != MSG_TYPE_MARKET_PICTURE_COMPLEX && 
+        msgType != MSG_TYPE_INDEX) {
+        static int msgErrCount = 0;
+        if (++msgErrCount % 10 == 0) std::cerr << "[" << segment_ << "] Validation Fail: MsgType=" << msgType << std::endl;
         return false;
     }
     
@@ -190,112 +212,109 @@ void BSEReceiver::decodeAndDispatch(const uint8_t* buffer, size_t length) {
     uint16_t msgType = le16toh_func(*(uint16_t*)(buffer + 8));
     if (msgType == MSG_TYPE_MARKET_PICTURE) stats_.packets2020++;
     else if (msgType == MSG_TYPE_MARKET_PICTURE_COMPLEX) stats_.packets2021++;
+    else if (msgType == MSG_TYPE_INDEX) {
+        // MSG_TYPE_INDEX handled here too
+    }
     else return;
+    
+    // Calculate record size based on msgType
+    size_t recordSlotSize = (msgType == MSG_TYPE_INDEX) ? 120 : 264;
     
     // Capture system timestamp (microseconds since epoch)
     auto now = std::chrono::duration_cast<std::chrono::microseconds>(
         std::chrono::system_clock::now().time_since_epoch()).count();
 
     // Calculate number of records based on packet size
-    // Formula: (packet_size - 36) / 264 = number of records
-    const size_t RECORD_SLOT_SIZE = 264;
-    size_t numRecords = (length - HEADER_SIZE) / RECORD_SLOT_SIZE;
+    size_t numRecords = (length - HEADER_SIZE) / recordSlotSize;
     
     // Process each record
     for (size_t i = 0; i < numRecords; i++) {
-        size_t recordOffset = HEADER_SIZE + (i * RECORD_SLOT_SIZE);
+        size_t recordOffset = HEADER_SIZE + (i * recordSlotSize);
         
         // Check if we have enough bytes for this record
-        if (recordOffset + RECORD_SLOT_SIZE > length) break;
+        if (recordOffset + recordSlotSize > length) break;
         
         const uint8_t* record = buffer + recordOffset;
         
         DecodedRecord decRec;
         decRec.packetTimestamp = now;
         
-        // ===== VERIFIED OFFSETS (Little-Endian) =====
-        
-        // Token (0-3) - Little Endian ✓
-        decRec.token = le32toh_func(*(uint32_t*)(record + 0));
-        
-        // Skip empty slots (token = 0)
-        if (decRec.token == 0) continue;
-        
-        // Open Price (4-7) - Little Endian, paise ✓
-        decRec.open = le32toh_func(*(uint32_t*)(record + 4));
-        
-        // Previous Close (8-11) - Little Endian, paise ✓
-        int32_t prevClose = le32toh_func(*(uint32_t*)(record + 8));
-        
-        // High Price (12-15) - Little Endian, paise ✓
-        decRec.high = le32toh_func(*(uint32_t*)(record + 12));
-        
-        // Low Price (16-19) - Little Endian, paise ✓
-        decRec.low = le32toh_func(*(uint32_t*)(record + 16));
-        
-        // Unknown Field (20-23) - Skip
-        // int32_t unknown1 = le32toh_func(*(uint32_t*)(record + 20));
-        
-        // Volume (24-27) - Little Endian ✓
-        decRec.volume = le32toh_func(*(uint32_t*)(record + 24));
-        
-        // Turnover in Lakhs (28-31) - Little Endian ✓
-        // Turnover = Traded Value / 100,000
-        decRec.turnover = le32toh_func(*(uint32_t*)(record + 28));
-        
-        // Lot Size (32-35) - Little Endian ✓
-        // uint32_t lotSize = le32toh_func(*(uint32_t*)(record + 32));
-        
-        // LTP - Last Traded Price (36-39) - Little Endian, paise ✓
-        decRec.ltp = le32toh_func(*(uint32_t*)(record + 36));
-        
-        // Unknown Field (40-43) - Always zero
-        // uint32_t unknown2 = le32toh_func(*(uint32_t*)(record + 40));
-        
-        // Market Sequence Number (44-47) - Little Endian ✓
-        // Increments by 1 per tick
-        // uint32_t seqNum = le32toh_func(*(uint32_t*)(record + 44));
-        
-        // ATP - Average Traded Price (84-87) - Little Endian, paise ✓
-        decRec.weightedAvgPrice = le32toh_func(*(uint32_t*)(record + 84));
-        
-        // Best Bid Price (104-107) - Little Endian, paise ✓
-        // This is also the first level of the order book
-        int32_t bestBidPrice = le32toh_func(*(uint32_t*)(record + 104));
-        
-        // ===== ORDER BOOK (5 LEVELS) =====
-        // Starting at offset 104, interleaved Bid/Ask
-        // Each level: Price (4B) + Qty (4B) = 8 bytes
-        // Pattern: Bid1, Ask1, Bid2, Ask2, Bid3, Ask3, Bid4, Ask4, Bid5, Ask5
-        
-        // For now, we'll extract just the best bid/ask
-        // Full order book parsing can be added later
-        if (recordOffset + 104 + 8 <= length) {
-            DecodedDepthLevel bid1;
-            bid1.price = le32toh_func(*(uint32_t*)(record + 104));
-            bid1.quantity = le32toh_func(*(uint32_t*)(record + 108));
-            bid1.numOrders = 0; // Not available in this format
-            bid1.impliedQty = 0;
+        if (msgType == MSG_TYPE_INDEX) {
+            // Type 2012 (Index Record) - Refined Offsets
+            decRec.token = le32toh_func(*(uint32_t*)(record + 0));
+            // Index LTP is usually at offset 16 or 40 depending on version
+            // For now, let's try common Index Record layout:
+            // 0-3: Token, 4-7: HMS, 8-11: Date
+            // 12-15: Open, 16-19: High, 20-23: Low, 24-27: LTP
+            decRec.open = le32toh_func(*(uint32_t*)(record + 12));
+            decRec.high = le32toh_func(*(uint32_t*)(record + 16));
+            decRec.low = le32toh_func(*(uint32_t*)(record + 20));
+            decRec.ltp = le32toh_func(*(uint32_t*)(record + 24));
+            decRec.close = le32toh_func(*(uint32_t*)(record + 28)); // Previous Close
+            decRec.volume = 0; // Indices don't have volume usually
             
-            if (bid1.price > 0 && bid1.quantity > 0) {
-                decRec.bids.push_back(bid1);
+            static int indexLog = 0;
+            if (indexLog < 10) {
+                indexLog++;
+                std::cout << "[" << segment_ << "] 2012 Record Decoded - Token: " << decRec.token 
+                          << " LTP: " << decRec.ltp << " (Paise)" << std::endl;
             }
+        } else {
+            // ===== VERIFIED OFFSETS (2020/2021) =====
+            
+            // Token (0-3) - Little Endian ✓
+            decRec.token = le32toh_func(*(uint32_t*)(record + 0));
+            
+            // Skip empty slots (token = 0)
+            if (decRec.token == 0) continue;
+            
+            // Open Price (4-7) - Little Endian, paise ✓
+            decRec.open = le32toh_func(*(uint32_t*)(record + 4));
+            
+            // Previous Close (8-11) - Little Endian, paise ✓
+            int32_t prevClose = le32toh_func(*(uint32_t*)(record + 8));
+            
+            // High Price (12-15) - Little Endian, paise ✓
+            decRec.high = le32toh_func(*(uint32_t*)(record + 12));
+            
+            // Low Price (16-19) - Little Endian, paise ✓
+            decRec.low = le32toh_func(*(uint32_t*)(record + 16));
+            
+            // Volume (24-27) - Little Endian ✓
+            decRec.volume = le32toh_func(*(uint32_t*)(record + 24));
+            
+            // Turnover in Lakhs (28-31) - Little Endian ✓
+            decRec.turnover = le32toh_func(*(uint32_t*)(record + 28));
+            
+            // LTP - Last Traded Price (36-39) - Little Endian, paise ✓
+            decRec.ltp = le32toh_func(*(uint32_t*)(record + 36));
+            
+            // ATP - Average Traded Price (84-87) - Little Endian, paise ✓
+            decRec.weightedAvgPrice = le32toh_func(*(uint32_t*)(record + 84));
+            
+            // Best Bid Price (104-107) - Little Endian, paise ✓
+            if (recordOffset + 104 + 8 <= length) {
+                DecodedDepthLevel bid1;
+                bid1.price = le32toh_func(*(uint32_t*)(record + 104));
+                bid1.quantity = le32toh_func(*(uint32_t*)(record + 108));
+                if (bid1.price > 0 && bid1.quantity > 0) decRec.bids.push_back(bid1);
+            }
+            
+            if (recordOffset + 112 + 8 <= length) {
+                DecodedDepthLevel ask1;
+                ask1.price = le32toh_func(*(uint32_t*)(record + 112));
+                ask1.quantity = le32toh_func(*(uint32_t*)(record + 116));
+                if (ask1.price > 0 && ask1.quantity > 0) decRec.asks.push_back(ask1);
+            }
+            
+            decRec.close = prevClose;
         }
         
-        if (recordOffset + 112 + 8 <= length) {
-            DecodedDepthLevel ask1;
-            ask1.price = le32toh_func(*(uint32_t*)(record + 112));
-            ask1.quantity = le32toh_func(*(uint32_t*)(record + 116));
-            ask1.numOrders = 0;
-            ask1.impliedQty = 0;
-            
-            if (ask1.price > 0 && ask1.quantity > 0) {
-                decRec.asks.push_back(ask1);
-            }
-        }
-        
-        // Set close price (using previous close for now)
-        decRec.close = prevClose;
+        // Set default values for fields not in this format
+        decRec.noOfTrades = 0;
+        decRec.ltq = 0;
+        decRec.lowerCircuit = 0;
+        decRec.upperCircuit = 0;
         
         // Set default values for fields not in this format
         decRec.noOfTrades = 0;

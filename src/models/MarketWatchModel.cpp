@@ -565,9 +565,19 @@ QString MarketWatchModel::formatColumnData(const ScripData& scrip, MarketWatchCo
             QString seriesExpiry = getColumnData(scrip, column).toString();
             if (seriesExpiry.isEmpty() || seriesExpiry == "N/A") return "-";
             
-            // Check if it's F&O instrument (has expiry date format like "26DEC2024")
-            if (scrip.instrumentType.contains("FUT") || scrip.instrumentType.contains("OPT")) {
-                return seriesExpiry;  // Show expiry for F&O
+            // Detect F&O instruments:
+            // 1. NSE: instrumentType contains "FUT" or "OPT"
+            // 2. BSE: exchange is "BSEFO" or series is "IF", "IO", "IS" (Index/Stock Futures/Options)
+            // 3. Generic: Has strike price or option type set
+            bool isFO = scrip.instrumentType.contains("FUT") || 
+                        scrip.instrumentType.contains("OPT") ||
+                        scrip.exchange == "BSEFO" ||
+                        scrip.exchange == "NSEFO" ||
+                        scrip.strikePrice > 0 ||
+                        !scrip.optionType.isEmpty();
+            
+            if (isFO) {
+                return seriesExpiry;  // Show full expiry for F&O (e.g., "29JAN2026")
             } else {
                 // For equity, extract series part only (before any date)
                 return seriesExpiry.left(2);  // "EQ", "BE", etc.

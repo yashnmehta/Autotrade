@@ -195,7 +195,15 @@ bool RepositoryManager::loadAll(const QString& mastersPath) {
         anyLoaded = true;
     }
     
-    // TODO: Load BSE F&O and BSE CM
+    // Load BSE F&O (try CSV first, fall back to master file)
+    if (loadBSEFO(mastersPath, true)) {
+        anyLoaded = true;
+    }
+    
+    // Load BSE CM (try CSV first, fall back to master file)
+    if (loadBSECM(mastersPath, true)) {
+        anyLoaded = true;
+    }
     
     if (anyLoaded) {
         m_loaded = true;
@@ -205,6 +213,8 @@ bool RepositoryManager::loadAll(const QString& mastersPath) {
         qDebug() << "[RepositoryManager] Loading complete:";
         qDebug() << "  NSE F&O:" << stats.nsefo << "contracts";
         qDebug() << "  NSE CM:" << stats.nsecm << "contracts";
+        qDebug() << "  BSE F&O:" << stats.bsefo << "contracts";
+        qDebug() << "  BSE CM:" << stats.bsecm << "contracts";
         qDebug() << "  Total:" << getTotalContractCount() << "contracts";
     } else {
         qWarning() << "[RepositoryManager] Failed to load any master contracts";
@@ -256,6 +266,52 @@ bool RepositoryManager::loadNSECM(const QString& mastersPath, bool preferCSV) {
     }
     
     qWarning() << "[RepositoryManager] NSE CM master file not found:" << masterFile;
+    return false;
+}
+
+bool RepositoryManager::loadBSEFO(const QString& mastersPath, bool preferCSV) {
+    QString csvFile = mastersPath + "/processed_csv/bsefo_processed.csv";
+    QString masterFile = mastersPath + "/contract_bsefo_latest.txt";
+    
+    // Try CSV first if preferred
+    if (preferCSV && QFile::exists(csvFile)) {
+        qDebug() << "[RepositoryManager] Loading BSE F&O from CSV:" << csvFile;
+        if (m_bsefo->loadProcessedCSV(csvFile)) {
+            return true;
+        }
+        qWarning() << "[RepositoryManager] Failed to load CSV, trying master file";
+    }
+    
+    // Fall back to master file
+    if (QFile::exists(masterFile)) {
+        qDebug() << "[RepositoryManager] Loading BSE F&O from master file:" << masterFile;
+        return m_bsefo->loadMasterFile(masterFile);
+    }
+    
+    qWarning() << "[RepositoryManager] BSE F&O master file not found:" << masterFile;
+    return false;
+}
+
+bool RepositoryManager::loadBSECM(const QString& mastersPath, bool preferCSV) {
+    QString csvFile = mastersPath + "/processed_csv/bsecm_processed.csv";
+    QString masterFile = mastersPath + "/contract_bsecm_latest.txt";
+    
+    // Try CSV first if preferred
+    if (preferCSV && QFile::exists(csvFile)) {
+        qDebug() << "[RepositoryManager] Loading BSE CM from CSV:" << csvFile;
+        if (m_bsecm->loadProcessedCSV(csvFile)) {
+            return true;
+        }
+        qWarning() << "[RepositoryManager] Failed to load CSV, trying master file";
+    }
+    
+    // Fall back to master file
+    if (QFile::exists(masterFile)) {
+        qDebug() << "[RepositoryManager] Loading BSE CM from master file:" << masterFile;
+        return m_bsecm->loadMasterFile(masterFile);
+    }
+    
+    qWarning() << "[RepositoryManager] BSE CM master file not found:" << masterFile;
     return false;
 }
 
@@ -355,6 +411,13 @@ bool RepositoryManager::loadCombinedMasterFile(const QString& filePath) {
     }
     
     if (!bsefoContracts.isEmpty()) {
+        // Detect and mark spread contracts before loading
+        for (MasterContract& contract : bsefoContracts) {
+            if (contract.displayName.contains("SPD", Qt::CaseInsensitive)) {
+                contract.series = "SPREAD";  // Mark spreads for easy filtering
+            }
+        }
+        
         if (m_bsefo->loadFromContracts(bsefoContracts)) {
             anyLoaded = true;
             qDebug() << "[RepositoryManager] BSE FO loaded from" << bsefoContracts.size() << "parsed contracts";
