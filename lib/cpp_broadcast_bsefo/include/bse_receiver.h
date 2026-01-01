@@ -55,7 +55,7 @@ private:
     std::atomic<bool> running_;
     std::thread receiverThread_;
     
-    alignas(8) uint8_t buffer_[65535]; // Receive buffer
+    alignas(8) uint8_t buffer_[2048]; // Receive buffer
     
     ReceiverStats stats_;
     RecordCallback recordCallback_;
