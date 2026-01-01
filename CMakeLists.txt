@@ -207,6 +207,7 @@ set(VIEW_HEADERS
     include/views/SellWindow.h
     include/views/MarketWatchWindow.h
     include/views/SnapQuoteWindow.h
+    include/ui/OptionChainWindow.h
     include/views/PositionWindow.h
     include/views/TradeBookWindow.h
     include/views/OrderBookWindow.h

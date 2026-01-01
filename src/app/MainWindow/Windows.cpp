@@ -8,7 +8,7 @@
 #include "views/BuyWindow.h"
 #include "views/SellWindow.h"
 #include "views/SnapQuoteWindow.h"
-#include "views/OptionChainWindow.h"
+#include "ui/OptionChainWindow.h"
 #include "views/CustomizeDialog.h"
 #include "app/ScripBar.h"
 #include "services/PriceCache.h"
