@@ -31,10 +31,8 @@ MulticastReceiver::MulticastReceiver(const std::string& ip, int port)
     }
     
     // Set receive timeout (1 second) for graceful shutdown
-    struct timeval tv;
-    tv.tv_sec = 1;
-    tv.tv_usec = 0;
-    if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) < 0) {
+    // Use cross-platform helper (handles Windows DWORD vs Unix timeval difference)
+    if (set_socket_timeout(sockfd, 1) < 0) {
         socket_close(sockfd);
         sockfd = -1;
         throw std::runtime_error("Failed to set SO_RCVTIMEO: " + std::string(socket_error_string(socket_errno)));

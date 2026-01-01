@@ -2,10 +2,7 @@
 #include "protocol.h"
 #include "constants.h"
 #include "lzo_decompress.h"
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <unistd.h>
+#include "socket_platform.h"
 #include <iostream>
 #include <vector>
 #include <cstring>
@@ -101,17 +98,21 @@ std::ostream& operator<<(std::ostream& os, const UDPStats& stats) {
 
 
 void UDPReceiver::startListener(int port, UDPStats& stats) {
-    int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
-    if (sockfd < 0) {
-        perror("socket");
+    socket_t sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sockfd == socket_invalid) {
+        std::cerr << "socket creation failed: " << socket_errno << std::endl;
         return;
     }
 
     // Allow multiple sockets to use the same PORT number
     int reuse = 1;
-    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, (char *)&reuse, sizeof(reuse)) < 0) {
-        perror("setting SO_REUSEADDR");
-        close(sockfd);
+#ifdef _WIN32
+    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<const char*>(&reuse), sizeof(reuse)) < 0) {
+#else
+    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) < 0) {
+#endif
+        std::cerr << "setting SO_REUSEADDR failed: " << socket_errno << std::endl;
+        socket_close(sockfd);
         return;
     }
 
@@ -122,8 +123,8 @@ void UDPReceiver::startListener(int port, UDPStats& stats) {
     local_addr.sin_port = htons(port);
 
     if (bind(sockfd, (struct sockaddr*)&local_addr, sizeof(local_addr)) < 0) {
-        perror("bind");
-        close(sockfd);
+        std::cerr << "bind failed: " << socket_errno << std::endl;
+        socket_close(sockfd);
         return;
     }
 
@@ -131,15 +132,23 @@ void UDPReceiver::startListener(int port, UDPStats& stats) {
     struct ip_mreq group;
     group.imr_multiaddr.s_addr = inet_addr("233.1.2.5");
     group.imr_interface.s_addr = INADDR_ANY;
-    if (setsockopt(sockfd, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char *)&group, sizeof(group)) < 0) {
-        perror("adding multicast group");
-        close(sockfd);
+#ifdef _WIN32
+    if (setsockopt(sockfd, IPPROTO_IP, IP_ADD_MEMBERSHIP, reinterpret_cast<const char*>(&group), sizeof(group)) < 0) {
+#else
+    if (setsockopt(sockfd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &group, sizeof(group)) < 0) {
+#endif
+        std::cerr << "adding multicast group failed: " << socket_errno << std::endl;
+        socket_close(sockfd);
         return;
     }
 
     // Increase buffer size
     int rcvbuf = 2 * 1024 * 1024;
+#ifdef _WIN32
+    setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, reinterpret_cast<const char*>(&rcvbuf), sizeof(rcvbuf));
+#else
     setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(rcvbuf));
+#endif
 
     std::cout << "Listening on 233.1.2.5:" << port << std::endl;
 
@@ -151,7 +160,11 @@ void UDPReceiver::startListener(int port, UDPStats& stats) {
 
     while (true) {
         std::cout << "Waiting for UDP packets..." << std::endl;
+#ifdef _WIN32
+        ssize_t n = recv(sockfd, reinterpret_cast<char*>(buffer.data()), buffer.size(), 0);
+#else
         ssize_t n = recv(sockfd, buffer.data(), buffer.size(), 0);
+#endif
         if (n < 0) break;
         
         if (n < 4) continue; // Too short
@@ -282,7 +295,7 @@ void UDPReceiver::startListener(int port, UDPStats& stats) {
         }
     }
     
-    close(sockfd);
+    socket_close(sockfd);
 }
 
 } // namespace nsecm

@@ -41,7 +41,11 @@ std::string Logger::getTimestamp() {
         now.time_since_epoch()) % 1000;
     
     std::tm tm_now;
-    localtime_r(&time_t_now, &tm_now);
+#ifdef _WIN32
+    localtime_s(&tm_now, &time_t_now);  // Windows: reversed parameters
+#else
+    localtime_r(&time_t_now, &tm_now);  // Unix/Linux/macOS
+#endif
     
     std::ostringstream oss;
     oss << std::put_time(&tm_now, "%Y-%m-%d %H:%M:%S");
