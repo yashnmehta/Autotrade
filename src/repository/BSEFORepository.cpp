@@ -80,20 +80,33 @@ bool BSEFORepository::loadProcessedCSV(const QString& filename) {
         contract.tickSize = fields[6].toDouble();
         contract.expiryDate = trimQuotes(fields[7]);
         contract.strikePrice = fields[8].toDouble();
-        contract.optionType = 0; // Placeholder, will be converted in loadFromContracts if needed
         contract.instrumentType = fields[fields.size() - 1].toInt();
         
-        // Better: reconstruct the option marker from instrumentType and series
-        if (contract.instrumentType == 2) {
-            if (contract.series.contains("CE")) contract.optionType = 3;
-            else if (contract.series.contains("PE")) contract.optionType = 4;
+        // Read OptionType from field 9 (CE/PE/FUT/SPD)
+        QString optionTypeStr = trimQuotes(fields[9]);
+        
+        // Convert string optionType to int for MasterContract
+        // Also populate nameWithSeries for fallback detection in loadFromContracts
+        if (optionTypeStr == "CE") {
+            contract.optionType = 3;  // CE
+            contract.nameWithSeries = contract.name + " CE";  // For detection in loadFromContracts
+        } else if (optionTypeStr == "PE") {
+            contract.optionType = 4;  // PE
+            contract.nameWithSeries = contract.name + " PE";
+        } else if (optionTypeStr == "FUT") {
+            contract.optionType = 0;  // Future
+            contract.nameWithSeries = contract.name + " FUT";
+        } else if (optionTypeStr == "SPD") {
+            contract.optionType = 0;  // Spread
+            contract.nameWithSeries = contract.name + " SPD";
+            // Don't overwrite series - instrumentType field is authoritative
+        } else {
+            contract.optionType = 0;
+            contract.nameWithSeries = contract.name;
         }
         
-        // Detect spread contracts and mark them with a special series
-        // Spreads have "SPD" in their display name (e.g., "BANKEX 29JAN25MAR SPD")
-        if (contract.displayName.contains("SPD", Qt::CaseInsensitive)) {
-            contract.series = "SPREAD";  // Mark as spread for easy filtering
-        }
+        // instrumentType field already correctly identifies spreads (4 = Spread)
+        // No need for displayName string matching
         
         contracts.append(contract);
     }
@@ -120,9 +133,40 @@ bool BSEFORepository::loadFromContracts(const QVector<MasterContract>& contracts
 
     QWriteLocker locker(&m_mutex);
     
-    // Clear existing data
+    // Clear existing data - MUST clear all arrays!
     m_tokenToIndex.clear();
     m_contractCount = 0;
+    
+    // Clear all parallel arrays to avoid stale data
+    m_token.clear();
+    m_name.clear();
+    m_displayName.clear();
+    m_description.clear();
+    m_series.clear();
+    m_lotSize.clear();
+    m_tickSize.clear();
+    m_expiryDate.clear();
+    m_strikePrice.clear();
+    m_optionType.clear();
+    m_assetToken.clear();
+    m_instrumentType.clear();
+    m_priceBandHigh.clear();
+    m_priceBandLow.clear();
+    m_freezeQty.clear();
+    m_ltp.clear();
+    m_open.clear();
+    m_high.clear();
+    m_low.clear();
+    m_close.clear();
+    m_prevClose.clear();
+    m_volume.clear();
+    m_bidPrice.clear();
+    m_askPrice.clear();
+    m_iv.clear();
+    m_delta.clear();
+    m_gamma.clear();
+    m_vega.clear();
+    m_theta.clear();
     
     // Pre-allocate for efficiency
     const int32_t expectedSize = contracts.size();
@@ -158,15 +202,21 @@ bool BSEFORepository::loadFromContracts(const QVector<MasterContract>& contracts
         m_expiryDate.push_back(contract.expiryDate);
         m_strikePrice.push_back(contract.strikePrice);
         
-        // Convert optionType
+        // Convert optionType - use integer value if set, otherwise fallback to string detection
         if (contract.instrumentType == 4) {
             m_optionType.push_back("SPD");
         } else if (contract.instrumentType == 2) {
-            if (contract.nameWithSeries.contains("CE") || contract.displayName.contains("CE")) {
+            // FACT-BASED: Use optionType numeric field
+            // BSE encoding: 1=CE, 2=PE (different from NSE's 3=CE, 4=PE)
+            // Also support NSE format for compatibility
+            if (contract.optionType == 1 || contract.optionType == 3) {
                 m_optionType.push_back("CE");
-            } else if (contract.nameWithSeries.contains("PE") || contract.displayName.contains("PE")) {
+            } else if (contract.optionType == 2 || contract.optionType == 4) {
                 m_optionType.push_back("PE");
             } else {
+                // Unknown optionType - this should not happen with valid data
+                qWarning() << "[BSEFORepo] Unknown optionType:" << contract.optionType 
+                           << "for token" << contract.exchangeInstrumentID;
                 m_optionType.push_back("XX");
             }
         } else if (contract.instrumentType == 1) {
@@ -175,10 +225,12 @@ bool BSEFORepository::loadFromContracts(const QVector<MasterContract>& contracts
             m_optionType.push_back("XX");
         }
 
-        m_assetToken.push_back(0);
+
+        m_assetToken.push_back(contract.assetToken);
         m_instrumentType.push_back(contract.instrumentType);
-        m_priceBandHigh.push_back(contract.freezeQty);
-        m_priceBandLow.push_back(0);
+        m_priceBandHigh.push_back(contract.priceBandHigh);
+        m_priceBandLow.push_back(contract.priceBandLow);
+        m_freezeQty.push_back(contract.freezeQty);
         
         // Initialize live data arrays
         m_ltp.push_back(0.0);
@@ -282,10 +334,8 @@ const ContractData* BSEFORepository::getContract(int64_t token) const {
     tempContract.expiryDate = m_expiryDate[idx];
     tempContract.strikePrice = m_strikePrice[idx];
     
-    // BSE F&O Option Type Mapping
-    if (m_optionType[idx] == 3) tempContract.optionType = "CE";
-    else if (m_optionType[idx] == 4) tempContract.optionType = "PE";
-    else tempContract.optionType = "XX";
+    // Use the stored string value directly
+    tempContract.optionType = m_optionType[idx];
     
     tempContract.iv = m_iv[idx];
     tempContract.delta = m_delta[idx];

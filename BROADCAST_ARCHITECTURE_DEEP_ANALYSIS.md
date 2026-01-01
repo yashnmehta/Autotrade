@@ -1,6 +1,10 @@
 # Broadcast Architecture - In-Depth Analysis
 **Trading Terminal C++ - Market Data Flow & Architecture**
 
+**Document Version:** 2.1  
+**Last Updated:** January 1, 2026  
+**Status:** Updated with composite key fix and individual receiver control
+
 ---
 
 ## 📋 Table of Contents
@@ -10,30 +14,40 @@
 3. [Exchange-Specific Implementations](#exchange-specific-implementations)
 4. [Data Flow Pipeline](#data-flow-pipeline)
 5. [Integration Points](#integration-points)
-6. [Weaknesses & Loose Ends](#weaknesses--loose-ends)
-7. [Scope for Improvement](#scope-for-improvement)
-8. [Performance Analysis](#performance-analysis)
-9. [Recommendations](#recommendations)
+6. [Centralized UDP Broadcast Service](#centralized-udp-broadcast-service)
+7. [Individual Receiver Control](#individual-receiver-control)
+8. [Weaknesses & Loose Ends](#weaknesses--loose-ends)
+9. [Scope for Improvement](#scope-for-improvement)
+10. [Performance Analysis](#performance-analysis)
+11. [Recommendations](#recommendations)
 
 ---
 
 ## Executive Summary
 
-The Trading Terminal implements a **multi-exchange UDP broadcast receiver architecture** for real-time market data. The system supports:
+The Trading Terminal implements a **multi-exchange UDP broadcast receiver architecture** for real-time market data. The system uses a **centralized `UdpBroadcastService`** singleton that manages all exchange receivers with **individual start/stop control**.
 
-- ✅ **NSE FO (Futures & Options)** - Fully implemented and integrated
-- ✅ **NSE CM (Cash Market)** - Fully implemented and integrated
-- ⚠️ **BSE FO** - Receiver implemented but NOT integrated with MainWindow
-- ❌ **BSE CM** - Repository exists, NO broadcast receiver implementation
+### Current Status Matrix (Updated v2.1)
 
-### Current Status Matrix
+| Exchange | Receiver Library | UdpBroadcastService Integration | FeedHandler Integration | Status |
+|----------|------------------|--------------------------------|------------------------|---------| 
+| NSE FO   | ✅ `cpp_broacast_nsefo` | ✅ Yes | ✅ Yes (Composite Key) | **Production Ready** |
+| NSE CM   | ✅ `cpp_broadcast_nsecm` | ✅ Yes | ✅ Yes (Composite Key) | **Production Ready** |
+| BSE FO   | ✅ `cpp_broadcast_bsefo` | ✅ Yes | ✅ Yes (Composite Key) | **Production Ready** |
+| BSE CM   | ✅ `cpp_broadcast_bsefo` (shared) | ✅ Yes | ✅ Yes (Composite Key) | **Production Ready** |
 
-| Exchange | Receiver Library | MainWindow Integration | FeedHandler Integration | Status |
-|----------|------------------|------------------------|------------------------|---------|
-| NSE FO   | ✅ `cpp_broacast_nsefo` | ✅ Yes | ✅ Yes | **Production Ready** |
-| NSE CM   | ✅ `cpp_broadcast_nsecm` | ✅ Yes | ✅ Yes | **Production Ready** |
-| BSE FO   | ✅ `cpp_broadcast_bsefo` | ❌ No | ❌ No | **Incomplete** |
-| BSE CM   | ❌ No Library | ❌ No | ❌ No | **Not Implemented** |
+### Key Changes in v2.1
+- ✅ **BSE FO Market Watch fixed** - FeedHandler now uses composite key `(exchangeSegment, token)` to prevent token collisions across exchanges
+- ✅ **Individual receiver control** - Start/stop any receiver independently via `startReceiver()`, `stopReceiver()`, `restartReceiver()`
+- ✅ **Joinable threads** - Replaced detached threads with properly managed joinable threads
+- ✅ **Receiver status signals** - `receiverStatusChanged(ExchangeReceiver, bool)` signal for UI integration
+
+### Key Changes in v2.0
+- ✅ **BSE FO fully integrated** with callback and tick emission
+- ✅ **BSE CM support added** using shared `BSEReceiver` class
+- ✅ **Centralized `UdpBroadcastService`** singleton replaces per-receiver management in MainWindow
+- ✅ **Cross-platform socket abstraction** via `socket_platform.h`
+- ✅ **Configuration-driven** multicast IP/port settings
 
 ---
 
@@ -42,113 +56,115 @@ The Trading Terminal implements a **multi-exchange UDP broadcast receiver archit
 ### High-Level Data Flow
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                         EXCHANGE BROADCAST                           │
-│                    (UDP Multicast Packets)                          │
-└────────────┬───────────────────────┬──────────────────────────────┘
-             │                       │
-             │ NSE FO                │ NSE CM
-             │ 233.1.2.5:34330       │ 233.1.2.5:34001
-             │                       │
-             ▼                       ▼
-┌────────────────────────┐  ┌────────────────────────┐
-│  MulticastReceiver FO  │  │  MulticastReceiver CM  │
-│  (Native C++ Thread)   │  │  (Native C++ Thread)   │
-├────────────────────────┤  ├────────────────────────┤
-│ - Socket recv()        │  │ - Socket recv()        │
-│ - LZO decompression    │  │ - LZO decompression    │
-│ - Packet validation    │  │ - Packet validation    │
-│ - Message parsing      │  │ - Message parsing      │
-└────────────┬───────────┘  └────────────┬───────────┘
-             │                           │
-             │ Callback Registry         │ Callback Registry
-             │ (C++ std::function)       │ (C++ std::function)
-             ▼                           ▼
-┌────────────────────────────────────────────────────────────────────┐
-│                         MAINWINDOW                                  │
-│                    (Qt Main Thread Boundary)                        │
-├─────────────────────────────────────────────────────────────────────┤
-│  Lambda Callbacks:                                                  │
-│  - nsefo::TouchlineCallback → Convert to XTS::Tick                 │
-│  - nsefo::MarketDepthCallback → Convert to XTS::Tick               │
-│  - nsefo::TickerCallback → Convert to XTS::Tick                    │
-│  - nsecm::TouchlineCallback → Convert to XTS::Tick                 │
-│  - nsecm::MarketDepthCallback → Convert to XTS::Tick               │
-│                                                                     │
-│  Thread Safety:                                                     │
-│  QMetaObject::invokeMethod(this, "onUdpTickReceived",             │
-│                            Qt::QueuedConnection, Q_ARG(XTS::Tick)) │
-└────────────┬───────────────────────────────────────────────────────┘
-             │
-             ▼
-┌────────────────────────────────────────────────────────────────────┐
-│            MainWindow::onUdpTickReceived (Qt Main Thread)          │
-├─────────────────────────────────────────────────────────────────────┤
-│  - Adds timestampDequeued (latency tracking)                       │
-│  - Forwards to FeedHandler::instance().onTickReceived()           │
-└────────────┬───────────────────────────────────────────────────────┘
-             │
-             ▼
-┌────────────────────────────────────────────────────────────────────┐
-│                      FEEDHANDLER (Singleton)                        │
-│                  (Publisher-Subscriber Pattern)                     │
-├─────────────────────────────────────────────────────────────────────┤
-│  Maintains: std::unordered_map<int, TokenPublisher*>               │
-│                                                                     │
-│  Logic:                                                             │
-│  1. Extract token from tick                                        │
-│  2. Lookup token in publisher map (O(1) hash lookup)              │
-│  3. If publisher exists, emit TokenPublisher::tickUpdated signal   │
-└────────────┬───────────────────────────────────────────────────────┘
-             │
-             │ Qt Signal/Slot (Direct Connection)
-             ▼
-┌────────────────────────────────────────────────────────────────────┐
-│                    MARKETWATCHWINDOW                                │
-│               (Multiple Instances Possible)                         │
-├─────────────────────────────────────────────────────────────────────┤
-│  Subscription (on scrip add):                                      │
-│    FeedHandler::instance().subscribe(token, this,                 │
-│                                      &MarketWatchWindow::onTick)   │
-│                                                                     │
-│  onTickUpdate(const XTS::Tick&):                                  │
-│    1. Extract token                                                │
-│    2. Lookup rows via TokenAddressBook (multi-row support)        │
-│    3. Update model data (ltp, ohlc, volume, bid/ask, etc.)       │
-│    4. Model emits rowUpdated signal                                │
-│    5. View updates viewport (ultra-fast direct update)            │
-└─────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                              EXCHANGE BROADCASTS                                 │
+│                          (UDP Multicast Packets)                                │
+└─────┬───────────────┬───────────────┬──────────────────┬───────────────────────┘
+      │ NSE FO        │ NSE CM        │ BSE FO           │ BSE CM
+      │ 233.1.2.5     │ 233.1.2.5     │ 239.1.2.5        │ 239.1.2.5
+      │ :34330        │ :8222         │ :26002           │ :26001
+      ▼               ▼               ▼                  ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                        UdpBroadcastService (Singleton)                          │
+│                 src/services/UdpBroadcastService.cpp                            │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│  Manages 4 receiver instances:                                                   │
+│  ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐ ┌────────────────┐ │
+│  │ m_nseFoReceiver │ │ m_nseCmReceiver │ │ m_bseFoReceiver │ │ m_bseCmReceiver│ │
+│  │ (nsefo::Multi   │ │ (nsecm::Multi   │ │ (bse::BSE       │ │ (bse::BSE      │ │
+│  │  castReceiver)  │ │  castReceiver)  │ │  Receiver)      │ │  Receiver)     │ │
+│  └────────┬────────┘ └────────┬────────┘ └────────┬────────┘ └───────┬────────┘ │
+│           │                   │                   │                  │          │
+│  Each runs in detached thread via std::thread([...]).detach()                   │
+│                                                                                  │
+│  Lambda Callbacks convert to XTS::Tick and emit tickReceived signal:            │
+│  ┌──────────────────────────────────────────────────────────────────────────┐  │
+│  │ nsefo::TouchlineCallback → XTS::Tick (segment=2)  → emit tickReceived() │  │
+│  │ nsefo::MarketDepthCallback → XTS::Tick (segment=2) → emit tickReceived()│  │
+│  │ nsefo::TickerCallback → XTS::Tick (segment=2)     → emit tickReceived() │  │
+│  │ nsecm::TouchlineCallback → XTS::Tick (segment=1)  → emit tickReceived() │  │
+│  │ nsecm::MarketDepthCallback → XTS::Tick (segment=1) → emit tickReceived()│  │
+│  │ bse::RecordCallback (FO) → XTS::Tick (segment=12) → emit tickReceived() │  │
+│  │ bse::RecordCallback (CM) → XTS::Tick (segment=11) → emit tickReceived() │  │
+│  └──────────────────────────────────────────────────────────────────────────┘  │
+└──────────────────────────────────┬──────────────────────────────────────────────┘
+                                   │
+                                   │ Qt Signal: tickReceived(XTS::Tick)
+                                   ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                              MAINWINDOW                                          │
+│                    src/app/MainWindow/MainWindow.cpp                            │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│  connect(&UdpBroadcastService::instance(), &UdpBroadcastService::tickReceived, │
+│          this, &MainWindow::onTickReceived);                                    │
+│                                                                                  │
+│  void MainWindow::onTickReceived(const XTS::Tick& tick) {                       │
+│      // BSE debug logging                                                        │
+│      FeedHandler::instance().onTickReceived(tick);                              │
+│  }                                                                               │
+└──────────────────────────────────┬──────────────────────────────────────────────┘
+                                   │
+                                   ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                         FEEDHANDLER (Singleton)                                  │
+│                   src/services/FeedHandler.cpp                                   │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│  Architecture: Publisher-Subscriber Pattern                                     │
+│                                                                                  │
+│  std::unordered_map<int, TokenPublisher*> m_publishers;                         │
+│                                                                                  │
+│  void onTickReceived(const XTS::Tick& tick):                                    │
+│    1. Extract token = tick.exchangeInstrumentID                                 │
+│    2. Lookup TokenPublisher* for token (O(1) hash lookup)                       │
+│    3. If found: pub->publish(tick) → emits tickUpdated signal                   │
+│    4. If not found: Log warning for BSE tokens (debugging)                      │
+└──────────────────────────────────┬──────────────────────────────────────────────┘
+                                   │
+                                   │ Qt Signal: TokenPublisher::tickUpdated(tick)
+                                   ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                          MARKETWATCHWINDOW                                       │
+│                src/views/MarketWatchWindow/Data.cpp                             │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│  Subscription Pattern:                                                          │
+│    FeedHandler::instance().subscribe(token, this, &MarketWatchWindow::onTickUp) │
+│                                                                                  │
+│  void onTickUpdate(const XTS::Tick& tick):                                      │
+│    1. Get rows from TokenAddressBook                                            │
+│    2. Update LTP, OHLC, LTQ, Volume, Bid/Ask, OI                               │
+│    3. Record latency via LatencyTracker                                         │
+└─────────────────────────────────────────────────────────────────────────────────┘
 
 ALSO SUBSCRIBED:
-┌────────────────────────────────────────────────────────────────────┐
-│  - OrderBookWindow                                                  │
-│  - PositionWindow                                                   │
-│  - SnapQuoteWindow                                                  │
-│  - OptionChainWindow                                                │
-│  (Same pattern: subscribe to tokens, receive tick updates)         │
-└─────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│  - OrderBookWindow     (same FeedHandler subscribe pattern)                     │
+│  - PositionWindow      (same FeedHandler subscribe pattern)                     │
+│  - SnapQuoteWindow     (same FeedHandler subscribe pattern)                     │
+│  - OptionChainWindow   (same FeedHandler subscribe pattern)                     │
+└─────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
 ## Exchange-Specific Implementations
 
-### 1. NSE FO (Futures & Options) ✅
+### 1. NSE FO (Futures & Options) ✅ **PRODUCTION READY**
 
 **Library:** `lib/cpp_broacast_nsefo/`
 
 **Key Components:**
 
-```cpp
-// Header: multicast_receiver.h
-class MulticastReceiver {
-    - std::thread receiver thread
-    - UDP socket (multicast group join)
-    - LZO decompression
-    - Packet parsing (7200, 7201, 7202, 7208, etc.)
-    - Callback registry for parsed data
-};
-```
+| File | Purpose |
+|------|---------|
+| `multicast_receiver.h/cpp` | Main receiver class with UDP socket and LZO decompression |
+| `nsefo_callback.h` | Callback registry and data structures (TouchlineData, MarketDepthData, TickerData) |
+| `udp_receiver.h/cpp` | Alternative standalone listener with statistics |
+| `parser/*.cpp` | Message parsers for 7200, 7201, 7202, 7208, etc. |
+
+**Protocol:**
+- **Compression:** LZO (most packets compressed)
+- **Byte Order:** Big-endian for headers, variable for data fields
+- **Message Types:** 7200 (Touchline+Depth), 7201 (MarketWatch), 7202 (Ticker), 7208 (Extended Touchline)
 
 **Data Structures:**
 ```cpp
@@ -156,516 +172,503 @@ namespace nsefo {
     struct TouchlineData {
         uint32_t token;
         double ltp, open, high, low, close;
-        uint32_t volume, lastTradeQty;
+        uint32_t volume, lastTradeQty, lastTradeTime;
         double avgPrice;
-        uint64_t refNo;  // Sequence number
-        int64_t timestampRecv;  // UDP receive time
-        int64_t timestampParsed; // Parse complete time
+        uint64_t refNo;             // Sequence number for latency tracking
+        int64_t timestampRecv;      // Receive timestamp (µs)
+        int64_t timestampParsed;    // Parse complete timestamp (µs)
     };
     
     struct MarketDepthData {
         uint32_t token;
-        DepthLevel bids[5], asks[5];
+        DepthLevel bids[5], asks[5];  // Fixed-size (zero-copy)
         double totalBuyQty, totalSellQty;
-        // Latency tracking fields
+        uint64_t refNo;
+        int64_t timestampRecv, timestampParsed;
     };
     
     struct TickerData {
         uint32_t token;
         double fillPrice;
         uint32_t fillVolume;
-        int64_t openInterest;
-        // Latency tracking fields
+        int64_t openInterest, dayHiOI, dayLoOI;
+        uint64_t refNo;
+        int64_t timestampRecv, timestampParsed;
     };
 }
 ```
 
-**Callback Registry Pattern:**
+**Callback Pattern:**
 ```cpp
-// Singleton pattern
-MarketDataCallbackRegistry::instance()
-    .registerTouchlineCallback([](const TouchlineData& data) {
-        // User callback
+// Singleton registry
+nsefo::MarketDataCallbackRegistry::instance()
+    .registerTouchlineCallback([](const nsefo::TouchlineData& data) {
+        // Process touchline data
     });
-```
-
-**Message Types Supported:**
-- **7200**: Touchline + Market Depth (most common)
-- **7201**: Market Watch data
-- **7202**: Ticker updates (fill data)
-- **7208**: Extended touchline data
-- **7203**: OI Slab data
-- **7207**: Index data
-
-**Integration Point:**
-```cpp
-// MainWindow::startBroadcastReceiver() - Line 165-239
-m_udpReceiver = std::make_unique<nsefo::MulticastReceiver>(ip, port);
-
-nsefo::MarketDataCallbackRegistry::instance().registerTouchlineCallback(
-    [this](const nsefo::TouchlineData& data) {
-        XTS::Tick tick;
-        tick.exchangeSegment = 2; // NSEFO
-        tick.exchangeInstrumentID = data.token;
-        tick.lastTradedPrice = data.ltp;
-        // ... field mapping
-        QMetaObject::invokeMethod(this, "onUdpTickReceived", 
-                                  Qt::QueuedConnection, Q_ARG(XTS::Tick, tick));
-    }
-);
-
-// Start in separate thread
-m_udpThread = std::thread([this]() {
-    if (m_udpReceiver) m_udpReceiver->start();
-});
 ```
 
 ---
 
-### 2. NSE CM (Cash Market) ✅
+### 2. NSE CM (Cash Market) ✅ **PRODUCTION READY**
 
 **Library:** `lib/cpp_broadcast_nsecm/`
 
-**Architecture:** Nearly identical to NSE FO
+**Architecture:** Nearly identical to NSE FO with CM-specific differences:
 
-**Key Differences:**
-- **Volume type:** `uint64_t` (64-bit for equity volumes)
-- **Message 18703:** CM-specific ticker format
-- **Market Index Values:** Included in ticker data
-- **No Open Interest:** OI not applicable for cash market
+| Difference | NSE FO | NSE CM |
+|------------|--------|--------|
+| Volume type | `uint32_t` | `uint64_t` (64-bit for high-volume equities) |
+| Depth quantities | `uint32_t` | `uint64_t` |
+| Ticker message | 7202 | 18703 (CM-specific with market index value) |
+| Open Interest | Yes | No (N/A for cash market) |
 
 **Data Structures:**
 ```cpp
 namespace nsecm {
     struct TouchlineData {
-        // Same structure as NSEFO
-        uint64_t volume;  // 64-bit (CM can have massive volumes)
+        uint64_t volume;          // 64-bit for CM
+        uint32_t lastTradeQty;    // Still 32-bit
+        // Rest similar to NSEFO
     };
     
-    struct MarketDepthData {
-        DepthLevel bids[5], asks[5];
-        uint64_t totalBuyQty, totalSellQty;  // 64-bit
+    struct DepthLevel {
+        uint64_t quantity;        // 64-bit for CM
+        double price;
+        uint16_t orders;
     };
     
     struct TickerData {
-        double marketIndexValue;  // CM-specific
         uint64_t fillVolume;      // 64-bit
+        double marketIndexValue;  // CM-specific
     };
 }
 ```
 
-**Integration Point:**
+---
+
+### 3. BSE FO (Futures & Options) ✅ **PRODUCTION READY**
+
+**Library:** `lib/cpp_broadcast_bsefo/`
+
+**Key Components:**
+
+| File | Purpose |
+|------|---------|
+| `bse_receiver.h/cpp` | Unified receiver for BSE FO and BSE CM |
+| `bse_protocol.h` | Protocol constants and packed structures |
+| `bse_utils.h` | Endianness converters (le16toh_func, be32toh_func) |
+
+**Protocol (Empirically Verified):**
+
+> ⚠️ **IMPORTANT:** These offsets differ from official BSE manual and were verified through analysis of 1000+ live packets.
+
+```
+HEADER (36 bytes):
+  0-3:   Leading zeros (0x00000000) - Big Endian
+  4-5:   Format ID (= packet size) - Little Endian ✓
+  8-9:   Message type (2020/2021/2012) - Little Endian ✓
+  20-21: Hour - Little Endian ✓
+  22-23: Minute - Little Endian ✓
+  24-25: Second - Little Endian ✓
+
+RECORDS (264 bytes each, starting at offset 36):
+  +0-3:   Token (uint32) - Little Endian ✓
+  +4-7:   Open Price (int32, paise) - Little Endian ✓
+  +8-11:  Previous Close (int32, paise) - Little Endian ✓
+  +12-15: High Price (int32, paise) - Little Endian ✓
+  +16-19: Low Price (int32, paise) - Little Endian ✓
+  +24-27: Volume (int32) - Little Endian ✓
+  +28-31: Turnover in Lakhs (uint32) - Little Endian ✓
+  +36-39: LTP (int32, paise) - Little Endian ✓
+  +44-47: Market Sequence Number (uint32) - Little Endian ✓
+  +84-87: ATP (int32, paise) - Little Endian ✓
+  +104-263: 5-Level Order Book (160 bytes, interleaved Bid/Ask) ✓
+
+All prices in PAISE (divide by 100 for rupees)
+```
+
+**Message Types:**
+- `2020`: MARKET_PICTURE (standard)
+- `2021`: MARKET_PICTURE_COMPLEX
+- `2012`: INDEX (record size = 120 bytes instead of 264)
+
+**Callback Pattern (Instance-Based):**
 ```cpp
-// MainWindow::startBroadcastReceiver() - Line 252-312
-m_udpReceiverCM = std::make_unique<nsecm::MulticastReceiver>(ip, port);
+// Different from NSE - uses instance callback, not registry
+m_bseReceiver->setRecordCallback([this](const bse::DecodedRecord& record) {
+    XTS::Tick tick;
+    tick.exchangeSegment = 12; // BSEFO
+    tick.lastTradedPrice = record.ltp / 100.0;  // Paise → Rupees
+    // ... conversion logic
+});
+```
 
-nsecm::MarketDataCallbackRegistry::instance().registerTouchlineCallback(
-    [this](const nsecm::TouchlineData& data) {
-        XTS::Tick tick;
-        tick.exchangeSegment = 1; // NSECM
-        tick.exchangeInstrumentID = data.token;
-        // ... field mapping
-        QMetaObject::invokeMethod(this, "onUdpTickReceived",
-                                  Qt::QueuedConnection, Q_ARG(XTS::Tick, tick));
-    }
-);
+**Data Structures:**
+```cpp
+namespace bse {
+    struct DecodedRecord {
+        uint32_t token;
+        uint64_t packetTimestamp;    // System time of receipt
+        uint64_t volume, turnover, ltq;
+        int32_t ltp, open, high, low, close;
+        int32_t weightedAvgPrice;
+        int32_t lowerCircuit, upperCircuit;
+        std::vector<DecodedDepthLevel> bids;
+        std::vector<DecodedDepthLevel> asks;
+    };
+    
+    struct DecodedDepthLevel {
+        int32_t price;
+        uint64_t quantity;
+        uint32_t numOrders;
+    };
+}
+```
 
-m_udpThreadCM = std::thread([this]() {
-    if (m_udpReceiverCM) m_udpReceiverCM->start();
+---
+
+### 4. BSE CM (Cash Market) ✅ **PRODUCTION READY**
+
+**Library:** Shares `lib/cpp_broadcast_bsefo/` (BSEReceiver is segment-agnostic)
+
+**Architecture:** Uses the same `bse::BSEReceiver` class with different constructor parameters:
+
+```cpp
+// BSE FO
+m_bseFoReceiver = std::make_unique<bse::BSEReceiver>(config.bseFoIp, config.bseFoPort, "BSEFO");
+
+// BSE CM
+m_bseCmReceiver = std::make_unique<bse::BSEReceiver>(config.bseCmIp, config.bseCmPort, "BSECM");
+```
+
+**Tick Conversion (UdpBroadcastService):**
+```cpp
+m_bseCmReceiver->setRecordCallback([this](const bse::DecodedRecord& record) {
+    XTS::Tick tick;
+    tick.exchangeSegment = 11; // BSECM (vs 12 for BSEFO)
+    tick.exchangeInstrumentID = record.token;
+    tick.lastTradedPrice = record.ltp / 100.0;
+    // ... identical conversion logic
+    emit tickReceived(tick);
 });
 ```
 
 ---
 
-### 3. BSE FO (Futures & Options) ⚠️
-
-**Library:** `lib/cpp_broadcast_bsefo/`
-
-**Status:** ⚠️ **Receiver implemented but NOT integrated**
-
-**Implementation:**
-```cpp
-// bse_receiver.h
-class BSEReceiver {
-public:
-    BSEReceiver(const std::string& ip, int port, const std::string& segment);
-    void start();
-    void stop();
-    
-    using RecordCallback = std::function<void(const DecodedRecord&)>;
-    void setRecordCallback(RecordCallback callback);
-    
-private:
-    void receiveLoop();
-    void processPacket(const uint8_t* buffer, size_t length);
-    void decodeAndDispatch(const uint8_t* buffer, size_t length);
-};
-```
-
-**Packet Structure (Empirically Verified):**
-```cpp
-// HEADER (36 bytes):
-//   0-3:   Leading zeros (0x00000000) - Big Endian
-//   4-5:   Format ID (packet size) - Little Endian
-//   8-9:   Message type (2020/2021) - Little Endian
-//   20-21: Hour - Little Endian
-//   22-23: Minute - Little Endian
-//   24-25: Second - Little Endian
-//
-// RECORDS (264 bytes each, starting at offset 36):
-//   +0-3:   Token (uint32) - Little Endian
-//   +4-7:   Open Price (int32, paise) - Little Endian
-//   +8-11:  Previous Close (int32, paise) - Little Endian
-//   +12-15: High Price (int32, paise) - Little Endian
-//   +16-19: Low Price (int32, paise) - Little Endian
-//   +24-27: Volume (int32) - Little Endian
-//   +28-31: Turnover in Lakhs (uint32) - Little Endian
-//   +36-39: LTP (int32, paise) - Little Endian
-//   +44-47: Market Sequence Number (uint32) - Little Endian
-//   +84-87: ATP (int32, paise) - Little Endian
-//   +104-263: 5-Level Order Book (160 bytes)
-```
-
-**Data Structure:**
-```cpp
-struct DecodedRecord {
-    uint32_t token;
-    int32_t open, high, low, close, ltp;
-    int32_t volume, turnover;
-    int32_t weightedAvgPrice;
-    std::vector<DecodedDepthLevel> bids;
-    std::vector<DecodedDepthLevel> asks;
-    int64_t packetTimestamp;
-};
-```
-
-**❌ MISSING INTEGRATION:**
-- No instantiation in `MainWindow::startBroadcastReceiver()`
-- No callback registration
-- No thread management
-- No BSE-specific tick conversion logic
-
-**✅ WHAT EXISTS:**
-- Repository for BSE FO contracts (`BSEFORepository`)
-- Master file parsing
-- Contract data structures
-
----
-
-### 4. BSE CM (Cash Market) ❌
-
-**Status:** ❌ **NOT IMPLEMENTED**
-
-**What Exists:**
-- ✅ `BSECMRepository` - Contract repository
-- ✅ Master file parsing (`MasterFileParser::parseBSECM()`)
-- ✅ Contract data loading
-
-**What's Missing:**
-- ❌ No `cpp_broadcast_bsecm` library
-- ❌ No multicast receiver implementation
-- ❌ No packet parsing logic
-- ❌ No protocol documentation
-- ❌ No integration with MainWindow
-- ❌ No callback system
-
----
-
 ## Data Flow Pipeline
 
-### Step-by-Step Tick Journey (NSE FO Example)
+### Complete Tick Journey (All Exchanges)
 
-#### 1. UDP Packet Reception
-```cpp
-// File: lib/cpp_broacast_nsefo/src/multicast_receiver.cpp
-void MulticastReceiver::start() {
-    running = true;
-    while (running) {
-        ssize_t n = recv(sockfd, buffer, kBufferSize, 0);
-        
-        // Record timestamp
-        int64_t timestampRecv = getCurrentTimeMicros();
-        
-        // Process packet
-        parsePacket(buffer, n, timestampRecv);
-    }
-}
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ STAGE 1: UDP PACKET RECEPTION                                                │
+│ ─────────────────────────────────────────────────────────────────────────── │
+│ File: lib/cpp_broacast_nsefo/src/multicast_receiver.cpp (or bse_receiver.cpp)│
+│                                                                              │
+│ void MulticastReceiver::start() {                                            │
+│     while (running) {                                                        │
+│         ssize_t n = recv(sockfd, buffer, kBufferSize, 0);                   │
+│         // Handle timeout (EAGAIN/EWOULDBLOCK) → continue                    │
+│         // Error → log and break                                             │
+│         // Parse packet header                                               │
+│     }                                                                        │
+│ }                                                                            │
+│                                                                              │
+│ Latency Point: timestampRecv = getCurrentTimeMicros()                        │
+└──────────────────────────────────────────────────────────────────────────────┘
+                                   │
+                                   ▼
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ STAGE 2: DECOMPRESSION & PARSING                                             │
+│ ─────────────────────────────────────────────────────────────────────────── │
+│ NSE: LZO decompression via common::LzoDecompressor                           │
+│ BSE: No compression (raw binary parsing)                                     │
+│                                                                              │
+│ // NSE example                                                               │
+│ if (iCompLen > 0) {                                                          │
+│     parse_compressed_message(ptr, iCompLen, stats);  // LZO decompress      │
+│ } else {                                                                     │
+│     parse_uncompressed_message(ptr + 10, msgLen);                           │
+│ }                                                                            │
+│                                                                              │
+│ // BSE example                                                               │
+│ decodeAndDispatch(buffer, n);  // Direct binary parsing                     │
+│                                                                              │
+│ Latency Point: timestampParsed = getCurrentTimeMicros()                      │
+└──────────────────────────────────────────────────────────────────────────────┘
+                                   │
+                                   ▼
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ STAGE 3: CALLBACK INVOCATION (Still in UDP Thread!)                          │
+│ ─────────────────────────────────────────────────────────────────────────── │
+│ File: lib/*/src/*.cpp → dispatches to registered callbacks                  │
+│                                                                              │
+│ // NSE pattern                                                               │
+│ MarketDataCallbackRegistry::instance().dispatchTouchline(data);             │
+│                                                                              │
+│ // BSE pattern                                                               │
+│ if (recordCallback_) recordCallback_(decRec);                               │
+│                                                                              │
+│ ⚠️ CRITICAL: These callbacks execute on the UDP receiver thread!            │
+└──────────────────────────────────────────────────────────────────────────────┘
+                                   │
+                                   ▼
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ STAGE 4: TICK CONVERSION & SIGNAL EMISSION                                   │
+│ ─────────────────────────────────────────────────────────────────────────── │
+│ File: src/services/UdpBroadcastService.cpp                                   │
+│                                                                              │
+│ // Lambda callback (still in UDP thread)                                     │
+│ [this](const nsefo::TouchlineData& data) {                                   │
+│     XTS::Tick tick;                                                          │
+│     tick.exchangeSegment = 2; // NSEFO                                       │
+│     tick.exchangeInstrumentID = data.token;                                  │
+│     tick.lastTradedPrice = data.ltp;                                         │
+│     tick.timestampUdpRecv = data.timestampRecv;                              │
+│     tick.timestampParsed = data.timestampParsed;                             │
+│     tick.timestampQueued = LatencyTracker::now();                            │
+│                                                                              │
+│     m_totalTicks++;                                                          │
+│     emit tickReceived(tick);  // Qt signal crosses thread boundary          │
+│ }                                                                            │
+│                                                                              │
+│ Latency Point: timestampQueued = LatencyTracker::now()                       │
+└──────────────────────────────────────────────────────────────────────────────┘
+                                   │
+                                   │ Qt Signal (Auto Connection → queued)
+                                   ▼
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ STAGE 5: MAINWINDOW RECEIVES TICK (Qt Main Thread)                           │
+│ ─────────────────────────────────────────────────────────────────────────── │
+│ File: src/app/MainWindow/MainWindow.cpp                                      │
+│                                                                              │
+│ // Connected in constructor:                                                 │
+│ connect(&UdpBroadcastService::instance(), &UdpBroadcastService::tickReceived,│
+│         this, &MainWindow::onTickReceived);                                  │
+│                                                                              │
+│ void MainWindow::onTickReceived(const XTS::Tick& tick) {                     │
+│     // Debug logging for BSE tokens                                          │
+│     if (tick.exchangeSegment == 12 || tick.exchangeSegment == 11) {...}     │
+│                                                                              │
+│     FeedHandler::instance().onTickReceived(tick);                            │
+│ }                                                                            │
+└──────────────────────────────────────────────────────────────────────────────┘
+                                   │
+                                   ▼
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ STAGE 6: FEEDHANDLER DISTRIBUTION (Qt Main Thread)                           │
+│ ─────────────────────────────────────────────────────────────────────────── │
+│ File: src/services/FeedHandler.cpp                                           │
+│                                                                              │
+│ void FeedHandler::onTickReceived(const XTS::Tick& tick) {                    │
+│     int token = (int)tick.exchangeInstrumentID;                              │
+│                                                                              │
+│     // Add FeedHandler timestamp                                             │
+│     XTS::Tick trackedTick = tick;                                            │
+│     trackedTick.timestampFeedHandler = LatencyTracker::now();                │
+│                                                                              │
+│     TokenPublisher* pub = nullptr;                                           │
+│     {                                                                        │
+│         std::lock_guard<std::mutex> lock(m_mutex);                           │
+│         auto it = m_publishers.find(token);                                  │
+│         if (it != m_publishers.end()) {                                      │
+│             pub = it->second;                                                │
+│         }                                                                    │
+│     }                                                                        │
+│                                                                              │
+│     if (pub) {                                                               │
+│         pub->publish(trackedTick);  // emits TokenPublisher::tickUpdated    │
+│     }                                                                        │
+│ }                                                                            │
+│                                                                              │
+│ Latency Point: timestampFeedHandler = LatencyTracker::now()                  │
+└──────────────────────────────────────────────────────────────────────────────┘
+                                   │
+                                   │ Qt Signal: TokenPublisher::tickUpdated
+                                   ▼
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ STAGE 7: MARKETWATCH UPDATE (Qt Main Thread)                                 │
+│ ─────────────────────────────────────────────────────────────────────────── │
+│ File: src/views/MarketWatchWindow/Data.cpp                                   │
+│                                                                              │
+│ void MarketWatchWindow::onTickUpdate(const XTS::Tick& tick) {                │
+│     int token = (int)tick.exchangeInstrumentID;                              │
+│     int64_t timestampModelStart = LatencyTracker::now();                     │
+│                                                                              │
+│     // Update price, volume, bid/ask, OI, etc.                               │
+│     if (tick.lastTradedPrice > 0) {                                          │
+│         double change = tick.lastTradedPrice - closePrice;                   │
+│         double changePercent = (change / closePrice) * 100.0;                │
+│         updatePrice(token, tick.lastTradedPrice, change, changePercent);     │
+│     }                                                                        │
+│     if (tick.volume > 0) updateVolume(token, tick.volume);                   │
+│     if (tick.bidPrice > 0 || tick.askPrice > 0) {                            │
+│         updateBidAsk(token, tick.bidPrice, tick.askPrice);                   │
+│     }                                                                        │
+│     // ... more updates                                                      │
+│                                                                              │
+│     int64_t timestampModelEnd = LatencyTracker::now();                       │
+│                                                                              │
+│     // Record latency stats                                                  │
+│     LatencyTracker::recordLatency(                                           │
+│         tick.timestampUdpRecv, tick.timestampParsed, tick.timestampQueued,  │
+│         tick.timestampDequeued, tick.timestampFeedHandler,                   │
+│         timestampModelStart, timestampModelEnd);                             │
+│ }                                                                            │
+│                                                                              │
+│ Latency Points: timestampModelStart, timestampModelEnd                       │
+└──────────────────────────────────────────────────────────────────────────────┘
 ```
 
-#### 2. Packet Parsing & Decompression
-```cpp
-// Decompress if compressed
-if (packet->compression == 1) {
-    decompressedSize = lzo_decompress(compressedData, decompressedBuffer);
-}
+---
 
-// Parse message based on type
-switch (messageCode) {
-    case 7200:  // Touchline + Depth
-        parse_7200(messageData, timestampRecv, timestampParsed);
-        break;
-    case 7202:  // Ticker
-        parse_7202(messageData, timestampRecv, timestampParsed);
-        break;
-}
+## Centralized UDP Broadcast Service
+
+### UdpBroadcastService Architecture
+
+**File:** `src/services/UdpBroadcastService.cpp`  
+**Header:** `include/services/UdpBroadcastService.h`
+
+This is the **central orchestrator** for all UDP market data receivers.
+
+**Key Features:**
+
+1. **Singleton Pattern:** `UdpBroadcastService::instance()`
+2. **Multi-Exchange Config:**
+   ```cpp
+   struct Config {
+       std::string nseFoIp, nseCmIp, bseFoIp, bseCmIp;
+       int nseFoPort, nseCmPort, bseFoPort, bseCmPort;
+       bool enableNSEFO, enableNSECM, enableBSEFO, enableBSECM;
+   };
+   ```
+
+3. **Receiver Lifecycle Management:**
+   ```cpp
+   std::unique_ptr<nsefo::MulticastReceiver> m_nseFoReceiver;
+   std::unique_ptr<nsecm::MulticastReceiver> m_nseCmReceiver;
+   std::unique_ptr<bse::BSEReceiver> m_bseFoReceiver;
+   std::unique_ptr<bse::BSEReceiver> m_bseCmReceiver;
+   ```
+
+4. **Statistics Tracking:**
+   ```cpp
+   struct Stats {
+       uint64_t nseFoPackets, nseCmPackets, bseFoPackets, bseCmPackets;
+       uint64_t totalTicks;
+   };
+   ```
+
+5. **Thread Management:**
+   - Each receiver runs in a **detached thread** (`std::thread([...]).detach()`)
+   - Graceful stop via atomic `running_` flag and socket timeout
+
+### Configuration Flow
+
 ```
+┌─────────────┐      ┌──────────────────┐      ┌─────────────────────────┐
+│ config.ini  │ ───▶ │  ConfigLoader    │ ───▶ │ UdpBroadcastService     │
+│ [UDP]       │      │  (parse INI)     │      │ ::start(Config)         │
+└─────────────┘      └──────────────────┘      └─────────────────────────┘
 
-#### 3. Callback Invocation (C++ Thread)
-```cpp
-// File: lib/cpp_broacast_nsefo/src/parser/parse_message_7200.cpp
-void parse_7200(const uint8_t* msg, int64_t tsRecv, int64_t tsParsed) {
-    TouchlineData data;
-    data.token = extractToken(msg);
-    data.ltp = extractLTP(msg);
-    // ... extract all fields
-    data.timestampRecv = tsRecv;
-    data.timestampParsed = tsParsed;
-    
-    // Invoke registered callbacks
-    MarketDataCallbackRegistry::instance().invokeTouchlineCallbacks(data);
-}
-```
-
-#### 4. Lambda Callback Execution (Still in UDP Thread)
-```cpp
-// File: src/app/MainWindow/MainWindow.cpp (Line 175)
-nsefo::MarketDataCallbackRegistry::instance().registerTouchlineCallback(
-    [this](const nsefo::TouchlineData& data) {
-        // ⚠️ DANGER: This executes in UDP thread!
-        XTS::Tick tick;
-        tick.exchangeSegment = 2;
-        tick.exchangeInstrumentID = data.token;
-        tick.lastTradedPrice = data.ltp;
-        tick.volume = data.volume;
-        tick.open = data.open;
-        tick.high = data.high;
-        tick.low = data.low;
-        tick.close = data.close;
-        tick.refNo = data.refNo;
-        tick.timestampUdpRecv = data.timestampRecv;
-        tick.timestampParsed = data.timestampParsed;
-        tick.timestampQueued = LatencyTracker::now();
-        
-        // ✅ SAFE: Thread-safe Qt queue
-        QMetaObject::invokeMethod(this, "onUdpTickReceived",
-                                  Qt::QueuedConnection,
-                                  Q_ARG(XTS::Tick, tick));
-    }
-);
-```
-
-#### 5. Qt Event Loop Dispatch (Qt Main Thread)
-```cpp
-// File: src/app/MainWindow/MainWindow.cpp (Line 329)
-void MainWindow::onUdpTickReceived(const XTS::Tick& tick) {
-    XTS::Tick processedTick = tick;
-    processedTick.timestampDequeued = LatencyTracker::now();
-    
-    // Forward to FeedHandler
-    FeedHandler::instance().onTickReceived(processedTick);
-}
-```
-
-#### 6. FeedHandler Distribution (Qt Main Thread)
-```cpp
-// File: src/services/FeedHandler.cpp (Line 64)
-void FeedHandler::onTickReceived(const XTS::Tick& tick) {
-    int token = (int)tick.exchangeInstrumentID;
-    
-    // Mark processing timestamp
-    XTS::Tick trackedTick = tick;
-    trackedTick.timestampFeedHandler = LatencyTracker::now();
-    
-    // Lookup publisher for this token
-    TokenPublisher* pub = nullptr;
-    {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        auto it = m_publishers.find(token);
-        if (it != m_publishers.end()) {
-            pub = it->second;
-        }
-    }
-    
-    // Emit signal to all subscribers
-    if (pub) {
-        pub->publish(trackedTick);  // emits TokenPublisher::tickUpdated
-    }
-}
-```
-
-#### 7. MarketWatch Update (Qt Main Thread)
-```cpp
-// File: src/views/MarketWatchWindow/Data.cpp (Line 70)
-void MarketWatchWindow::onTickUpdate(const XTS::Tick& tick) {
-    int token = (int)tick.exchangeInstrumentID;
-    int64_t timestampModelStart = LatencyTracker::now();
-    
-    // Update model data
-    if (tick.lastTradedPrice > 0) {
-        double change = tick.lastTradedPrice - tick.close;
-        double changePercent = (change / tick.close) * 100.0;
-        updatePrice(token, tick.lastTradedPrice, change, changePercent);
-    }
-    
-    if (tick.volume > 0) updateVolume(token, tick.volume);
-    if (tick.bidPrice > 0) updateBidAsk(token, tick.bidPrice, tick.askPrice);
-    // ... more updates
-    
-    int64_t timestampModelEnd = LatencyTracker::now();
-    
-    // Record latency
-    LatencyTracker::recordLatency(
-        tick.timestampUdpRecv,
-        tick.timestampParsed,
-        tick.timestampQueued,
-        tick.timestampDequeued,
-        tick.timestampFeedHandler,
-        timestampModelStart,
-        timestampModelEnd
-    );
-}
-```
-
-#### 8. Model Update & View Refresh
-```cpp
-// File: src/models/MarketWatchModel.cpp
-void MarketWatchModel::updatePrice(int row, double ltp, double change, double changePercent) {
-    if (row < 0 || row >= m_scrips.count()) return;
-    
-    ScripData& scrip = m_scrips[row];
-    
-    // Detect tick direction
-    if (ltp > scrip.ltp) scrip.ltpTick = 1;
-    else if (ltp < scrip.ltp) scrip.ltpTick = -1;
-    else scrip.ltpTick = 0;
-    
-    scrip.ltp = ltp;
-    scrip.change = change;
-    scrip.changePercent = changePercent;
-    
-    // Emit signal for view update
-    emit rowUpdated(row, COL_LTP, COL_CHANGE_PERCENT);
-}
-
-// File: src/views/MarketWatchWindow/MarketWatchWindow.cpp (Line 138)
-void MarketWatchWindow::onRowUpdated(int row, int firstColumn, int lastColumn) {
-    int proxyRow = mapToProxy(row);
-    if (proxyRow < 0) return;
-    
-    // Ultra-fast direct viewport update (bypasses Qt's signal system)
-    QRect firstRect = visualRect(proxyModel()->index(proxyRow, firstColumn));
-    QRect lastRect = visualRect(proxyModel()->index(proxyRow, lastColumn));
-    QRect updateRect = firstRect.united(lastRect);
-    
-    if (updateRect.isValid()) {
-        viewport()->update(updateRect);  // Direct repaint
-    }
-}
+[UDP] section in config.ini:
+nse_fo_multicast_ip   = 233.1.2.5
+nse_fo_port           = 34330
+nse_cm_multicast_ip   = 233.1.2.5
+nse_cm_port           = 8222
+bse_fo_multicast_ip   = 239.1.2.5
+bse_fo_port           = 26002
+bse_cm_multicast_ip   = 239.1.2.5
+bse_cm_port           = 26001
 ```
 
 ---
 
 ## Integration Points
 
-### 1. MainWindow → Broadcast Receivers
+### 1. MainWindow → UdpBroadcastService
 
 **File:** `src/app/MainWindow/MainWindow.cpp`
 
-**Method:** `MainWindow::startBroadcastReceiver()`
-
-**Responsibilities:**
-- Create multicast receiver instances
-- Register lambda callbacks for data conversion
-- Start receiver threads
-- Manage lifecycle (start/stop)
-
-**Current Implementation:**
+**Connection (Constructor):**
 ```cpp
-void MainWindow::startBroadcastReceiver() {
-    // 1. Stop existing threads (race condition prevention)
-    if (m_udpReceiver) m_udpReceiver->stop();
-    if (m_udpThread.joinable()) m_udpThread.join();
-    
-    // 2. NSE FO Setup
-    m_udpReceiver = std::make_unique<nsefo::MulticastReceiver>(ip, port);
-    nsefo::MarketDataCallbackRegistry::instance().registerTouchlineCallback(/*...*/);
-    nsefo::MarketDataCallbackRegistry::instance().registerMarketDepthCallback(/*...*/);
-    nsefo::MarketDataCallbackRegistry::instance().registerTickerCallback(/*...*/);
-    
-    m_udpThread = std::thread([this]() {
-        m_udpReceiver->start();
-    });
-    
-    // 3. NSE CM Setup (identical pattern)
-    m_udpReceiverCM = std::make_unique<nsecm::MulticastReceiver>(ipCM, portCM);
-    nsecm::MarketDataCallbackRegistry::instance().registerTouchlineCallback(/*...*/);
-    nsecm::MarketDataCallbackRegistry::instance().registerMarketDepthCallback(/*...*/);
-    
-    m_udpThreadCM = std::thread([this]() {
-        m_udpReceiverCM->start();
-    });
+MainWindow::MainWindow(QWidget *parent) {
+    // Connect to centralized UDP broadcast service
+    connect(&UdpBroadcastService::instance(), &UdpBroadcastService::tickReceived,
+            this, &MainWindow::onTickReceived);
 }
 ```
 
-**Thread Safety:**
-- ✅ Uses `QMetaObject::invokeMethod` with `Qt::QueuedConnection`
-- ✅ Marshals data from UDP thread → Qt main thread
-- ✅ Atomic flag checks (`m_receiver->isValid()`)
+**Start (via setConfigLoader):**
+```cpp
+void MainWindow::setConfigLoader(ConfigLoader *loader) {
+    m_configLoader = loader;
+    setupNetwork();  // Calls startBroadcastReceiver()
+}
+
+void MainWindow::startBroadcastReceiver() {
+    UdpBroadcastService::Config config;
+    config.nseFoIp = m_configLoader->getNSEFOMulticastIP().toStdString();
+    config.nseFoPort = m_configLoader->getNSEFOPort();
+    // ... fill all config fields
+    
+    UdpBroadcastService::instance().start(config);
+}
+```
+
+**Stop (Destructor):**
+```cpp
+MainWindow::~MainWindow() {
+    stopBroadcastReceiver();  // Calls UdpBroadcastService::instance().stop()
+}
+```
 
 ---
 
 ### 2. MainWindow → FeedHandler
 
-**File:** `src/app/MainWindow/MainWindow.cpp`
-
-**Method:** `MainWindow::onUdpTickReceived(const XTS::Tick&)`
-
-**Responsibilities:**
-- Add final timestamp for latency tracking
-- Forward tick to FeedHandler
-
-**Code:**
+**Direct forwarding without queuing:**
 ```cpp
-void MainWindow::onUdpTickReceived(const XTS::Tick& tick) {
-    XTS::Tick processedTick = tick;
-    processedTick.timestampDequeued = LatencyTracker::now();
-    FeedHandler::instance().onTickReceived(processedTick);
+void MainWindow::onTickReceived(const XTS::Tick& tick) {
+    // Debug logging for BSE tokens
+    if (tick.exchangeSegment == 12 || tick.exchangeSegment == 11) {
+        static int mainWindowBseCount = 0;
+        if (mainWindowBseCount++ < 10) {
+            qDebug() << "[MainWindow] BSE Tick received...";
+        }
+    }
+    
+    FeedHandler::instance().onTickReceived(tick);
 }
 ```
 
-**Design Pattern:** **Bridge Pattern**
-- MainWindow acts as bridge between native C++ threads and Qt event system
-- Decouples UDP receiver from FeedHandler
-
 ---
 
-### 3. FeedHandler → Subscribers
+### 3. FeedHandler → Subscriber Windows
 
-**File:** `src/services/FeedHandler.cpp`
-
-**Architecture:** **Publisher-Subscriber Pattern**
-
-**Components:**
+**Publisher-Subscriber Pattern:**
 
 ```cpp
-class TokenPublisher : public QObject {
-    Q_OBJECT
-signals:
-    void tickUpdated(const XTS::Tick& tick);
-};
+// Subscription (MarketWatchWindow)
+void MarketWatchWindow::addScrip(const ScripData& scrip) {
+    FeedHandler::instance().subscribe(scrip.token, this, &MarketWatchWindow::onTickUpdate);
+    m_tokenAddressBook->registerToken(scrip.token, row);
+}
 
-class FeedHandler : public QObject {
-    std::unordered_map<int, TokenPublisher*> m_publishers;
-    std::mutex m_mutex;
-};
+// Unsubscription
+void MarketWatchWindow::removeScrip(int row) {
+    FeedHandler::instance().unsubscribe(scrip.token, this);
+    m_tokenAddressBook->unregisterToken(scrip.token, row);
+}
+
+// Destructor cleanup
+MarketWatchWindow::~MarketWatchWindow() {
+    FeedHandler::instance().unsubscribeAll(this);
+}
 ```
 
-**Subscription:**
+**FeedHandler Template Subscribe:**
 ```cpp
-// MarketWatchWindow subscribes on scrip add
-FeedHandler::instance().subscribe(token, this, &MarketWatchWindow::onTickUpdate);
-
-// Under the hood:
 template<typename Receiver, typename Slot>
 void FeedHandler::subscribe(int token, Receiver* receiver, Slot slot) {
     std::lock_guard<std::mutex> lock(m_mutex);
@@ -674,822 +677,392 @@ void FeedHandler::subscribe(int token, Receiver* receiver, Slot slot) {
 }
 ```
 
-**Distribution:**
-```cpp
-void FeedHandler::onTickReceived(const XTS::Tick& tick) {
-    int token = tick.exchangeInstrumentID;
-    
-    TokenPublisher* pub = nullptr;
-    {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        auto it = m_publishers.find(token);
-        if (it != m_publishers.end()) pub = it->second;
-    }
-    
-    if (pub) pub->publish(tick);  // Emits signal to all connected slots
-}
-```
-
-**Performance:**
-- **Subscribe:** ~500ns (hash map insert)
-- **Unsubscribe:** ~800ns (hash map erase)
-- **Publish (1 subscriber):** ~70ns (hash lookup + callback)
-- **Publish (10 subscribers):** ~250ns (10 parallel callbacks)
-
----
-
-### 4. MarketWatch → Model → View
-
-**Subscription Setup:**
-```cpp
-// File: src/views/MarketWatchWindow/Actions.cpp (Line 54)
-void MarketWatchWindow::addScrip(const ScripData& scrip) {
-    // 1. Add to model
-    m_model->addScrip(scrip);
-    
-    // 2. Subscribe to XTS feed (if using WebSocket)
-    TokenSubscriptionManager::instance()->subscribe(exchange, token);
-    
-    // 3. Subscribe to FeedHandler for real-time updates
-    FeedHandler::instance().subscribe(token, this, &MarketWatchWindow::onTickUpdate);
-    
-    // 4. Register in address book (multi-row support)
-    m_tokenAddressBook->registerToken(token, row);
-}
-```
-
-**Update Flow:**
-```cpp
-// Callback invoked by FeedHandler
-void MarketWatchWindow::onTickUpdate(const XTS::Tick& tick) {
-    int token = tick.exchangeInstrumentID;
-    
-    // 1. Lookup rows (supports duplicate tokens in different rows)
-    QList<int> rows = m_tokenAddressBook->getRowsForToken(token);
-    
-    // 2. Update each row
-    for (int row : rows) {
-        // Model updates data
-        m_model->updatePrice(row, tick.lastTradedPrice, change, changePercent);
-        m_model->updateVolume(row, tick.volume);
-        m_model->updateBidAsk(row, tick.bidPrice, tick.askPrice);
-        // ... more field updates
-    }
-}
-
-// Model emits signal
-void MarketWatchModel::updatePrice(int row, double ltp, ...) {
-    m_scrips[row].ltp = ltp;
-    emit rowUpdated(row, COL_LTP, COL_CHANGE);
-}
-
-// View receives signal and repaints
-void MarketWatchWindow::onRowUpdated(int row, int firstCol, int lastCol) {
-    // Direct viewport update (ultra-fast)
-    QRect updateRect = /* calculate cell rect */;
-    viewport()->update(updateRect);
-}
-```
-
 ---
 
 ## Weaknesses & Loose Ends
 
-### 🔴 Critical Issues
+### 🔴 Critical Issues (Resolved ✅)
 
-#### 1. BSE FO Not Integrated
-**Problem:**
-- BSE FO receiver library exists but is NOT instantiated in MainWindow
-- No callback registration
-- No thread management
-- Users cannot receive BSE FO data despite having the library
-
-**Impact:**
-- BSE FO data completely unusable
-- Wasted development effort on receiver library
-- Incomplete exchange coverage
-
-**Files Affected:**
-- `lib/cpp_broadcast_bsefo/` (orphaned library)
-- `src/app/MainWindow/MainWindow.cpp` (missing integration)
-
-**Required Fix:**
-```cpp
-// Add to MainWindow.h
-std::unique_ptr<bse::BSEReceiver> m_udpReceiverBSEFO;
-std::thread m_udpThreadBSEFO;
-
-// Add to MainWindow::startBroadcastReceiver()
-m_udpReceiverBSEFO = std::make_unique<bse::BSEReceiver>(bseIp, bsePort, "FO");
-m_udpReceiverBSEFO->setRecordCallback([this](const bse::DecodedRecord& record) {
-    XTS::Tick tick;
-    tick.exchangeSegment = 3; // BSEFO
-    tick.exchangeInstrumentID = record.token;
-    tick.lastTradedPrice = record.ltp / 100.0; // Convert paise to rupees
-    // ... map all fields
-    QMetaObject::invokeMethod(this, "onUdpTickReceived",
-                              Qt::QueuedConnection, Q_ARG(XTS::Tick, tick));
-});
-m_udpThreadBSEFO = std::thread([this]() {
-    m_udpReceiverBSEFO->start();
-});
-```
+| Issue | Previous Status | Current Status |
+|-------|----------------|----------------|
+| BSE FO not integrated | ❌ Library unused | ✅ Fully integrated |
+| BSE CM missing | ❌ No implementation | ✅ Fully integrated |
+| No centralized service | ❌ Scattered management | ✅ UdpBroadcastService |
 
 ---
 
-#### 2. BSE CM Completely Missing
+### ⚠️ Design Issues (Remaining)
+
+#### 1. **Detached Threads Without Supervision**
+
 **Problem:**
-- No broadcast receiver library exists
-- No protocol documentation
-- No packet parsing implementation
-- Only repository (contract loading) exists
-
-**Impact:**
-- Complete gap in exchange coverage
-- Cannot receive BSE equity data
-- Asymmetric implementation (NSE complete, BSE incomplete)
-
-**Required Work:**
-1. Obtain BSE CM broadcast protocol documentation
-2. Create `lib/cpp_broadcast_bsecm/` library
-3. Implement multicast receiver
-4. Reverse-engineer packet format (like BSE FO was done)
-5. Integrate with MainWindow
-
----
-
-#### 3. Callback Design Inconsistency
-**Problem:**
-- NSE uses `MarketDataCallbackRegistry` (singleton with function registration)
-- BSE uses `BSEReceiver::setRecordCallback()` (instance method)
-- Different patterns make code harder to maintain
-
-**Example:**
 ```cpp
-// NSE Pattern (global registry)
-nsefo::MarketDataCallbackRegistry::instance()
-    .registerTouchlineCallback([](const TouchlineData&) { /* ... */ });
-
-// BSE Pattern (instance callback)
-bseReceiver->setRecordCallback([](const DecodedRecord&) { /* ... */ });
-```
-
-**Impact:**
-- Code duplication
-- Mental overhead switching between patterns
-- Harder to refactor
-
-**Recommendation:**
-- Standardize on callback registry pattern for all exchanges
-- Create abstract base class for receivers
-
----
-
-#### 4. Thread Lifecycle Management
-**Problem:**
-- Manual thread management using `std::thread`
-- No centralized thread pool
-- Race conditions possible during restart
-
-**Current Code:**
-```cpp
-void MainWindow::startBroadcastReceiver() {
-    // ⚠️ Must manually stop threads before creating new ones
-    if (m_udpReceiver) m_udpReceiver->stop();
-    if (m_udpThread.joinable()) m_udpThread.join();
-    
-    // Create new threads
-    m_udpThread = std::thread([this]() { /* ... */ });
-}
+std::thread([this]() {
+    try { if (m_nseFoReceiver) m_nseFoReceiver->start(); }
+    catch (...) { qCritical() << "Thread crashed"; }
+}).detach();
 ```
 
 **Issues:**
-- No timeout on thread join (can hang indefinitely)
-- No error handling if thread creation fails
-- Detached threads in some places (`UdpBroadcastService`)
+- No way to track thread health after `.detach()`
+- If thread crashes, no notification mechanism
+- No restart capability on failure
 
-**Recommendation:**
-- Use `QThreadPool` for managed thread lifecycle
-- Implement `QRunnable` for receiver tasks
-- Add timeout and error handling
+**Impact:**
+- Silent data loss if receiver thread dies
+- No visibility into receiver health
+
+**Recommended Fix:**
+```cpp
+// Store thread handles
+std::thread m_nseFoThread;
+
+// Use joinable threads with health monitoring
+m_nseFoThread = std::thread([this]() {
+    m_nseFoReceiver->start();
+});
+
+// Health check timer
+QTimer::singleShot(5000, [this]() {
+    if (!m_nseFoReceiver->isReceiving()) {
+        emit receiverHealthWarning("NSE FO");
+    }
+});
+```
 
 ---
 
-### ⚠️ Design Issues
+#### 2. **Callback Design Inconsistency**
 
-#### 5. XTS::Tick Overhead
 **Problem:**
-- Native broadcast data (`TouchlineData`, `MarketDepthData`) is converted to `XTS::Tick`
-- XTS::Tick is a heavy structure designed for WebSocket API
-- Unnecessary field mapping and copying
-
-**Data Flow:**
-```
-nsefo::TouchlineData (native, optimized)
-    ↓
-XTS::Tick (copy, field mapping, overhead)
-    ↓
-MarketWatchModel::updatePrice() (uses only a few fields)
-```
-
-**Performance Impact:**
-- ~50-100ns per tick for conversion
-- Unnecessary memory allocation
-- Cache misses due to large structure
-
-**Alternative Design:**
 ```cpp
-// Option 1: Use native structures directly
-FeedHandler::instance().onTouchlineReceived(const nsefo::TouchlineData&);
+// NSE: Global registry pattern
+nsefo::MarketDataCallbackRegistry::instance()
+    .registerTouchlineCallback(callback);
 
-// Option 2: Create lightweight common structure
-struct MarketTick {
-    uint32_t token;
-    double ltp, bid, ask;
-    uint32_t volume;
-    // Only essential fields
+// BSE: Instance callback pattern
+bseReceiver->setRecordCallback(callback);
+```
+
+**Impact:**
+- Code duplication in callback registration
+- Mental overhead when switching between patterns
+- Harder to implement unified error handling
+
+**Recommendation:**
+Create abstract base class:
+```cpp
+class IBroadcastReceiver {
+public:
+    virtual void start() = 0;
+    virtual void stop() = 0;
+    virtual void setTickCallback(std::function<void(const MarketTick&)> cb) = 0;
+    virtual bool isHealthy() const = 0;
 };
 ```
 
 ---
 
-#### 6. Single-threaded FeedHandler
-**Problem:**
-- FeedHandler runs on Qt main thread
-- Hash map lookup protected by mutex
-- Can block UI if many tokens are subscribed
+#### 3. **XTS::Tick Structure Overhead**
 
-**Current Logic:**
+**Problem:**
+`XTS::Tick` is a large structure (200+ bytes) designed for WebSocket API. UDP receivers must convert native structures to this format.
+
+**Current:**
+```cpp
+nsefo::TouchlineData (native, 80 bytes)
+    ↓ copy all fields
+XTS::Tick (bloated, 200+ bytes)
+    ↓ extract few fields
+Model update (uses 5-10 fields)
+```
+
+**Impact:**
+- ~50-100ns per tick for unnecessary conversion
+- Memory bandwidth waste
+- Cache pollution
+
+**Alternative:**
+```cpp
+// Option 1: Lightweight common structure
+struct MarketTick {
+    uint32_t token;
+    uint8_t segment;
+    double ltp, bid, ask;
+    uint64_t volume;
+    // Only essential fields (~64 bytes)
+};
+
+// Option 2: Process native structures directly
+template<typename T>
+void FeedHandler::onNativeTickReceived(const T& native) {
+    // Template specialization per exchange
+}
+```
+
+---
+
+#### 4. **FeedHandler Mutex Contention**
+
+**Problem:**
 ```cpp
 void FeedHandler::onTickReceived(const XTS::Tick& tick) {
-    std::lock_guard<std::mutex> lock(m_mutex);  // Blocks UI thread
+    std::lock_guard<std::mutex> lock(m_mutex);  // Blocks Qt main thread
     auto it = m_publishers.find(token);
     // ...
 }
 ```
 
 **Impact:**
-- Mutex contention if tick rate is high (1000+ ticks/sec)
-- UI freezes possible during heavy market activity
+- Every tick locks the mutex on the Qt main thread
+- With 10k+ ticks/sec, potential UI freezes
+- O(1) hash lookup becomes bottleneck due to contention
 
 **Recommendation:**
-- Move FeedHandler to separate thread
-- Use lock-free data structures (`LockFreeQueue`)
-- Batch process ticks
+- Use lock-free concurrent hash map (e.g., `tbb::concurrent_hash_map`)
+- Or move FeedHandler to separate thread with lock-free queue
 
 ---
 
-#### 7. No Error Recovery
-**Problem:**
-- If multicast receiver thread crashes, no restart mechanism
-- No monitoring or health checks
-- Silent failures possible
+#### 5. **No Health Monitoring Dashboard**
 
 **Missing Features:**
-- Heartbeat monitoring
+- Real-time packet/tick counts per exchange
+- Connection status indicators
+- Latency percentile visualization
+- Error rate tracking
 - Auto-reconnect on disconnect
-- Error notification to UI
-- Statistics dashboard
 
 ---
 
-#### 8. Latency Tracking Incomplete
-**Problem:**
-- Latency tracking exists but only for NSE
-- No BSE latency metrics
-- No aggregated statistics
-- No performance dashboard
+#### 6. **Latency Tracking Incomplete**
 
-**Current Timestamps:**
-```cpp
-struct XTS::Tick {
-    int64_t timestampUdpRecv;      // ✅ Set by receiver
-    int64_t timestampParsed;       // ✅ Set by parser
-    int64_t timestampQueued;       // ✅ Set by callback
-    int64_t timestampDequeued;     // ✅ Set by MainWindow
-    int64_t timestampFeedHandler;  // ✅ Set by FeedHandler
-    int64_t timestampModel;        // ❌ Not always set
-};
-```
+**Current Timestamps Tracked:**
+| Timestamp | Set By | Status |
+|-----------|--------|--------|
+| `timestampUdpRecv` | Receiver | ✅ All exchanges |
+| `timestampParsed` | Parser | ✅ NSE only |
+| `timestampQueued` | UdpBroadcastService | ✅ All exchanges |
+| `timestampDequeued` | MainWindow | ❌ Not set |
+| `timestampFeedHandler` | FeedHandler | ✅ All tokens |
+| `timestampModelUpdate` | MarketWatch | ✅ Sampled only |
 
-**Missing Metrics:**
-- End-to-end latency (UDP → View update)
-- Per-exchange breakdown
-- Percentiles (p50, p90, p99)
-- Real-time dashboard
+**Issues:**
+- BSE doesn't set `timestampParsed` (only `packetTimestamp`)
+- `timestampDequeued` is never set
+- No aggregate statistics per exchange
+- No percentile calculations (p50, p90, p99)
 
 ---
 
 ### 🟡 Maintenance Issues
 
-#### 9. Duplicate Code
-**Problem:**
-- NSE FO and NSE CM have nearly identical receiver implementations
-- Copy-pasted code in `multicast_receiver.cpp`
+#### 7. **Duplicate Receiver Code**
 
-**Example:**
+NSE FO and NSE CM `multicast_receiver.cpp` are nearly identical:
+- Same socket setup
+- Same receive loop
+- Same LZO decompression
+- Only parser dispatch differs
+
+**Impact:** Bug fixes must be applied twice.
+
+**Recommendation:** Template-based base class:
 ```cpp
-// lib/cpp_broacast_nsefo/src/multicast_receiver.cpp
-void MulticastReceiver::start() {
-    while (running) {
-        recv(sockfd, buffer, kBufferSize, 0);
-        // ... processing logic
-    }
-}
-
-// lib/cpp_broadcast_nsecm/src/multicast_receiver.cpp
-void MulticastReceiver::start() {
-    while (running) {
-        recv(sockfd, buffer, kBufferSize, 0);
-        // ... IDENTICAL processing logic
-    }
-}
-```
-
-**Impact:**
-- Bug fixes must be applied twice
-- Divergence over time
-- Maintenance burden
-
-**Recommendation:**
-- Extract common receiver base class
-- Use template specialization for protocol differences
-
----
-
-#### 10. Configuration Hardcoded
-**Problem:**
-- Multicast IP/port hardcoded in many places
-- Config file not always used
-
-**Example:**
-```cpp
-// MainWindow.cpp
-std::string nseFoIp = "233.1.2.5";  // Hardcoded fallback
-int nseFoPort = 34330;
-
-// What if exchange changes IP? Must recompile!
-```
-
-**Recommendation:**
-- Always read from config file
-- Add runtime configuration UI
-- Support multiple IP/port failover
-
----
-
-#### 11. Missing Documentation
-**Problem:**
-- No sequence diagrams
-- No architecture documentation
-- No deployment guide
-
-**Impact:**
-- Hard to onboard new developers
-- Difficult to troubleshoot issues
-- Knowledge silos
-
----
-
-#### 12. No Unit Tests
-**Problem:**
-- No tests for receiver logic
-- No tests for callback invocation
-- No tests for thread safety
-
-**Risk:**
-- Regression bugs during refactoring
-- Hard to verify correctness
-- No CI/CD pipeline possible
-
----
-
-## Scope for Improvement
-
-### 🚀 High Priority (Production Critical)
-
-#### 1. **Complete BSE FO Integration**
-**Effort:** 1-2 days
-**Impact:** High
-
-**Tasks:**
-- Add BSE FO receiver instantiation in `MainWindow::startBroadcastReceiver()`
-- Implement callback registration and conversion to `XTS::Tick`
-- Add configuration for BSE FO multicast IP/port
-- Test with live BSE FO feed
-- Update documentation
-
-**Files to Modify:**
-- `src/app/MainWindow/MainWindow.cpp`
-- `include/app/MainWindow.h`
-- `configs/config.ini`
-
----
-
-#### 2. **Implement BSE CM Broadcast Support**
-**Effort:** 1-2 weeks
-**Impact:** High
-
-**Tasks:**
-- **Phase 1:** Research and Documentation
-  - Obtain BSE CM protocol specification
-  - Document packet format
-  - Identify message types
-  
-- **Phase 2:** Library Development
-  - Create `lib/cpp_broadcast_bsecm/` directory
-  - Implement `BSECMReceiver` class
-  - Implement packet parsing (likely similar to BSE FO)
-  - Add callback system
-  
-- **Phase 3:** Integration
-  - Add to MainWindow startup
-  - Configure multicast IP/port
-  - Test with live feed
-
-**Challenges:**
-- May need to reverse-engineer protocol if documentation unavailable
-- Packet format may differ from BSE FO
-
----
-
-#### 3. **Standardize Callback Architecture**
-**Effort:** 2-3 days
-**Impact:** Medium
-
-**Approach:**
-```cpp
-// Create abstract base class
-class BroadcastReceiver {
-public:
-    virtual void start() = 0;
-    virtual void stop() = 0;
-    virtual bool isValid() const = 0;
-    
-    using TickCallback = std::function<void(const MarketTick&)>;
-    void registerTickCallback(TickCallback cb) { m_callback = cb; }
-    
-protected:
-    TickCallback m_callback;
-};
-
-// NSE FO implementation
-class NSEFOReceiver : public BroadcastReceiver {
-    void onDataParsed(const TouchlineData& data) override {
-        if (m_callback) {
-            MarketTick tick = convertToCommonFormat(data);
-            m_callback(tick);
-        }
-    }
-};
-```
-
-**Benefits:**
-- Consistent interface
-- Easier to add new exchanges
-- Polymorphic receiver management
-
----
-
-#### 4. **Add Error Recovery & Monitoring**
-**Effort:** 3-4 days
-**Impact:** High
-
-**Features:**
-- **Health Checks:**
-  ```cpp
-  class ReceiverHealthMonitor {
-      void checkHealth() {
-          if (!receiver->isReceiving()) {
-              emit connectionLost();
-              attemptReconnect();
-          }
-      }
-  };
-  ```
-
-- **Auto-Reconnect:**
-  ```cpp
-  void MainWindow::onReceiverDisconnected(ReceiverType type) {
-      qWarning() << "Receiver" << type << "disconnected. Retrying...";
-      QTimer::singleShot(5000, [this, type]() {
-          restartReceiver(type);
-      });
-  }
-  ```
-
-- **Statistics Dashboard:**
-  - Packets received
-  - Parse errors
-  - Latency metrics
-  - Uptime
-
----
-
-### 📊 Medium Priority (Performance & Quality)
-
-#### 5. **Optimize Data Flow**
-**Effort:** 3-5 days
-**Impact:** Medium-High
-
-**Option A: Remove XTS::Tick Intermediate**
-```cpp
-// Direct path: Native struct → FeedHandler → Model
-class FeedHandler {
-    void onTouchlineReceived(const nsefo::TouchlineData& data);
-    void onMarketDepthReceived(const nsefo::MarketDepthData& data);
-};
-
-void MarketWatchModel::updateFromTouchline(const nsefo::TouchlineData& data) {
-    // No conversion overhead
-    scrips[row].ltp = data.ltp;
-    scrips[row].volume = data.volume;
-    // ...
-}
-```
-
-**Benefits:**
-- 50-100ns latency reduction per tick
-- Less memory allocation
-- Better cache locality
-
-**Option B: Lightweight Common Structure**
-```cpp
-struct MarketTick {
-    uint32_t token;
-    uint8_t exchangeSegment;
-    double ltp, open, high, low, close;
-    uint64_t volume;
-    double bid, ask;
-    int32_t bidQty, askQty;
-    // Only essential fields (96 bytes vs XTS::Tick's 200+ bytes)
-};
-```
-
----
-
-#### 6. **Multi-threaded FeedHandler**
-**Effort:** 4-5 days
-**Impact:** Medium
-
-**Architecture:**
-```cpp
-class FeedHandler : public QThread {
-    void run() override {
-        while (m_running) {
-            MarketTick tick;
-            if (m_queue.try_dequeue(tick)) {  // Lock-free queue
-                processTickInternal(tick);
-            }
-        }
-    }
-    
-    void onTickReceived(const MarketTick& tick) {
-        m_queue.enqueue(tick);  // Non-blocking
-    }
-    
-private:
-    LockFreeQueue<MarketTick> m_queue;
-    std::atomic<bool> m_running;
-};
-```
-
-**Benefits:**
-- No UI thread blocking
-- Better scalability (handle 10k+ ticks/sec)
-- Batch processing possible
-
----
-
-#### 7. **Implement Comprehensive Latency Tracking**
-**Effort:** 2-3 days
-**Impact:** Medium
-
-**Dashboard:**
-```cpp
-struct LatencyStats {
-    double p50, p90, p99, p999;  // Percentiles
-    double avg, min, max;
-    uint64_t sampleCount;
-};
-
-class LatencyDashboard : public QWidget {
-    void updateStats() {
-        ui->lblUdpToParser->setText(QString("%1μs").arg(stats.udpToParse.p99));
-        ui->lblParserToQueue->setText(QString("%1μs").arg(stats.parseToQueue.p99));
-        ui->lblQueueToView->setText(QString("%1μs").arg(stats.queueToView.p99));
-    }
-};
-```
-
-**Visualization:**
-- Real-time line chart (latency over time)
-- Histogram (distribution)
-- Per-exchange breakdown
-
----
-
-#### 8. **Refactor Common Code**
-**Effort:** 3-4 days
-**Impact:** Low-Medium
-
-**Approach:**
-```cpp
-// lib/common/include/base_multicast_receiver.h
-template<typename ProtocolTraits>
-class BaseMulticastReceiver {
+template<typename ParserTraits>
+class MulticastReceiverBase {
 protected:
     void receiveLoop() {
         while (running) {
             ssize_t n = recv(sockfd, buffer, kBufferSize, 0);
-            ProtocolTraits::parsePacket(buffer, n);  // Protocol-specific
+            ParserTraits::parsePacket(buffer, n);  // Specialized
         }
     }
 };
-
-// NSE FO specific
-struct NSEFOProtocolTraits {
-    static void parsePacket(const uint8_t* buffer, size_t size) {
-        // NSE FO specific parsing
-    }
-};
-
-using NSEFOReceiver = BaseMulticastReceiver<NSEFOProtocolTraits>;
 ```
 
-**Benefits:**
-- Single point of bug fixes
-- Consistent behavior
-- Easier to add new exchanges
+---
+
+#### 8. **Hardcoded Fallback IPs**
+
+```cpp
+// MainWindow::startBroadcastReceiver()
+if (config.bseFoIp.empty()) config.bseFoIp = "239.1.2.5";
+if (config.bseFoPort == 0) config.bseFoPort = 26002;
+```
+
+**Issue:** Fallbacks bypass config file, may cause confusion during debugging.
 
 ---
 
-### 🎯 Low Priority (Nice-to-Have)
+#### 9. **Missing Unit Tests**
 
-#### 9. **Configuration UI**
-**Effort:** 2-3 days
-
-**Features:**
-- Edit multicast IP/port at runtime
-- Enable/disable specific exchanges
-- Restart receivers without app restart
-- Save to config file
-
----
-
-#### 10. **Unit Test Suite**
-**Effort:** 5-7 days
-
-**Coverage:**
-- Receiver socket creation and multicast join
+No unit tests for:
+- Socket creation and multicast joining
 - Packet parsing correctness
 - Callback invocation
 - Thread safety
 - Error handling
 
-**Tools:**
-- Google Test
-- Mock UDP packets
-- Thread sanitizer
+---
+
+## Scope for Improvement
+
+### 🚀 High Priority
+
+| Improvement | Effort | Impact | Status |
+|-------------|--------|--------|--------|
+| ~~Complete BSE FO integration~~ | ~~1-2 days~~ | ~~High~~ | ✅ Done |
+| ~~Implement BSE CM support~~ | ~~1-2 days~~ | ~~High~~ | ✅ Done |
+| ~~Centralize receiver management~~ | ~~2-3 days~~ | ~~High~~ | ✅ Done |
+| Add receiver health monitoring | 2-3 days | High | 🔲 Todo |
+| Implement auto-reconnect | 1-2 days | High | 🔲 Todo |
 
 ---
 
-#### 11. **Protocol Documentation**
-**Effort:** 3-4 days
+### 📊 Medium Priority
 
-**Deliverables:**
-- Markdown docs for each protocol
-- Packet structure diagrams
-- Message type catalog
-- Field mappings
+| Improvement | Effort | Impact |
+|-------------|--------|--------|
+| Refactor to lock-free FeedHandler | 3-4 days | Medium-High |
+| Optimize tick structure (lightweight) | 2-3 days | Medium |
+| Unify callback architecture | 2-3 days | Medium |
+| Add latency dashboard | 3-4 days | Medium |
+| Complete latency tracking | 1-2 days | Medium |
 
 ---
 
-#### 12. **Performance Benchmarks**
-**Effort:** 2-3 days
+### 🎯 Low Priority
 
-**Metrics:**
-- Tick processing throughput (ticks/sec)
-- End-to-end latency (percentiles)
-- Memory usage
-- CPU usage
-
-**Tools:**
-- Benchmark suite
-- Flame graphs
-- Memory profilers
+| Improvement | Effort | Impact |
+|-------------|--------|--------|
+| Refactor duplicate receiver code | 3-4 days | Low-Medium |
+| Add comprehensive unit tests | 5-7 days | Low-Medium |
+| Protocol documentation | 2-3 days | Low |
+| Configuration UI | 2-3 days | Low |
 
 ---
 
 ## Performance Analysis
 
-### Current Latency Breakdown (NSE FO)
+### Current Latency Breakdown
 
-**Measured Stages:**
 ```
-UDP Receive (timestampUdpRecv)
-    ↓ [~50-100μs]
-Parse Complete (timestampParsed)
-    ↓ [~20-50μs]
-Queued to Qt (timestampQueued)
-    ↓ [~10-50μs] (Qt event loop latency)
-Dequeued (timestampDequeued)
-    ↓ [~5-10μs]
-FeedHandler (timestampFeedHandler)
-    ↓ [~50-100μs]
-Model Update (timestampModel)
-    ↓ [~20-50μs]
+UDP Receive
+    ↓ [~50-100µs] Socket recv + LZO decompress (NSE) / raw parse (BSE)
+Parse Complete
+    ↓ [~20-50µs] Callback invocation + XTS::Tick conversion
+Queue to Qt
+    ↓ [~10-50µs] Qt signal/slot cross-thread marshalling
+Dequeue
+    ↓ [~5-10µs] MainWindow forward
+FeedHandler
+    ↓ [~50-100µs] Hash lookup + mutex lock + signal emit
+Model Update
+    ↓ [~20-50µs] Field updates + change calculations
 View Repaint
 ```
 
-**Total End-to-End:** ~155-360μs (typical)
-
-**Bottlenecks:**
-1. **Parsing (50-100μs):** LZO decompression + struct extraction
-2. **FeedHandler Lookup (50-100μs):** Hash map lookup + signal emission
-3. **Qt Event Loop (10-50μs):** Cross-thread marshalling
-
-**Optimization Targets:**
-- Reduce XTS::Tick conversion overhead (save 50-100ns)
-- Use lock-free queue in FeedHandler (save 20-50μs)
-- Batch viewport updates (save 10-20μs)
+**Total End-to-End:** ~155-360µs (typical)  
+**Peak Load:** ~500-800µs
 
 ---
 
 ### Throughput Capacity
 
-**Current System:**
-- **NSE FO:** ~5,000-10,000 ticks/sec (peak market hours)
-- **NSE CM:** ~3,000-5,000 ticks/sec
-- **Total Capacity:** ~15,000-20,000 ticks/sec
+| Metric | Current | Theoretical Limit |
+|--------|---------|-------------------|
+| NSE FO ticks/sec | ~5,000-10,000 | ~50,000 |
+| NSE CM ticks/sec | ~3,000-5,000 | ~50,000 |
+| BSE FO ticks/sec | ~1,000-3,000 | ~30,000 |
+| BSE CM ticks/sec | ~500-2,000 | ~30,000 |
+| **Total** | **~10,000-20,000** | **~100,000+** |
 
-**Theoretical Limits:**
-- **Network:** Gigabit Ethernet = ~1,000,000 packets/sec
-- **Parser:** Single-threaded = ~50,000 ticks/sec (LZO bottleneck)
-- **FeedHandler:** Single-threaded = ~30,000 ticks/sec (mutex contention)
-- **Qt UI:** ~10,000 updates/sec (viewport refresh limit)
-
-**Conclusion:** Current design can handle production load with headroom
+**Bottlenecks:**
+1. FeedHandler mutex (main thread blocking)
+2. Qt signal/slot overhead
+3. XTS::Tick conversion overhead
 
 ---
 
 ## Recommendations
 
-### Priority 1: Complete Exchange Coverage
-1. ✅ Integrate BSE FO (1-2 days)
-2. ✅ Implement BSE CM (1-2 weeks)
+### Immediate Actions (This Sprint)
 
-### Priority 2: Robustness
-3. ✅ Add error recovery and auto-reconnect (3-4 days)
-4. ✅ Implement health monitoring (2 days)
-5. ✅ Add comprehensive logging (1 day)
+1. ✅ ~~Integrate BSE FO~~ - Done
+2. ✅ ~~Integrate BSE CM~~ - Done
+3. 🔲 Add receiver health indicators to status bar
+4. 🔲 Log packet/tick statistics on shutdown
 
-### Priority 3: Performance
-6. ✅ Optimize data flow (remove XTS::Tick overhead) (3 days)
-7. ✅ Multi-threaded FeedHandler (4-5 days)
-8. ✅ Batch processing for UI updates (2 days)
+### Short-Term (Next 2-4 Weeks)
 
-### Priority 4: Maintainability
-9. ✅ Standardize callback architecture (2-3 days)
-10. ✅ Refactor common code (3-4 days)
-11. ✅ Add unit tests (5-7 days)
-12. ✅ Create documentation (3-4 days)
+5. 🔲 Implement health monitoring timer
+6. 🔲 Add auto-reconnect on disconnect
+7. 🔲 Fix `timestampDequeued` and BSE `timestampParsed`
+8. 🔲 Create latency statistics aggregation
 
-### Priority 5: Observability
-13. ✅ Latency dashboard (2-3 days)
-14. ✅ Statistics tracking (2 days)
-15. ✅ Performance benchmarks (2-3 days)
+### Medium-Term (1-2 Months)
 
----
+9. 🔲 Refactor FeedHandler to lock-free design
+10. 🔲 Unify callback architecture across exchanges
+11. 🔲 Create receiver base class template
+12. 🔲 Build latency dashboard widget
 
-## Conclusion
+### Long-Term (3+ Months)
 
-The broadcast architecture is **fundamentally sound** with clean separation of concerns:
-
-**Strengths:**
-- ✅ Thread-safe design (UDP threads → Qt main thread)
-- ✅ Efficient callback mechanism
-- ✅ Low-latency data path (~200-400μs end-to-end)
-- ✅ Scalable (handles 15k+ ticks/sec)
-- ✅ NSE coverage complete
-
-**Critical Gaps:**
-- ❌ BSE FO not integrated (library exists but unused)
-- ❌ BSE CM completely missing
-- ⚠️ No error recovery or monitoring
-- ⚠️ Inconsistent callback design
-
-**Recommended Next Steps:**
-1. **Week 1-2:** Complete BSE FO integration + BSE CM research
-2. **Week 3-4:** Implement BSE CM receiver + testing
-3. **Week 5:** Add error recovery and monitoring
-4. **Week 6-7:** Performance optimization + refactoring
-5. **Week 8:** Documentation + unit tests
-
-**Total Effort:** ~8 weeks for complete production-grade implementation
+13. 🔲 Add comprehensive unit test suite
+14. 🔲 Document protocols (packet structures, field mappings)
+15. 🔲 Create configuration UI for runtime adjustments
+16. 🔲 Benchmark suite with profiling
 
 ---
 
-**Document Version:** 1.0  
+## Appendix
+
+### A. Exchange Segment Codes
+
+| Code | Exchange | Type |
+|------|----------|------|
+| 1 | NSECM | NSE Cash Market |
+| 2 | NSEFO | NSE Futures & Options |
+| 11 | BSECM | BSE Cash Market |
+| 12 | BSEFO | BSE Futures & Options |
+| 13 | NSECD | NSE Currency Derivatives |
+| 51 | MCXFO | MCX Commodity F&O |
+| 61 | BSECD | BSE Currency Derivatives |
+
+### B. Configuration File Reference
+
+```ini
+[UDP]
+# NSE Broadcast
+nse_fo_multicast_ip   = 233.1.2.5
+nse_fo_port           = 34330
+nse_cm_multicast_ip   = 233.1.2.5
+nse_cm_port           = 8222
+
+# BSE Broadcast
+bse_fo_multicast_ip   = 239.1.2.5
+bse_fo_port           = 26002
+bse_cm_multicast_ip   = 239.1.2.5
+bse_cm_port           = 26001
+```
+
+### C. Source File Reference
+
+| Component | Key Files |
+|-----------|-----------|
+| **UDP Service** | `src/services/UdpBroadcastService.cpp`, `include/services/UdpBroadcastService.h` |
+| **FeedHandler** | `src/services/FeedHandler.cpp`, `include/services/FeedHandler.h` |
+| **MainWindow** | `src/app/MainWindow/MainWindow.cpp` |
+| **NSE FO Lib** | `lib/cpp_broacast_nsefo/` |
+| **NSE CM Lib** | `lib/cpp_broadcast_nsecm/` |
+| **BSE Lib** | `lib/cpp_broadcast_bsefo/` |
+| **Common** | `lib/common/`, `include/socket_platform.h` |
+| **MarketWatch** | `src/views/MarketWatchWindow/Data.cpp` |
+
+---
+
+**Document Version:** 2.0  
 **Last Updated:** January 1, 2026  
 **Author:** Trading Terminal Development Team

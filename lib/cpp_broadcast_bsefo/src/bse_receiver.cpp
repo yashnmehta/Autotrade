@@ -124,7 +124,7 @@ void BSEReceiver::receiveLoop() {
         stats_.bytesReceived += n;
         
         if (stats_.packetsReceived % 100 == 0) {
-            std::cout << "[" << segment_ << "] Received " << stats_.packetsReceived << " packets, total bytes: " << stats_.bytesReceived << std::endl;
+            // std::cout << "[" << segment_ << "] Received " << stats_.packetsReceived << " packets, total bytes: " << stats_.bytesReceived << std::endl;
         }
 
         if (validatePacket(buffer_, n)) {
@@ -300,10 +300,25 @@ void BSEReceiver::decodeAndDispatch(const uint8_t* buffer, size_t length) {
                 if (bid1.price > 0 && bid1.quantity > 0) decRec.bids.push_back(bid1);
             }
             
-            if (recordOffset + 112 + 8 <= length) {
+            // DEBUG: Check ask offset and add logging
+            // OrderBookLevel = 16 bytes each: price(4)+quantity(4)+flag(4)+unknown(4)
+            // Interleaved: Bid1(104-119), Ask1(120-135), Bid2(136-151), Ask2(152-167)...
+            if (recordOffset + 120 + 8 <= length) {
                 DecodedDepthLevel ask1;
-                ask1.price = le32toh_func(*(uint32_t*)(record + 112));
-                ask1.quantity = le32toh_func(*(uint32_t*)(record + 116));
+                ask1.price = le32toh_func(*(uint32_t*)(record + 120));  // Fixed: was 112
+                ask1.quantity = le32toh_func(*(uint32_t*)(record + 124)); // Fixed: was 116
+                
+                // Debug log first 10 records with this token
+                static int askDebugCount = 0;
+                if (decRec.token == 1143697 && askDebugCount < 10) {
+                    askDebugCount++;
+                    std::cout << "[BSE DEBUG] Token " << decRec.token 
+                              << " - BidPrice@104: " << (decRec.bids.empty() ? 0 : decRec.bids[0].price)
+                              << " BidQty@108: " << (decRec.bids.empty() ? 0 : decRec.bids[0].quantity)
+                              << " | AskPrice@120: " << ask1.price 
+                              << " AskQty@124: " << ask1.quantity << std::endl;
+                }
+                
                 if (ask1.price > 0 && ask1.quantity > 0) decRec.asks.push_back(ask1);
             }
             

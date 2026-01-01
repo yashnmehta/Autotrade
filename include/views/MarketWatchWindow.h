@@ -12,6 +12,7 @@
 #include <unordered_map>
 
 class TokenAddressBook;
+class XTSMarketDataClient;
 
 /**
  * @brief Professional Market Watch window with real-time updates
@@ -96,6 +97,12 @@ public:
      * @return Row index or -1 if not found
      */
     int findTokenRow(int token) const;
+    
+    /**
+     * @brief Set XTS Market Data Client for Quote API fallback
+     * @param client XTSMarketDataClient instance
+     */
+    void setXTSClient(XTSMarketDataClient *client) { m_xtsClient = client; }
     
     /**
      * @brief Get the token address book for price updates
@@ -298,6 +305,7 @@ private:
     // Data Components
     MarketWatchModel *m_model;
     TokenAddressBook *m_tokenAddressBook;
+    XTSMarketDataClient *m_xtsClient;  // For BSE quote API fallback
 };
 
 #endif // MARKETWATCHWINDOW_H

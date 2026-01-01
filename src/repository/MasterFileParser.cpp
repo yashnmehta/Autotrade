@@ -75,7 +75,15 @@ bool MasterFileParser::parseNSECM(const QStringList& fields, MasterContract& con
     contract.tickSize = fields[11].toDouble();
     contract.lotSize = fields[12].toInt();
     contract.multiplier = fields[13].toInt();
-    contract.displayName = trimQuotes(fields[14]);
+    
+    // Field 15 (index 14) is usually a short name/alias
+    // Field 19 (index 18) is the full human-readable DisplayName
+    if (fields.size() >= 19) {
+        contract.displayName = trimQuotes(fields[18]);
+    } else {
+        contract.displayName = trimQuotes(fields[14]);
+    }
+    
     contract.isin = trimQuotes(fields[15]);
     
     if (fields.size() >= 17) {
@@ -126,31 +134,42 @@ bool MasterFileParser::parseNSEFO(const QStringList& fields, MasterContract& con
     bool isOption = (contract.instrumentType == 2);
     bool isSpread = (contract.instrumentType == 4);
     
-    if (isOption && fields.size() >= 19) {
-        // OPTIONS: fields 17=Strike, 18=OptionType, 19=DisplayName
+    if (isOption && fields.size() >= 20) {
+        // OPTIONS (23 fields): 17=Strike, 18=OptionType, 19=DisplayName, 20=Num, 21=Den
         contract.strikePrice = fields[17].toDouble();
         contract.optionType = fields[18].toInt();
+        contract.displayName = trimQuotes(fields[19]);
+        
+        if (fields.size() >= 22) {
+            contract.priceNumerator = fields[20].toInt();
+            contract.priceDenominator = fields[21].toInt();
+        }
+        if (fields.size() >= 23) {
+            contract.isin = trimQuotes(fields[22]);
+        }
+    } else if (isSpread && fields.size() >= 18) {
+        // SPREADS (21 fields): 17=DisplayName, 18=Num, 19=Den
+        contract.strikePrice = 0.0;
+        contract.optionType = 0;
+        contract.displayName = trimQuotes(fields[17]);
         if (fields.size() >= 20) {
-            contract.displayName = trimQuotes(fields[19]);
+            contract.priceNumerator = fields[18].toInt();
+            contract.priceDenominator = fields[19].toInt();
         }
         if (fields.size() >= 21) {
             contract.isin = trimQuotes(fields[20]);
         }
-    } else if (isSpread && fields.size() >= 17) {
-        // SPREADS: fields similar to futures but mark as spread
+    } else {
+        // FUTURES (21 fields): 17=DisplayName, 18=Num, 19=Den
         contract.strikePrice = 0.0;
         contract.optionType = 0;
         contract.displayName = trimQuotes(fields[17]);
-        if (fields.size() >= 19) {
-            contract.isin = trimQuotes(fields[18]);
+        if (fields.size() >= 20) {
+            contract.priceNumerator = fields[18].toInt();
+            contract.priceDenominator = fields[19].toInt();
         }
-    } else {
-        // FUTURES: field 17=DisplayName, no strike price (0), optionType=0
-        contract.strikePrice = 0.0;
-        contract.optionType = 0;  // 0 for futures
-        contract.displayName = trimQuotes(fields[17]);
-        if (fields.size() >= 19) {
-            contract.isin = trimQuotes(fields[18]);
+        if (fields.size() >= 21) {
+            contract.isin = trimQuotes(fields[20]);
         }
     }
     
@@ -235,7 +254,15 @@ bool MasterFileParser::parseBSECM(const QStringList& fields, MasterContract& con
     contract.tickSize = fields[11].toDouble();
     contract.lotSize = fields[12].toInt();
     contract.multiplier = fields[13].toInt();
-    contract.displayName = trimQuotes(fields[14]);
+    
+    // Field 15 (index 14) is usually a short name/alias
+    // Field 19 (index 18) is the full human-readable DisplayName
+    if (fields.size() >= 19) {
+        contract.displayName = trimQuotes(fields[18]);
+    } else {
+        contract.displayName = trimQuotes(fields[14]);
+    }
+    
     contract.isin = trimQuotes(fields[15]);
     
     if (fields.size() >= 17) {
@@ -288,28 +315,41 @@ bool MasterFileParser::parseBSEFO(const QStringList& fields, MasterContract& con
     bool isSpread = (contract.instrumentType == 4);
     
     if (isOption && fields.size() >= 20) {
-        // OPTIONS: field 17=StrikePrice, 18=OptionType, 19=DisplayName
+        // OPTIONS (23 fields): 17=Strike, 18=OptionType, 19=DisplayName, 20=Num, 21=Den
         contract.strikePrice = fields[17].toDouble();
         contract.optionType = fields[18].toInt();
         contract.displayName = trimQuotes(fields[19]);
-        if (fields.size() >= 21) {
-            contract.isin = trimQuotes(fields[20]);
+        
+        if (fields.size() >= 22) {
+            contract.priceNumerator = fields[20].toInt();
+            contract.priceDenominator = fields[21].toInt();
         }
-    } else if (isSpread && fields.size() >= 17) {
-        // SPREADS: similar layout to futures
+        if (fields.size() >= 23) {
+            contract.isin = trimQuotes(fields[22]);
+        }
+    } else if (isSpread && fields.size() >= 18) {
+        // SPREADS (21 fields): 17=DisplayName, 18=Num, 19=Den
         contract.strikePrice = 0.0;
         contract.optionType = 0;
         contract.displayName = trimQuotes(fields[17]);
-        if (fields.size() >= 19) {
-            contract.isin = trimQuotes(fields[18]);
+        if (fields.size() >= 20) {
+            contract.priceNumerator = fields[18].toInt();
+            contract.priceDenominator = fields[19].toInt();
+        }
+        if (fields.size() >= 21) {
+            contract.isin = trimQuotes(fields[20]);
         }
     } else {
-        // FUTURES: field 17=DisplayName, no strike price (0), optionType=0
+        // FUTURES (21 fields): 17=DisplayName, 18=Num, 19=Den
         contract.strikePrice = 0.0;
-        contract.optionType = 0;  // 0 for futures
+        contract.optionType = 0;
         contract.displayName = trimQuotes(fields[17]);
-        if (fields.size() >= 19) {
-            contract.isin = trimQuotes(fields[18]);
+        if (fields.size() >= 20) {
+            contract.priceNumerator = fields[18].toInt();
+            contract.priceDenominator = fields[19].toInt();
+        }
+        if (fields.size() >= 21) {
+            contract.isin = trimQuotes(fields[20]);
         }
     }
     

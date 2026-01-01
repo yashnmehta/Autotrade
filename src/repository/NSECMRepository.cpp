@@ -386,9 +386,30 @@ bool NSECMRepository::loadFromContracts(const QVector<MasterContract>& contracts
 
     QWriteLocker locker(&m_mutex);
     
-    // Clear existing data
+    // Clear existing data - MUST clear all arrays!
     m_tokenToIndex.clear();
     m_contractCount = 0;
+    
+    // Clear all parallel arrays to avoid stale data
+    m_token.clear();
+    m_name.clear();
+    m_displayName.clear();
+    m_description.clear();
+    m_series.clear();
+    m_lotSize.clear();
+    m_tickSize.clear();
+    m_freezeQty.clear();
+    m_priceBandHigh.clear();
+    m_priceBandLow.clear();
+    m_ltp.clear();
+    m_open.clear();
+    m_high.clear();
+    m_low.clear();
+    m_close.clear();
+    m_prevClose.clear();
+    m_volume.clear();
+    m_bidPrice.clear();
+    m_askPrice.clear();
     
     // Pre-allocate for efficiency
     const int32_t expectedSize = contracts.size();

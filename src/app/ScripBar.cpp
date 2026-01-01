@@ -298,8 +298,8 @@ void ScripBar::populateSymbols(const QString &instrument)
             continue;
         }
         
-        // Filter out spread contracts (marked with series="SPREAD")
-        if (contract.series == "SPREAD") {
+        // FACT-BASED: Filter out spread contracts using instrumentType field (4 = Spread)
+        if (contract.instrumentType == 4) {
             continue;
         }
 
@@ -312,7 +312,7 @@ void ScripBar::populateSymbols(const QString &instrument)
         inst.name = contract.name;
         inst.symbol = contract.name;
         inst.series = contract.series;
-        inst.instrumentType = instrument;  // Use dropdown value (FUTIDX, OPTSTK, EQUITY, etc.)
+        inst.instrumentType = QString::number(contract.instrumentType);  // Store numeric instrumentType (1=Future, 2=Option, 4=Spread)
         inst.expiryDate = contract.expiryDate;
         inst.strikePrice = contract.strikePrice;
         inst.optionType = contract.optionType;
@@ -721,9 +721,6 @@ void ScripBar::updateTokenDisplay()
         }
     }
     
-    // For BSE futures, track the highest token (regular futures have higher tokens than spreads)
-    qint64 bseFutureHighestToken = 0;
-    
     for (const auto &inst : m_instrumentCache) {
         bool matchSymbol = (inst.symbol == symbol);
         
@@ -737,25 +734,20 @@ void ScripBar::updateTokenDisplay()
         }
         
         // For futures: match symbol + expiry (no strike or option type)
-        // IMPORTANT: For BSE, prefer higher token numbers (regular futures) over lower ones (spreads)
+        // FACT-BASED: Use instrumentType field to distinguish futures (1) from spreads (4)
         if (isFuture && matchSymbol) {
             bool matchExpiry = (expiry == "N/A" || inst.expiryDate == expiry);
-            bool isBSE = (m_currentExchange == "BSE");
+            bool ok = false;
+            int32_t instType = inst.instrumentType.toInt(&ok);
             
-            if (matchExpiry && inst.strikePrice == 0.0) {
-                // For NSE, return immediately (no spread issue)
-                if (!isBSE) {
-                    qDebug() << "[ScripBar] ✓ Found future:" << inst.name << "Token:" << inst.exchangeInstrumentID;
-                    m_tokenEdit->setText(QString::number(inst.exchangeInstrumentID));
-                    return;
+            // Only match regular futures (instrumentType == 1), not spreads (instrumentType == 4)
+            if (matchExpiry && inst.strikePrice == 0.0 && ok && instType == 1) {
+                qDebug() << "[ScripBar] ✓ Found regular future (instrumentType=1):" << inst.name << "Token:" << inst.exchangeInstrumentID;
+                m_tokenEdit->setText(QString::number(inst.exchangeInstrumentID));
+                if (m_currentExchange == "BSE" && !inst.scripCode.isEmpty()) {
+                    if (m_bseScripCodeCombo->lineEdit()) m_bseScripCodeCombo->lineEdit()->setText(inst.scripCode);
                 }
-                
-                // For BSE, we need to find the contract with the HIGHEST token
-                // (spreads have lower tokens, regular futures have higher tokens)
-                // We'll track the highest token and handle it after the loop
-                if (inst.exchangeInstrumentID > bseFutureHighestToken) {
-                    bseFutureHighestToken = inst.exchangeInstrumentID;
-                }
+                return;
             }
         }
         
@@ -797,8 +789,8 @@ void ScripBar::updateTokenDisplay()
             }
         }
     }
-    
-    // If no exact match found, clear token (don't use fallback)
+
+    // No matching contract found - clear token and BSE scrip code
     qDebug() << "[ScripBar] updateTokenDisplay: ❌ NO matching contract found - clearing token";
     qDebug() << "[ScripBar] Cache size:" << m_instrumentCache.size() << "contracts";
     m_tokenEdit->clear();

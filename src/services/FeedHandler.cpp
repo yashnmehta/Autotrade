@@ -8,7 +8,7 @@ FeedHandler& FeedHandler::instance() {
 }
 
 FeedHandler::FeedHandler() {
-    qDebug() << "[FeedHandler] Initialized - TokenPublisher based (Signal/Slot)";
+    qDebug() << "[FeedHandler] Initialized - Composite Key (Segment+Token) based";
 }
 
 FeedHandler::~FeedHandler() {
@@ -19,24 +19,41 @@ FeedHandler::~FeedHandler() {
     m_publishers.clear();
 }
 
-TokenPublisher* FeedHandler::getOrCreatePublisher(int token) {
-    auto it = m_publishers.find(token);
+TokenPublisher* FeedHandler::getOrCreatePublisher(int64_t compositeKey) {
+    auto it = m_publishers.find(compositeKey);
     if (it != m_publishers.end()) {
         return it->second;
     }
 
-    TokenPublisher* pub = new TokenPublisher(token, this);
-    m_publishers[token] = pub;
+    TokenPublisher* pub = new TokenPublisher(compositeKey, this);
+    m_publishers[compositeKey] = pub;
     return pub;
+}
+
+void FeedHandler::unsubscribe(int exchangeSegment, int token, QObject* receiver) {
+    if (!receiver) return;
+    
+    int64_t key = makeKey(exchangeSegment, token);
+    std::lock_guard<std::mutex> lock(m_mutex);
+    auto it = m_publishers.find(key);
+    if (it != m_publishers.end()) {
+        disconnect(it->second, &TokenPublisher::tickUpdated, receiver, nullptr);
+    }
 }
 
 void FeedHandler::unsubscribe(int token, QObject* receiver) {
     if (!receiver) return;
     
+    // Unsubscribe from all common segments
+    static const int segments[] = {1, 2, 11, 12};
     std::lock_guard<std::mutex> lock(m_mutex);
-    auto it = m_publishers.find(token);
-    if (it != m_publishers.end()) {
-        disconnect(it->second, &TokenPublisher::tickUpdated, receiver, nullptr);
+    
+    for (int seg : segments) {
+        int64_t key = makeKey(seg, token);
+        auto it = m_publishers.find(key);
+        if (it != m_publishers.end()) {
+            disconnect(it->second, &TokenPublisher::tickUpdated, receiver, nullptr);
+        }
     }
 }
 
@@ -51,14 +68,16 @@ void FeedHandler::unsubscribeAll(QObject* receiver) {
 }
 
 void FeedHandler::onTickReceived(const XTS::Tick& tick) {
+    int exchangeSegment = tick.exchangeSegment;
     int token = (int)tick.exchangeInstrumentID;
+    int64_t key = makeKey(exchangeSegment, token);
     
     // Debug logging for BSE tokens
-    if (tick.exchangeSegment == 12 || tick.exchangeSegment == 11) {
+    if (exchangeSegment == 12 || exchangeSegment == 11) {
         static int bseTickCount = 0;
-        if (bseTickCount++ < 10) {
-            qDebug() << "[FeedHandler] BSE Tick - Segment:" << tick.exchangeSegment 
-                     << "Token:" << token << "LTP:" << tick.lastTradedPrice;
+        if (bseTickCount++ < 20) {
+            // qDebug() << "[FeedHandler] BSE Tick - Segment:" << exchangeSegment 
+            //          << "Token:" << token << "Key:" << key << "LTP:" << tick.lastTradedPrice;
         }
     }
     
@@ -69,16 +88,16 @@ void FeedHandler::onTickReceived(const XTS::Tick& tick) {
     TokenPublisher* pub = nullptr;
     {
         std::lock_guard<std::mutex> lock(m_mutex);
-        auto it = m_publishers.find(token);
+        auto it = m_publishers.find(key);
         if (it != m_publishers.end()) {
             pub = it->second;
         } else {
             // Log missing subscription for BSE tokens
-            if (tick.exchangeSegment == 12 || tick.exchangeSegment == 11) {
+            if (exchangeSegment == 12 || exchangeSegment == 11) {
                 static int missingSubCount = 0;
-                if (missingSubCount++ < 5) {
-                    qDebug() << "[FeedHandler] ⚠ No subscriber for BSE token:" << token 
-                             << "Segment:" << tick.exchangeSegment;
+                if (missingSubCount++ < 10) {
+                    qDebug() << "[FeedHandler] ⚠ No subscriber for BSE - Segment:" << exchangeSegment
+                             << "Token:" << token << "Key:" << key;
                 }
             }
         }

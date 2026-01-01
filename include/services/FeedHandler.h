@@ -15,22 +15,23 @@
 class TokenPublisher : public QObject {
     Q_OBJECT
 public:
-    explicit TokenPublisher(int token, QObject* parent = nullptr) : QObject(parent), m_token(token) {}
+    explicit TokenPublisher(int64_t compositeKey, QObject* parent = nullptr) 
+        : QObject(parent), m_compositeKey(compositeKey) {}
     void publish(const XTS::Tick& tick) { emit tickUpdated(tick); }
-    int token() const { return m_token; }
+    int64_t compositeKey() const { return m_compositeKey; }
 
 signals:
     void tickUpdated(const XTS::Tick& tick);
 
 private:
-    int m_token;
+    int64_t m_compositeKey;
 };
 
 /**
  * @brief Centralized feed handler for real-time market data distribution
  * 
  * Implements publisher-subscriber pattern with direct callbacks for minimal latency.
- * Replaces timer-based polling with event-driven push updates.
+ * Uses composite key (exchangeSegment, token) to handle multi-exchange environments.
  * 
  * Performance:
  * - Subscribe: ~500ns (add to hash map)
@@ -45,13 +46,11 @@ private:
  * 
  * Usage:
  * ```cpp
- * // Subscribe to token updates
- * auto id = FeedHandler::instance().subscribe(token, [this](const XTS::Tick& tick) {
- *     updatePrice(tick.lastTradedPrice);
- * });
+ * // Subscribe to token updates (exchange-aware)
+ * FeedHandler::instance().subscribe(2, 49508, this, &MyWindow::onTickUpdate);
  * 
- * // Later: Unsubscribe
- * FeedHandler::instance().unsubscribe(id);
+ * // Legacy subscribe (assumes exchangeSegment from context)
+ * FeedHandler::instance().subscribe(49508, this, &MyWindow::onTickUpdate);
  * ```
  */
 class FeedHandler : public QObject {
@@ -61,26 +60,63 @@ public:
     static FeedHandler& instance();
 
     /**
-     * @brief Subscribe a receiver's slot to tick updates for a specific token
+     * @brief Create composite key from exchange segment and token
+     * @param exchangeSegment Exchange segment (1=NSECM, 2=NSEFO, 11=BSECM, 12=BSEFO)
      * @param token Exchange instrument token
-     * @param receiver The QObject that will receive the tick
-     * @param slot The slot signature or member function pointer to call
-     * 
-     * Example: 
-     * FeedHandler::instance().subscribe(49508, this, &MyWindow::onTickUpdate);
+     * @return 64-bit composite key
      */
-    template<typename Receiver, typename Slot>
-    void subscribe(int token, Receiver* receiver, Slot slot) {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        TokenPublisher* pub = getOrCreatePublisher(token);
-        connect(pub, &TokenPublisher::tickUpdated, receiver, slot);
-        
-        qDebug() << "[FeedHandler] Connected slot for token" << token;
-        emit subscriptionCountChanged(token, 1); // Approximate for UI status
+    static inline int64_t makeKey(int exchangeSegment, int token) {
+        return (static_cast<int64_t>(exchangeSegment) << 32) | static_cast<uint32_t>(token);
     }
 
     /**
-     * @brief Unsubscribe a receiver from a specific token
+     * @brief Subscribe with exchange segment (RECOMMENDED for multi-exchange)
+     * @param exchangeSegment Exchange segment (1=NSECM, 2=NSEFO, 11=BSECM, 12=BSEFO)
+     * @param token Exchange instrument token
+     * @param receiver The QObject that will receive the tick
+     * @param slot The slot signature or member function pointer to call
+     */
+    template<typename Receiver, typename Slot>
+    void subscribe(int exchangeSegment, int token, Receiver* receiver, Slot slot) {
+        int64_t key = makeKey(exchangeSegment, token);
+        std::lock_guard<std::mutex> lock(m_mutex);
+        TokenPublisher* pub = getOrCreatePublisher(key);
+        connect(pub, &TokenPublisher::tickUpdated, receiver, slot);
+        
+        qDebug() << "[FeedHandler] Connected slot for segment:" << exchangeSegment 
+                 << "token:" << token << "(key:" << key << ")";
+        emit subscriptionCountChanged(token, 1);
+    }
+
+    /**
+     * @brief Legacy subscribe (token-only, defaults to common lookup)
+     * Subscribes to ALL segments for this token for backward compatibility.
+     * @deprecated Use subscribe(exchangeSegment, token, ...) instead
+     */
+    template<typename Receiver, typename Slot>
+    void subscribe(int token, Receiver* receiver, Slot slot) {
+        // Subscribe to common segments (NSECM=1, NSEFO=2, BSECM=11, BSEFO=12)
+        // This ensures backward compatibility while supporting multi-exchange
+        static const int segments[] = {1, 2, 11, 12};
+        std::lock_guard<std::mutex> lock(m_mutex);
+        
+        for (int seg : segments) {
+            int64_t key = makeKey(seg, token);
+            TokenPublisher* pub = getOrCreatePublisher(key);
+            connect(pub, &TokenPublisher::tickUpdated, receiver, slot);
+        }
+        
+        qDebug() << "[FeedHandler] Connected slot for token" << token << "(all segments)";
+        emit subscriptionCountChanged(token, 1);
+    }
+
+    /**
+     * @brief Unsubscribe with exchange segment
+     */
+    void unsubscribe(int exchangeSegment, int token, QObject* receiver);
+
+    /**
+     * @brief Legacy unsubscribe (token-only)
      */
     void unsubscribe(int token, QObject* receiver);
 
@@ -110,10 +146,10 @@ private:
     FeedHandler(const FeedHandler&) = delete;
     FeedHandler& operator=(const FeedHandler&) = delete;
 
-    TokenPublisher* getOrCreatePublisher(int token);
+    TokenPublisher* getOrCreatePublisher(int64_t compositeKey);
 
-    // Token -> Publisher
-    std::unordered_map<int, TokenPublisher*> m_publishers;
+    // CompositeKey -> Publisher
+    std::unordered_map<int64_t, TokenPublisher*> m_publishers;
     mutable std::mutex m_mutex;
 };
 

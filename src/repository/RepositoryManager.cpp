@@ -411,12 +411,8 @@ bool RepositoryManager::loadCombinedMasterFile(const QString& filePath) {
     }
     
     if (!bsefoContracts.isEmpty()) {
-        // Detect and mark spread contracts before loading
-        for (MasterContract& contract : bsefoContracts) {
-            if (contract.displayName.contains("SPD", Qt::CaseInsensitive)) {
-                contract.series = "SPREAD";  // Mark spreads for easy filtering
-            }
-        }
+        // MasterFileParser already correctly identifies spreads using instrumentType == 4
+        // No need to overwrite series field with artificial "SPREAD" value
         
         if (m_bsefo->loadFromContracts(bsefoContracts)) {
             anyLoaded = true;

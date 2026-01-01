@@ -73,6 +73,7 @@ private:
     QVector<int32_t> m_instrumentType;
     QVector<double> m_priceBandHigh;
     QVector<double> m_priceBandLow;
+    QVector<int32_t> m_freezeQty;
     
     // Live market data
     QVector<double> m_ltp;

@@ -11,6 +11,7 @@ MarketWatchWindow::MarketWatchWindow(QWidget *parent)
     : CustomMarketWatch(parent)
     , m_model(nullptr)
     , m_tokenAddressBook(nullptr)
+    , m_xtsClient(nullptr)
 {
     setupUI();
     setupConnections();
