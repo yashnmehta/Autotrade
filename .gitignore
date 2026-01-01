@@ -16,6 +16,11 @@ Makefile
 *.a
 *.dll
 
+# Executables
+*.exe
+*.out
+*.app
+
 # Qt generated files
 *.moc
 moc_*.cpp
