@@ -166,11 +166,13 @@ set(APP_HEADERS
 set(UI_SOURCES
     src/ui/SplashScreen.cpp
     src/ui/LoginWindow.cpp
+    src/ui/OptionChainWindow.cpp
 )
 
 set(UI_HEADERS
     include/ui/SplashScreen.h
     include/ui/LoginWindow.h
+    include/ui/OptionChainWindow.h
 )
 
 # ========================================
@@ -196,7 +198,6 @@ set(VIEW_SOURCES
     src/views/GenericProfileDialog.cpp
     src/views/PreferenceDialog/PreferenceDialog.cpp
     src/views/CustomizeDialog.cpp
-    src/ui/OptionChainWindow.cpp
 )
 
 set(VIEW_HEADERS
@@ -206,7 +207,6 @@ set(VIEW_HEADERS
     include/views/SellWindow.h
     include/views/MarketWatchWindow.h
     include/views/SnapQuoteWindow.h
-    include/views/OptionChainWindow.h
     include/views/PositionWindow.h
     include/views/TradeBookWindow.h
     include/views/OrderBookWindow.h
