@@ -800,6 +800,111 @@ void ScripBar::updateTokenDisplay()
     m_bseScripCodeCombo->clearItems();
 }
 
+void ScripBar::setScripDetails(const InstrumentData &data)
+{
+    // Block signals to prevent cascading updates during setup
+    const QSignalBlocker blockerEx(m_exchangeCombo);
+    const QSignalBlocker blockerSeg(m_segmentCombo);
+    const QSignalBlocker blockerInst(m_instrumentCombo);
+    const QSignalBlocker blockerSym(m_symbolCombo);
+    const QSignalBlocker blockerExp(m_expiryCombo);
+    const QSignalBlocker blockerStr(m_strikeCombo);
+    const QSignalBlocker blockerOpt(m_optionTypeCombo);
+
+    // 1. Set Exchange
+    QString segKey = RepositoryManager::getExchangeSegmentName(data.exchangeSegment);
+    QString exchange = "NSE";
+    if (segKey.startsWith("BSE")) exchange = "BSE";
+    else if (segKey.startsWith("MCX")) exchange = "MCX";
+    else if (segKey.startsWith("NSECD")) exchange = "NSECDS";
+    // else NSE (NSECM, NSEFO)
+    
+    int idxEx = m_exchangeCombo->findText(exchange);
+    if (idxEx >= 0) {
+        m_exchangeCombo->setCurrentIndex(idxEx);
+        m_currentExchange = exchange;
+        // Populate segments manually since signals are blocked
+        populateSegments(exchange);
+    }
+    
+    // 2. Set Segment
+    QString targetSeg;
+    if (data.instrumentType == "EQUITY") targetSeg = "E";
+    else if (data.instrumentType.startsWith("FUT")) targetSeg = "F";
+    else if (data.instrumentType.startsWith("OPT")) targetSeg = "O";
+    
+    if (!targetSeg.isEmpty()) {
+       int idxSeg = m_segmentCombo->findText(targetSeg);
+       if (idxSeg >= 0) {
+           m_segmentCombo->setCurrentIndex(idxSeg);
+           m_currentSegment = targetSeg;
+           populateInstruments(targetSeg);
+       }
+    }
+
+    // 3. Set Instrument
+    if (!data.instrumentType.isEmpty()) {
+        int idxInst = m_instrumentCombo->findText(data.instrumentType);
+        if (idxInst >= 0) {
+            m_instrumentCombo->setCurrentIndex(idxInst);
+            // Setup visibility manually since signals blocked
+            // Call onInstrumentChanged logic (without emitting populateSymbols if we do it manually next)
+            // But onInstrumentChanged logic is needed to show/hide combos.
+            
+            // Logic duplicated from onInstrumentChanged:
+            QString inst = data.instrumentType;
+            bool isFuture = (inst == "FUTIDX" || inst == "FUTSTK" || inst == "FUTCUR");
+            bool isOption = (inst == "OPTIDX" || inst == "OPTSTK" || inst == "OPTCUR");
+            
+            m_expiryCombo->setVisible(isFuture || isOption);
+            m_strikeCombo->setVisible(isOption);
+            m_optionTypeCombo->setVisible(isOption);
+        }
+    }
+    
+    // 4. Set Symbol
+    populateSymbols(data.instrumentType);
+    
+    if (!data.symbol.isEmpty()) {
+        int idxSym = m_symbolCombo->findText(data.symbol);
+        if (idxSym >= 0) {
+            m_symbolCombo->setCurrentIndex(idxSym);
+            populateExpiries(data.symbol);
+        }
+    }
+    
+    // 5. Expiry
+    if (m_expiryCombo->isVisible() && !data.expiryDate.isEmpty()) {
+        int idxExp = m_expiryCombo->findText(data.expiryDate);
+        if (idxExp >= 0) {
+            m_expiryCombo->setCurrentIndex(idxExp);
+            populateStrikes(data.expiryDate);
+        }
+    }
+    
+    // 6. Strike
+    if (m_strikeCombo->isVisible() && data.strikePrice > 0) {
+        QString strikeStr = QString::number(data.strikePrice, 'f', 2);
+        int idxStr = m_strikeCombo->findText(strikeStr);
+        if (idxStr >= 0) {
+            m_strikeCombo->setCurrentIndex(idxStr);
+            populateOptionTypes(strikeStr);
+        }
+    }
+    
+    // 7. Option Type
+    if (m_optionTypeCombo->isVisible() && !data.optionType.isEmpty()) {
+        int idxOpt = m_optionTypeCombo->findText(data.optionType);
+        if (idxOpt >= 0) {
+            m_optionTypeCombo->setCurrentIndex(idxOpt);
+        }
+    }
+    
+    // Update display token
+    updateTokenDisplay();
+}
+
+
 // Slot implementations
 void ScripBar::focusInput() {
     if (m_exchangeCombo) {

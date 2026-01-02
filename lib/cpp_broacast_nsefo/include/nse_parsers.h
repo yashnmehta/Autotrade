@@ -47,6 +47,10 @@ void parse_limit_price_protection(const MS_BCAST_LIMIT_PRICE_PROTECTION_RANGE* m
 void parse_message_7207(const MS_BCAST_INDICES* msg);
 void parse_bcast_indices(const MS_BCAST_INDICES* msg);
 
+// TransCode 7203
+void parse_message_7203(const MS_BCAST_INDUSTRY_INDICES* msg);
+void parse_bcast_industry_indices(const MS_BCAST_INDUSTRY_INDICES* msg);
+
 // ============================================================================
 // ADMIN MESSAGE PARSERS
 // ============================================================================

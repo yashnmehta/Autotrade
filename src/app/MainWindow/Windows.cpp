@@ -130,8 +130,10 @@ void MainWindow::createBuyWindow()
     }
     
     window->setContentWidget(buyWindow);
-    window->setMinimumWidth(1200);
-    window->resize(1200, 200);
+    // window->setMinimumWidth(1200);
+    // window->setMinimumHeight(260);
+    
+    window->resize(1220, 260);
     connectWindowSignals(window);
     m_mdiArea->addWindow(window);
     window->activateWindow();
@@ -171,8 +173,8 @@ void MainWindow::createSellWindow()
     }
     
     window->setContentWidget(sellWindow);
-    window->setMinimumWidth(1200);
-    window->resize(1200, 200);
+    // window->setMinimumWidth(1200);
+    window->resize(1220, 260);
     connectWindowSignals(window);
     m_mdiArea->addWindow(window);
     window->activateWindow();

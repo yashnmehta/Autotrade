@@ -179,9 +179,9 @@ void CustomMDISubWindow::closeEvent(QCloseEvent *event)
     qDebug() << "[MDISubWindow] closeEvent for" << title();
     
     // Try to close content widget first so it can save state
-    if (m_contentWidget) {
-        m_contentWidget->close();
-    }
+    // if (m_contentWidget) {
+    //     m_contentWidget->close();
+    // }
 
     // Remove ourselves from the MDI area before closing
     CustomMDIArea *mdiArea = qobject_cast<CustomMDIArea *>(parent());
@@ -350,8 +350,13 @@ void CustomMDISubWindow::mouseMoveEvent(QMouseEvent *event)
         }
 
         // Apply constraints
-        if (newGeometry.width() < 200) newGeometry.setWidth(200);
-        if (newGeometry.height() < 100) newGeometry.setHeight(100);
+        // Respect the widget's minimum size (propagated from content layout)
+        QSize minSize = minimumSizeHint().expandedTo(minimumSize());
+        int minW = qMax(200, minSize.width());
+        int minH = qMax(100, minSize.height());
+
+        if (newGeometry.width() < minW) newGeometry.setWidth(minW);
+        if (newGeometry.height() < minH) newGeometry.setHeight(minH);
 
         setGeometry(newGeometry);
         event->accept();

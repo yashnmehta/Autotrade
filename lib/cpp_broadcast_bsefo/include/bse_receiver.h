@@ -43,6 +43,10 @@ public:
     // Callback for Session State changes
     using SessionStateCallback = std::function<void(const DecodedSessionState&)>;
     void setSessionStateCallback(SessionStateCallback callback) { sessionStateCallback_ = callback; }
+    
+    // Callback for Close Price updates
+    using ClosePriceCallback = std::function<void(const DecodedClosePrice&)>;
+    void setClosePriceCallback(ClosePriceCallback callback) { closePriceCallback_ = callback; }
 
     const ReceiverStats& getStats() const { return stats_; }
 
@@ -55,6 +59,7 @@ private:
     void decodeAndDispatch(const uint8_t* buffer, size_t length);
     void decodeOpenInterest(const uint8_t* buffer, size_t length);
     void decodeSessionState(const uint8_t* buffer, size_t length);
+    void decodeClosePrice(const uint8_t* buffer, size_t length);
 
     std::string ip_;
     int port_;
@@ -71,6 +76,7 @@ private:
     RecordCallback recordCallback_;
     OpenInterestCallback oiCallback_;
     SessionStateCallback sessionStateCallback_;
+    ClosePriceCallback closePriceCallback_;
 };
 
 } // namespace bse

@@ -44,6 +44,9 @@ public:
     // Focus on the input field
     void focusInput();
 
+    // Set the scrip details programmatically
+    void setScripDetails(const InstrumentData &data);
+
 signals:
     void addToWatchRequested(const InstrumentData &instrument);
 

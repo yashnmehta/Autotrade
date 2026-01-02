@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>1100</width>
-    <height>350</height>
+    <height>322</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -90,16 +90,16 @@
     <number>8</number>
    </property>
    <property name="leftMargin">
-    <number>10</number>
+    <number>6</number>
    </property>
    <property name="topMargin">
-    <number>10</number>
+    <number>6</number>
    </property>
    <property name="rightMargin">
-    <number>10</number>
+    <number>6</number>
    </property>
    <property name="bottomMargin">
-    <number>10</number>
+    <number>6</number>
    </property>
    <item>
     <widget class="QWidget" name="headerWidget" native="true">
@@ -109,16 +109,10 @@
        <verstretch>0</verstretch>
       </sizepolicy>
      </property>
-     <property name="minimumSize">
-      <size>
-       <width>0</width>
-       <height>35</height>
-      </size>
-     </property>
      <property name="maximumSize">
       <size>
-       <width>16777215</width>
-       <height>40</height>
+       <width>900</width>
+       <height>16777215</height>
       </size>
      </property>
      <layout class="QHBoxLayout" name="headerLayout">
@@ -137,498 +131,900 @@
       <property name="bottomMargin">
        <number>0</number>
       </property>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QWidget" name="widget" native="true">
+     <property name="maximumSize">
+      <size>
+       <width>900</width>
+       <height>16777215</height>
+      </size>
+     </property>
+     <layout class="QHBoxLayout" name="contentLayout" stretch="0,1">
+      <property name="spacing">
+       <number>12</number>
+      </property>
       <item>
-       <widget class="QComboBox" name="cbEx">
-        <property name="sizePolicy">
-         <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-          <horstretch>0</horstretch>
-          <verstretch>0</verstretch>
-         </sizepolicy>
-        </property>
-        <property name="minimumSize">
-         <size>
-          <width>85</width>
-          <height>0</height>
-         </size>
-        </property>
+       <widget class="QWidget" name="widget" native="true">
+        <layout class="QGridLayout" name="depthGrid">
+         <item row="0" column="1">
+          <widget class="QFrame" name="askFrame">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>210</width>
+             <height>180</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>210</width>
+             <height>180</height>
+            </size>
+           </property>
+           <layout class="QVBoxLayout" name="askLayout">
+            <item>
+             <layout class="QGridLayout" name="askGrid">
+              <property name="verticalSpacing">
+               <number>6</number>
+              </property>
+              <item row="0" column="0">
+               <widget class="QLabel" name="lbAskQty1">
+                <property name="styleSheet">
+                 <string notr="true">color: #DC2626; font-weight: bold;</string>
+                </property>
+                <property name="text">
+                 <string>0</string>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="1">
+               <widget class="QLabel" name="lbAskPrice1">
+                <property name="styleSheet">
+                 <string notr="true">color: #B91C1C; font-weight: bold; font-size: 12px;</string>
+                </property>
+                <property name="text">
+                 <string>0.00</string>
+                </property>
+                <property name="alignment">
+                 <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="2">
+               <widget class="QLabel" name="lbAskOrders1">
+                <property name="styleSheet">
+                 <string notr="true">color: #94A3B8;</string>
+                </property>
+                <property name="text">
+                 <string>0</string>
+                </property>
+                <property name="alignment">
+                 <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+                </property>
+               </widget>
+              </item>
+              <item row="1" column="0">
+               <widget class="QLabel" name="lbAskQty2">
+                <property name="styleSheet">
+                 <string notr="true">color: #DC2626;</string>
+                </property>
+                <property name="text">
+                 <string>0</string>
+                </property>
+               </widget>
+              </item>
+              <item row="1" column="1">
+               <widget class="QLabel" name="lbAskPrice2">
+                <property name="styleSheet">
+                 <string notr="true">color: #B91C1C;</string>
+                </property>
+                <property name="text">
+                 <string>0.00</string>
+                </property>
+                <property name="alignment">
+                 <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+                </property>
+               </widget>
+              </item>
+              <item row="1" column="2">
+               <widget class="QLabel" name="lbAskOrders2">
+                <property name="styleSheet">
+                 <string notr="true">color: #94A3B8;</string>
+                </property>
+                <property name="text">
+                 <string>0</string>
+                </property>
+                <property name="alignment">
+                 <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+                </property>
+               </widget>
+              </item>
+              <item row="2" column="0">
+               <widget class="QLabel" name="lbAskQty3">
+                <property name="styleSheet">
+                 <string notr="true">color: #DC2626;</string>
+                </property>
+                <property name="text">
+                 <string>0</string>
+                </property>
+               </widget>
+              </item>
+              <item row="2" column="1">
+               <widget class="QLabel" name="lbAskPrice3">
+                <property name="styleSheet">
+                 <string notr="true">color: #B91C1C;</string>
+                </property>
+                <property name="text">
+                 <string>0.00</string>
+                </property>
+                <property name="alignment">
+                 <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+                </property>
+               </widget>
+              </item>
+              <item row="2" column="2">
+               <widget class="QLabel" name="lbAskOrders3">
+                <property name="styleSheet">
+                 <string notr="true">color: #94A3B8;</string>
+                </property>
+                <property name="text">
+                 <string>0</string>
+                </property>
+                <property name="alignment">
+                 <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+                </property>
+               </widget>
+              </item>
+              <item row="3" column="0">
+               <widget class="QLabel" name="lbAskQty4">
+                <property name="styleSheet">
+                 <string notr="true">color: #DC2626;</string>
+                </property>
+                <property name="text">
+                 <string>0</string>
+                </property>
+               </widget>
+              </item>
+              <item row="3" column="1">
+               <widget class="QLabel" name="lbAskPrice4">
+                <property name="styleSheet">
+                 <string notr="true">color: #B91C1C;</string>
+                </property>
+                <property name="text">
+                 <string>0.00</string>
+                </property>
+                <property name="alignment">
+                 <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+                </property>
+               </widget>
+              </item>
+              <item row="3" column="2">
+               <widget class="QLabel" name="lbAskOrders4">
+                <property name="styleSheet">
+                 <string notr="true">color: #94A3B8;</string>
+                </property>
+                <property name="text">
+                 <string>0</string>
+                </property>
+                <property name="alignment">
+                 <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+                </property>
+               </widget>
+              </item>
+              <item row="4" column="0">
+               <widget class="QLabel" name="lbAskQty5">
+                <property name="styleSheet">
+                 <string notr="true">color: #DC2626;</string>
+                </property>
+                <property name="text">
+                 <string>0</string>
+                </property>
+               </widget>
+              </item>
+              <item row="4" column="1">
+               <widget class="QLabel" name="lbAskPrice5">
+                <property name="styleSheet">
+                 <string notr="true">color: #B91C1C;</string>
+                </property>
+                <property name="text">
+                 <string>0.00</string>
+                </property>
+                <property name="alignment">
+                 <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+                </property>
+               </widget>
+              </item>
+              <item row="4" column="2">
+               <widget class="QLabel" name="lbAskOrders5">
+                <property name="styleSheet">
+                 <string notr="true">color: #94A3B8;</string>
+                </property>
+                <property name="text">
+                 <string>0</string>
+                </property>
+                <property name="alignment">
+                 <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </item>
+           </layout>
+          </widget>
+         </item>
+         <item row="1" column="1">
+          <widget class="QLabel" name="lb_allSellers">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="styleSheet">
+            <string notr="true">color: #DC2626; font-weight: bold; padding-top: 5px;</string>
+           </property>
+           <property name="text">
+            <string>Total Sellers: 0</string>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="0">
+          <widget class="QLabel" name="lb_allBuyers">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="styleSheet">
+            <string notr="true">color: #2563EB; font-weight: bold; padding-top: 5px;</string>
+           </property>
+           <property name="text">
+            <string>Total Buyers: 0</string>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="0">
+          <widget class="QFrame" name="bidFrame">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>210</width>
+             <height>180</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>210</width>
+             <height>180</height>
+            </size>
+           </property>
+           <layout class="QVBoxLayout" name="bidLayout">
+            <item>
+             <layout class="QGridLayout" name="bidGrid">
+              <property name="verticalSpacing">
+               <number>6</number>
+              </property>
+              <item row="0" column="0">
+               <widget class="QLabel" name="lbBidQty1">
+                <property name="styleSheet">
+                 <string notr="true">color: #2563EB; font-weight: bold;</string>
+                </property>
+                <property name="text">
+                 <string>0</string>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="1">
+               <widget class="QLabel" name="lbBidPrice1">
+                <property name="styleSheet">
+                 <string notr="true">color: #1D4ED8; font-weight: bold; font-size: 12px;</string>
+                </property>
+                <property name="text">
+                 <string>0.00</string>
+                </property>
+                <property name="alignment">
+                 <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="2">
+               <widget class="QLabel" name="bidAt1">
+                <property name="styleSheet">
+                 <string notr="true">color: #94A3B8;</string>
+                </property>
+                <property name="text">
+                 <string>0</string>
+                </property>
+                <property name="alignment">
+                 <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+                </property>
+               </widget>
+              </item>
+              <item row="1" column="0">
+               <widget class="QLabel" name="lbBidQty2">
+                <property name="styleSheet">
+                 <string notr="true">color: #2563EB;</string>
+                </property>
+                <property name="text">
+                 <string>0</string>
+                </property>
+               </widget>
+              </item>
+              <item row="1" column="1">
+               <widget class="QLabel" name="lbBidPrice2">
+                <property name="styleSheet">
+                 <string notr="true">color: #1D4ED8;</string>
+                </property>
+                <property name="text">
+                 <string>0.00</string>
+                </property>
+                <property name="alignment">
+                 <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+                </property>
+               </widget>
+              </item>
+              <item row="1" column="2">
+               <widget class="QLabel" name="bidAt2">
+                <property name="styleSheet">
+                 <string notr="true">color: #94A3B8;</string>
+                </property>
+                <property name="text">
+                 <string>0</string>
+                </property>
+                <property name="alignment">
+                 <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+                </property>
+               </widget>
+              </item>
+              <item row="2" column="0">
+               <widget class="QLabel" name="lbBidQty3">
+                <property name="styleSheet">
+                 <string notr="true">color: #2563EB;</string>
+                </property>
+                <property name="text">
+                 <string>0</string>
+                </property>
+               </widget>
+              </item>
+              <item row="2" column="1">
+               <widget class="QLabel" name="lbBidPrice3">
+                <property name="styleSheet">
+                 <string notr="true">color: #1D4ED8;</string>
+                </property>
+                <property name="text">
+                 <string>0.00</string>
+                </property>
+                <property name="alignment">
+                 <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+                </property>
+               </widget>
+              </item>
+              <item row="2" column="2">
+               <widget class="QLabel" name="bidAt3">
+                <property name="styleSheet">
+                 <string notr="true">color: #94A3B8;</string>
+                </property>
+                <property name="text">
+                 <string>0</string>
+                </property>
+                <property name="alignment">
+                 <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+                </property>
+               </widget>
+              </item>
+              <item row="3" column="0">
+               <widget class="QLabel" name="lbBidQty4">
+                <property name="styleSheet">
+                 <string notr="true">color: #2563EB;</string>
+                </property>
+                <property name="text">
+                 <string>0</string>
+                </property>
+               </widget>
+              </item>
+              <item row="3" column="1">
+               <widget class="QLabel" name="lbBidPrice4">
+                <property name="styleSheet">
+                 <string notr="true">color: #1D4ED8;</string>
+                </property>
+                <property name="text">
+                 <string>0.00</string>
+                </property>
+                <property name="alignment">
+                 <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+                </property>
+               </widget>
+              </item>
+              <item row="3" column="2">
+               <widget class="QLabel" name="bidAt4">
+                <property name="styleSheet">
+                 <string notr="true">color: #94A3B8;</string>
+                </property>
+                <property name="text">
+                 <string>0</string>
+                </property>
+                <property name="alignment">
+                 <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+                </property>
+               </widget>
+              </item>
+              <item row="4" column="0">
+               <widget class="QLabel" name="lbBidQty5">
+                <property name="styleSheet">
+                 <string notr="true">color: #2563EB;</string>
+                </property>
+                <property name="text">
+                 <string>0</string>
+                </property>
+               </widget>
+              </item>
+              <item row="4" column="1">
+               <widget class="QLabel" name="lbBidPrice5">
+                <property name="styleSheet">
+                 <string notr="true">color: #1D4ED8;</string>
+                </property>
+                <property name="text">
+                 <string>0.00</string>
+                </property>
+                <property name="alignment">
+                 <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+                </property>
+               </widget>
+              </item>
+              <item row="4" column="2">
+               <widget class="QLabel" name="bidAt5">
+                <property name="styleSheet">
+                 <string notr="true">color: #94A3B8;</string>
+                </property>
+                <property name="text">
+                 <string>0</string>
+                </property>
+                <property name="alignment">
+                 <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </item>
+           </layout>
+          </widget>
+         </item>
+        </layout>
        </widget>
       </item>
       <item>
-       <widget class="QComboBox" name="cbSegment">
+       <widget class="QFrame" name="statsFrame">
         <property name="sizePolicy">
-         <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+         <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
           <horstretch>0</horstretch>
           <verstretch>0</verstretch>
          </sizepolicy>
         </property>
         <property name="minimumSize">
          <size>
-          <width>60</width>
-          <height>0</height>
-         </size>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QLineEdit" name="leToken">
-        <property name="sizePolicy">
-         <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-          <horstretch>0</horstretch>
-          <verstretch>0</verstretch>
-         </sizepolicy>
-        </property>
-        <property name="minimumSize">
-         <size>
-          <width>80</width>
+          <width>250</width>
           <height>0</height>
          </size>
         </property>
         <property name="maximumSize">
          <size>
-          <width>100</width>
-          <height>16777215</height>
+          <width>16777215</width>
+          <height>200</height>
          </size>
         </property>
-        <property name="alignment">
-         <set>Qt::AlignCenter</set>
-        </property>
-        <property name="readOnly">
-         <bool>true</bool>
-        </property>
+        <layout class="QVBoxLayout" name="statsLayout">
+         <property name="spacing">
+          <number>10</number>
+         </property>
+         <item>
+          <layout class="QHBoxLayout" name="ltpRow">
+           <item>
+            <widget class="QLabel" name="ltpTitle">
+             <property name="text">
+              <string>LTP: </string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QLabel" name="lbLTPQty">
+             <property name="styleSheet">
+              <string notr="true">font-size: 14px; font-weight: bold;</string>
+             </property>
+             <property name="text">
+              <string>0</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QLabel" name="atTitle">
+             <property name="text">
+              <string> @ </string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QLabel" name="lbLTPPrice">
+             <property name="styleSheet">
+              <string notr="true">font-size: 22px; font-weight: bold; color: #2563EB;</string>
+             </property>
+             <property name="text">
+              <string>0.00</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QLabel" name="lbLTPIndicator">
+             <property name="styleSheet">
+              <string notr="true">font-size: 18px; color: #059669;</string>
+             </property>
+             <property name="text">
+              <string>▲</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <spacer name="ltpSpacer">
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>40</width>
+               <height>20</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+           <item>
+            <widget class="QLabel" name="lbLTPTime">
+             <property name="styleSheet">
+              <string notr="true">color: #64748B;</string>
+             </property>
+             <property name="text">
+              <string>--:--:--</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </item>
+         <item>
+          <layout class="QGridLayout" name="statsGrid">
+           <property name="horizontalSpacing">
+            <number>8</number>
+           </property>
+           <property name="verticalSpacing">
+            <number>6</number>
+           </property>
+           <item row="0" column="0">
+            <widget class="QLabel" name="openTitle">
+             <property name="styleSheet">
+              <string notr="true">color: #64748B;</string>
+             </property>
+             <property name="text">
+              <string>Open:</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="1">
+            <widget class="QLabel" name="lbOpen">
+             <property name="styleSheet">
+              <string notr="true">font-weight: bold;</string>
+             </property>
+             <property name="text">
+              <string>0.00</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="2">
+            <widget class="QLabel" name="highTitle">
+             <property name="styleSheet">
+              <string notr="true">color: #64748B;</string>
+             </property>
+             <property name="text">
+              <string>High:</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="3">
+            <widget class="QLabel" name="lbHigh">
+             <property name="styleSheet">
+              <string notr="true">font-weight: bold; color: #059669;</string>
+             </property>
+             <property name="text">
+              <string>0.00</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="0">
+            <widget class="QLabel" name="lowTitle">
+             <property name="styleSheet">
+              <string notr="true">color: #64748B;</string>
+             </property>
+             <property name="text">
+              <string>Low:</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="1">
+            <widget class="QLabel" name="lbLow">
+             <property name="styleSheet">
+              <string notr="true">font-weight: bold; color: #DC2626;</string>
+             </property>
+             <property name="text">
+              <string>0.00</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="2">
+            <widget class="QLabel" name="closeTitle">
+             <property name="styleSheet">
+              <string notr="true">color: #64748B;</string>
+             </property>
+             <property name="text">
+              <string>Close:</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="3">
+            <widget class="QLabel" name="lbClose">
+             <property name="styleSheet">
+              <string notr="true">font-weight: bold;</string>
+             </property>
+             <property name="text">
+              <string>0.00</string>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="0">
+            <widget class="QLabel" name="volTitle">
+             <property name="styleSheet">
+              <string notr="true">color: #64748B;</string>
+             </property>
+             <property name="text">
+              <string>Volume:</string>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="1">
+            <widget class="QLabel" name="lbVolume">
+             <property name="styleSheet">
+              <string notr="true">font-weight: bold;</string>
+             </property>
+             <property name="text">
+              <string>0</string>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="2">
+            <widget class="QLabel" name="valTitle">
+             <property name="styleSheet">
+              <string notr="true">color: #64748B;</string>
+             </property>
+             <property name="text">
+              <string>Value:</string>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="3">
+            <widget class="QLabel" name="lbValue">
+             <property name="styleSheet">
+              <string notr="true">font-weight: bold;</string>
+             </property>
+             <property name="text">
+              <string>0.00</string>
+             </property>
+            </widget>
+           </item>
+           <item row="3" column="0">
+            <widget class="QLabel" name="atpTitleStats">
+             <property name="styleSheet">
+              <string notr="true">color: #64748B;</string>
+             </property>
+             <property name="text">
+              <string>ATP:</string>
+             </property>
+            </widget>
+           </item>
+           <item row="3" column="1">
+            <widget class="QLabel" name="lbATP">
+             <property name="styleSheet">
+              <string notr="true">font-weight: bold;</string>
+             </property>
+             <property name="text">
+              <string>0.00</string>
+             </property>
+            </widget>
+           </item>
+           <item row="3" column="2">
+            <widget class="QLabel" name="chgTitle">
+             <property name="styleSheet">
+              <string notr="true">color: #64748B;</string>
+             </property>
+             <property name="text">
+              <string>Chg %:</string>
+             </property>
+            </widget>
+           </item>
+           <item row="3" column="3">
+            <widget class="QLabel" name="lbPercentChange">
+             <property name="styleSheet">
+              <string notr="true">font-weight: bold;</string>
+             </property>
+             <property name="text">
+              <string>0.00</string>
+             </property>
+            </widget>
+           </item>
+           <item row="4" column="0">
+            <widget class="QLabel" name="oiTitle">
+             <property name="styleSheet">
+              <string notr="true">color: #64748B;</string>
+             </property>
+             <property name="text">
+              <string>OI:</string>
+             </property>
+            </widget>
+           </item>
+           <item row="4" column="1">
+            <widget class="QLabel" name="lbOI">
+             <property name="styleSheet">
+              <string notr="true">font-weight: bold;</string>
+             </property>
+             <property name="text">
+              <string>0</string>
+             </property>
+            </widget>
+           </item>
+           <item row="4" column="2">
+            <widget class="QLabel" name="oiChgTitle">
+             <property name="styleSheet">
+              <string notr="true">color: #64748B;</string>
+             </property>
+             <property name="text">
+              <string>OI %:</string>
+             </property>
+            </widget>
+           </item>
+           <item row="4" column="3">
+            <widget class="QLabel" name="lbOIPercent">
+             <property name="styleSheet">
+              <string notr="true">font-weight: bold;</string>
+             </property>
+             <property name="text">
+              <string>0.00</string>
+             </property>
+            </widget>
+           </item>
+           <item row="5" column="0">
+            <widget class="QLabel" name="dprTitle">
+             <property name="styleSheet">
+              <string notr="true">color: #64748B;</string>
+             </property>
+             <property name="text">
+              <string>DPR:</string>
+             </property>
+            </widget>
+           </item>
+           <item row="5" column="1" colspan="3">
+            <widget class="QLabel" name="lbDPR">
+             <property name="styleSheet">
+              <string notr="true">font-weight: bold; color: #CA8A04;</string>
+             </property>
+             <property name="text">
+              <string>0.00 - 0.00</string>
+             </property>
+            </widget>
+           </item>
+           <item row="6" column="0">
+            <widget class="QLabel" name="glTitle">
+             <property name="styleSheet">
+              <string notr="true">color: #64748B;</string>
+             </property>
+             <property name="text">
+              <string>Gain/Loss:</string>
+             </property>
+            </widget>
+           </item>
+           <item row="6" column="1">
+            <widget class="QLabel" name="lbGainLoss">
+             <property name="styleSheet">
+              <string notr="true">font-weight: bold; color: #059669;</string>
+             </property>
+             <property name="text">
+              <string>0.00</string>
+             </property>
+            </widget>
+           </item>
+           <item row="6" column="2">
+            <widget class="QLabel" name="mtmvTitle">
+             <property name="styleSheet">
+              <string notr="true">color: #64748B;</string>
+             </property>
+             <property name="text">
+              <string>MTM Val:</string>
+             </property>
+            </widget>
+           </item>
+           <item row="6" column="3">
+            <widget class="QLabel" name="lbMTMValue">
+             <property name="styleSheet">
+              <string notr="true">font-weight: bold;</string>
+             </property>
+             <property name="text">
+              <string>0.00</string>
+             </property>
+            </widget>
+           </item>
+           <item row="7" column="2">
+            <widget class="QLabel" name="mtmpTitle">
+             <property name="styleSheet">
+              <string notr="true">color: #64748B;</string>
+             </property>
+             <property name="text">
+              <string>MTM Pos:</string>
+             </property>
+            </widget>
+           </item>
+           <item row="7" column="3">
+            <widget class="QLabel" name="lbMTMPos">
+             <property name="styleSheet">
+              <string notr="true">font-weight: bold;</string>
+             </property>
+             <property name="text">
+              <string>0.00</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </item>
+         <item>
+          <spacer name="statsBotSpacer">
+           <property name="orientation">
+            <enum>Qt::Vertical</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>40</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+        </layout>
        </widget>
-      </item>
-      <item>
-       <widget class="QLineEdit" name="leInstType">
-        <property name="sizePolicy">
-         <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-          <horstretch>0</horstretch>
-          <verstretch>0</verstretch>
-         </sizepolicy>
-        </property>
-        <property name="minimumSize">
-         <size>
-          <width>80</width>
-          <height>0</height>
-         </size>
-        </property>
-        <property name="maximumSize">
-         <size>
-          <width>100</width>
-          <height>16777215</height>
-         </size>
-        </property>
-        <property name="alignment">
-         <set>Qt::AlignCenter</set>
-        </property>
-        <property name="readOnly">
-         <bool>true</bool>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QLineEdit" name="leSymbol">
-        <property name="sizePolicy">
-         <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-          <horstretch>0</horstretch>
-          <verstretch>0</verstretch>
-         </sizepolicy>
-        </property>
-        <property name="minimumSize">
-         <size>
-          <width>120</width>
-          <height>0</height>
-         </size>
-        </property>
-        <property name="styleSheet">
-         <string notr="true">font-weight: bold; font-size: 13px; color: #1D4ED8; background-color: #DBEAFE; border: 1px solid #93C5FD;</string>
-        </property>
-        <property name="alignment">
-         <set>Qt::AlignCenter</set>
-        </property>
-        <property name="readOnly">
-         <bool>true</bool>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QComboBox" name="cbExpiry">
-        <property name="sizePolicy">
-         <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-          <horstretch>0</horstretch>
-          <verstretch>0</verstretch>
-         </sizepolicy>
-        </property>
-        <property name="minimumSize">
-         <size>
-          <width>110</width>
-          <height>0</height>
-         </size>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QPushButton" name="pbRefresh">
-        <property name="sizePolicy">
-         <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-          <horstretch>0</horstretch>
-          <verstretch>0</verstretch>
-         </sizepolicy>
-        </property>
-        <property name="text">
-         <string>Refresh (F5)</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <spacer name="headerSpacer">
-        <property name="orientation">
-         <enum>Qt::Horizontal</enum>
-        </property>
-        <property name="sizeHint" stdset="0">
-         <size>
-          <width>40</width>
-          <height>20</height>
-         </size>
-        </property>
-       </spacer>
       </item>
      </layout>
     </widget>
    </item>
    <item>
-    <layout class="QHBoxLayout" name="contentLayout" stretch="1,1,1">
-     <property name="spacing">
-      <number>12</number>
+    <spacer name="verticalSpacer">
+     <property name="orientation">
+      <enum>Qt::Vertical</enum>
      </property>
-     <item>
-      <layout class="QGridLayout" name="depthGrid">
-       <item row="0" column="0">
-        <widget class="QFrame" name="bidFrame">
-         <property name="sizePolicy">
-          <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-           <horstretch>0</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
-         </property>
-         <property name="minimumSize">
-          <size>
-           <width>260</width>
-           <height>0</height>
-          </size>
-         </property>
-         <layout class="QVBoxLayout" name="bidLayout">
-          <item>
-           <layout class="QGridLayout" name="bidGrid">
-            <property name="verticalSpacing">
-             <number>6</number>
-            </property>
-            <item row="0" column="0">
-             <widget class="QLabel" name="lbBidQty1">
-              <property name="styleSheet">
-               <string notr="true">color: #2563EB; font-weight: bold;</string>
-              </property>
-              <property name="text">
-               <string>0</string>
-              </property>
-             </widget>
-            </item>
-            <item row="0" column="1">
-             <widget class="QLabel" name="lbBidPrice1">
-              <property name="alignment">
-               <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-              </property>
-              <property name="styleSheet">
-               <string notr="true">color: #1D4ED8; font-weight: bold; font-size: 12px;</string>
-              </property>
-              <property name="text">
-               <string>0.00</string>
-              </property>
-             </widget>
-            </item>
-            <item row="0" column="2">
-             <widget class="QLabel" name="bidAt1">
-              <property name="styleSheet">
-               <string notr="true">color: #94A3B8;</string>
-              </property>
-              <property name="alignment">
-               <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-              </property>
-              <property name="text">
-               <string>0</string>
-              </property>
-             </widget>
-            </item>
-            <item row="1" column="0"><widget class="QLabel" name="lbBidQty2"><property name="styleSheet"><string notr="true">color: #2563EB;</string></property><property name="text"><string>0</string></property></widget></item>
-            <item row="1" column="1"><widget class="QLabel" name="lbBidPrice2"><property name="alignment"><set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set></property><property name="styleSheet"><string notr="true">color: #1D4ED8;</string></property><property name="text"><string>0.00</string></property></widget></item>
-            <item row="1" column="2"><widget class="QLabel" name="bidAt2"><property name="styleSheet"><string notr="true">color: #94A3B8;</string></property><property name="alignment"><set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set></property><property name="text"><string>0</string></property></widget></item>
-            <item row="2" column="0"><widget class="QLabel" name="lbBidQty3"><property name="styleSheet"><string notr="true">color: #2563EB;</string></property><property name="text"><string>0</string></property></widget></item>
-            <item row="2" column="1"><widget class="QLabel" name="lbBidPrice3"><property name="alignment"><set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set></property><property name="styleSheet"><string notr="true">color: #1D4ED8;</string></property><property name="text"><string>0.00</string></property></widget></item>
-            <item row="2" column="2"><widget class="QLabel" name="bidAt3"><property name="styleSheet"><string notr="true">color: #94A3B8;</string></property><property name="alignment"><set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set></property><property name="text"><string>0</string></property></widget></item>
-            <item row="3" column="0"><widget class="QLabel" name="lbBidQty4"><property name="styleSheet"><string notr="true">color: #2563EB;</string></property><property name="text"><string>0</string></property></widget></item>
-            <item row="3" column="1"><widget class="QLabel" name="lbBidPrice4"><property name="alignment"><set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set></property><property name="styleSheet"><string notr="true">color: #1D4ED8;</string></property><property name="text"><string>0.00</string></property></widget></item>
-            <item row="3" column="2"><widget class="QLabel" name="bidAt4"><property name="styleSheet"><string notr="true">color: #94A3B8;</string></property><property name="alignment"><set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set></property><property name="text"><string>0</string></property></widget></item>
-            <item row="4" column="0"><widget class="QLabel" name="lbBidQty5"><property name="styleSheet"><string notr="true">color: #2563EB;</string></property><property name="text"><string>0</string></property></widget></item>
-            <item row="4" column="1"><widget class="QLabel" name="lbBidPrice5"><property name="alignment"><set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set></property><property name="styleSheet"><string notr="true">color: #1D4ED8;</string></property><property name="text"><string>0.00</string></property></widget></item>
-            <item row="4" column="2"><widget class="QLabel" name="bidAt5"><property name="styleSheet"><string notr="true">color: #94A3B8;</string></property><property name="alignment"><set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set></property><property name="text"><string>0</string></property></widget></item>
-           </layout>
-          </item>
-         </layout>
-        </widget>
-       </item>
-       <item row="0" column="1">
-        <widget class="QFrame" name="askFrame">
-         <property name="sizePolicy">
-          <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-           <horstretch>0</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
-         </property>
-         <property name="minimumSize">
-          <size>
-           <width>260</width>
-           <height>0</height>
-          </size>
-         </property>
-         <layout class="QVBoxLayout" name="askLayout">
-          <item>
-           <layout class="QGridLayout" name="askGrid">
-            <property name="verticalSpacing">
-             <number>6</number>
-            </property>
-            <item row="0" column="0">
-             <widget class="QLabel" name="lbAskQty1">
-              <property name="styleSheet">
-               <string notr="true">color: #DC2626; font-weight: bold;</string>
-              </property>
-              <property name="text">
-               <string>0</string>
-              </property>
-             </widget>
-            </item>
-            <item row="0" column="1">
-             <widget class="QLabel" name="lbAskPrice1">
-              <property name="alignment">
-               <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-              </property>
-              <property name="styleSheet">
-               <string notr="true">color: #B91C1C; font-weight: bold; font-size: 12px;</string>
-              </property>
-              <property name="text">
-               <string>0.00</string>
-              </property>
-             </widget>
-            </item>
-            <item row="0" column="2">
-             <widget class="QLabel" name="lbAskOrders1">
-              <property name="styleSheet">
-               <string notr="true">color: #94A3B8;</string>
-              </property>
-              <property name="alignment">
-               <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-              </property>
-              <property name="text">
-               <string>0</string>
-              </property>
-             </widget>
-            </item>
-            <item row="1" column="0"><widget class="QLabel" name="lbAskQty2"><property name="styleSheet"><string notr="true">color: #DC2626;</string></property><property name="text"><string>0</string></property></widget></item>
-            <item row="1" column="1"><widget class="QLabel" name="lbAskPrice2"><property name="alignment"><set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set></property><property name="styleSheet"><string notr="true">color: #B91C1C;</string></property><property name="text"><string>0.00</string></property></widget></item>
-            <item row="1" column="2"><widget class="QLabel" name="lbAskOrders2"><property name="styleSheet"><string notr="true">color: #94A3B8;</string></property><property name="alignment"><set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set></property><property name="text"><string>0</string></property></widget></item>
-            <item row="2" column="0"><widget class="QLabel" name="lbAskQty3"><property name="styleSheet"><string notr="true">color: #DC2626;</string></property><property name="text"><string>0</string></property></widget></item>
-            <item row="2" column="1"><widget class="QLabel" name="lbAskPrice3"><property name="alignment"><set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set></property><property name="styleSheet"><string notr="true">color: #B91C1C;</string></property><property name="text"><string>0.00</string></property></widget></item>
-            <item row="2" column="2"><widget class="QLabel" name="lbAskOrders3"><property name="styleSheet"><string notr="true">color: #94A3B8;</string></property><property name="alignment"><set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set></property><property name="text"><string>0</string></property></widget></item>
-            <item row="3" column="0"><widget class="QLabel" name="lbAskQty4"><property name="styleSheet"><string notr="true">color: #DC2626;</string></property><property name="text"><string>0</string></property></widget></item>
-            <item row="3" column="1"><widget class="QLabel" name="lbAskPrice4"><property name="alignment"><set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set></property><property name="styleSheet"><string notr="true">color: #B91C1C;</string></property><property name="text"><string>0.00</string></property></widget></item>
-            <item row="3" column="2"><widget class="QLabel" name="lbAskOrders4"><property name="styleSheet"><string notr="true">color: #94A3B8;</string></property><property name="alignment"><set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set></property><property name="text"><string>0</string></property></widget></item>
-            <item row="4" column="0"><widget class="QLabel" name="lbAskQty5"><property name="styleSheet"><string notr="true">color: #DC2626;</string></property><property name="text"><string>0</string></property></widget></item>
-            <item row="4" column="1"><widget class="QLabel" name="lbAskPrice5"><property name="alignment"><set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set></property><property name="styleSheet"><string notr="true">color: #B91C1C;</string></property><property name="text"><string>0.00</string></property></widget></item>
-            <item row="4" column="2"><widget class="QLabel" name="lbAskOrders5"><property name="styleSheet"><string notr="true">color: #94A3B8;</string></property><property name="alignment"><set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set></property><property name="text"><string>0</string></property></widget></item>
-           </layout>
-          </item>
-         </layout>
-        </widget>
-       </item>
-       <item row="1" column="0">
-        <widget class="QLabel" name="lb_allBuyers">
-         <property name="stylePolicy">
-          <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-           <horstretch>0</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
-         </property>
-         <property name="styleSheet">
-          <string notr="true">color: #2563EB; font-weight: bold; padding-top: 5px;</string>
-         </property>
-         <property name="text">
-          <string>Total Buyers: 0</string>
-         </property>
-        </widget>
-       </item>
-       <item row="1" column="1">
-        <widget class="QLabel" name="lb_allSellers">
-         <property name="stylePolicy">
-          <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-           <horstretch>0</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
-         </property>
-         <property name="alignment">
-          <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-         </property>
-         <property name="styleSheet">
-          <string notr="true">color: #DC2626; font-weight: bold; padding-top: 5px;</string>
-         </property>
-         <property name="text">
-          <string>Total Sellers: 0</string>
-         </property>
-        </widget>
-       </item>
-      </layout>
-     </item>
-     <item>
-      <widget class="QFrame" name="statsFrame">
-       <property name="sizePolicy">
-        <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-         <horstretch>0</horstretch>
-         <verstretch>0</verstretch>
-        </sizepolicy>
-       </property>
-       <property name="minimumSize">
-        <size>
-         <width>320</width>
-         <height>0</height>
-        </size>
-       </property>
-       <layout class="QVBoxLayout" name="statsLayout">
-        <property name="spacing">
-         <number>10</number>
-        </property>
-        <item>
-         <layout class="QHBoxLayout" name="ltpRow">
-          <item>
-           <widget class="QLabel" name="ltpTitle">
-            <property name="text">
-             <string>LTP: </string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QLabel" name="lbLTPQty">
-            <property name="styleSheet">
-             <string notr="true">font-size: 14px; font-weight: bold;</string>
-            </property>
-            <property name="text">
-             <string>0</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QLabel" name="atTitle">
-            <property name="text">
-             <string> @ </string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QLabel" name="lbLTPPrice">
-            <property name="styleSheet">
-             <string notr="true">font-size: 22px; font-weight: bold; color: #2563EB;</string>
-            </property>
-            <property name="text">
-             <string>0.00</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QLabel" name="lbLTPIndicator">
-            <property name="styleSheet">
-             <string notr="true">font-size: 18px; color: #059669;</string>
-            </property>
-            <property name="text">
-             <string>▲</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <spacer name="ltpSpacer">
-            <property name="orientation">
-             <enum>Qt::Horizontal</enum>
-            </property>
-            <property name="sizeHint" stdset="0">
-             <size>
-              <width>40</width>
-              <height>20</height>
-             </size>
-            </property>
-           </spacer>
-          </item>
-          <item>
-           <widget class="QLabel" name="lbLTPTime">
-            <property name="styleSheet">
-             <string notr="true">color: #64748B;</string>
-            </property>
-            <property name="text">
-             <string>--:--:--</string>
-            </property>
-           </widget>
-          </item>
-         </layout>
-        </item>
-        <item>
-         <layout class="QGridLayout" name="statsGrid">
-          <property name="verticalSpacing">
-           <number>8</number>
-          </property>
-          <property name="horizontalSpacing">
-           <number>15</number>
-          </property>
-          <item row="0" column="0"><widget class="QLabel" name="openTitle"><property name="styleSheet"><string notr="true">color: #64748B;</string></property><property name="text"><string>Open:</string></property></widget></item>
-          <item row="0" column="1"><widget class="QLabel" name="lbOpen"><property name="styleSheet"><string notr="true">font-weight: bold;</string></property><property name="text"><string>0.00</string></property></widget></item>
-          <item row="0" column="2"><widget class="QLabel" name="highTitle"><property name="styleSheet"><string notr="true">color: #64748B;</string></property><property name="text"><string>High:</string></property></widget></item>
-          <item row="0" column="3"><widget class="QLabel" name="lbHigh"><property name="styleSheet"><string notr="true">font-weight: bold; color: #059669;</string></property><property name="text"><string>0.00</string></property></widget></item>
-          <item row="1" column="0"><widget class="QLabel" name="lowTitle"><property name="styleSheet"><string notr="true">color: #64748B;</string></property><property name="text"><string>Low:</string></property></widget></item>
-          <item row="1" column="1"><widget class="QLabel" name="lbLow"><property name="styleSheet"><string notr="true">font-weight: bold; color: #DC2626;</string></property><property name="text"><string>0.00</string></property></widget></item>
-          <item row="1" column="2"><widget class="QLabel" name="closeTitle"><property name="styleSheet"><string notr="true">color: #64748B;</string></property><property name="text"><string>Close:</string></property></widget></item>
-          <item row="1" column="3"><widget class="QLabel" name="lbClose"><property name="styleSheet"><string notr="true">font-weight: bold;</string></property><property name="text"><string>0.00</string></property></widget></item>
-          <item row="2" column="0"><widget class="QLabel" name="volTitle"><property name="styleSheet"><string notr="true">color: #64748B;</string></property><property name="text"><string>Volume:</string></property></widget></item>
-          <item row="2" column="1"><widget class="QLabel" name="lbVolume"><property name="styleSheet"><string notr="true">font-weight: bold;</string></property><property name="text"><string>0</string></property></widget></item>
-          <item row="2" column="2"><widget class="QLabel" name="valTitle"><property name="styleSheet"><string notr="true">color: #64748B;</string></property><property name="text"><string>Value:</string></property></widget></item>
-          <item row="2" column="3"><widget class="QLabel" name="lbValue"><property name="styleSheet"><string notr="true">font-weight: bold;</string></property><property name="text"><string>0.00</string></property></widget></item>
-          <item row="3" column="0"><widget class="QLabel" name="atpTitleStats"><property name="styleSheet"><string notr="true">color: #64748B;</string></property><property name="text"><string>ATP:</string></property></widget></item>
-          <item row="3" column="1"><widget class="QLabel" name="lbATP"><property name="styleSheet"><string notr="true">font-weight: bold;</string></property><property name="text"><string>0.00</string></property></widget></item>
-          <item row="3" column="2"><widget class="QLabel" name="chgTitle"><property name="styleSheet"><string notr="true">color: #64748B;</string></property><property name="text"><string>Chg %:</string></property></widget></item>
-          <item row="3" column="3"><widget class="QLabel" name="lbPercentChange"><property name="styleSheet"><string notr="true">font-weight: bold;</string></property><property name="text"><string>0.00</string></property></widget></item>
-          <item row="4" column="0"><widget class="QLabel" name="oiTitle"><property name="styleSheet"><string notr="true">color: #64748B;</string></property><property name="text"><string>OI:</string></property></widget></item>
-          <item row="4" column="1"><widget class="QLabel" name="lbOI"><property name="styleSheet"><string notr="true">font-weight: bold;</string></property><property name="text"><string>0</string></property></widget></item>
-          <item row="4" column="2"><widget class="QLabel" name="oiChgTitle"><property name="styleSheet"><string notr="true">color: #64748B;</string></property><property name="text"><string>OI %:</string></property></widget></item>
-          <item row="4" column="3"><widget class="QLabel" name="lbOIPercent"><property name="styleSheet"><string notr="true">font-weight: bold;</string></property><property name="text"><string>0.00</string></property></widget></item>
-          <item row="5" column="0"><widget class="QLabel" name="dprTitle"><property name="styleSheet"><string notr="true">color: #64748B;</string></property><property name="text"><string>DPR:</string></property></widget></item>
-          <item row="5" column="1" colspan="3"><widget class="QLabel" name="lbDPR"><property name="styleSheet"><string notr="true">font-weight: bold; color: #CA8A04;</string></property><property name="text"><string>0.00 - 0.00</string></property></widget></item>
-          <item row="6" column="0"><widget class="QLabel" name="glTitle"><property name="styleSheet"><string notr="true">color: #64748B;</string></property><property name="text"><string>Gain/Loss:</string></property></widget></item>
-          <item row="6" column="1"><widget class="QLabel" name="lbGainLoss"><property name="styleSheet"><string notr="true">font-weight: bold; color: #059669;</string></property><property name="text"><string>0.00</string></property></widget></item>
-          <item row="6" column="2"><widget class="QLabel" name="mtmvTitle"><property name="styleSheet"><string notr="true">color: #64748B;</string></property><property name="text"><string>MTM Val:</string></property></widget></item>
-          <item row="6" column="3"><widget class="QLabel" name="lbMTMValue"><property name="styleSheet"><string notr="true">font-weight: bold;</string></property><property name="text"><string>0.00</string></property></widget></item>
-          <item row="7" column="2"><widget class="QLabel" name="mtmpTitle"><property name="styleSheet"><string notr="true">color: #64748B;</string></property><property name="text"><string>MTM Pos:</string></property></widget></item>
-          <item row="7" column="3"><widget class="QLabel" name="lbMTMPos"><property name="styleSheet"><string notr="true">font-weight: bold;</string></property><property name="text"><string>0.00</string></property></widget></item>
-         </layout>
-        </item>
-        <item>
-         <spacer name="statsBotSpacer">
-          <property name="orientation">
-           <enum>Qt::Vertical</enum>
-          </property>
-          <property name="sizeHint" stdset="0">
-           <size>
-            <width>40</width>
-            <height>20</height>
-           </size>
-          </property>
-         </spacer>
-        </item>
-       </layout>
-      </widget>
-     </item>
-    </layout>
+     <property name="sizeHint" stdset="0">
+      <size>
+       <width>20</width>
+       <height>40</height>
+      </size>
+     </property>
+    </spacer>
    </item>
   </layout>
  </widget>

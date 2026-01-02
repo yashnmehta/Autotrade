@@ -1,5 +1,6 @@
 #include "views/SnapQuoteWindow.h"
 #include "api/XTSMarketDataClient.h"
+#include "repository/RepositoryManager.h"
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QDebug>
@@ -39,6 +40,22 @@ void SnapQuoteWindow::fetchQuote()
     });
 }
 
+void SnapQuoteWindow::onScripSelected(const InstrumentData &data)
+{
+    m_token = data.exchangeInstrumentID;
+    QString segKey = RepositoryManager::getExchangeSegmentName(data.exchangeSegment);
+    // Parse exchange from segKey (NSECM -> NSE, BSEFO -> BSE)
+    if (segKey.startsWith("BSE")) m_exchange = "BSE";
+    else if (segKey.startsWith("MCX")) m_exchange = "MCX";
+    else if (segKey.startsWith("NSECD")) m_exchange = "NSECDS";
+    else m_exchange = "NSE";
+    
+    m_symbol = data.symbol;
+    
+    qDebug() << "[SnapQuote] Selected:" << m_symbol << m_token << m_exchange;
+    fetchQuote();
+}
+
 void SnapQuoteWindow::loadFromContext(const WindowContext &context)
 {
     if (!context.isValid()) return;
@@ -46,9 +63,21 @@ void SnapQuoteWindow::loadFromContext(const WindowContext &context)
     m_exchange = context.exchange;
     m_symbol = context.symbol;
     
-    if (m_leSymbol) m_leSymbol->setText(m_symbol);
-    if (m_leToken) m_leToken->setText(QString::number(m_token));
-    
+    // Update ScripBar with context
+    if (m_scripBar) {
+        InstrumentData data;
+        data.exchangeInstrumentID = m_token;
+        data.symbol = m_symbol;
+        // Map exchange string to ID if needed, or rely on RepositoryManager inside ScripBar
+        data.exchangeSegment = RepositoryManager::getExchangeSegmentID(m_exchange, 
+                              (m_exchange == "NSE" && m_token < 100000) ? "E" : "F"); // Approximation
+        // Ideally context has more info or we look it up
+        data.name = m_symbol; 
+        data.instrumentType = context.instrumentType; // Assuming context has this or "EQUITY"
+        
+        m_scripBar->setScripDetails(data);
+    }
+
     fetchQuote();
 }
 

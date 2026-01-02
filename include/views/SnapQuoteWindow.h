@@ -12,6 +12,7 @@
 #include <QShortcut>
 #include "models/WindowContext.h"
 #include "api/XTSTypes.h"
+#include "app/ScripBar.h"
 
 class XTSMarketDataClient;
 
@@ -34,7 +35,7 @@ public:
     WindowContext getContext() const { return m_context; }
     
     // Set XTS client for market data
-    void setXTSClient(XTSMarketDataClient *client) { m_xtsClient = client; }
+    void setXTSClient(XTSMarketDataClient *client);
     
     // Fetch current quote from API
     void fetchQuote();
@@ -64,6 +65,9 @@ public slots:
     void onRefreshClicked();
     void onTickUpdate(const XTS::Tick& tick);
 
+private slots:
+    void onScripSelected(const InstrumentData &data);
+
 signals:
     void refreshRequested(const QString &exchange, int token);
     void closed();
@@ -78,12 +82,7 @@ private:
     QWidget *m_formWidget;
     
     // Header widgets
-    QComboBox *m_cbEx;
-    QComboBox *m_cbSegment;
-    QLineEdit *m_leToken;
-    QLineEdit *m_leInstType;
-    QLineEdit *m_leSymbol;
-    QComboBox *m_cbExpiry;
+    ScripBar *m_scripBar;
     QPushButton *m_pbRefresh;
     
     // LTP Section

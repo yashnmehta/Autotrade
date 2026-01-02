@@ -23,14 +23,30 @@ void SnapQuoteWindow::initUI()
     layout->setContentsMargins(0, 0, 0, 0);
     layout->addWidget(m_formWidget);
 
-    // Header widgets
-    m_cbEx = m_formWidget->findChild<QComboBox*>("cbEx");
-    m_cbSegment = m_formWidget->findChild<QComboBox*>("cbSegment");
-    m_leToken = m_formWidget->findChild<QLineEdit*>("leToken");
-    m_leInstType = m_formWidget->findChild<QLineEdit*>("leInstType");
-    m_leSymbol = m_formWidget->findChild<QLineEdit*>("leSymbol");
-    m_cbExpiry = m_formWidget->findChild<QComboBox*>("cbExpiry");
-    m_pbRefresh = m_formWidget->findChild<QPushButton*>("pbRefresh");
+    // Setup Header with ScripBar
+    QWidget *headerWidget = m_formWidget->findChild<QWidget*>("headerWidget");
+    if (headerWidget) {
+        if (!headerWidget->layout()) {
+            new QHBoxLayout(headerWidget);
+        }
+        
+        m_scripBar = new ScripBar(this);
+        m_scripBar->setXTSClient(m_xtsClient);
+        
+        // Add ScripBar to header layout
+        // We add it at index 0
+        QLayout *headerLayout = headerWidget->layout();
+        headerLayout->setContentsMargins(0,0,0,0);
+        // Remove existing items from UI if any left (though we cleared them in UI file)
+        
+        headerLayout->addWidget(m_scripBar);
+        // pbRefresh is still in UI file or we can re-find it?
+        // In UI file we kept pbRefresh.
+        m_pbRefresh = m_formWidget->findChild<QPushButton*>("pbRefresh");
+        if (m_pbRefresh) {
+            headerLayout->addWidget(m_pbRefresh);
+        }
+    }
 
     // LTP section
     m_lbLTPQty = m_formWidget->findChild<QLabel*>("lbLTPQty");
@@ -88,20 +104,22 @@ void SnapQuoteWindow::initUI()
     m_lbTotalBuyers = m_formWidget->findChild<QLabel*>("lb_allBuyers");
     m_lbTotalSellers = m_formWidget->findChild<QLabel*>("lb_allSellers");
 
-    populateComboBoxes();
+    populateComboBoxes(); // May be empty now
     setupConnections();
     setupKeyboardShortcuts();
 }
 
 void SnapQuoteWindow::populateComboBoxes()
 {
-    if (m_cbEx) m_cbEx->addItems({"NSE", "BSE", "MCX"});
-    if (m_cbSegment) m_cbSegment->addItems({"F", "C", "D"});
+    // No explicit combo boxes to populate anymore
 }
 
 void SnapQuoteWindow::setupConnections() {
     if (m_pbRefresh) {
         connect(m_pbRefresh, &QPushButton::clicked, this, &SnapQuoteWindow::onRefreshClicked);
+    }
+    if (m_scripBar) {
+        connect(m_scripBar, &ScripBar::addToWatchRequested, this, &SnapQuoteWindow::onScripSelected);
     }
 }
 

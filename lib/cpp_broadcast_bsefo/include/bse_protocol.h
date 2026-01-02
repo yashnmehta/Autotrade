@@ -134,6 +134,13 @@ struct DecodedSessionState {
     uint64_t packetTimestamp;    // System time of receipt
 };
 
+// Decoded Close Price (Message Type 2014)
+struct DecodedClosePrice {
+    uint32_t token;
+    int32_t closePrice;          // Closing price in paise
+    uint64_t packetTimestamp;    // System time of receipt
+};
+
 #pragma pack(pop)
 
 } // namespace bse

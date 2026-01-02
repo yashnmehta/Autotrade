@@ -28,7 +28,7 @@ void BaseOrderWindow::setupBaseUI(const QString& uiFile) {
     if (!m_formWidget) return;
 
     setMinimumWidth(1200);
-    setMinimumHeight(200);
+    // setMinimumHeight(140);
     setFocusPolicy(Qt::StrongFocus);
     m_formWidget->setFocusPolicy(Qt::StrongFocus);
 

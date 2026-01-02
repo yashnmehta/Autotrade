@@ -24,3 +24,11 @@ void SnapQuoteWindow::setScripDetails(const QString &exchange, const QString &se
     m_symbol = symbol;
     fetchQuote();
 }
+
+void SnapQuoteWindow::setXTSClient(XTSMarketDataClient *client)
+{
+    m_xtsClient = client;
+    if (m_scripBar) {
+        m_scripBar->setXTSClient(client);
+    }
+}

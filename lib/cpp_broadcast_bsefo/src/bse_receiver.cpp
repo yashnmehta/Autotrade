@@ -164,7 +164,8 @@ bool BSEReceiver::validatePacket(const uint8_t* buffer, size_t length) {
     if (msgType != MSG_TYPE_MARKET_PICTURE && 
         msgType != MSG_TYPE_MARKET_PICTURE_COMPLEX && 
         msgType != MSG_TYPE_INDEX &&
-        msgType != MSG_TYPE_OPEN_INTEREST) {
+        msgType != MSG_TYPE_OPEN_INTEREST &&
+        msgType != MSG_TYPE_CLOSE_PRICE) {
         static int msgErrCount = 0;
         if (++msgErrCount % 10 == 0) std::cerr << "[" << segment_ << "] Validation Fail: MsgType=" << msgType << std::endl;
         return false;
@@ -222,6 +223,11 @@ void BSEReceiver::decodeAndDispatch(const uint8_t* buffer, size_t length) {
     else if (msgType == MSG_TYPE_PRODUCT_STATE_CHANGE) {
         // Handle session state change (2002)
         decodeSessionState(buffer, length);
+        return;
+    }
+    else if (msgType == MSG_TYPE_CLOSE_PRICE) {
+        // Handle close price update (2014)
+        decodeClosePrice(buffer, length);
         return;
     }
     else if (msgType == MSG_TYPE_INDEX) {
@@ -464,6 +470,61 @@ void BSEReceiver::decodeSessionState(const uint8_t* buffer, size_t length) {
     // Dispatch to callback
     if (sessionStateCallback_) {
         sessionStateCallback_(state);
+    }
+}
+
+// Decode BSE Close Price (Message Type 2014 - CLOSE_PRICE)
+void BSEReceiver::decodeClosePrice(const uint8_t* buffer, size_t length) {
+    // Message 2014 structure (similar to market data records)
+    // Records start at offset 36, each contains token and close price
+    // Record size is likely 264 bytes (same as market picture) or smaller
+    
+    if (length < HEADER_SIZE + 8) return;  // Need at least token + price
+    
+    auto now = std::chrono::duration_cast<std::chrono::microseconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+    
+    // Try 264-byte records first (standard BSE record size)
+    size_t recordSlotSize = 264;
+    size_t numRecords = (length - HEADER_SIZE) / recordSlotSize;
+    
+    // If that gives 0 records, try smaller size (8 bytes minimum: token + price)
+    if (numRecords == 0) {
+        recordSlotSize = 8;
+        numRecords = (length - HEADER_SIZE) / recordSlotSize;
+    }
+    
+    for (size_t i = 0; i < numRecords; i++) {
+        size_t recordOffset = HEADER_SIZE + (i * recordSlotSize);
+        if (recordOffset + 8 > length) break;  // Need at least token + price
+        
+        const uint8_t* record = buffer + recordOffset;
+        
+        DecodedClosePrice cp;
+        cp.packetTimestamp = now;
+        
+        // Token (0-3) - Little Endian
+        cp.token = le32toh_func(*(uint32_t*)(record + 0));
+        
+        // Skip empty slots
+        if (cp.token == 0) continue;
+        
+        // Close Price (4-7) - Little Endian, in paise
+        cp.closePrice = le32toh_func(*(uint32_t*)(record + 4));
+        
+        // Debug logging
+        static int closePriceLogCount = 0;
+        if (closePriceLogCount++ < 10) {
+            std::cout << "[" << segment_ << "] Close Price 2014 - "
+                      << "Token: " << cp.token
+                      << " Close: " << (cp.closePrice / 100.0) << " Rs"
+                      << std::endl;
+        }
+        
+        // Dispatch to callback
+        if (closePriceCallback_) {
+            closePriceCallback_(cp);
+        }
     }
 }
 

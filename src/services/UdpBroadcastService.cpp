@@ -181,6 +181,36 @@ UDP::IndexTick convertNseFoIndex(const nsefo::IndexData& data) {
     return tick;
 }
 
+// Convert NSE FO Industry Index Data to UDP::IndexTick
+UDP::IndexTick convertNseFoIndustryIndex(const nsefo::IndustryIndexData& data) {
+    UDP::IndexTick tick;
+    tick.exchangeSegment = UDP::ExchangeSegment::NSEFO;
+    tick.token = 0;  // Industry index doesn't have a token
+    
+    // Copy industry name (ensure null-termination)
+    std::memcpy(tick.name, data.name, std::min(sizeof(tick.name) - 1, sizeof(data.name)));
+    tick.name[sizeof(tick.name) - 1] = '\0';
+    
+    tick.value = data.value;
+    tick.timestampUdpRecv = data.timestampRecv;
+    
+    return tick;
+}
+
+// Convert NSE FO Circuit Limit Data to UDP::CircuitLimitTick
+UDP::CircuitLimitTick convertNseFoCircuitLimit(const nsefo::CircuitLimitData& data) {
+    UDP::CircuitLimitTick tick;
+    tick.exchangeSegment = UDP::ExchangeSegment::NSEFO;
+    tick.token = data.token;
+    tick.upperLimit = data.upperLimit;
+    tick.lowerLimit = data.lowerLimit;
+    tick.upperExecutionBand = data.upperLimit;  // NSE uses same for execution band
+    tick.lowerExecutionBand = data.lowerLimit;
+    tick.timestampUdpRecv = data.timestampRecv;
+    
+    return tick;
+}
+
 // Backward compatibility: Convert UDP::MarketTick to legacy XTS::Tick
 XTS::Tick convertToLegacy(const UDP::MarketTick& udp) {
     XTS::Tick tick;
@@ -286,6 +316,20 @@ void UdpBroadcastService::setupNseFoCallbacks() {
         UDP::IndexTick indexTick = convertNseFoIndex(data);
         emit udpIndexReceived(indexTick);
     });
+    
+    // Industry index callback for message 7203 (BCAST_INDUSTRY_INDEX_UPDATE)
+    nsefo::MarketDataCallbackRegistry::instance().registerIndustryIndexCallback([this](const nsefo::IndustryIndexData& data) {
+        // Emit new UDP::IndexTick
+        UDP::IndexTick indexTick = convertNseFoIndustryIndex(data);
+        emit udpIndexReceived(indexTick);
+    });
+    
+    // Circuit limit callback for message 7220 (BCAST_LIMIT_PRICE_PROTECTION_RANGE)
+    nsefo::MarketDataCallbackRegistry::instance().registerCircuitLimitCallback([this](const nsefo::CircuitLimitData& data) {
+        // Emit new UDP::CircuitLimitTick
+        UDP::CircuitLimitTick limitTick = convertNseFoCircuitLimit(data);
+        emit udpCircuitLimitReceived(limitTick);
+    });
 }
 
 void UdpBroadcastService::setupNseCmCallbacks() {
@@ -343,6 +387,18 @@ void UdpBroadcastService::setupBseFoCallbacks() {
         UDP::SessionStateTick sessTick = convertBseSessionState(state, UDP::ExchangeSegment::BSEFO);
         emit udpSessionStateReceived(sessTick);
     });
+    
+    // Close Price callback for BSE FO
+    m_bseFoReceiver->setClosePriceCallback([this](const bse::DecodedClosePrice& cp) {
+        // Update prevClose field for the token
+        // Create a partial MarketTick update with just the close price
+        UDP::MarketTick udpTick(UDP::ExchangeSegment::BSEFO, cp.token);
+        udpTick.prevClose = cp.closePrice / 100.0;  // Convert paise to rupees
+        udpTick.timestampUdpRecv = cp.packetTimestamp;
+        udpTick.timestampEmitted = LatencyTracker::now();
+        udpTick.messageType = 2014;  // CLOSE_PRICE
+        emit udpTickReceived(udpTick);
+    });
 }
 
 void UdpBroadcastService::setupBseCmCallbacks() {
@@ -363,6 +419,17 @@ void UdpBroadcastService::setupBseCmCallbacks() {
     m_bseCmReceiver->setSessionStateCallback([this](const bse::DecodedSessionState& state) {
         UDP::SessionStateTick sessTick = convertBseSessionState(state, UDP::ExchangeSegment::BSECM);
         emit udpSessionStateReceived(sessTick);
+    });
+    
+    // Close Price callback for BSE CM
+    m_bseCmReceiver->setClosePriceCallback([this](const bse::DecodedClosePrice& cp) {
+        // Update prevClose field for the token
+        UDP::MarketTick udpTick(UDP::ExchangeSegment::BSECM, cp.token);
+        udpTick.prevClose = cp.closePrice / 100.0;  // Convert paise to rupees
+        udpTick.timestampUdpRecv = cp.packetTimestamp;
+        udpTick.timestampEmitted = LatencyTracker::now();
+        udpTick.messageType = 2014;  // CLOSE_PRICE
+        emit udpTickReceived(udpTick);
     });
 }
 

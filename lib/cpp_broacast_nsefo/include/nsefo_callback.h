@@ -107,6 +107,27 @@ struct IndexData {
     int64_t timestampParsed = 0;
 };
 
+// Industry index data (from 7203)
+struct IndustryIndexData {
+    char name[16];              // Industry name (null-terminated)
+    double value;               // Current index value
+    
+    // Latency tracking
+    int64_t timestampRecv = 0;
+    int64_t timestampParsed = 0;
+};
+
+// Circuit limit data (from 7220)
+struct CircuitLimitData {
+    uint32_t token;
+    double upperLimit;          // Upper execution band (price protection)
+    double lowerLimit;          // Lower execution band (price protection)
+    
+    // Latency tracking
+    int64_t timestampRecv = 0;
+    int64_t timestampParsed = 0;
+};
+
 // ============================================================================
 // CALLBACK FUNCTION TYPES
 // ============================================================================
@@ -125,6 +146,12 @@ using MarketWatchCallback = std::function<void(const MarketWatchData&)>;
 
 // Callback for index updates (7207)
 using IndexCallback = std::function<void(const IndexData&)>;
+
+// Callback for industry index updates (7203)
+using IndustryIndexCallback = std::function<void(const IndustryIndexData&)>;
+
+// Callback for circuit limit updates (7220)
+using CircuitLimitCallback = std::function<void(const CircuitLimitData&)>;
 
 // ============================================================================
 // CALLBACK REGISTRY
@@ -159,6 +186,14 @@ public:
         indexCallback = callback;
     }
     
+    void registerIndustryIndexCallback(IndustryIndexCallback callback) {
+        industryIndexCallback = callback;
+    }
+    
+    void registerCircuitLimitCallback(CircuitLimitCallback callback) {
+        circuitLimitCallback = callback;
+    }
+    
     // Dispatch callbacks (called by parsers)
     void dispatchTouchline(const TouchlineData& data) {
         if (touchlineCallback) {
@@ -190,6 +225,18 @@ public:
         }
     }
     
+    void dispatchIndustryIndex(const IndustryIndexData& data) {
+        if (industryIndexCallback) {
+            industryIndexCallback(data);
+        }
+    }
+    
+    void dispatchCircuitLimit(const CircuitLimitData& data) {
+        if (circuitLimitCallback) {
+            circuitLimitCallback(data);
+        }
+    }
+    
 private:
     MarketDataCallbackRegistry() = default;
     ~MarketDataCallbackRegistry() = default;
@@ -201,6 +248,8 @@ private:
     TickerCallback tickerCallback;
     MarketWatchCallback marketWatchCallback;
     IndexCallback indexCallback;
+    IndustryIndexCallback industryIndexCallback;
+    CircuitLimitCallback circuitLimitCallback;
 };
 
 } // namespace nsefo
