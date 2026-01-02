@@ -41,6 +41,7 @@ protected:
     void loadBasePreferences();
     virtual void calculateDefaultPrice(const WindowContext &context) = 0;
 
+    bool eventFilter(QObject *obj, QEvent *event) override;
     bool focusNextPrevChild(bool next) override;
     void keyPressEvent(QKeyEvent *event) override;
     void closeEvent(QCloseEvent *event) override;

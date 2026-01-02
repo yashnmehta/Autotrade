@@ -87,6 +87,8 @@ void BaseOrderWindow::setupBaseConnections() {
         connect(m_cbOrdType, QOverload<const QString &>::of(&QComboBox::currentTextChanged),
                 this, &BaseOrderWindow::onOrderTypeChanged);
     }
+    if (m_leQty) m_leQty->installEventFilter(this);
+    if (m_leRate) m_leRate->installEventFilter(this);
 }
 
 void BaseOrderWindow::populateBaseComboBoxes() {
@@ -179,7 +181,71 @@ void BaseOrderWindow::loadFromContext(const WindowContext &context) {
         m_leQty->setFocus();
         m_leQty->selectAll();
     }
+    if (m_cbExp) {
+        m_cbExp->clear();
+        if (!context.expiry.isEmpty()) {
+            m_cbExp->addItem(context.expiry);
+            m_cbExp->setCurrentIndex(0);
+        }
+    }
+    if (m_cbStrike) {
+        m_cbStrike->clear();
+        if (context.strikePrice > 0) {
+            m_cbStrike->addItem(QString::number(context.strikePrice, 'f', 2));
+            m_cbStrike->setCurrentIndex(0);
+        }
+    }
+    if (m_cbOptType && !context.optionType.isEmpty()) {
+        int idx = m_cbOptType->findText(context.optionType);
+        if (idx >= 0) m_cbOptType->setCurrentIndex(idx);
+    }
     calculateDefaultPrice(context);
+}
+
+bool BaseOrderWindow::eventFilter(QObject *obj, QEvent *event) {
+    if (obj == m_leQty && event->type() == QEvent::KeyPress) {
+        QKeyEvent *keyEvent = static_cast<QKeyEvent*>(event);
+        if (keyEvent->key() == Qt::Key_Up || keyEvent->key() == Qt::Key_Down) {
+            bool ok;
+            int currentQty = m_leQty->text().toInt(&ok);
+            if (!ok) currentQty = 0;
+
+            int lotSize = m_context.lotSize > 0 ? m_context.lotSize : 1;
+
+            if (keyEvent->key() == Qt::Key_Up) {
+                currentQty += lotSize;
+            } else {
+                currentQty -= lotSize;
+                if (currentQty < lotSize) currentQty = lotSize;
+            }
+
+            m_leQty->setText(QString::number(currentQty));
+            return true;
+        }
+    } else if (obj == m_leRate && event->type() == QEvent::KeyPress) {
+        QKeyEvent *keyEvent = static_cast<QKeyEvent*>(event);
+        if (keyEvent->key() == Qt::Key_Up || keyEvent->key() == Qt::Key_Down) {
+            bool ok;
+            double currentPrice = m_leRate->text().toDouble(&ok);
+            if (!ok) currentPrice = 0.0;
+
+            double tickSize = m_context.tickSize > 0 ? m_context.tickSize : 0.05;
+
+            if (keyEvent->key() == Qt::Key_Up) {
+                currentPrice += tickSize;
+            } else {
+                currentPrice -= tickSize;
+                if (currentPrice < tickSize) currentPrice = tickSize;
+            }
+            
+            // Snap to tick size
+            if (tickSize > 0) currentPrice = std::round(currentPrice / tickSize) * tickSize;
+
+            m_leRate->setText(QString::number(currentPrice, 'f', 2));
+            return true;
+        }
+    }
+    return QWidget::eventFilter(obj, event);
 }
 
 bool BaseOrderWindow::focusNextPrevChild(bool next) {
@@ -189,7 +255,10 @@ bool BaseOrderWindow::focusNextPrevChild(bool next) {
     // 1. Order Type
     if (m_cbOrdType && m_cbOrdType->isEnabled()) widgets << m_cbOrdType;
     
-    // 2. Quantity
+    // 2. Product
+    if (m_cbProduct && m_cbProduct->isEnabled()) widgets << m_cbProduct;
+    
+    // 3. Quantity
     if (m_leQty && m_leQty->isEnabled()) widgets << m_leQty;
     
     // 3. Price (if enabled)

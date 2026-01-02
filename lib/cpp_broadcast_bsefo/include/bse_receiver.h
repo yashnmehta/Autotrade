@@ -39,6 +39,10 @@ public:
     // Callback for Open Interest updates
     using OpenInterestCallback = std::function<void(const DecodedOpenInterest&)>;
     void setOpenInterestCallback(OpenInterestCallback callback) { oiCallback_ = callback; }
+    
+    // Callback for Session State changes
+    using SessionStateCallback = std::function<void(const DecodedSessionState&)>;
+    void setSessionStateCallback(SessionStateCallback callback) { sessionStateCallback_ = callback; }
 
     const ReceiverStats& getStats() const { return stats_; }
 
@@ -50,6 +54,7 @@ private:
     // Parsing helpers
     void decodeAndDispatch(const uint8_t* buffer, size_t length);
     void decodeOpenInterest(const uint8_t* buffer, size_t length);
+    void decodeSessionState(const uint8_t* buffer, size_t length);
 
     std::string ip_;
     int port_;
@@ -65,6 +70,7 @@ private:
     ReceiverStats stats_;
     RecordCallback recordCallback_;
     OpenInterestCallback oiCallback_;
+    SessionStateCallback sessionStateCallback_;
 };
 
 } // namespace bse

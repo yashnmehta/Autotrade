@@ -219,11 +219,6 @@ void BSEReceiver::decodeAndDispatch(const uint8_t* buffer, size_t length) {
         decodeOpenInterest(buffer, length);
         return;
     }
-    else if (msgType == MSG_TYPE_PRODUCT_STATE_CHANGE) {
-        // Handle session state change (2002)
-        decodeSessionState(buffer, length);
-        return;
-    }
     else if (msgType == MSG_TYPE_INDEX) {
         // MSG_TYPE_INDEX handled below
     }
@@ -419,51 +414,6 @@ void BSEReceiver::decodeOpenInterest(const uint8_t* buffer, size_t length) {
         if (oiCallback_) {
             oiCallback_(oiRec);
         }
-    }
-}
-
-// Decode BSE Session State (Message Type 2002 - PRODUCT_STATE_CHANGE)
-void BSEReceiver::decodeSessionState(const uint8_t* buffer, size_t length) {
-    // Message 2002 structure (variable length, starts at offset 36 after header)
-    // Session Number: 4 bytes (uint32)
-    // Market Segment ID: 2 bytes (uint16)
-    // Market Type: 1 byte (0=Pre-open, 1=Continuous, 2=Auction)
-    // Start/End Flag: 1 byte (0=Start, 1=End)
-    // Timestamp fields may follow
-    
-    if (length < HEADER_SIZE + 8) return;  // Need at least 8 bytes for minimal data
-    
-    auto now = std::chrono::duration_cast<std::chrono::microseconds>(
-        std::chrono::system_clock::now().time_since_epoch()).count();
-    
-    const uint8_t* data = buffer + HEADER_SIZE;
-    
-    DecodedSessionState state;
-    state.packetTimestamp = now;
-    
-    // Parse fields (Little Endian based on BSE protocol)
-    state.sessionNumber = le32toh_func(*(uint32_t*)(data + 0));
-    state.marketSegmentId = le16toh_func(*(uint16_t*)(data + 4));
-    state.marketType = *(data + 6);
-    state.startEndFlag = *(data + 7);
-    state.timestamp = now;  // Use system time as exchange timestamp not available
-    
-    // Debug logging
-    static int sessionLogCount = 0;
-    if (sessionLogCount++ < 20) {
-        const char* marketTypeStr[] = {"Pre-Open", "Continuous", "Auction"};
-        const char* startEndStr[] = {"Start", "End"};
-        std::cout << "[" << segment_ << "] Session State 2002 - "
-                  << "Segment: " << state.marketSegmentId
-                  << " Session: " << state.sessionNumber
-                  << " Type: " << (state.marketType < 3 ? marketTypeStr[state.marketType] : "Unknown")
-                  << " " << (state.startEndFlag < 2 ? startEndStr[state.startEndFlag] : "Unknown")
-                  << std::endl;
-    }
-    
-    // Dispatch to callback
-    if (sessionStateCallback_) {
-        sessionStateCallback_(state);
     }
 }
 

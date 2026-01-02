@@ -11,6 +11,7 @@ namespace bse {
 constexpr uint32_t LEADING_ZEROS = 0x00000000;
 constexpr uint16_t MSG_TYPE_MARKET_PICTURE = 2020;        // 0x07E4
 constexpr uint16_t MSG_TYPE_MARKET_PICTURE_COMPLEX = 2021; // 0x07E5
+constexpr uint16_t MSG_TYPE_PRODUCT_STATE_CHANGE = 2002;  // 0x07D2 - Session state
 constexpr uint16_t MSG_TYPE_INDEX = 2012;                 // 0x07DC
 constexpr uint16_t MSG_TYPE_CLOSE_PRICE = 2014;           // Close price broadcast
 constexpr uint16_t MSG_TYPE_OPEN_INTEREST = 2015;         // OI for derivatives
@@ -123,6 +124,17 @@ struct DecodedOpenInterest {
     uint64_t packetTimestamp;    // System time of receipt
 };
 
+// Decoded Session State (Message Type 2002)
+struct DecodedSessionState {
+    uint32_t sessionNumber;
+    uint16_t marketSegmentId;
+    uint8_t marketType;          // 0=Pre-open, 1=Continuous, 2=Auction
+    uint8_t startEndFlag;        // 0=Start, 1=End
+    uint64_t timestamp;          // Exchange timestamp
+    uint64_t packetTimestamp;    // System time of receipt
+};
+
+#pragma pack(pop)
 
 } // namespace bse
 
