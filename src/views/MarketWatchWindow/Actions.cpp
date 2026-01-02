@@ -9,6 +9,8 @@
 #include <QClipboard>
 #include <QHeaderView>
 #include <QDebug>
+#include <QFileDialog>
+#include <QMessageBox>
 #include <algorithm>
 
 bool MarketWatchWindow::addScrip(const QString &symbol, const QString &exchange, int token)
@@ -263,4 +265,55 @@ void MarketWatchWindow::performRowMoveByTokens(const QList<int> &tokens, int tar
             m_tokenAddressBook->addToken(scrips[i].token, adjustedTarget + i);
         }
     }
+}
+
+void MarketWatchWindow::onSavePortfolio()
+{
+    QString fileName = QFileDialog::getSaveFileName(this, tr("Save Portfolio"), "", tr("Portfolio Files (*.json);;All Files (*)"));
+    if (fileName.isEmpty()) return;
+
+    QList<ScripData> scrips;
+    int rows = m_model->rowCount();
+    for (int i = 0; i < rows; ++i) {
+        scrips.append(m_model->getScripAt(i));
+    }
+
+    if (MarketWatchHelpers::savePortfolio(fileName, scrips)) {
+        QMessageBox::information(this, tr("Success"), tr("Portfolio saved successfully."));
+    } else {
+        QMessageBox::critical(this, tr("Error"), tr("Failed to save portfolio."));
+    }
+}
+
+void MarketWatchWindow::onLoadPortfolio()
+{
+    QString fileName = QFileDialog::getOpenFileName(this, tr("Load Portfolio"), "", tr("Portfolio Files (*.json);;All Files (*)"));
+    if (fileName.isEmpty()) return;
+
+    QList<ScripData> scrips;
+    if (!MarketWatchHelpers::loadPortfolio(fileName, scrips)) {
+        QMessageBox::critical(this, tr("Error"), tr("Failed to load portfolio."));
+        return;
+    }
+
+    // Confirm before clearing
+    if (m_model->rowCount() > 0) {
+        QMessageBox::StandardButton reply;
+        reply = QMessageBox::question(this, tr("Confirm Load"), 
+                                     tr("Loading a portfolio will clear current list. Continue?"),
+                                     QMessageBox::Yes|QMessageBox::No);
+        if (reply == QMessageBox::No) return;
+    }
+
+    clearAll();
+
+    for (const auto &scrip : scrips) {
+        if (scrip.isBlankRow) {
+             insertBlankRow(m_model->rowCount());
+        } else {
+             addScripFromContract(scrip);
+        }
+    }
+    
+    QMessageBox::information(this, tr("Success"), tr("Portfolio loaded successfully."));
 }

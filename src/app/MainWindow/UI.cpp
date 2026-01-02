@@ -165,8 +165,7 @@ void MainWindow::createMenuBar()
 
     // Edit Menu
     QMenu *editMenu = m_menuBar->addMenu("&Edit");
-    QAction *preferencesAction = editMenu->addAction("&Preferences\tCtrl+R");
-    connect(preferencesAction, &QAction::triggered, this, &MainWindow::showPreferences);
+    // Preferences moved to Window menu as per user request
 
     // View Menu
     QMenu *viewMenu = m_menuBar->addMenu("&View");
@@ -216,6 +215,11 @@ void MainWindow::createMenuBar()
     windowMenu->addSeparator();
     windowMenu->addAction("&Cascade", this, [this](){ m_mdiArea->cascadeWindows(); });
     windowMenu->addAction("&Tile", this, [this](){ m_mdiArea->tileWindows(); });
+    
+    windowMenu->addSeparator();
+    QAction *preferencesAction = windowMenu->addAction("&Preferences");
+    preferencesAction->setShortcut(QKeySequence("Ctrl+R"));
+    connect(preferencesAction, &QAction::triggered, this, &MainWindow::showPreferences);
 
     // Data Menu
     QMenu *dataMenu = m_menuBar->addMenu("&Data");

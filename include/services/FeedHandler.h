@@ -8,6 +8,7 @@
 #include <mutex>
 #include <memory>
 #include "api/XTSTypes.h"
+#include "udp/UDPTypes.h"
 
 /**
  * @brief Helper object that emits signals for a specific token
@@ -18,10 +19,12 @@ public:
     explicit TokenPublisher(int64_t compositeKey, QObject* parent = nullptr) 
         : QObject(parent), m_compositeKey(compositeKey) {}
     void publish(const XTS::Tick& tick) { emit tickUpdated(tick); }
+    void publish(const UDP::MarketTick& tick) { emit udpTickUpdated(tick); }
     int64_t compositeKey() const { return m_compositeKey; }
 
 signals:
-    void tickUpdated(const XTS::Tick& tick);
+    void tickUpdated(const XTS::Tick& tick);  // Legacy
+    void udpTickUpdated(const UDP::MarketTick& tick);  // New UDP-specific
 
 private:
     int64_t m_compositeKey;
@@ -87,6 +90,25 @@ public:
                  << "token:" << token << "(key:" << key << ")";
         emit subscriptionCountChanged(token, 1);
     }
+    
+    /**
+     * @brief Subscribe to UDP::MarketTick with exchange segment (NEW)
+     * @param exchangeSegment Exchange segment (UDP::ExchangeSegment)
+     * @param token Exchange instrument token
+     * @param receiver The QObject that will receive the tick
+     * @param slot The slot signature for UDP::MarketTick
+     */
+    template<typename Receiver, typename Slot>
+    void subscribeUDP(UDP::ExchangeSegment exchangeSegment, uint32_t token, Receiver* receiver, Slot slot) {
+        int64_t key = makeKey(static_cast<int>(exchangeSegment), token);
+        std::lock_guard<std::mutex> lock(m_mutex);
+        TokenPublisher* pub = getOrCreatePublisher(key);
+        connect(pub, &TokenPublisher::udpTickUpdated, receiver, slot);
+        
+        qDebug() << "[FeedHandler] Connected UDP slot for segment:" << static_cast<int>(exchangeSegment)
+                 << "token:" << token << "(key:" << key << ")";
+        emit subscriptionCountChanged(token, 1);
+    }
 
     /**
      * @brief Legacy subscribe (token-only, defaults to common lookup)
@@ -129,6 +151,11 @@ public:
      * @brief Publish tick (called by MainWindow/UDP thread)
      */
     void onTickReceived(const XTS::Tick& tick);
+    
+    /**
+     * @brief Publish UDP tick (called by UdpBroadcastService)
+     */
+    void onUdpTickReceived(const UDP::MarketTick& tick);
 
     /**
      * @brief Get number of active publishers (monitoring)

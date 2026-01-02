@@ -293,6 +293,8 @@ private slots:
     void onBuyAction();
     void onSellAction();
     void onAddScripAction();
+    void onSavePortfolio();
+    void onLoadPortfolio();
 
 private:
     void setupUI();

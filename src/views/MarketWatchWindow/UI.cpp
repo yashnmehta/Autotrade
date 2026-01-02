@@ -132,6 +132,11 @@ void MarketWatchWindow::showContextMenu(const QPoint &pos)
     // Column profile
     menu.addSeparator();
     menu.addAction("Column Profile...", this, &MarketWatchWindow::showColumnProfileDialog);
+
+    // Portfolio Management
+    menu.addSeparator();
+    menu.addAction("Save Portfolio...", this, &MarketWatchWindow::onSavePortfolio);
+    menu.addAction("Load Portfolio...", this, &MarketWatchWindow::onLoadPortfolio);
     
     menu.exec(this->viewport()->mapToGlobal(pos));
 }

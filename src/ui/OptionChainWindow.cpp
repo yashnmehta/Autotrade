@@ -8,6 +8,9 @@
 #include <QGroupBox>
 #include <QWheelEvent>
 #include <cmath>
+#include "repository/RepositoryManager.h"
+#include "services/FeedHandler.h"
+#include "services/TokenSubscriptionManager.h"
 
 // ============================================================================
 // OptionChainDelegate Implementation
@@ -104,7 +107,9 @@ OptionChainWindow::OptionChainWindow(QWidget *parent)
     setupUI();
     setupModels();
     setupConnections();
-    populateDemoData();
+    
+    // Populate symbols (triggers chain reaction: symbol -> expiry -> refresh)
+    populateSymbols();
     
     setWindowTitle("Option Chain");
     resize(1600, 800);
@@ -139,7 +144,6 @@ void OptionChainWindow::setupUI()
     headerLayout->addWidget(symbolLabel);
     
     m_symbolCombo = new QComboBox();
-    m_symbolCombo->addItems({"NIFTY", "BANKNIFTY", "FINNIFTY", "RELIANCE", "TCS", "INFY"});
     m_symbolCombo->setMinimumWidth(120);
     m_symbolCombo->setStyleSheet(
         "QComboBox { background: #2A3A50; color: #FFFFFF; border: 1px solid #3A4A60; padding: 5px; }"
@@ -369,128 +373,12 @@ void OptionChainWindow::setupConnections()
     // Synchronize scroll bars - Only use strike table as master
     connect(m_strikeTable->verticalScrollBar(), &QScrollBar::valueChanged,
             this, &OptionChainWindow::synchronizeScrollBars);
+            
+    connect(this, &OptionChainWindow::refreshRequested, 
+            this, &OptionChainWindow::refreshData);
 }
 
-void OptionChainWindow::populateDemoData()
-{
-    // Set demo expiries
-    QStringList expiries = {
-        "26-DEC-2025", "02-JAN-2026", "09-JAN-2026", "16-JAN-2026",
-        "23-JAN-2026", "30-JAN-2026"
-    };
-    m_expiryCombo->addItems(expiries);
-    
-    // Set current symbol and expiry
-    m_currentSymbol = "NIFTY";
-    m_currentExpiry = "26-DEC-2025";
-    
-    // Generate strikes (assuming NIFTY at 23,500)
-    double spotPrice = 23500.0;
-    m_atmStrike = std::round(spotPrice / 50.0) * 50.0; // Round to nearest 50
-    
-    // Generate strikes from -1000 to +1000 around ATM
-    m_strikes.clear();
-    for (double strike = m_atmStrike - 1000.0; strike <= m_atmStrike + 1000.0; strike += 50.0) {
-        m_strikes.append(strike);
-    }
-    
-    // Populate models with demo data
-    for (double strike : m_strikes) {
-        OptionStrikeData data;
-        data.strikePrice = strike;
-        
-        // Generate realistic demo data based on distance from ATM
-        double distanceFromATM = std::abs(strike - m_atmStrike);
-        bool isOTM = (strike > m_atmStrike); // For calls
-        
-        // Call data (ITM has higher OI, OTM has lower)
-        data.callOI = (int)(10000 + (isOTM ? -distanceFromATM : distanceFromATM) * 10);
-        data.callChngInOI = (int)((rand() % 2000) - 1000);
-        data.callVolume = (int)(rand() % 5000);
-        data.callIV = 15.0 + (distanceFromATM / 100.0);
-        data.callLTP = strike < spotPrice ? (spotPrice - strike) + 10.0 : 5.0 / (1.0 + distanceFromATM / 100.0);
-        data.callChng = ((rand() % 200) - 100) / 10.0;
-        data.callBidQty = (rand() % 1000) * 75;
-        data.callBid = data.callLTP - 0.5;
-        data.callAsk = data.callLTP + 0.5;
-        data.callAskQty = (rand() % 1000) * 75;
-        
-        // Put data (ITM has higher OI, OTM has lower)
-        isOTM = (strike < m_atmStrike); // For puts
-        data.putOI = (int)(10000 + (isOTM ? -distanceFromATM : distanceFromATM) * 10);
-        data.putChngInOI = (int)((rand() % 2000) - 1000);
-        data.putVolume = (int)(rand() % 5000);
-        data.putIV = 15.0 + (distanceFromATM / 100.0);
-        data.putLTP = strike > spotPrice ? (strike - spotPrice) + 10.0 : 5.0 / (1.0 + distanceFromATM / 100.0);
-        data.putChng = ((rand() % 200) - 100) / 10.0;
-        data.putBidQty = (rand() % 1000) * 75;
-        data.putBid = data.putLTP - 0.5;
-        data.putAsk = data.putLTP + 0.5;
-        data.putAskQty = (rand() % 1000) * 75;
-        
-        m_strikeData[strike] = data;
-        
-        // Add rows to models
-        QList<QStandardItem*> callRow;
-        
-        // Checkbox column
-        QStandardItem *callCheckbox = new QStandardItem("");
-        callCheckbox->setCheckable(true);
-        callCheckbox->setCheckState(Qt::Unchecked);
-        callCheckbox->setTextAlignment(Qt::AlignCenter);
-        callCheckbox->setEditable(false);
-        callRow << callCheckbox;
-        
-        callRow << new QStandardItem(QString::number(data.callOI));
-        callRow << new QStandardItem(QString::number(data.callChngInOI));
-        callRow << new QStandardItem(QString::number(data.callVolume));
-        callRow << new QStandardItem(QString::number(data.callIV, 'f', 2));
-        callRow << new QStandardItem(QString::number(data.callLTP, 'f', 2));
-        callRow << new QStandardItem(QString::number(data.callChng, 'f', 2));
-        callRow << new QStandardItem(QString::number(data.callBidQty));
-        callRow << new QStandardItem(QString::number(data.callBid, 'f', 2));
-        callRow << new QStandardItem(QString::number(data.callAsk, 'f', 2));
-        callRow << new QStandardItem(QString::number(data.callAskQty));
-        
-        for (int i = 1; i < callRow.size(); ++i) {
-            callRow[i]->setTextAlignment(Qt::AlignCenter);
-        }
-        m_callModel->appendRow(callRow);
-        
-        // Strike row
-        QStandardItem *strikeItem = new QStandardItem(QString::number(strike, 'f', 2));
-        strikeItem->setTextAlignment(Qt::AlignCenter);
-        m_strikeModel->appendRow(strikeItem);
-        
-        // Put row
-        QList<QStandardItem*> putRow;
-        putRow << new QStandardItem(QString::number(data.putBidQty));
-        putRow << new QStandardItem(QString::number(data.putBid, 'f', 2));
-        putRow << new QStandardItem(QString::number(data.putAsk, 'f', 2));
-        putRow << new QStandardItem(QString::number(data.putAskQty));
-        putRow << new QStandardItem(QString::number(data.putChng, 'f', 2));
-        putRow << new QStandardItem(QString::number(data.putLTP, 'f', 2));
-        putRow << new QStandardItem(QString::number(data.putIV, 'f', 2));
-        putRow << new QStandardItem(QString::number(data.putVolume));
-        putRow << new QStandardItem(QString::number(data.putChngInOI));
-        putRow << new QStandardItem(QString::number(data.putOI));
-        
-        // Checkbox column
-        QStandardItem *putCheckbox = new QStandardItem("");
-        putCheckbox->setCheckable(true);
-        putCheckbox->setCheckState(Qt::Unchecked);
-        putCheckbox->setTextAlignment(Qt::AlignCenter);
-        putCheckbox->setEditable(false);
-        putRow << putCheckbox;
-        
-        for (int i = 0; i < putRow.size() - 1; ++i) {
-            putRow[i]->setTextAlignment(Qt::AlignCenter);
-        }
-        m_putModel->appendRow(putRow);
-    }
-    
-    highlightATMStrike();
-}
+
 
 void OptionChainWindow::setSymbol(const QString &symbol, const QString &expiry)
 {
@@ -564,13 +452,21 @@ void OptionChainWindow::setATMStrike(double atmStrike)
 
 void OptionChainWindow::onSymbolChanged(const QString &symbol)
 {
+    if (symbol == m_currentSymbol) return;
+    
     m_currentSymbol = symbol;
     m_titleLabel->setText(symbol);
+    
+    // Update expiries for the new symbol
+    populateExpiries(symbol);
+    
     emit refreshRequested();
 }
 
 void OptionChainWindow::onExpiryChanged(const QString &expiry)
 {
+    if (expiry == m_currentExpiry) return;
+    
     m_currentExpiry = expiry;
     emit refreshRequested();
 }
@@ -751,4 +647,303 @@ double OptionChainWindow::getStrikeAtRow(int row) const
         return m_strikes[row];
     }
     return 0.0;
+}
+
+void OptionChainWindow::refreshData()
+{
+    // Clear existing data and subscriptions
+    FeedHandler::instance().unsubscribeAll(this);
+    clearData();
+    m_tokenToStrike.clear();
+    
+    // Get parameters
+    QString symbol = m_symbolCombo->currentText();
+    QString expiry = m_expiryCombo->currentText();
+    
+    if (symbol.isEmpty()) return;
+    
+    m_currentSymbol = symbol;
+    m_currentExpiry = expiry;
+    
+    RepositoryManager* repo = RepositoryManager::getInstance();
+    
+    // Query contracts - try NSE first
+    int exchangeSegment = 2; // NSEFO
+    QVector<ContractData> contracts = repo->getOptionChain("NSE", symbol);
+    if (contracts.isEmpty()) {
+        contracts = repo->getOptionChain("BSE", symbol);
+        exchangeSegment = 12; // BSEFO
+    }
+    
+    // Filter and Group
+    QMap<double, ContractData> callContracts;
+    QMap<double, ContractData> putContracts;
+    QSet<double> strikes;
+    
+    for (const auto& contract : contracts) {
+        if (!expiry.isEmpty() && contract.expiryDate != expiry) continue;
+        
+        strikes.insert(contract.strikePrice);
+        if (contract.optionType == "CE") {
+            callContracts[contract.strikePrice] = contract;
+        } else if (contract.optionType == "PE") {
+            putContracts[contract.strikePrice] = contract;
+        }
+    }
+    
+    if (strikes.isEmpty()) {
+         return;
+    }
+
+    // Sort strikes
+    QList<double> sortedStrikes = strikes.values();
+    std::sort(sortedStrikes.begin(), sortedStrikes.end());
+    m_strikes = sortedStrikes;
+    
+    // Create Rows
+    QList<QStandardItem*> callRow;
+    QList<QStandardItem*> putRow;
+    
+    FeedHandler& feed = FeedHandler::instance();
+    
+    for (double strike : sortedStrikes) {
+        OptionStrikeData data;
+        data.strikePrice = strike;
+        
+        // Contracts
+        if (callContracts.contains(strike)) {
+            data.callToken = callContracts[strike].exchangeInstrumentID;
+            // Subscribe
+            feed.subscribe(exchangeSegment, data.callToken, this, &OptionChainWindow::onTickUpdate);
+            m_tokenToStrike[data.callToken] = strike;
+        }
+        
+        if (putContracts.contains(strike)) {
+            data.putToken = putContracts[strike].exchangeInstrumentID;
+            // Subscribe
+            feed.subscribe(exchangeSegment, data.putToken, this, &OptionChainWindow::onTickUpdate);
+            m_tokenToStrike[data.putToken] = strike;
+        }
+        
+        m_strikeData[strike] = data;
+        
+        // Add visual rows (Initial empty/zero data)
+        // Checkbox column
+        QStandardItem *callCheckbox = new QStandardItem("");
+        callCheckbox->setCheckable(true);
+        callRow.clear();
+        callRow << callCheckbox
+                << new QStandardItem("0") // OI
+                << new QStandardItem("0") // ChangeInOI
+                << new QStandardItem("0") // Volume
+                << new QStandardItem("0.00") // IV
+                << new QStandardItem("0.00") // LTP
+                << new QStandardItem("0.00") // Chng
+                << new QStandardItem("0") // BidQty
+                << new QStandardItem("0.00") // Bid
+                << new QStandardItem("0.00") // Ask
+                << new QStandardItem("0"); // AskQty
+        
+        for (int i=1; i<callRow.size(); ++i) callRow[i]->setTextAlignment(Qt::AlignCenter);
+        m_callModel->appendRow(callRow);
+        
+        // Strike
+        QStandardItem *strikeItem = new QStandardItem(QString::number(strike, 'f', 2));
+        strikeItem->setTextAlignment(Qt::AlignCenter);
+        m_strikeModel->appendRow(strikeItem);
+        
+        // Put Row
+        QStandardItem *putCheckbox = new QStandardItem("");
+        putCheckbox->setCheckable(true);
+        putRow.clear();
+        putRow << new QStandardItem("0") // BidQty
+               << new QStandardItem("0.00") // Bid
+               << new QStandardItem("0.00") // Ask
+               << new QStandardItem("0") // AskQty
+               << new QStandardItem("0.00") // Chng
+               << new QStandardItem("0.00") // LTP
+               << new QStandardItem("0.00") // IV
+               << new QStandardItem("0") // Vol
+               << new QStandardItem("0") // ChngInOI
+               << new QStandardItem("0") // OI
+               << putCheckbox;
+
+        for (int i=0; i<putRow.size()-1; ++i) putRow[i]->setTextAlignment(Qt::AlignCenter);
+        m_putModel->appendRow(putRow);
+    }
+    
+    // Set ATM (approximate based on first futures or spot if available, otherwise middle)
+    // For now, pick middle strike
+    if (!m_strikes.isEmpty()) {
+        m_atmStrike = m_strikes[m_strikes.size() / 2];
+        highlightATMStrike();
+    }
+}
+
+void OptionChainWindow::onTickUpdate(const XTS::Tick &tick)
+{
+    if (!m_tokenToStrike.contains(tick.exchangeInstrumentID)) return;
+    
+    double strike = m_tokenToStrike[tick.exchangeInstrumentID];
+    OptionStrikeData& data = m_strikeData[strike];
+    
+    // Determine if Call or Put
+    bool isCall = (tick.exchangeInstrumentID == data.callToken);
+    // bool isPut = (tick.exchangeInstrumentID == data.putToken); // Implicit
+    
+    // Update fields
+    if (isCall) {
+        if (tick.lastTradedPrice > 0) data.callLTP = tick.lastTradedPrice;
+        if (tick.totalBuyQuantity > 0) data.callBidQty = tick.totalBuyQuantity; 
+        
+        data.callBid = tick.bidPrice;
+        data.callAsk = tick.askPrice;
+        data.callBidQty = tick.bidQuantity;
+        data.callAskQty = tick.askQuantity;
+        
+        data.callVolume = tick.volume;
+        data.callOI = tick.openInterest;
+        
+        data.callChng = tick.lastTradedPrice - tick.close;
+    } else {
+        if (tick.lastTradedPrice > 0) data.putLTP = tick.lastTradedPrice;
+        data.putBid = tick.bidPrice;
+        data.putAsk = tick.askPrice;
+        data.putBidQty = tick.bidQuantity;
+        data.putAskQty = tick.askQuantity;
+        
+        data.putVolume = tick.volume;
+        data.putOI = tick.openInterest;
+        
+        data.putChng = tick.lastTradedPrice - tick.close;
+    }
+    
+    // Trigger visual update
+    updateStrikeData(strike, data);
+}
+
+void OptionChainWindow::populateSymbols()
+{
+    m_symbolCombo->clear();
+    
+    RepositoryManager* repo = RepositoryManager::getInstance();
+    QSet<QString> symbols;
+    
+    // 1. Get Index Futures (NIFTY, BANKNIFTY, FINNIFTY, etc.)
+    QVector<ContractData> indices = repo->getScrips("NSE", "FO", "FUTIDX");
+    for (const auto& contract : indices) {
+        symbols.insert(contract.name);
+    }
+    
+    // 2. Get Stock Futures (RELIANCE, TCS, etc.)
+    // Note: Some stocks might have options but no futures (rare), or vice versa.
+    // Checking FUTSTK is a safe proxy for F&O stocks.
+    QVector<ContractData> stocks = repo->getScrips("NSE", "FO", "FUTSTK");
+    for (const auto& contract : stocks) {
+        symbols.insert(contract.name);
+    }
+    
+    // Also check BSE if NSE is empty (or merge)
+    if (symbols.isEmpty()) {
+       QVector<ContractData> bseIndices = repo->getScrips("BSE", "FO", "FUTIDX");
+       for (const auto& contract : bseIndices) symbols.insert(contract.name);
+    }
+
+    // Sort
+    QStringList sortedSymbols = symbols.values();
+    std::sort(sortedSymbols.begin(), sortedSymbols.end());
+    
+    // Add to ComboBox
+    m_symbolCombo->addItems(sortedSymbols);
+    m_symbolCombo->setEditable(true); // Enable search/typing
+    m_symbolCombo->setInsertPolicy(QComboBox::NoInsert); // Don't add user types to list if not present
+    
+    // Default Selection (NIFTY or first)
+    int index = m_symbolCombo->findText("NIFTY");
+    if (index >= 0) {
+        m_symbolCombo->setCurrentIndex(index);
+    } else if (!sortedSymbols.isEmpty()) {
+        m_symbolCombo->setCurrentIndex(0);
+    }
+}
+
+void OptionChainWindow::populateExpiries(const QString &symbol)
+{
+    m_expiryCombo->clear();
+    if (symbol.isEmpty()) return;
+    
+    RepositoryManager* repo = RepositoryManager::getInstance();
+    
+    // Get all option contracts for this symbol
+    // We can use getOptionChain which ideally returns options.
+    QVector<ContractData> contracts = repo->getOptionChain("NSE", symbol);
+    if (contracts.isEmpty()) {
+        contracts = repo->getOptionChain("BSE", symbol);
+    }
+    
+    QSet<QString> expirySet;
+    for (const auto& contract : contracts) {
+        if (!contract.expiryDate.isEmpty()) {
+            expirySet.insert(contract.expiryDate);
+        }
+    }
+    
+    if (expirySet.isEmpty()) return;
+    
+    // Sort Expiries (Need Date Parsing)
+    // Formats: "26DEC2025", "02JAN2026" (DDMMMYYYY)
+    QList<QDate> sortedDates;
+    QMap<QDate, QString> dateToString;
+    
+    for (const QString& exp : expirySet) {
+        // Try parsing DDMMMYYYY (e.g., 01JAN2024 or 1JAN2024)
+        // Note: QDate format MMM is usually short month name (Jan/Feb).
+        // XTS Expiry is usually upper case "26DEC2025". QDate might need Title Case "26Dec2025".
+        
+        QString cleanExp = exp;
+        // Basic normalization: valid for English locale if title case?
+        // Actually custom parsing might be safer if format is strict.
+        // Let's rely on QLocale::system().toDate or format string.
+        
+        // Convert "DEC" to "Dec" for parsing if needed
+         if (cleanExp.length() >= 3) {
+             // Lowercase all then title case month?
+             // Simple hack: Titlecase the month part?
+             // "26DEC2024" -> "26Dec2024"
+             // Implementation details depend on Qt version quirks, but "ddMMMyyyy" expects "Dec".
+             
+             // Quick fix: standardizing string for parsing
+             QString dayPart, monthPart, yearPart;
+             int yearIdx = cleanExp.length() - 4;
+             if (yearIdx > 0) {
+                yearPart = cleanExp.mid(yearIdx);
+                // Month is before year, 3 chars?
+                monthPart = cleanExp.mid(yearIdx - 3, 3);
+                dayPart = cleanExp.left(yearIdx - 3);
+                
+                // Capitalize first letter of month, rest lowercase: "DEC" -> "Dec"
+                monthPart = monthPart.at(0).toUpper() + monthPart.mid(1).toLower();
+                
+                QString parseable = dayPart + monthPart + yearPart;
+                QDate d = QDate::fromString(parseable, "dMMMyyyy");
+                if (d.isValid()) {
+                    sortedDates.append(d);
+                    dateToString[d] = exp; // Keep original string for UI/Filtering
+                } else {
+                     qDebug() << "Failed to parse expiry:" << exp << " Cleaned:" << parseable;
+                     // Fallback: just add to list?
+                }
+             }
+         }
+    }
+    
+    std::sort(sortedDates.begin(), sortedDates.end());
+    
+    for (const QDate& d : sortedDates) {
+        m_expiryCombo->addItem(dateToString[d]);
+    }
+    
+    if (m_expiryCombo->count() > 0) {
+        m_expiryCombo->setCurrentIndex(0); // Select nearest expiry
+    }
 }

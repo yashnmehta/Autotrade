@@ -13,6 +13,8 @@
 #include <QScrollBar>
 #include <QStyledItemDelegate>
 #include <QMap>
+#include "api/XTSTypes.h"
+#include "repository/ContractData.h"
 
 /**
  * @brief Data structure for a single strike in the option chain
@@ -43,6 +45,9 @@ struct OptionStrikeData {
     double putBid;
     double putAsk;
     int putAskQty;
+    // Token IDs for subscription
+    int callToken = 0;
+    int putToken = 0;
     
     OptionStrikeData() 
         : strikePrice(0.0), callOI(0), callChngInOI(0), callVolume(0), 
@@ -50,7 +55,8 @@ struct OptionStrikeData {
           callBid(0.0), callAsk(0.0), callAskQty(0),
           putOI(0), putChngInOI(0), putVolume(0), 
           putIV(0.0), putLTP(0.0), putChng(0.0), putBidQty(0),
-          putBid(0.0), putAsk(0.0), putAskQty(0) {}
+          putBid(0.0), putAsk(0.0), putAskQty(0),
+          callToken(0), putToken(0) {}
 };
 
 /**
@@ -118,6 +124,7 @@ private slots:
     void onPutTableClicked(const QModelIndex &index);
     void onStrikeTableClicked(const QModelIndex &index);
     void synchronizeScrollBars(int value);
+    void onTickUpdate(const XTS::Tick &tick);
 
 protected:
     bool eventFilter(QObject *obj, QEvent *event) override;
@@ -126,9 +133,13 @@ private:
     void setupUI();
     void setupModels();
     void setupConnections();
-    void populateDemoData();
+    void refreshData();
     void updateTableColors();
     void highlightATMStrike();
+    
+    // UI Population Helpers
+    void populateSymbols();
+    void populateExpiries(const QString &symbol);
     
     QModelIndex getStrikeIndex(int row) const;
     double getStrikeAtRow(int row) const;
@@ -157,6 +168,9 @@ private:
     // Data storage
     QMap<double, OptionStrikeData> m_strikeData;
     QList<double> m_strikes;
+    
+    // Quick lookup for updates
+    QMap<int, double> m_tokenToStrike;
     
     // Current state
     QString m_currentSymbol;

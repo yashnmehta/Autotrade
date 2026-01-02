@@ -112,3 +112,44 @@ size_t FeedHandler::totalSubscriptions() const {
     std::lock_guard<std::mutex> lock(m_mutex);
     return m_publishers.size();
 }
+
+void FeedHandler::onUdpTickReceived(const UDP::MarketTick& tick) {
+    int exchangeSegment = static_cast<int>(tick.exchangeSegment);
+    int token = tick.token;
+    int64_t key = makeKey(exchangeSegment, token);
+    
+    // Debug logging for BSE tokens
+    if (exchangeSegment == 12 || exchangeSegment == 11) {
+        static int bseTickCount = 0;
+        if (bseTickCount++ < 20) {
+            // qDebug() << "[FeedHandler] BSE UDP Tick - Segment:" << exchangeSegment 
+            //          << "Token:" << token << "Key:" << key << "LTP:" << tick.ltp;
+        }
+    }
+    
+    // Mark FeedHandler processing timestamp
+    UDP::MarketTick trackedTick = tick;
+    trackedTick.timestampFeedHandler = LatencyTracker::now();
+    
+    TokenPublisher* pub = nullptr;
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        auto it = m_publishers.find(key);
+        if (it != m_publishers.end()) {
+            pub = it->second;
+        } else {
+            // Log missing subscription for BSE tokens
+            if (exchangeSegment == 12 || exchangeSegment == 11) {
+                static int missingSubCount = 0;
+                if (missingSubCount++ < 10) {
+                    // qDebug() << "[FeedHandler] ⚠ No UDP subscriber for BSE - Segment:" << exchangeSegment
+                    //          << "Token:" << token << "Key:" << key;
+                }
+            }
+        }
+    }
+
+    if (pub) {
+        pub->publish(trackedTick);
+    }
+}

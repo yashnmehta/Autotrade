@@ -37,9 +37,13 @@ MainWindow::MainWindow(QWidget *parent)
     // Setup keyboard shortcuts
     setupShortcuts();
 
-    // Connect centralized UDP broadcast service
+    // Connect centralized UDP broadcast service (legacy XTS::Tick)
     connect(&UdpBroadcastService::instance(), &UdpBroadcastService::tickReceived,
             this, &MainWindow::onTickReceived);
+    
+    // Connect new UDP::MarketTick signal directly to FeedHandler
+    connect(&UdpBroadcastService::instance(), &UdpBroadcastService::udpTickReceived,
+            &FeedHandler::instance(), &FeedHandler::onUdpTickReceived);
     
     // setupNetwork() will be called once configLoader is set
     // to ensure we have the correct multicast IPs and ports.
@@ -184,9 +188,13 @@ void MainWindow::onUdpTickReceived(const XTS::Tick& tick) {
     onTickReceived(tick);
 }
 
+#include "views/PreferenceDialog.h"
+
+// ... (existing includes)
+
 void MainWindow::showPreferences() {
-    // Placeholder for preferences dialog
-    qDebug() << "[MainWindow] showPreferences requested";
+    PreferenceDialog dialog(this);
+    dialog.exec();
 }
 
 void MainWindow::placeOrder(const XTS::OrderParams &params) {
