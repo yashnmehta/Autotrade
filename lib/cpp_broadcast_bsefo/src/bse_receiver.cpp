@@ -343,4 +343,78 @@ void BSEReceiver::decodeAndDispatch(const uint8_t* buffer, size_t length) {
     }
 }
 
+// ============================================================================
+// BSE OPEN INTEREST MESSAGE (2015) PARSER
+// ============================================================================
+// Based on BSE Manual V5.0 Section 4.16
+//
+// Header (36 bytes) same as other messages
+// Record layout per OI entry:
+//   +0-3:   Instrument ID (uint32) - Little Endian
+//   +4-11:  Open Interest Quantity (int64) - Little Endian
+//   +12-19: Open Interest Value (int64) - Little Endian (2 decimal)
+//   +20-23: Open Interest Change (int32) - Little Endian
+//   +24-27: Reserved Field 6 (4 bytes)
+//   +28-31: Reserved Field 7 (4 bytes)
+//   +32-33: Reserved Field 8 (2 bytes)
+//
+// Total record size: 34 bytes (estimated, verify with live data)
+// ============================================================================
+
+void BSEReceiver::decodeOpenInterest(const uint8_t* buffer, size_t length) {
+    if (length < HEADER_SIZE) return;
+    
+    // Capture system timestamp
+    auto now = std::chrono::duration_cast<std::chrono::microseconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+    
+    // Number of records is at offset 34-35 (after header but within 36 bytes)
+    // Actually, per manual: "No. of Records" is before the repeating structure
+    // Header ends at 36, but we need to find numRecords field
+    // From manual: Hour(20-21), Minute(22-23), Second(24-25), Millisecond(26-27),
+    //              Reserved4(28-29), Reserved5(30-31), NoOfRecords(32-33)
+    
+    uint16_t numRecords = le16toh_func(*(uint16_t*)(buffer + 32));
+    
+    // OI Record size based on manual: 
+    // Token(4) + OI Qty(8) + OI Value(8) + OI Change(4) + Reserved(4+4+2) = 34 bytes
+    constexpr size_t OI_RECORD_SIZE = 34;
+    
+    // Records start after header
+    size_t recordStart = HEADER_SIZE;
+    
+    static int oiLogCount = 0;
+    
+    for (uint16_t i = 0; i < numRecords && i < 26; i++) {  // Max 26 per manual
+        size_t offset = recordStart + (i * OI_RECORD_SIZE);
+        if (offset + OI_RECORD_SIZE > length) break;
+        
+        const uint8_t* record = buffer + offset;
+        
+        DecodedOpenInterest oiRec;
+        oiRec.packetTimestamp = now;
+        
+        // Parse fields (Little Endian)
+        oiRec.token = le32toh_func(*(uint32_t*)(record + 0));
+        oiRec.openInterest = (int64_t)le64toh_func(*(uint64_t*)(record + 4));
+        oiRec.openInterestValue = (int64_t)le64toh_func(*(uint64_t*)(record + 12));
+        oiRec.openInterestChange = (int32_t)le32toh_func(*(uint32_t*)(record + 20));
+        
+        // Skip empty records
+        if (oiRec.token == 0) continue;
+        
+        // Debug logging
+        if (oiLogCount++ < 20) {
+            std::cout << "[" << segment_ << "] OI 2015 - Token: " << oiRec.token
+                      << " OI: " << oiRec.openInterest
+                      << " Change: " << oiRec.openInterestChange << std::endl;
+        }
+        
+        // Dispatch to callback
+        if (oiCallback_) {
+            oiCallback_(oiRec);
+        }
+    }
+}
+
 } // namespace bse

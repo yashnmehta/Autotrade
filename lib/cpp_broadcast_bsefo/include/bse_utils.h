@@ -34,6 +34,12 @@ inline uint32_t le32toh_func(uint32_t val) {
     return (uint32_t)p[0] | ((uint32_t)p[1] << 8) | ((uint32_t)p[2] << 16) | ((uint32_t)p[3] << 24);
 }
 
+inline uint64_t le64toh_func(uint64_t val) {
+    const uint8_t* p = (const uint8_t*)&val;
+    return (uint64_t)p[0] | ((uint64_t)p[1] << 8) | ((uint64_t)p[2] << 16) | ((uint64_t)p[3] << 24) |
+           ((uint64_t)p[4] << 32) | ((uint64_t)p[5] << 40) | ((uint64_t)p[6] << 48) | ((uint64_t)p[7] << 56);
+}
+
 // Reads a compressed field (delta from base)
 // Advances cursor automatically.
 inline int32_t read_compressed(const uint8_t* buffer, size_t& cursor, int32_t base) {

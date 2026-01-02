@@ -12,7 +12,9 @@ constexpr uint32_t LEADING_ZEROS = 0x00000000;
 constexpr uint16_t MSG_TYPE_MARKET_PICTURE = 2020;        // 0x07E4
 constexpr uint16_t MSG_TYPE_MARKET_PICTURE_COMPLEX = 2021; // 0x07E5
 constexpr uint16_t MSG_TYPE_INDEX = 2012;                 // 0x07DC
+constexpr uint16_t MSG_TYPE_CLOSE_PRICE = 2014;           // Close price broadcast
 constexpr uint16_t MSG_TYPE_OPEN_INTEREST = 2015;         // OI for derivatives
+constexpr uint16_t MSG_TYPE_IMPLIED_VOLATILITY = 2028;    // IV for options
 
 constexpr size_t HEADER_SIZE = 36;
 constexpr size_t RECORD_SLOT_SIZE = 264;

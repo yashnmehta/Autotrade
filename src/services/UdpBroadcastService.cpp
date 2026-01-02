@@ -188,6 +188,18 @@ void UdpBroadcastService::setupBseFoCallbacks() {
         m_totalTicks++;
         emit tickReceived(tick);
     });
+    
+    // Open Interest callback for BSE FO derivatives
+    m_bseFoReceiver->setOpenInterestCallback([this](const bse::DecodedOpenInterest& oiData) {
+        XTS::Tick tick;
+        tick.exchangeSegment = 12; // BSEFO
+        tick.exchangeInstrumentID = oiData.token;
+        tick.openInterest = oiData.openInterest;
+        tick.timestampUdpRecv = oiData.packetTimestamp;
+        
+        m_totalTicks++;
+        emit tickReceived(tick);
+    });
 }
 
 void UdpBroadcastService::setupBseCmCallbacks() {

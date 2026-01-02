@@ -62,7 +62,7 @@ This document analyzes all UDP broadcast message codes defined in exchange proto
 | **2011** | INDEX_CHANGE | ✅ Implemented | `bse_receiver.cpp` | Medium | Index OHLC |
 | **2012** | INDEX_CHANGE_2 | ✅ Implemented | `bse_receiver.cpp` | Medium | Index OHLC (alt) |
 | **2014** | CLOSE_PRICE | ❌ Not implemented | - | Medium | Official close price |
-| **2015** | OPEN_INTEREST | ❌ Not implemented | - | **High** | OI for derivatives |
+| **2015** | OPEN_INTEREST | ✅ Implemented | `bse_receiver.cpp` | **High** | OI for derivatives |
 | **2016** | VAR_PERCENTAGE | ❌ Not implemented | - | Low | VaR margin % |
 | **2017** | AUCTION_MARKET_PICTURE | ❌ Not implemented | - | Low | Auction order book |
 | **2020** | MARKET_PICTURE | ✅ Implemented | `bse_receiver.cpp` | **Critical** | 5-level depth, OHLC, Volume, LTP |
@@ -79,7 +79,7 @@ This document analyzes all UDP broadcast message codes defined in exchange proto
 
 | Code | Name | Priority | Data Value | Implementation Effort |
 |------|------|----------|------------|----------------------|
-| **2015** | OPEN_INTEREST | **High** | OI for BSE derivatives (needed for SnapQuote) | 3 hours |
+| ~~**2015**~~ | ~~OPEN_INTEREST~~ | ~~**High**~~ | ~~OI for BSE derivatives~~ | ✅ DONE |
 | **2014** | CLOSE_PRICE | Medium | Previous close for % change calc | 2 hours |
 | **2028** | IMPLIED_VOLATILITY | Medium | Greeks for options | 3 hours |
 | **2002** | PRODUCT_STATE_CHANGE | Medium | Know when market opens/closes | 2 hours |
@@ -101,7 +101,7 @@ This document analyzes all UDP broadcast message codes defined in exchange proto
 
 | Exchange | Missing | Impact | Priority |
 |----------|---------|--------|----------|
-| **BSE** | 2015 (OI) | No OI display for BSE derivatives | **High** |
+| **BSE** | ~~2015 (OI)~~ | ~~No OI display for BSE derivatives~~ | ✅ Done |
 | **BSE** | 2014 (Close) | % change may be inaccurate | Medium |
 | **NSE FO** | 7207 (Indices) | No index values | Low |
 | **BSE** | 2028 (IV) | No Greeks for BSE options | Medium |
@@ -121,7 +121,7 @@ This document analyzes all UDP broadcast message codes defined in exchange proto
 | `low` | ✅ | ✅ | ✅ | ✅ |
 | `close` | ✅ | ✅ | ⚠️ Prev close | ⚠️ Prev close |
 | `volume` | ✅ | ✅ | ✅ | ✅ |
-| `openInterest` | ✅ (7202) | ✅ | ❌ Missing | ❌ Missing |
+| `openInterest` | ✅ (7202) | ✅ | ✅ (2015) | ✅ (2015) |
 | `averagePrice` | ⚠️ Partial | ⚠️ Partial | ✅ | ✅ |
 | `bidDepth[5]` | ✅ | ✅ | ✅ | ✅ |
 | `askDepth[5]` | ✅ | ✅ | ✅ | ✅ |
@@ -132,8 +132,8 @@ This document analyzes all UDP broadcast message codes defined in exchange proto
 
 ## Recommended Implementation Roadmap
 
-### Phase 1: Critical (Next)
-1. **BSE 2015 (Open Interest)** - Required for Snap Quote OI display
+### Phase 1: Critical (Done)
+1. ✅ **BSE 2015 (Open Interest)** - Implemented!
 2. **BSE 2014 (Close Price)** - Required for accurate % change
 
 ### Phase 2: Important
