@@ -16,18 +16,67 @@ PriceCache::PriceCache() {
 
 void PriceCache::updatePrice(int exchangeSegment, int token, const XTS::Tick& tick) {
     int64_t key = makeKey(exchangeSegment, token);
-    
+    XTS::Tick mergedTick = tick;
+
     {
         std::unique_lock lock(m_mutex);
-        m_cache[key] = {
-            tick,
-            std::chrono::steady_clock::now()
-        };
+        auto it = m_cache.find(key);
+        if (it != m_cache.end()) {
+            XTS::Tick& existing = it->second.tick;
+            
+            // --- Merge Logic: Update only available fields ---
+            
+            // 1. Trade Data (LTP, Volume, OHLC)
+            // If the incoming tick has a valid trade price, it's a trade packet (or full packet)
+            if (tick.lastTradedPrice > 0) {
+                existing.lastTradedPrice = tick.lastTradedPrice;
+                existing.lastTradedQuantity = tick.lastTradedQuantity;
+                if (tick.volume > existing.volume) {
+                    existing.volume = tick.volume; // Only update if cumulative volume increases
+                }
+                existing.open = tick.open;
+                existing.high = tick.high;
+                existing.low = tick.low;
+                existing.close = tick.close;
+                existing.averagePrice = tick.averagePrice;
+                existing.lastUpdateTime = tick.lastUpdateTime;
+            }
+            
+            // 2. Quote Data (Best Bid/Ask + Depth)
+            // If incoming tick has valid Bid info
+            if (tick.bidQuantity > 0 || tick.bidPrice > 0) {
+                existing.bidPrice = tick.bidPrice;
+                existing.bidQuantity = tick.bidQuantity;
+                existing.totalBuyQuantity = tick.totalBuyQuantity;
+                for(int i=0; i<5; ++i) existing.bidDepth[i] = tick.bidDepth[i];
+            }
+            
+            // If incoming tick has valid Ask info
+            if (tick.askQuantity > 0 || tick.askPrice > 0) {
+                existing.askPrice = tick.askPrice;
+                existing.askQuantity = tick.askQuantity;
+                existing.totalSellQuantity = tick.totalSellQuantity;
+                for(int i=0; i<5; ++i) existing.askDepth[i] = tick.askDepth[i];
+            }
+            
+            // 3. Open Interest
+            if (tick.openInterest > 0) {
+                existing.openInterest = tick.openInterest;
+            }
+            
+            // Update timestamp
+            it->second.timestamp = std::chrono::steady_clock::now();
+            mergedTick = existing; // Use the full picture for callback
+            
+        } else {
+            // New entry: store as is
+            m_cache[key] = { tick, std::chrono::steady_clock::now() };
+        }
     }
     
     // Invoke callback OUTSIDE lock
     if (m_callback) {
-        m_callback(exchangeSegment, token, tick);
+        m_callback(exchangeSegment, token, mergedTick);
     }
 }
 

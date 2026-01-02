@@ -10,6 +10,7 @@
 #include <cmath>
 #include "repository/RepositoryManager.h"
 #include "services/FeedHandler.h"
+#include "services/PriceCache.h"
 #include "services/TokenSubscriptionManager.h"
 
 // ============================================================================
@@ -716,6 +717,21 @@ void OptionChainWindow::refreshData()
             // Subscribe
             feed.subscribe(exchangeSegment, data.callToken, this, &OptionChainWindow::onTickUpdate);
             m_tokenToStrike[data.callToken] = strike;
+            
+            // Initial Load from Cache
+            if (auto cached = PriceCache::instance().getPrice(exchangeSegment, data.callToken)) {
+                const auto& tick = *cached;
+                if (tick.lastTradedPrice > 0) {
+                    data.callLTP = tick.lastTradedPrice;
+                    if (tick.close > 0) data.callChng = tick.lastTradedPrice - tick.close;
+                }
+                if (tick.bidPrice > 0) data.callBid = tick.bidPrice;
+                if (tick.askPrice > 0) data.callAsk = tick.askPrice;
+                if (tick.bidQuantity > 0) data.callBidQty = tick.bidQuantity;
+                if (tick.askQuantity > 0) data.callAskQty = tick.askQuantity;
+                if (tick.volume > 0) data.callVolume = tick.volume;
+                if (tick.openInterest > 0) data.callOI = tick.openInterest;
+            }
         }
         
         if (putContracts.contains(strike)) {
@@ -723,6 +739,21 @@ void OptionChainWindow::refreshData()
             // Subscribe
             feed.subscribe(exchangeSegment, data.putToken, this, &OptionChainWindow::onTickUpdate);
             m_tokenToStrike[data.putToken] = strike;
+            
+            // Initial Load from Cache
+            if (auto cached = PriceCache::instance().getPrice(exchangeSegment, data.putToken)) {
+                const auto& tick = *cached;
+                if (tick.lastTradedPrice > 0) {
+                    data.putLTP = tick.lastTradedPrice;
+                    if (tick.close > 0) data.putChng = tick.lastTradedPrice - tick.close;
+                }
+                if (tick.bidPrice > 0) data.putBid = tick.bidPrice;
+                if (tick.askPrice > 0) data.putAsk = tick.askPrice;
+                if (tick.bidQuantity > 0) data.putBidQty = tick.bidQuantity;
+                if (tick.askQuantity > 0) data.putAskQty = tick.askQuantity;
+                if (tick.volume > 0) data.putVolume = tick.volume;
+                if (tick.openInterest > 0) data.putOI = tick.openInterest;
+            }
         }
         
         m_strikeData[strike] = data;
@@ -792,30 +823,41 @@ void OptionChainWindow::onTickUpdate(const XTS::Tick &tick)
     // bool isPut = (tick.exchangeInstrumentID == data.putToken); // Implicit
     
     // Update fields
+    // Update fields
     if (isCall) {
-        if (tick.lastTradedPrice > 0) data.callLTP = tick.lastTradedPrice;
-        if (tick.totalBuyQuantity > 0) data.callBidQty = tick.totalBuyQuantity; 
+        if (tick.lastTradedPrice > 0) {
+            data.callLTP = tick.lastTradedPrice;
+            // Only update Change if we have a valid LTP and Close
+            if (tick.close > 0) {
+                 data.callChng = tick.lastTradedPrice - tick.close;
+            }
+        }
         
-        data.callBid = tick.bidPrice;
-        data.callAsk = tick.askPrice;
-        data.callBidQty = tick.bidQuantity;
-        data.callAskQty = tick.askQuantity;
+        // Depth / Quote Updates
+        if (tick.bidPrice > 0) data.callBid = tick.bidPrice;
+        if (tick.askPrice > 0) data.callAsk = tick.askPrice;
+        if (tick.bidQuantity > 0) data.callBidQty = tick.bidQuantity;
+        if (tick.askQuantity > 0) data.callAskQty = tick.askQuantity;
         
-        data.callVolume = tick.volume;
-        data.callOI = tick.openInterest;
+        // Statistics Updates
+        if (tick.volume > 0) data.callVolume = tick.volume;
+        if (tick.openInterest > 0) data.callOI = tick.openInterest;
         
-        data.callChng = tick.lastTradedPrice - tick.close;
     } else {
-        if (tick.lastTradedPrice > 0) data.putLTP = tick.lastTradedPrice;
-        data.putBid = tick.bidPrice;
-        data.putAsk = tick.askPrice;
-        data.putBidQty = tick.bidQuantity;
-        data.putAskQty = tick.askQuantity;
+        if (tick.lastTradedPrice > 0) {
+            data.putLTP = tick.lastTradedPrice;
+             if (tick.close > 0) {
+                 data.putChng = tick.lastTradedPrice - tick.close;
+            }
+        }
         
-        data.putVolume = tick.volume;
-        data.putOI = tick.openInterest;
+        if (tick.bidPrice > 0) data.putBid = tick.bidPrice;
+        if (tick.askPrice > 0) data.putAsk = tick.askPrice;
+        if (tick.bidQuantity > 0) data.putBidQty = tick.bidQuantity;
+        if (tick.askQuantity > 0) data.putAskQty = tick.askQuantity;
         
-        data.putChng = tick.lastTradedPrice - tick.close;
+        if (tick.volume > 0) data.putVolume = tick.volume;
+        if (tick.openInterest > 0) data.putOI = tick.openInterest;
     }
     
     // Trigger visual update

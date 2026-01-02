@@ -54,7 +54,18 @@ bool MarketWatchWindow::addScrip(const QString &symbol, const QString &exchange,
     m_model->addScrip(scrip);
     
     TokenSubscriptionManager::instance()->subscribe(exchange, token);
+    
+    // Subscribe to UDP ticks (new) - Convert exchange string to segment
+    UDP::ExchangeSegment segment = UDP::ExchangeSegment::NSECM;  // default
+    if (exchange == "NSEFO") segment = UDP::ExchangeSegment::NSEFO;
+    else if (exchange == "NSECM") segment = UDP::ExchangeSegment::NSECM;
+    else if (exchange == "BSEFO") segment = UDP::ExchangeSegment::BSEFO;
+    else if (exchange == "BSECM") segment = UDP::ExchangeSegment::BSECM;
+    FeedHandler::instance().subscribeUDP(segment, token, this, &MarketWatchWindow::onUdpTickUpdate);
+    
+    // Also subscribe to legacy XTS::Tick for backward compatibility
     FeedHandler::instance().subscribe(token, this, &MarketWatchWindow::onTickUpdate);
+    
     m_tokenAddressBook->addToken(token, newRow);
     
     emit scripAdded(scrip.symbol, exchange, token);
@@ -84,7 +95,18 @@ bool MarketWatchWindow::addScripFromContract(const ScripData &contractData)
     m_model->addScrip(scrip);
     
     TokenSubscriptionManager::instance()->subscribe(scrip.exchange, scrip.token);
+    
+    // Subscribe to UDP ticks (new) - Convert exchange string to segment
+    UDP::ExchangeSegment segment = UDP::ExchangeSegment::NSECM;  // default
+    if (scrip.exchange == "NSEFO") segment = UDP::ExchangeSegment::NSEFO;
+    else if (scrip.exchange == "NSECM") segment = UDP::ExchangeSegment::NSECM;
+    else if (scrip.exchange == "BSEFO") segment = UDP::ExchangeSegment::BSEFO;
+    else if (scrip.exchange == "BSECM") segment = UDP::ExchangeSegment::BSECM;
+    FeedHandler::instance().subscribeUDP(segment, scrip.token, this, &MarketWatchWindow::onUdpTickUpdate);
+    
+    // Also subscribe to legacy XTS::Tick for backward compatibility
     FeedHandler::instance().subscribe(scrip.token, this, &MarketWatchWindow::onTickUpdate);
+    
     m_tokenAddressBook->addToken(scrip.token, newRow);
     
     emit scripAdded(scrip.symbol, scrip.exchange, scrip.token);
@@ -186,6 +208,16 @@ void MarketWatchWindow::pasteFromClipboard()
 
             m_model->insertScrip(currentInsertPos, scrip);
             TokenSubscriptionManager::instance()->subscribe(scrip.exchange, scrip.token);
+            
+            // Subscribe to UDP ticks (new) - Convert exchange string to segment
+            UDP::ExchangeSegment segment = UDP::ExchangeSegment::NSECM;  // default
+            if (scrip.exchange == "NSEFO") segment = UDP::ExchangeSegment::NSEFO;
+            else if (scrip.exchange == "NSECM") segment = UDP::ExchangeSegment::NSECM;
+            else if (scrip.exchange == "BSEFO") segment = UDP::ExchangeSegment::BSEFO;
+            else if (scrip.exchange == "BSECM") segment = UDP::ExchangeSegment::BSECM;
+            FeedHandler::instance().subscribeUDP(segment, scrip.token, this, &MarketWatchWindow::onUdpTickUpdate);
+            
+            // Also subscribe to legacy XTS::Tick for backward compatibility
             FeedHandler::instance().subscribe(scrip.token, this, &MarketWatchWindow::onTickUpdate);
             m_tokenAddressBook->addToken(scrip.token, currentInsertPos);
             emit scripAdded(scrip.symbol, scrip.exchange, scrip.token);

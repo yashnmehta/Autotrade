@@ -6,6 +6,7 @@
 #include "models/IMarketWatchViewCallback.h"  // For native C++ callbacks
 #include "models/WindowContext.h"  // For context-aware window opening
 #include "services/FeedHandler.h"  // Phase 2: Direct callback-based updates
+#include "udp/UDPTypes.h"  // Phase 3: UDP-specific tick data
 #include <QVBoxLayout>
 #include <QMenu>
 #include <QMessageBox>
@@ -301,8 +302,11 @@ private:
     void setupConnections();
     void setupKeyboardShortcuts();
     
-    // Phase 2: FeedHandler callback for direct tick updates
+    // Phase 2: FeedHandler callback for direct tick updates (legacy)
     void onTickUpdate(const XTS::Tick& tick);
+    
+    // Phase 3: UDP-specific tick updates (cleaner semantics)
+    void onUdpTickUpdate(const UDP::MarketTick& tick);
     
     // Data Components
     MarketWatchModel *m_model;

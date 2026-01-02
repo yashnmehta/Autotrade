@@ -171,6 +171,107 @@ void MarketWatchWindow::onTickUpdate(const XTS::Tick& tick)
     }
 }
 
+// NEW: UDP-specific tick handler with cleaner semantics
+void MarketWatchWindow::onUdpTickUpdate(const UDP::MarketTick& tick)
+{
+    int token = tick.token;
+    int64_t timestampModelStart = LatencyTracker::now();
+    
+    // Debug logging for BSE tokens
+    if (tick.exchangeSegment == UDP::ExchangeSegment::BSEFO || 
+        tick.exchangeSegment == UDP::ExchangeSegment::BSECM) {
+        static int bseUpdateCount = 0;
+        if (bseUpdateCount++ < 10) {
+            int row = findTokenRow(token);
+            // qDebug() << "[MarketWatch] BSE UDP Tick - Token:" << token 
+            //          << "LTP:" << tick.ltp 
+            //          << "Bid:" << tick.bestBid() << "(" << tick.bids[0].quantity << ")"
+            //          << "Ask:" << tick.bestAsk() << "(" << tick.asks[0].quantity << ")"
+            //          << "Row:" << row;
+        }
+    }
+    
+    // 1. Update LTP and OHLC if LTP is present
+    if (tick.ltp > 0) {
+        double change = 0;
+        double changePercent = 0;
+        
+        // Use prevClose from UDP tick (explicit semantic)
+        double closePrice = tick.prevClose;
+        if (closePrice <= 0) {
+            int row = findTokenRow(token);
+            if (row >= 0) {
+                closePrice = m_model->getScripAt(row).close;
+            }
+        }
+
+        if (closePrice > 0) {
+            change = tick.ltp - closePrice;
+            changePercent = (change / closePrice) * 100.0;
+        }
+
+        updatePrice(token, tick.ltp, change, changePercent);
+        
+        // Update OHLC - prevClose is explicit in UDP
+        if (tick.open > 0 || tick.high > 0 || tick.low > 0 || tick.prevClose > 0) {
+            updateOHLC(token, tick.open, tick.high, tick.low, tick.prevClose);
+        }
+    }
+    
+    // 2. Update LTQ if present
+    if (tick.ltq > 0) {
+        updateLastTradedQuantity(token, tick.ltq);
+    }
+
+    // 3. Update Average Traded Price (ATP - explicit naming in UDP)
+    if (tick.atp > 0) {
+        QList<int> rows = m_tokenAddressBook->getRowsForToken(token);
+        for (int row : rows) {
+            m_model->updateAveragePrice(row, tick.atp);
+        }
+    }
+
+    // 4. Update Volume if provided
+    if (tick.volume > 0) {
+        updateVolume(token, tick.volume);
+    }
+    
+    // 5. Update Bid/Ask from 5-level depth (best bid/ask from level 0)
+    if (tick.bids[0].price > 0 || tick.asks[0].price > 0) {
+        updateBidAsk(token, tick.bids[0].price, tick.asks[0].price);
+        updateBidAskQuantities(token, (int)tick.bids[0].quantity, (int)tick.asks[0].quantity);
+    }
+    
+    // 6. Update Total Buy/Sell Qty (aggregated from 5 levels)
+    if (tick.totalBidQty > 0 || tick.totalAskQty > 0) {
+        updateTotalBuySellQty(token, (int)tick.totalBidQty, (int)tick.totalAskQty);
+    }
+    
+    // 7. Update Open Interest (for derivatives only)
+    if (tick.isDerivative() && tick.openInterest > 0) {
+        double oiChangePercent = 0.0;
+        if (tick.oiChange != 0 && tick.openInterest > 0) {
+            oiChangePercent = (static_cast<double>(tick.oiChange) / tick.openInterest) * 100.0;
+        }
+        updateOpenInterest(token, tick.openInterest, oiChangePercent);
+    }
+    
+    int64_t timestampModelEnd = LatencyTracker::now();
+    
+    // Latency tracking
+    if (tick.refNo > 0 && tick.timestampUdpRecv > 0) {
+        LatencyTracker::recordLatency(
+            tick.timestampUdpRecv,
+            tick.timestampParsed,
+            tick.timestampEmitted,
+            0,  // No dequeue timestamp for UDP path
+            tick.timestampFeedHandler,
+            timestampModelStart,
+            timestampModelEnd
+        );
+    }
+}
+
 
 
 
