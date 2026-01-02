@@ -106,10 +106,5 @@ void SnapQuoteWindow::setupConnections() {
 }
 
 void SnapQuoteWindow::setupKeyboardShortcuts() {
-    m_refreshShortcut = new QShortcut(QKeySequence(Qt::Key_F5), this);
-    connect(m_refreshShortcut, &QShortcut::activated, this, &SnapQuoteWindow::onRefreshClicked);
-    
-    m_escShortcut = new QShortcut(QKeySequence(Qt::Key_Escape), this);
-    connect(m_escShortcut, &QShortcut::activated, this, &QWidget::close);
+    // F5 and Escape are handled by MainWindow and CustomMDISubWindow respectively.
 }
-

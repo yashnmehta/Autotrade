@@ -180,20 +180,41 @@ void MainWindow::createSellWindow()
 
 void MainWindow::createSnapQuoteWindow()
 {
-    // Phase 5: Enforce 3-window limit for Snap Quote windows
-    int snapQuoteCount = 0;
-    QList<CustomMDISubWindow*> windows = m_mdiArea->windowList();
-    for (CustomMDISubWindow *win : windows) {
-        if (win->windowType() == "SnapQuote") snapQuoteCount++;
+    // Use the helper to count existing SnapQuote windows
+    int count = 0;
+    QList<CustomMDISubWindow*> allWindows = m_mdiArea->windowList();
+    for (auto win : allWindows) {
+        qDebug() << "[MainWindow] Checking window:" << win->title() << "Type:" << win->windowType();
+        if (win->windowType() == "SnapQuote") count++;
     }
-    if (snapQuoteCount >= 3) {
-        if (m_statusBar) {
-            m_statusBar->showMessage("Maximum 3 Snap Quote windows allowed", 3000);
-        }
+    
+    qDebug() << "[MainWindow] Total Snap Quote windows found:" << count;
+
+    if (count >= 3) {
+        if (m_statusBar) m_statusBar->showMessage("Maximum 3 Snap Quote windows allowed", 3000);
         return;
     }
 
-    CustomMDISubWindow *window = new CustomMDISubWindow("Snap Quote", m_mdiArea);
+    // Determine a unique index (1, 2, or 3)
+    QSet<int> used;
+    for (auto win : allWindows) {
+        if (win->windowType() == "SnapQuote") {
+            QString t = win->title();
+            // Expecting "Snap Quote #"
+            if (t.startsWith("Snap Quote ")) {
+                used.insert(t.mid(11).toInt());
+            } else if (t == "Snap Quote") {
+                used.insert(0); // Old title format
+            }
+        }
+    }
+    int idx = 1;
+    while (used.contains(idx)) idx++;
+
+    QString title = QString("Snap Quote %1").arg(idx);
+    qDebug() << "[MainWindow] Creating new Snap Quote window with title:" << title;
+    
+    CustomMDISubWindow *window = new CustomMDISubWindow(title, m_mdiArea);
     window->setWindowType("SnapQuote");
 
     MarketWatchWindow *activeMarketWatch = getActiveMarketWatch();
