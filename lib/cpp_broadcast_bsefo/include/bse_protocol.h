@@ -12,6 +12,7 @@ constexpr uint32_t LEADING_ZEROS = 0x00000000;
 constexpr uint16_t MSG_TYPE_MARKET_PICTURE = 2020;        // 0x07E4
 constexpr uint16_t MSG_TYPE_MARKET_PICTURE_COMPLEX = 2021; // 0x07E5
 constexpr uint16_t MSG_TYPE_INDEX = 2012;                 // 0x07DC
+constexpr uint16_t MSG_TYPE_OPEN_INTEREST = 2015;         // OI for derivatives
 
 constexpr size_t HEADER_SIZE = 36;
 constexpr size_t RECORD_SLOT_SIZE = 264;
@@ -109,6 +110,15 @@ struct DecodedRecord {
     
     std::vector<DecodedDepthLevel> bids;
     std::vector<DecodedDepthLevel> asks;
+};
+
+// Decoded Open Interest Record (Message Type 2015)
+struct DecodedOpenInterest {
+    uint32_t token;
+    int64_t openInterest;        // OI in quantity
+    int64_t openInterestValue;   // OI in value (2 decimal)
+    int32_t openInterestChange;  // Change from previous day
+    uint64_t packetTimestamp;    // System time of receipt
 };
 
 

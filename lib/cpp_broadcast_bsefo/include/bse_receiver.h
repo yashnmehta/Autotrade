@@ -18,6 +18,7 @@ struct ReceiverStats {
     uint64_t packetsInvalid = 0;
     uint64_t packets2020 = 0; // MARKET_PICTURE
     uint64_t packets2021 = 0; // MARKET_PICTURE_COMPLEX
+    uint64_t packets2015 = 0; // OPEN_INTEREST
     uint64_t packetsDecoded = 0;
     uint64_t bytesReceived = 0;
     uint64_t errors = 0;
@@ -34,6 +35,10 @@ public:
     // Callback for decoded records
     using RecordCallback = std::function<void(const DecodedRecord&)>;
     void setRecordCallback(RecordCallback callback) { recordCallback_ = callback; }
+    
+    // Callback for Open Interest updates
+    using OpenInterestCallback = std::function<void(const DecodedOpenInterest&)>;
+    void setOpenInterestCallback(OpenInterestCallback callback) { oiCallback_ = callback; }
 
     const ReceiverStats& getStats() const { return stats_; }
 
@@ -42,9 +47,9 @@ private:
     void processPacket(const uint8_t* buffer, size_t length);
     bool validatePacket(const uint8_t* buffer, size_t length);
     
-    // Parsing helpers (Decoder logic integrated or separated)
-    // For simplicity, we can integrate the "Phase 3" decoding logic here or delegate
+    // Parsing helpers
     void decodeAndDispatch(const uint8_t* buffer, size_t length);
+    void decodeOpenInterest(const uint8_t* buffer, size_t length);
 
     std::string ip_;
     int port_;
@@ -59,6 +64,7 @@ private:
     
     ReceiverStats stats_;
     RecordCallback recordCallback_;
+    OpenInterestCallback oiCallback_;
 };
 
 } // namespace bse

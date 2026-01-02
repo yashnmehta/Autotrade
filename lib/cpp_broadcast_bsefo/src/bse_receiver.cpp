@@ -163,7 +163,8 @@ bool BSEReceiver::validatePacket(const uint8_t* buffer, size_t length) {
     uint16_t msgType = le16toh_func(*(uint16_t*)(buffer + 8));
     if (msgType != MSG_TYPE_MARKET_PICTURE && 
         msgType != MSG_TYPE_MARKET_PICTURE_COMPLEX && 
-        msgType != MSG_TYPE_INDEX) {
+        msgType != MSG_TYPE_INDEX &&
+        msgType != MSG_TYPE_OPEN_INTEREST) {
         static int msgErrCount = 0;
         if (++msgErrCount % 10 == 0) std::cerr << "[" << segment_ << "] Validation Fail: MsgType=" << msgType << std::endl;
         return false;
@@ -212,8 +213,14 @@ void BSEReceiver::decodeAndDispatch(const uint8_t* buffer, size_t length) {
     uint16_t msgType = le16toh_func(*(uint16_t*)(buffer + 8));
     if (msgType == MSG_TYPE_MARKET_PICTURE) stats_.packets2020++;
     else if (msgType == MSG_TYPE_MARKET_PICTURE_COMPLEX) stats_.packets2021++;
+    else if (msgType == MSG_TYPE_OPEN_INTEREST) {
+        stats_.packets2015++;
+        // Handle Open Interest message (2015) separately
+        decodeOpenInterest(buffer, length);
+        return;
+    }
     else if (msgType == MSG_TYPE_INDEX) {
-        // MSG_TYPE_INDEX handled here too
+        // MSG_TYPE_INDEX handled below
     }
     else return;
     
