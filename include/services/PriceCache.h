@@ -64,7 +64,7 @@ public:
      * @param token Exchange instrument ID
      * @param tick Latest tick data
      */
-    void updatePrice(int exchangeSegment, int token, const XTS::Tick& tick);
+    XTS::Tick updatePrice(int exchangeSegment, int token, const XTS::Tick& tick);
 
     /**
      * @brief Get cached price for segment+token (RECOMMENDED)

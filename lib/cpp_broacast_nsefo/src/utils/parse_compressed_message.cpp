@@ -148,6 +148,13 @@ void parse_compressed_message(const char* data, int16_t length, UDPStats& stats)
             }
             break;
             
+        case TxCodes::BCAST_INDICES:
+            // std::cout << "  [Received] " << txCode << " (BCAST_INDICES)" << std::endl;
+            if (message_size >= sizeof(MS_BCAST_INDICES)) {
+                parse_bcast_indices(reinterpret_cast<const MS_BCAST_INDICES*>(message_data));
+            }
+            break;
+            
         default:
             break;
     }

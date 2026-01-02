@@ -1,6 +1,7 @@
 #include "views/MarketWatchWindow.h"
 #include "models/TokenAddressBook.h"
 #include "services/TokenSubscriptionManager.h"
+#include "services/PriceCache.h"
 #include "utils/ClipboardHelpers.h"
 #include "utils/SelectionHelpers.h"
 #include "views/helpers/MarketWatchHelpers.h"
@@ -66,6 +67,11 @@ bool MarketWatchWindow::addScrip(const QString &symbol, const QString &exchange,
     // Also subscribe to legacy XTS::Tick for backward compatibility
     FeedHandler::instance().subscribe(token, this, &MarketWatchWindow::onTickUpdate);
     
+    // Initial Load from Cache
+    if (auto cached = PriceCache::instance().getPrice(static_cast<int>(segment), token)) {
+        onTickUpdate(*cached);
+    }
+    
     m_tokenAddressBook->addToken(token, newRow);
     
     emit scripAdded(scrip.symbol, exchange, token);
@@ -106,6 +112,11 @@ bool MarketWatchWindow::addScripFromContract(const ScripData &contractData)
     
     // Also subscribe to legacy XTS::Tick for backward compatibility
     FeedHandler::instance().subscribe(scrip.token, this, &MarketWatchWindow::onTickUpdate);
+    
+    // Initial Load from Cache
+    if (auto cached = PriceCache::instance().getPrice(static_cast<int>(segment), scrip.token)) {
+        onTickUpdate(*cached);
+    }
     
     m_tokenAddressBook->addToken(scrip.token, newRow);
     

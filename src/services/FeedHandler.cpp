@@ -1,4 +1,5 @@
 #include "services/FeedHandler.h"
+#include "services/PriceCache.h"
 #include "utils/LatencyTracker.h"
 #include <QDebug>
 
@@ -67,10 +68,13 @@ void FeedHandler::unsubscribeAll(QObject* receiver) {
     qDebug() << "[FeedHandler] Disconnected all subscriptions for receiver" << receiver;
 }
 
-void FeedHandler::onTickReceived(const XTS::Tick& tick) {
+void FeedHandler::onTickReceived(const XTS::Tick &tick) {
     int exchangeSegment = tick.exchangeSegment;
     int token = (int)tick.exchangeInstrumentID;
     int64_t key = makeKey(exchangeSegment, token);
+    
+    // Update Global Price Cache AND get merged tick
+    XTS::Tick mergedTick = PriceCache::instance().updatePrice(exchangeSegment, token, tick);
     
     // Debug logging for BSE tokens
     if (exchangeSegment == 12 || exchangeSegment == 11) {
@@ -81,8 +85,8 @@ void FeedHandler::onTickReceived(const XTS::Tick& tick) {
         }
     }
     
-    // Mark FeedHandler processing timestamp
-    XTS::Tick trackedTick = tick;
+    // Mark FeedHandler processing timestamp on the MERGED tick
+    XTS::Tick trackedTick = mergedTick;
     trackedTick.timestampFeedHandler = LatencyTracker::now();
     
     TokenPublisher* pub = nullptr;
@@ -118,6 +122,78 @@ void FeedHandler::onUdpTickReceived(const UDP::MarketTick& tick) {
     int token = tick.token;
     int64_t key = makeKey(exchangeSegment, token);
     
+    // 1. Convert UDP to XTS for PriceCache
+    XTS::Tick xtsTick;
+    xtsTick.exchangeSegment = exchangeSegment;
+    xtsTick.exchangeInstrumentID = token;
+    xtsTick.lastTradedPrice = tick.ltp;
+    xtsTick.lastTradedQuantity = tick.ltq;
+    xtsTick.volume = tick.volume;
+    xtsTick.open = tick.open;
+    xtsTick.high = tick.high;
+    xtsTick.low = tick.low;
+    xtsTick.close = tick.prevClose; // UDP prevClose maps to XTS close usually? Or XTS has prevClose?
+    // Checking XTS::Tick definition (from memory/context): it has 'close' and 'PreviousDayClosingPrice' maybe?
+    // Using 'close' for now as that's what PriceCache uses for OHLC.
+    xtsTick.lastUpdateTime = tick.timestampEmitted;
+
+    // Map Best Bid/Ask if present
+    if (tick.bids[0].price > 0) {
+        xtsTick.bidPrice = tick.bids[0].price;
+        xtsTick.bidQuantity = tick.bids[0].quantity;
+        // Map depth...
+        for(int i=0; i<5; ++i) {
+            xtsTick.bidDepth[i].price = tick.bids[i].price;
+            xtsTick.bidDepth[i].quantity = tick.bids[i].quantity;
+            xtsTick.bidDepth[i].orders = tick.bids[i].orders;
+        }
+    }
+    if (tick.asks[0].price > 0) {
+        xtsTick.askPrice = tick.asks[0].price;
+        xtsTick.askQuantity = tick.asks[0].quantity;
+        // Map depth...
+        for(int i=0; i<5; ++i) {
+            xtsTick.askDepth[i].price = tick.asks[i].price;
+            xtsTick.askDepth[i].quantity = tick.asks[i].quantity;
+            xtsTick.askDepth[i].orders = tick.asks[i].orders;
+        }
+    }
+
+    // 2. Update Global Price Cache AND get merged tick
+    XTS::Tick mergedXts = PriceCache::instance().updatePrice(exchangeSegment, token, xtsTick);
+
+    // 3. Back-propagate Merged Data to UDP Tick for publishing
+    // This ensures UI receives the full picture even if UDP packet was partial
+    UDP::MarketTick trackedTick = tick;
+    
+    trackedTick.ltp = mergedXts.lastTradedPrice;
+    trackedTick.ltq = mergedXts.lastTradedQuantity;
+    trackedTick.volume = mergedXts.volume;
+    trackedTick.open = mergedXts.open;
+    trackedTick.high = mergedXts.high;
+    trackedTick.low = mergedXts.low;
+    trackedTick.prevClose = mergedXts.close;
+    
+    // Restore Bids/Asks from Cache
+    if (mergedXts.bidPrice > 0) {
+        trackedTick.bids[0].price = mergedXts.bidPrice;
+        trackedTick.bids[0].quantity = mergedXts.bidQuantity;
+        for(int i=0; i<5; ++i) {
+            trackedTick.bids[i].price = mergedXts.bidDepth[i].price;
+            trackedTick.bids[i].quantity = mergedXts.bidDepth[i].quantity;
+            trackedTick.bids[i].orders = mergedXts.bidDepth[i].orders;
+        }
+    }
+    if (mergedXts.askPrice > 0) {
+        trackedTick.asks[0].price = mergedXts.askPrice;
+        trackedTick.asks[0].quantity = mergedXts.askQuantity;
+        for(int i=0; i<5; ++i) {
+            trackedTick.asks[i].price = mergedXts.askDepth[i].price;
+            trackedTick.asks[i].quantity = mergedXts.askDepth[i].quantity;
+            trackedTick.asks[i].orders = mergedXts.askDepth[i].orders;
+        }
+    }
+    
     // Debug logging for BSE tokens
     if (exchangeSegment == 12 || exchangeSegment == 11) {
         static int bseTickCount = 0;
@@ -128,7 +204,6 @@ void FeedHandler::onUdpTickReceived(const UDP::MarketTick& tick) {
     }
     
     // Mark FeedHandler processing timestamp
-    UDP::MarketTick trackedTick = tick;
     trackedTick.timestampFeedHandler = LatencyTracker::now();
     
     TokenPublisher* pub = nullptr;

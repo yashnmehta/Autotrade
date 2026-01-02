@@ -86,6 +86,27 @@ struct MarketWatchData {
     MarketLevel levels[3];      // Fixed-size array (3 levels)
 };
 
+// Index data (from 7207)
+struct IndexData {
+    char name[21];              // Index name (null-terminated)
+    double value;               // Current index value
+    double high;                // Day high
+    double low;                 // Day low
+    double open;                // Opening value
+    double close;               // Previous close
+    double percentChange;       // % change from previous close
+    double yearlyHigh;          // 52-week high
+    double yearlyLow;           // 52-week low
+    uint32_t noOfUpmoves;       // Number of advancing stocks
+    uint32_t noOfDownmoves;     // Number of declining stocks
+    double marketCap;           // Total market capitalization
+    char netChangeIndicator;    // '+' or '-'
+    
+    // Latency tracking
+    int64_t timestampRecv = 0;
+    int64_t timestampParsed = 0;
+};
+
 // ============================================================================
 // CALLBACK FUNCTION TYPES
 // ============================================================================
@@ -101,6 +122,9 @@ using TickerCallback = std::function<void(const TickerData&)>;
 
 // Callback for market watch updates (7201, 17201)
 using MarketWatchCallback = std::function<void(const MarketWatchData&)>;
+
+// Callback for index updates (7207)
+using IndexCallback = std::function<void(const IndexData&)>;
 
 // ============================================================================
 // CALLBACK REGISTRY
@@ -131,6 +155,10 @@ public:
         marketWatchCallback = callback;
     }
     
+    void registerIndexCallback(IndexCallback callback) {
+        indexCallback = callback;
+    }
+    
     // Dispatch callbacks (called by parsers)
     void dispatchTouchline(const TouchlineData& data) {
         if (touchlineCallback) {
@@ -156,6 +184,12 @@ public:
         }
     }
     
+    void dispatchIndex(const IndexData& data) {
+        if (indexCallback) {
+            indexCallback(data);
+        }
+    }
+    
 private:
     MarketDataCallbackRegistry() = default;
     ~MarketDataCallbackRegistry() = default;
@@ -166,6 +200,7 @@ private:
     MarketDepthCallback marketDepthCallback;
     TickerCallback tickerCallback;
     MarketWatchCallback marketWatchCallback;
+    IndexCallback indexCallback;
 };
 
 } // namespace nsefo

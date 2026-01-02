@@ -2,6 +2,7 @@
 #define NSE_PARSERS_H
 
 #include "nse_structures.h"
+#include "nse_index_messages.h"
 #include <cstdint>
 
 namespace nsefo {
@@ -41,6 +42,10 @@ void parse_spd_mbp_delta(const MS_SPD_MKT_INFO* msg);
 // TransCode 7220
 void parse_message_7220(const MS_BCAST_LIMIT_PRICE_PROTECTION_RANGE* msg);
 void parse_limit_price_protection(const MS_BCAST_LIMIT_PRICE_PROTECTION_RANGE* msg);
+
+// TransCode 7207
+void parse_message_7207(const MS_BCAST_INDICES* msg);
+void parse_bcast_indices(const MS_BCAST_INDICES* msg);
 
 // ============================================================================
 // ADMIN MESSAGE PARSERS

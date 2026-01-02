@@ -7,6 +7,7 @@
 #include <QDebug>
 #include <thread>
 #include <iostream>
+#include <cstring>
 
 // ========== CONVERSION HELPERS: Native Protocol → UDP::MarketTick ==========
 
@@ -154,6 +155,32 @@ UDP::SessionStateTick convertBseSessionState(const bse::DecodedSessionState& sta
     return sessTick;
 }
 
+// Convert NSE FO Index Data to UDP::IndexTick
+UDP::IndexTick convertNseFoIndex(const nsefo::IndexData& data) {
+    UDP::IndexTick tick;
+    tick.exchangeSegment = UDP::ExchangeSegment::NSEFO;
+    tick.token = 0;  // Index doesn't have a token in 7207
+    
+    // Copy index name (ensure null-termination)
+    std::memcpy(tick.name, data.name, std::min(sizeof(tick.name) - 1, sizeof(data.name)));
+    tick.name[sizeof(tick.name) - 1] = '\0';
+    
+    tick.value = data.value;
+    tick.open = data.open;
+    tick.high = data.high;
+    tick.low = data.low;
+    tick.prevClose = data.close;
+    tick.changePercent = data.percentChange;
+    tick.change = tick.value - tick.prevClose;
+    tick.marketCap = static_cast<uint64_t>(data.marketCap);
+    tick.numAdvances = data.noOfUpmoves;
+    tick.numDeclines = data.noOfDownmoves;
+    tick.numUnchanged = 0;  // Not provided in message 7207
+    tick.timestampUdpRecv = data.timestampRecv;
+    
+    return tick;
+}
+
 // Backward compatibility: Convert UDP::MarketTick to legacy XTS::Tick
 XTS::Tick convertToLegacy(const UDP::MarketTick& udp) {
     XTS::Tick tick;
@@ -251,6 +278,13 @@ void UdpBroadcastService::setupNseFoCallbacks() {
             m_totalTicks++;
             emit tickReceived(legacyTick);
         }
+    });
+    
+    // Index callback for message 7207 (BCAST_INDICES)
+    nsefo::MarketDataCallbackRegistry::instance().registerIndexCallback([this](const nsefo::IndexData& data) {
+        // Emit new UDP::IndexTick
+        UDP::IndexTick indexTick = convertNseFoIndex(data);
+        emit udpIndexReceived(indexTick);
     });
 }
 

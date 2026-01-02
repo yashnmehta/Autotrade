@@ -14,7 +14,7 @@ PriceCache::PriceCache() {
 
 // ========== COMPOSITE KEY API (RECOMMENDED) ==========
 
-void PriceCache::updatePrice(int exchangeSegment, int token, const XTS::Tick& tick) {
+XTS::Tick PriceCache::updatePrice(int exchangeSegment, int token, const XTS::Tick& tick) {
     int64_t key = makeKey(exchangeSegment, token);
     XTS::Tick mergedTick = tick;
 
@@ -34,11 +34,14 @@ void PriceCache::updatePrice(int exchangeSegment, int token, const XTS::Tick& ti
                 if (tick.volume > existing.volume) {
                     existing.volume = tick.volume; // Only update if cumulative volume increases
                 }
-                existing.open = tick.open;
-                existing.high = tick.high;
-                existing.low = tick.low;
-                existing.close = tick.close;
-                existing.averagePrice = tick.averagePrice;
+                
+                // Protect OHLC from being overwritten by 0s in partial updates
+                if (tick.open > 0) existing.open = tick.open;
+                if (tick.high > 0) existing.high = tick.high;
+                if (tick.low > 0) existing.low = tick.low;
+                if (tick.close > 0) existing.close = tick.close;
+                if (tick.averagePrice > 0) existing.averagePrice = tick.averagePrice;
+                
                 existing.lastUpdateTime = tick.lastUpdateTime;
             }
             
@@ -49,6 +52,8 @@ void PriceCache::updatePrice(int exchangeSegment, int token, const XTS::Tick& ti
                 existing.bidQuantity = tick.bidQuantity;
                 existing.totalBuyQuantity = tick.totalBuyQuantity;
                 for(int i=0; i<5; ++i) existing.bidDepth[i] = tick.bidDepth[i];
+            } else if (tick.lastTradedPrice > 0 && existing.bidPrice > 0) {
+               // Trade tick only - keep existing bid
             }
             
             // If incoming tick has valid Ask info
@@ -74,10 +79,12 @@ void PriceCache::updatePrice(int exchangeSegment, int token, const XTS::Tick& ti
         }
     }
     
-    // Invoke callback OUTSIDE lock
+    // Invoke callback OUTSIDE lock with merged tick
     if (m_callback) {
         m_callback(exchangeSegment, token, mergedTick);
     }
+    
+    return mergedTick;
 }
 
 std::optional<XTS::Tick> PriceCache::getPrice(int exchangeSegment, int token) const {
