@@ -315,41 +315,20 @@ void UdpBroadcastService::setupBseCmCallbacks() {
     if (!m_bseCmReceiver) return;
     
     m_bseCmReceiver->setRecordCallback([this](const bse::DecodedRecord& record) {
-        XTS::Tick tick;
-        tick.exchangeSegment = 11; // BSECM
-        tick.exchangeInstrumentID = record.token;
-        tick.lastTradedPrice = record.ltp / 100.0;
-        tick.lastTradedQuantity = (int)record.ltq;
-        tick.volume = (uint32_t)record.volume;
-        tick.open = record.open / 100.0;
-        tick.high = record.high / 100.0;
-        tick.low = record.low / 100.0;
-        tick.close = record.close / 100.0;
-        tick.averagePrice = record.weightedAvgPrice / 100.0;
+        // Emit new UDP::MarketTick
+        UDP::MarketTick udpTick = convertBseRecord(record, UDP::ExchangeSegment::BSECM);
+        emit udpTickReceived(udpTick);
         
-        // Populate all 5 levels of market depth
-        for (size_t i = 0; i < 5 && i < record.bids.size(); i++) {
-            tick.bidDepth[i].price = record.bids[i].price / 100.0;
-            tick.bidDepth[i].quantity = record.bids[i].quantity;
-        }
-        for (size_t i = 0; i < 5 && i < record.asks.size(); i++) {
-            tick.askDepth[i].price = record.asks[i].price / 100.0;
-            tick.askDepth[i].quantity = record.asks[i].quantity;
-        }
-        
-        // Also set top-level bid/ask for backward compatibility
-        if (!record.bids.empty()) {
-            tick.bidPrice = record.bids[0].price / 100.0;
-            tick.bidQuantity = (int)record.bids[0].quantity;
-        }
-        if (!record.asks.empty()) {
-            tick.askPrice = record.asks[0].price / 100.0;
-            tick.askQuantity = (int)record.asks[0].quantity;
-        }
-        tick.timestampUdpRecv = record.packetTimestamp;
-        
+        // Emit legacy XTS::Tick for backward compatibility
+        XTS::Tick legacyTick = convertToLegacy(udpTick);
         m_totalTicks++;
-        emit tickReceived(tick);
+        emit tickReceived(legacyTick);
+    });
+    
+    // Session State callback for BSE CM
+    m_bseCmReceiver->setSessionStateCallback([this](const bse::DecodedSessionState& state) {
+        UDP::SessionStateTick sessTick = convertBseSessionState(state, UDP::ExchangeSegment::BSECM);
+        emit udpSessionStateReceived(sessTick);
     });
 }
 
