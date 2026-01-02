@@ -96,6 +96,7 @@ void CustomMDIArea::removeWindow(CustomMDISubWindow *window)
     if (!window)
         return;
 
+    window->removeEventFilter(this);
     m_windows.removeOne(window);
     m_minimizedWindows.removeOne(window);
 
@@ -113,6 +114,9 @@ void CustomMDIArea::removeWindow(CustomMDISubWindow *window)
     emit windowRemoved(window);
 
     qDebug() << "CustomMDIArea: Window removed" << window->title();
+    
+    // Safety: delete later (we removed WA_DeleteOnClose)
+    window->deleteLater();
 }
 
 void CustomMDIArea::closeAllSubWindows()

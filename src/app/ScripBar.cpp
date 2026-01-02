@@ -336,6 +336,7 @@ void ScripBar::populateSymbols(const QString &instrument)
     m_symbolCombo->addItems(symbols);
     
     if (m_symbolCombo->count() > 0) {
+        m_symbolCombo->setCurrentIndex(0);
         onSymbolChanged(m_symbolCombo->currentText());
     }
 }
@@ -372,6 +373,7 @@ void ScripBar::populateExpiries(const QString &symbol)
     m_expiryCombo->addItems(expiries);
     
     if (m_expiryCombo->count() > 0) {
+        m_expiryCombo->setCurrentIndex(0);
         onExpiryChanged(0);
     }
 }
@@ -412,6 +414,7 @@ void ScripBar::populateStrikes(const QString &expiry)
     m_strikeCombo->addItems(strikes);
     
     if (m_strikeCombo->count() > 0) {
+        m_strikeCombo->setCurrentIndex(0);
         onStrikeChanged(0);
     }
 }

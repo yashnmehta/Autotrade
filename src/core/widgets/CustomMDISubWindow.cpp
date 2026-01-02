@@ -22,7 +22,6 @@ CustomMDISubWindow::CustomMDISubWindow(const QString &title, QWidget *parent)
 {
     // NO Qt::SubWindow flag - pure QWidget!
     setWindowFlags(Qt::Widget); // Stay as a child widget
-    setAttribute(Qt::WA_DeleteOnClose);
     setMouseTracking(true); // For resize cursor
     setFocusPolicy(Qt::StrongFocus); // Allow focus for keyboard events
     setAttribute(Qt::WA_StyledBackground, true);  // Ensure stylesheet is applied
@@ -175,6 +174,8 @@ CustomMDISubWindow::~CustomMDISubWindow()
 
 void CustomMDISubWindow::closeEvent(QCloseEvent *event)
 {
+    qDebug() << "[MDISubWindow] closeEvent for" << title();
+    
     // Try to close content widget first so it can save state
     if (m_contentWidget) {
         m_contentWidget->close();
@@ -188,6 +189,20 @@ void CustomMDISubWindow::closeEvent(QCloseEvent *event)
     }
 
     QWidget::closeEvent(event);
+}
+
+void CustomMDISubWindow::keyPressEvent(QKeyEvent *event)
+{
+    if (event->key() == Qt::Key_Escape)
+    {
+        if (m_windowType != "MarketWatch")
+        {
+            qDebug() << "[MDISubWindow] Escape pressed - closing" << title();
+            close();
+        }
+        return;
+    }
+    QWidget::keyPressEvent(event);
 }
 
 void CustomMDISubWindow::setContentWidget(QWidget *widget)
@@ -561,6 +576,26 @@ bool CustomMDISubWindow::eventFilter(QObject *watched, QEvent *event)
                 m_isResizing = false;
                 m_resizeEdges = Qt::Edges();
                 return true;  // Event handled
+            }
+        }
+        else if (event->type() == QEvent::Close)
+        {
+            qDebug() << "[MDISubWindow] content widget closed, closing subwindow frame:" << title();
+            close(); // Close the subwindow frame too
+            return false; // Let the event propagate to content widget too
+        }
+        else if (event->type() == QEvent::KeyPress)
+        {
+            QKeyEvent *keyEvent = static_cast<QKeyEvent*>(event);
+            if (keyEvent->key() == Qt::Key_Escape)
+            {
+                // Only close if it's not a Market Watch window
+                if (m_windowType != "MarketWatch")
+                {
+                    qDebug() << "[MDISubWindow] Escape pressed in content - closing frame:" << title();
+                    close();
+                }
+                return true;
             }
         }
     }

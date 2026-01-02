@@ -69,6 +69,7 @@ private slots:
     
     // Window limit helper
     int countWindowsOfType(const QString& type);
+    void closeWindowsByType(const QString& type);
     
     // Market data updates
     void onTickReceived(const XTS::Tick &tick);

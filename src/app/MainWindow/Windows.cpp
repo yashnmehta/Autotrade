@@ -32,6 +32,19 @@ int MainWindow::countWindowsOfType(const QString& type)
     return count;
 }
 
+// Helper to close windows by type
+void MainWindow::closeWindowsByType(const QString& type)
+{
+    if (!m_mdiArea) return;
+    
+    QList<CustomMDISubWindow*> windows = m_mdiArea->windowList();
+    for (auto window : windows) {
+        if (window->windowType() == type) {
+            window->close();
+        }
+    }
+}
+
 // Helper to connect signals
 void MainWindow::connectWindowSignals(CustomMDISubWindow *window)
 {
@@ -85,6 +98,10 @@ void MainWindow::createMarketWatch()
 
 void MainWindow::createBuyWindow()
 {
+    // Enforce single order window limit: Only one Buy OR Sell window at a time
+    closeWindowsByType("BuyWindow");
+    closeWindowsByType("SellWindow");
+
     CustomMDISubWindow *window = new CustomMDISubWindow("Buy Order", m_mdiArea);
     window->setWindowType("BuyWindow");
 
@@ -122,6 +139,10 @@ void MainWindow::createBuyWindow()
 
 void MainWindow::createSellWindow()
 {
+    // Enforce single order window limit: Only one Buy OR Sell window at a time
+    closeWindowsByType("BuyWindow");
+    closeWindowsByType("SellWindow");
+
     CustomMDISubWindow *window = new CustomMDISubWindow("Sell Order", m_mdiArea);
     window->setWindowType("SellWindow");
 

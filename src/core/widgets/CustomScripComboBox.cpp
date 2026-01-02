@@ -19,6 +19,7 @@ CustomScripComboBox::CustomScripComboBox(QWidget *parent)
     : QComboBox(parent)
     , m_sortMode(AlphabeticalSort)
     , m_isPopupVisible(false)
+    , m_isUpdating(false)
 {
     COMBO_DEBUG("Constructor called");
     setupUI();
@@ -41,11 +42,22 @@ void CustomScripComboBox::setupUI()
         
         // Install event filter for Tab key handling
         m_lineEdit->installEventFilter(this);
+        
+        // Connect text change for real-time filtering
+        connect(m_lineEdit, &QLineEdit::textEdited, this, &CustomScripComboBox::onFilterTextChanged);
     }
     
     // Setup model
     m_sourceModel = new QStandardItemModel(this);
-    setModel(m_sourceModel);
+    
+    // Setup proxy model for high-performance filtering
+    m_proxyModel = new QSortFilterProxyModel(this);
+    m_proxyModel->setSourceModel(m_sourceModel);
+    m_proxyModel->setFilterCaseSensitivity(Qt::CaseInsensitive);
+    m_proxyModel->setFilterKeyColumn(0);
+    
+    // Set the proxy model as the combobox model
+    setModel(m_proxyModel);
     
     // Setup list view
     m_listView = qobject_cast<QListView*>(view());
@@ -59,14 +71,14 @@ void CustomScripComboBox::setupUI()
             this, &CustomScripComboBox::onItemActivated);
     
     // Set default max visible items
-    setMaxVisibleItems(10);
+    setMaxVisibleItems(15);
     
     // Custom styling
     setStyleSheet(
         "QComboBox {"
         "    border: 1px solid #3f3f46;"
         "    border-radius: 3px;"
-        "    padding: 4px 8px;"
+        "    padding: 2px 8px;"
         "    background: #1e1e1e;"
         "    color: #ffffff;"
         "    selection-background-color: #094771;"
@@ -76,11 +88,7 @@ void CustomScripComboBox::setupUI()
         "}"
         "QComboBox::drop-down {"
         "    border: none;"
-        "    width: 20px;"
-        "}"
-        "QComboBox::down-arrow {"
-        "    width: 0;"
-        "    height: 0;"
+        "    width: 0px;"
         "}"
         "QComboBox QAbstractItemView {"
         "    background: #1e1e1e;"
@@ -123,52 +131,54 @@ void CustomScripComboBox::setMaxVisibleItems(int count)
 void CustomScripComboBox::addItem(const QString &text, const QVariant &userData)
 {
     if (text.isEmpty() || m_allItems.contains(text)) {
-        COMBO_DEBUG("addItem skipped:" << text << "(empty or duplicate)");
         return;
     }
     
-    // COMBO_DEBUG("addItem:" << text);
     m_allItems.append(text);
     
     QStandardItem *item = new QStandardItem(text);
     item->setData(userData, Qt::UserRole);
     m_sourceModel->appendRow(item);
     
-    sortItems();
+    if (!m_isUpdating) {
+        sortItems();
+    }
 }
 
 void CustomScripComboBox::addItems(const QStringList &texts)
 {
-    COMBO_DEBUG("addItems: count =" << texts.count());
+    if (texts.isEmpty()) return;
     
-    if (texts.isEmpty()) {
-        return;
-    }
+    m_isUpdating = true;
+    m_sourceModel->blockSignals(true);
     
-    // Disable sorting temporarily for better performance
-    bool needsSort = false;
+    // Use QSet for O(1) membership check
+    QSet<QString> existingItems = m_allItems.toSet();
+    bool changed = false;
     
-    // Bulk add items without sorting each time
     for (const QString &text : texts) {
-        if (text.isEmpty() || m_allItems.contains(text)) {
-            continue;
+        if (!text.isEmpty() && !existingItems.contains(text)) {
+            m_allItems.append(text);
+            existingItems.insert(text);
+            changed = true;
         }
-        
-        m_allItems.append(text);
-        QStandardItem *item = new QStandardItem(text);
-        m_sourceModel->appendRow(item);
-        needsSort = true;
     }
     
-    // Sort once after all items are added
-    if (needsSort) {
-        sortItems();
+    if (changed) {
+        sortItems(); // This will rebuild the model with sorted items
+    }
+    
+    m_sourceModel->blockSignals(false);
+    m_isUpdating = false;
+    
+    // Refresh the view
+    if (changed) {
+        m_sourceModel->layoutChanged();
     }
 }
 
 void CustomScripComboBox::clearItems()
 {
-    COMBO_DEBUG("clearItems called");
     m_allItems.clear();
     m_sourceModel->clear();
     if (m_lineEdit) {
@@ -185,6 +195,24 @@ void CustomScripComboBox::selectAllText()
 {
     if (m_lineEdit) {
         m_lineEdit->selectAll();
+    }
+}
+
+void CustomScripComboBox::onFilterTextChanged(const QString &text)
+{
+    if (m_isUpdating) return;
+    
+    // Apply filter
+    m_proxyModel->setFilterFixedString(text);
+    
+    if (text.isEmpty()) {
+        hidePopup();
+    } else if (m_proxyModel->rowCount() > 0) {
+        if (!m_isPopupVisible) {
+            showPopup();
+        }
+    } else {
+        hidePopup();
     }
 }
 
@@ -224,8 +252,13 @@ void CustomScripComboBox::keyPressEvent(QKeyEvent *event)
         case Qt::Key_Return:
         case Qt::Key_Enter:
             if (m_isPopupVisible) {
-                // Dropdown is open: close it, emit selection, and advance focus
-                COMBO_DEBUG("Enter pressed with dropdown OPEN - closing and advancing focus");
+                // Determine which item is selected in view
+                QModelIndex currentIndex = view()->currentIndex();
+                if (currentIndex.isValid()) {
+                    QString selectedText = m_proxyModel->data(currentIndex).toString();
+                    if (m_lineEdit) m_lineEdit->setText(selectedText);
+                }
+                
                 hidePopup();
                 if (m_lineEdit && !m_lineEdit->text().isEmpty()) {
                     emit itemSelected(m_lineEdit->text());
@@ -241,7 +274,6 @@ void CustomScripComboBox::keyPressEvent(QKeyEvent *event)
                 return;
             } else {
                 // Dropdown is closed: emit signal for parent to trigger action
-                COMBO_DEBUG("Enter pressed with dropdown CLOSED - emitting enterPressedWhenClosed signal");
                 emit enterPressedWhenClosed();
                 event->accept();
                 return;
@@ -249,10 +281,10 @@ void CustomScripComboBox::keyPressEvent(QKeyEvent *event)
             break;
             
         case Qt::Key_Down:
-        case Qt::Key_Up:
             // Show dropdown if not visible
             if (!m_isPopupVisible) {
                 showPopup();
+                return;
             }
             break;
             
@@ -277,39 +309,43 @@ void CustomScripComboBox::focusInEvent(QFocusEvent *event)
 
 void CustomScripComboBox::showPopup()
 {
-    COMBO_DEBUG("showPopup called");
+    if (m_proxyModel->rowCount() == 0) return;
+    
     m_isPopupVisible = true;
     QComboBox::showPopup();
+    
+    // Ensure the first item is selected in the view
+    if (m_proxyModel->rowCount() > 0) {
+        view()->setCurrentIndex(m_proxyModel->index(0, 0));
+    }
 }
 
 void CustomScripComboBox::hidePopup()
 {
-    COMBO_DEBUG("hidePopup called");
     m_isPopupVisible = false;
     QComboBox::hidePopup();
 }
 
 void CustomScripComboBox::onItemActivated(int index)
 {
-    Q_UNUSED(index)
+    // index here is for the proxy model
+    QModelIndex proxyIndex = m_proxyModel->index(index, 0);
+    QString selectedText = m_proxyModel->data(proxyIndex).toString();
     
     if (m_lineEdit) {
-        QString selectedText = m_lineEdit->text();
-        if (!selectedText.isEmpty()) {
-            emit itemSelected(selectedText);
-            
-            // Select all text for easy next input
-            QTimer::singleShot(0, this, &CustomScripComboBox::selectAllText);
-        }
+        m_lineEdit->setText(selectedText);
+        emit itemSelected(selectedText);
+        
+        // Select all text for easy next input
+        QTimer::singleShot(0, this, &CustomScripComboBox::selectAllText);
     }
 }
 
 void CustomScripComboBox::sortItems()
 {
-    if (m_sortMode == NoSort) {
-        return;
-    }
+    if (m_sortMode == NoSort) return;
     
+    // Sort logic
     if (m_sortMode == AlphabeticalSort) {
         // Sort alphabetically (case-insensitive)
         std::sort(m_allItems.begin(), m_allItems.end(), 
@@ -322,9 +358,7 @@ void CustomScripComboBox::sortItems()
                   [this](const QString &a, const QString &b) {
             QDateTime dateA = parseDate(a);
             QDateTime dateB = parseDate(b);
-            if (dateA.isValid() && dateB.isValid()) {
-                return dateA < dateB;
-            }
+            if (dateA.isValid() && dateB.isValid()) return dateA < dateB;
             // Fallback to string comparison
             return a < b;
         });
@@ -337,9 +371,7 @@ void CustomScripComboBox::sortItems()
             double numB = b.toDouble(&okB);
             
             // If both are valid numbers, compare numerically
-            if (okA && okB) {
-                return numA < numB;
-            }
+            if (okA && okB) return numA < numB;
             
             // If only one is a number, number comes first
             if (okA) return true;
@@ -350,10 +382,14 @@ void CustomScripComboBox::sortItems()
         });
     }
     
-    // Rebuild model with sorted items
+    // Rebuild model in one go
     m_sourceModel->clear();
-    for (const QString &item : m_allItems) {
-        m_sourceModel->appendRow(new QStandardItem(item));
+    QList<QStandardItem*> items;
+    for (const QString &text : m_allItems) {
+        items.append(new QStandardItem(text));
+    }
+    if (!items.isEmpty()) {
+        m_sourceModel->appendColumn(items);
     }
 }
 
@@ -361,21 +397,12 @@ QDateTime CustomScripComboBox::parseDate(const QString &dateStr) const
 {
     // Try common date formats used in trading (most common first)
     QStringList formats = {
-        "ddMMMMyyyy",   // 16DEC2025 (repository format - most common)
-        "dd-MMM-yyyy",  // 26-Dec-2024
-        "ddMMMyyyy",    // 26DEC2024
-        "dd-MM-yyyy",   // 26-12-2024
-        "yyyy-MM-dd",   // 2024-12-26
-        "dd/MM/yyyy",   // 26/12/2024
-        "MMM-yyyy",     // Dec-2024
-        "MMMMyyyy",     // DEC2024
+        "ddMMMMyyyy", "dd-MMM-yyyy", "ddMMMyyyy", "dd-MM-yyyy", "yyyy-MM-dd", "dd/MM/yyyy", "MMM-yyyy", "MMMMyyyy"
     };
     
     for (const QString &format : formats) {
         QDateTime dt = QDateTime::fromString(dateStr, format);
-        if (dt.isValid()) {
-            return dt;
-        }
+        if (dt.isValid()) return dt;
     }
     
     return QDateTime();

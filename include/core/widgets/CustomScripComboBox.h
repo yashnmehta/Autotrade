@@ -6,20 +6,19 @@
 #include <QStandardItemModel>
 #include <QDateTime>
 #include <QListView>
+#include <QSortFilterProxyModel>
 
 /**
  * @brief Custom ComboBox for scrip/symbol selection with enhanced UX
  * 
  * Features:
  * - Line-edit feel with editable input
+ * - High-performance filtering for large lists (8000+ items)
  * - Automatic sorting (alphabetical for symbols, chronological for dates, numeric for strikes)
  * - Select-all text on Tab key
  * - Keyboard shortcuts (Esc, Enter, Tab)
  * - Smart Enter key behavior (advance focus or trigger action)
  * - Custom styling support
- * 
- * Note: Search/filter functionality removed for simplicity.
- * Will be re-implemented based on specific requirements.
  */
 class CustomScripComboBox : public QComboBox
 {
@@ -63,6 +62,7 @@ protected:
 
 private slots:
     void onItemActivated(int index);
+    void onFilterTextChanged(const QString &text);
 
 private:
     void setupUI();
@@ -72,6 +72,7 @@ private:
     // UI Components
     QLineEdit *m_lineEdit;
     QStandardItemModel *m_sourceModel;
+    QSortFilterProxyModel *m_proxyModel;
     QListView *m_listView;
     
     // Configuration
@@ -80,6 +81,7 @@ private:
     // State
     QStringList m_allItems;
     bool m_isPopupVisible;
+    bool m_isUpdating;
 };
 
 #endif // CUSTOMSCRIPCOMBOBOX_H
