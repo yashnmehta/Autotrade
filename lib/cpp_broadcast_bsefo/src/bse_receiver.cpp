@@ -292,34 +292,24 @@ void BSEReceiver::decodeAndDispatch(const uint8_t* buffer, size_t length) {
             // ATP - Average Traded Price (84-87) - Little Endian, paise ✓
             decRec.weightedAvgPrice = le32toh_func(*(uint32_t*)(record + 84));
             
-            // Best Bid Price (104-107) - Little Endian, paise ✓
-            if (recordOffset + 104 + 8 <= length) {
-                DecodedDepthLevel bid1;
-                bid1.price = le32toh_func(*(uint32_t*)(record + 104));
-                bid1.quantity = le32toh_func(*(uint32_t*)(record + 108));
-                if (bid1.price > 0 && bid1.quantity > 0) decRec.bids.push_back(bid1);
-            }
-            
-            // DEBUG: Check ask offset and add logging
-            // OrderBookLevel = 16 bytes each: price(4)+quantity(4)+flag(4)+unknown(4)
-            // Interleaved: Bid1(104-119), Ask1(120-135), Bid2(136-151), Ask2(152-167)...
-            if (recordOffset + 120 + 8 <= length) {
-                DecodedDepthLevel ask1;
-                ask1.price = le32toh_func(*(uint32_t*)(record + 120));  // Fixed: was 112
-                ask1.quantity = le32toh_func(*(uint32_t*)(record + 124)); // Fixed: was 116
+            // Parse all 5 levels of depth
+            // Layout: Bid1(104-119), Ask1(120-135), Bid2(136-151), Ask2(152-167)...
+            // Each OrderBookLevel = 16 bytes: price(4)+quantity(4)+flag(4)+unknown(4)
+            for (int level = 0; level < 5; level++) {
+                int bidOffset = 104 + (level * 32);  // Each bid-ask pair is 32 bytes
+                int askOffset = bidOffset + 16;       // Ask follows Bid
                 
-                // Debug log first 10 records with this token
-                static int askDebugCount = 0;
-                if (decRec.token == 1143697 && askDebugCount < 10) {
-                    askDebugCount++;
-                    std::cout << "[BSE DEBUG] Token " << decRec.token 
-                              << " - BidPrice@104: " << (decRec.bids.empty() ? 0 : decRec.bids[0].price)
-                              << " BidQty@108: " << (decRec.bids.empty() ? 0 : decRec.bids[0].quantity)
-                              << " | AskPrice@120: " << ask1.price 
-                              << " AskQty@124: " << ask1.quantity << std::endl;
+                if (recordOffset + askOffset + 8 <= length) {
+                    DecodedDepthLevel bid, ask;
+                    bid.price = le32toh_func(*(uint32_t*)(record + bidOffset));
+                    bid.quantity = le32toh_func(*(uint32_t*)(record + bidOffset + 4));
+                    ask.price = le32toh_func(*(uint32_t*)(record + askOffset));
+                    ask.quantity = le32toh_func(*(uint32_t*)(record + askOffset + 4));
+                    
+                    // Push levels even if zero (to maintain array alignment)
+                    decRec.bids.push_back(bid);
+                    decRec.asks.push_back(ask);
                 }
-                
-                if (ask1.price > 0 && ask1.quantity > 0) decRec.asks.push_back(ask1);
             }
             
             decRec.close = prevClose;

@@ -18,6 +18,13 @@ enum class ExchangeSegment {
     MCXFO = 51  // MCX Commodity
 };
 
+// 5-level market depth structure
+struct DepthLevel {
+    double price = 0.0;
+    int64_t quantity = 0;
+    int orders = 0;
+};
+
 // Tick data structure
 struct Tick {
     int exchangeSegment;
@@ -36,8 +43,12 @@ struct Tick {
     int bidQuantity;
     double askPrice;
     int askQuantity;
-    double averagePrice;         // New: Average Traded Price
-    int64_t openInterest;       // New: Open Interest
+    double averagePrice;         // Average Traded Price
+    int64_t openInterest;        // Open Interest
+    
+    // === 5-Level Market Depth ===
+    DepthLevel bidDepth[5];      // 5 levels of bid depth
+    DepthLevel askDepth[5];      // 5 levels of ask depth
     
     // === Latency Tracking Fields ===
     // Used to measure end-to-end latency from UDP → Screen
@@ -58,6 +69,7 @@ struct Tick {
              lastUpdateTime(0), bidPrice(0.0), bidQuantity(0),
              askPrice(0.0), askQuantity(0),
              averagePrice(0.0), openInterest(0),
+             bidDepth{}, askDepth{},
              refNo(0), timestampUdpRecv(0), timestampParsed(0),
              timestampQueued(0), timestampDequeued(0),
              timestampFeedHandler(0), timestampModelUpdate(0),

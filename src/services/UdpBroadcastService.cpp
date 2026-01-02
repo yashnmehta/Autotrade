@@ -42,17 +42,21 @@ void UdpBroadcastService::setupNseFoCallbacks() {
     });
 
     nsefo::MarketDataCallbackRegistry::instance().registerMarketDepthCallback([this](const nsefo::MarketDepthData& data) {
-        // Debug: Log raw bid/ask data from NSEFO parser
-        static int nsefoDepthLogCount = 0;
-        if (nsefoDepthLogCount++ < 50) {
-            qDebug() << "[UDP-NSEFO-DEPTH] Token:" << data.token
-                     << "Bid:" << data.bids[0].price << "/" << data.bids[0].quantity
-                     << "Ask:" << data.asks[0].price << "/" << data.asks[0].quantity;
+        XTS::Tick tick;
+        tick.exchangeSegment = 2; // NSEFO
+        tick.exchangeInstrumentID = data.token;
+        
+        // Populate all 5 levels of market depth
+        for (int i = 0; i < 5; i++) {
+            tick.bidDepth[i].price = data.bids[i].price;
+            tick.bidDepth[i].quantity = data.bids[i].quantity;
+            tick.bidDepth[i].orders = data.bids[i].orders;
+            tick.askDepth[i].price = data.asks[i].price;
+            tick.askDepth[i].quantity = data.asks[i].quantity;
+            tick.askDepth[i].orders = data.asks[i].orders;
         }
         
-        XTS::Tick tick;
-        tick.exchangeSegment = 2;
-        tick.exchangeInstrumentID = data.token;
+        // Also set top-level bid/ask for backward compatibility
         if (data.bids[0].quantity > 0) {
             tick.bidPrice = data.bids[0].price;
             tick.bidQuantity = data.bids[0].quantity;
@@ -110,17 +114,21 @@ void UdpBroadcastService::setupNseCmCallbacks() {
     });
 
     nsecm::MarketDataCallbackRegistry::instance().registerMarketDepthCallback([this](const nsecm::MarketDepthData& data) {
-        // Debug: Log raw bid/ask data from NSECM parser
-        static int nsecmDepthLogCount = 0;
-        if (nsecmDepthLogCount++ < 50) {
-            qDebug() << "[UDP-NSECM-DEPTH] Token:" << data.token
-                     << "Bid:" << data.bids[0].price << "/" << data.bids[0].quantity
-                     << "Ask:" << data.asks[0].price << "/" << data.asks[0].quantity;
+        XTS::Tick tick;
+        tick.exchangeSegment = 1; // NSECM
+        tick.exchangeInstrumentID = data.token;
+        
+        // Populate all 5 levels of market depth
+        for (int i = 0; i < 5; i++) {
+            tick.bidDepth[i].price = data.bids[i].price;
+            tick.bidDepth[i].quantity = data.bids[i].quantity;
+            tick.bidDepth[i].orders = data.bids[i].orders;
+            tick.askDepth[i].price = data.asks[i].price;
+            tick.askDepth[i].quantity = data.asks[i].quantity;
+            tick.askDepth[i].orders = data.asks[i].orders;
         }
         
-        XTS::Tick tick;
-        tick.exchangeSegment = 1;
-        tick.exchangeInstrumentID = data.token;
+        // Also set top-level bid/ask for backward compatibility
         if (data.bids[0].quantity > 0) {
             tick.bidPrice = data.bids[0].price;
             tick.bidQuantity = (int)data.bids[0].quantity;
@@ -156,6 +164,17 @@ void UdpBroadcastService::setupBseFoCallbacks() {
         tick.close = record.close / 100.0;
         tick.averagePrice = record.weightedAvgPrice / 100.0;
         
+        // Populate all 5 levels of market depth
+        for (size_t i = 0; i < 5 && i < record.bids.size(); i++) {
+            tick.bidDepth[i].price = record.bids[i].price / 100.0;
+            tick.bidDepth[i].quantity = record.bids[i].quantity;
+        }
+        for (size_t i = 0; i < 5 && i < record.asks.size(); i++) {
+            tick.askDepth[i].price = record.asks[i].price / 100.0;
+            tick.askDepth[i].quantity = record.asks[i].quantity;
+        }
+        
+        // Also set top-level bid/ask for backward compatibility
         if (!record.bids.empty()) {
             tick.bidPrice = record.bids[0].price / 100.0;
             tick.bidQuantity = (int)record.bids[0].quantity;
@@ -165,12 +184,6 @@ void UdpBroadcastService::setupBseFoCallbacks() {
             tick.askQuantity = (int)record.asks[0].quantity;
         }
         tick.timestampUdpRecv = record.packetTimestamp;
-        
-        // Debug logging for BSE FO
-        static int bseFoLog = 0;
-        if (bseFoLog++ < 10) {
-            qDebug() << "[UDP] BSE FO Tick - Token:" << record.token << "LTP:" << tick.lastTradedPrice;
-        }
         
         m_totalTicks++;
         emit tickReceived(tick);
@@ -193,6 +206,17 @@ void UdpBroadcastService::setupBseCmCallbacks() {
         tick.close = record.close / 100.0;
         tick.averagePrice = record.weightedAvgPrice / 100.0;
         
+        // Populate all 5 levels of market depth
+        for (size_t i = 0; i < 5 && i < record.bids.size(); i++) {
+            tick.bidDepth[i].price = record.bids[i].price / 100.0;
+            tick.bidDepth[i].quantity = record.bids[i].quantity;
+        }
+        for (size_t i = 0; i < 5 && i < record.asks.size(); i++) {
+            tick.askDepth[i].price = record.asks[i].price / 100.0;
+            tick.askDepth[i].quantity = record.asks[i].quantity;
+        }
+        
+        // Also set top-level bid/ask for backward compatibility
         if (!record.bids.empty()) {
             tick.bidPrice = record.bids[0].price / 100.0;
             tick.bidQuantity = (int)record.bids[0].quantity;
@@ -202,12 +226,6 @@ void UdpBroadcastService::setupBseCmCallbacks() {
             tick.askQuantity = (int)record.asks[0].quantity;
         }
         tick.timestampUdpRecv = record.packetTimestamp;
-        
-        // Debug logging for BSE CM
-        static int bseCmLog = 0;
-        if (bseCmLog++ < 5) {
-            qDebug() << "[UDP] BSE CM Tick - Token:" << record.token << "LTP:" << tick.lastTradedPrice;
-        }
         
         m_totalTicks++;
         emit tickReceived(tick);

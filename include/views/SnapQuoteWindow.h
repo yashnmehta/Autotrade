@@ -11,6 +11,7 @@
 #include <QDebug>
 #include <QShortcut>
 #include "models/WindowContext.h"
+#include "api/XTSTypes.h"
 
 class XTSMarketDataClient;
 
@@ -61,6 +62,7 @@ public:
 
 public slots:
     void onRefreshClicked();
+    void onTickUpdate(const XTS::Tick& tick);
 
 signals:
     void refreshRequested(const QString &exchange, int token);

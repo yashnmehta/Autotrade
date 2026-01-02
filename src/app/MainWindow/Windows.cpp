@@ -12,8 +12,10 @@
 #include "views/CustomizeDialog.h"
 #include "app/ScripBar.h"
 #include "services/PriceCache.h"
+#include "services/UdpBroadcastService.h"
 #include "repository/RepositoryManager.h"
 #include <QDebug>
+#include <QStatusBar>
 
 
 // Helper to count windows
@@ -135,6 +137,19 @@ void MainWindow::createSellWindow()
 
 void MainWindow::createSnapQuoteWindow()
 {
+    // Phase 5: Enforce 3-window limit for Snap Quote windows
+    int snapQuoteCount = 0;
+    QList<CustomMDISubWindow*> windows = m_mdiArea->windowList();
+    for (CustomMDISubWindow *win : windows) {
+        if (win->windowType() == "SnapQuote") snapQuoteCount++;
+    }
+    if (snapQuoteCount >= 3) {
+        if (m_statusBar) {
+            m_statusBar->showMessage("Maximum 3 Snap Quote windows allowed", 3000);
+        }
+        return;
+    }
+
     CustomMDISubWindow *window = new CustomMDISubWindow("Snap Quote", m_mdiArea);
     window->setWindowType("SnapQuote");
 
@@ -155,6 +170,10 @@ void MainWindow::createSnapQuoteWindow()
             snapWindow->fetchQuote();
         }
     }
+    
+    // Connect to UDP broadcast service for real-time tick updates
+    connect(&UdpBroadcastService::instance(), &UdpBroadcastService::tickReceived,
+            snapWindow, &SnapQuoteWindow::onTickUpdate);
     
     window->setContentWidget(snapWindow);
     window->resize(860, 300);
