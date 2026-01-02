@@ -59,3 +59,7 @@ masters
 # Backup files
 *.backup
 
+
+# add config files
+
+/configs/config.ini

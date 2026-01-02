@@ -14,6 +14,7 @@
 #include "bse_receiver.h"             // BSE FO/CM
 
 #include "api/XTSTypes.h"
+#include "udp/UDPTypes.h"
 
 /**
  * @brief Exchange segment identifiers for individual receiver control
@@ -108,7 +109,10 @@ public:
     Stats getStats() const;
 
 signals:
-    void tickReceived(const XTS::Tick& tick);
+    void tickReceived(const XTS::Tick& tick);  // Legacy - for backward compatibility
+    void udpTickReceived(const UDP::MarketTick& tick);  // New - UDP-specific
+    void udpIndexReceived(const UDP::IndexTick& index);  // Index updates
+    void udpSessionStateReceived(const UDP::SessionStateTick& state);  // Session state
     void statusChanged(bool active);
     void receiverStatusChanged(ExchangeReceiver receiver, bool active);
 

@@ -1,6 +1,7 @@
 #include "core/widgets/CustomMDISubWindow.h"
 #include "core/widgets/CustomTitleBar.h"
 #include "core/widgets/CustomMDIArea.h"
+#include "core/widgets/MDITaskBar.h"
 #include <QMouseEvent>
 #include <QCloseEvent>
 #include <QContextMenuEvent>
@@ -9,6 +10,7 @@
 #include <QMenu>
 #include <QApplication>
 #include <QTimer>
+#include <QPainterPath>
 #include <QDebug>
 
 CustomMDISubWindow::CustomMDISubWindow(const QString &title, QWidget *parent)
@@ -28,9 +30,9 @@ CustomMDISubWindow::CustomMDISubWindow(const QString &title, QWidget *parent)
     setAttribute(Qt::WA_OpaquePaintEvent, false);  // Allow border painting
     setAutoFillBackground(false);  // Let stylesheet handle background
 
-    // Main layout with margins for resize borders (must be >= border width)
+    // Main layout with NO margins (so title bar spans full width)
     m_mainLayout = new QVBoxLayout(this);
-    m_mainLayout->setContentsMargins(0, 0, 0, 0);  // 3px margin to show 2px border + extra space
+    m_mainLayout->setContentsMargins(0, 0, 0, 0);
     m_mainLayout->setSpacing(0);
 
     // Custom title bar
@@ -38,10 +40,26 @@ CustomMDISubWindow::CustomMDISubWindow(const QString &title, QWidget *parent)
     m_titleBar->setTitle(title);
     m_mainLayout->addWidget(m_titleBar);
 
+    // Container for content with margins for resize area
+    QWidget *contentContainer = new QWidget(this);
+    contentContainer->setObjectName("contentContainer");
+    QVBoxLayout *containerLayout = new QVBoxLayout(contentContainer);
+    // Margin of 5px on sides/bottom for resizing. Top is handled by titlebar.
+    // We use a value slightly smaller than RESIZE_BORDER_WIDTH to ensure hit detection
+    containerLayout->setContentsMargins(5, 0, 5, 5); 
+    containerLayout->setSpacing(0);
+    m_mainLayout->addWidget(contentContainer);
+    
+    // We store the pointer to add/remove widgets later
+    m_contentLayout = containerLayout;
+
     // Connect title bar signals
+    // Minimize: Goes through MDIArea (needs taskbar management)
     connect(m_titleBar, &CustomTitleBar::minimizeClicked, this, &CustomMDISubWindow::minimizeRequested);
-    connect(m_titleBar, &CustomTitleBar::maximizeClicked, this, &CustomMDISubWindow::maximizeRequested);
-    connect(m_titleBar, &CustomTitleBar::closeClicked, this, &CustomMDISubWindow::closeRequested);
+    // Maximize: Handle DIRECTLY in this window (toggle maximize/restore)
+    connect(m_titleBar, &CustomTitleBar::maximizeClicked, this, &CustomMDISubWindow::maximize);
+    // Close: Signal to parent for proper cleanup
+    connect(m_titleBar, &CustomTitleBar::closeClicked, this, &CustomMDISubWindow::close);
 
     // Connect drag signals for snapping support
     connect(m_titleBar, &CustomTitleBar::dragStarted, this, [this](const QPoint &globalPos)
@@ -122,18 +140,15 @@ CustomMDISubWindow::CustomMDISubWindow(const QString &title, QWidget *parent)
         }
     });
 
-    // Styling with subtle VS Code-like borders (works on both macOS and Linux)
+    // Styling with VS Code-like borders
     setStyleSheet(
         "CustomMDISubWindow { "
         "   background-color: #1e1e1e; "
-        "   border: 2px solid #007acc; "  // VS Code blue
-        "   margin: 0px; "
-        "   padding: 0px; "
+        "   border: 2px solid #007acc; "
         "}");
 
     resize(800, 600);
-
-    qDebug() << "CustomMDISubWindow created:" << title;
+    qDebug() << "[MDISubWindow] Created:" << title;
 }
 
 void CustomMDISubWindow::setActive(bool active)
@@ -141,29 +156,16 @@ void CustomMDISubWindow::setActive(bool active)
     if (m_titleBar)
         m_titleBar->setActive(active);
     
-    // Update border color based on active state
     if (!m_isPinned)
     {
-        if (active)
-        {
-            setStyleSheet(
-                "CustomMDISubWindow { "
-                "   background-color: #1e1e1e; "
-                "   border: 2px solid #007acc; "  // VS Code blue for active
-                "   margin: 0px; "
-                "   padding: 0px; "
-                "}");
-        }
-        else
-        {
-            setStyleSheet(
-                "CustomMDISubWindow { "
-                "   background-color: #1e1e1e; "
-                "   border: 2px solid #3e3e42; "  // Dark gray for inactive
-                "   margin: 0px; "
-                "   padding: 0px; "
-                "}");
-        }
+        // Use a single style update to prevent flickering
+        QString borderColor = active ? "#007acc" : "#3e3e42";
+        setStyleSheet(QString(
+            "CustomMDISubWindow { "
+            "   background-color: #1e1e1e; "
+            "   border: 2px solid %1; "
+            "}"
+        ).arg(borderColor));
     }
 }
 
@@ -209,7 +211,7 @@ void CustomMDISubWindow::setContentWidget(QWidget *widget)
 {
     if (m_contentWidget)
     {
-        m_mainLayout->removeWidget(m_contentWidget);
+        m_contentLayout->removeWidget(m_contentWidget);
         m_contentWidget->removeEventFilter(this);
         m_contentWidget->setParent(nullptr);
     }
@@ -217,11 +219,14 @@ void CustomMDISubWindow::setContentWidget(QWidget *widget)
     m_contentWidget = widget;
     if (m_contentWidget)
     {
-        m_mainLayout->addWidget(m_contentWidget);
-        // Install event filter to capture mouse events near edges
+        m_contentLayout->addWidget(m_contentWidget);
+        // Install event filter as a fallback for the very edges
         m_contentWidget->installEventFilter(this);
         
-        // Set focus to content widget so keyboard input goes directly to it
+        // Ensure content widget has its own bg or transparency correctly
+        m_contentWidget->setAttribute(Qt::WA_StyledBackground, true);
+        
+        // Set focus to content widget
         QTimer::singleShot(0, m_contentWidget, [this]() {
             if (m_contentWidget) {
                 m_contentWidget->setFocus();
@@ -260,21 +265,36 @@ void CustomMDISubWindow::restore()
 
 void CustomMDISubWindow::maximize()
 {
-    if (!m_isMaximized)
+    qDebug() << "[MDISubWindow] maximize() called for" << title() << "isMaximized:" << m_isMaximized;
+    
+    // Toggle behavior - if already maximized, restore
+    if (m_isMaximized)
     {
-        m_normalGeometry = geometry();
-
-        // Maximize within parent
-        if (parentWidget())
-        {
-            setGeometry(0, 0, parentWidget()->width(), parentWidget()->height());
-        }
-
-        m_isMaximized = true;
-    }
-    else
-    {
+        qDebug() << "[MDISubWindow] Already maximized, restoring...";
         restore();
+        return;
+    }
+    
+    // Save current geometry for later restore
+    m_normalGeometry = geometry();
+    
+    // Set maximized state FIRST to prevent re-entry
+    m_isMaximized = true;
+
+    CustomMDIArea *mdiArea = qobject_cast<CustomMDIArea*>(parentWidget());
+    if (mdiArea)
+    {
+        int availableHeight = mdiArea->height();
+        if (mdiArea->taskBar() && mdiArea->taskBar()->isVisible()) {
+            availableHeight -= mdiArea->taskBar()->height();
+        }
+        QRect maxGeom(0, 0, mdiArea->width(), availableHeight);
+        qDebug() << "[MDISubWindow]" << title() << "Maximized to" << maxGeom;
+        setGeometry(maxGeom);
+    }
+    else if (parentWidget())
+    {
+        setGeometry(0, 0, parentWidget()->width(), parentWidget()->height());
     }
 }
 
@@ -306,45 +326,40 @@ void CustomMDISubWindow::mouseMoveEvent(QMouseEvent *event)
 {
     if (m_isResizing && (event->buttons() & Qt::LeftButton))
     {
-        qDebug() << "[MDISubWindow]" << title() << "resizing, pos:" << event->pos();
         QPoint delta = event->globalPos() - m_dragStartPos;
         QRect newGeometry = m_dragStartGeometry;
 
-        // Resize based on edges
-        if (m_resizeEdges & Qt::LeftEdge)
-        {
-            newGeometry.setLeft(m_dragStartGeometry.left() + delta.x());
+        // Use a more predictable resize logic
+        if (m_resizeEdges & Qt::LeftEdge) {
+            int newWidth = m_dragStartGeometry.width() - delta.x();
+            if (newWidth >= minimumWidth()) {
+                newGeometry.setLeft(m_dragStartGeometry.left() + delta.x());
+            }
         }
-        if (m_resizeEdges & Qt::TopEdge)
-        {
-            newGeometry.setTop(m_dragStartGeometry.top() + delta.y());
-        }
-        if (m_resizeEdges & Qt::RightEdge)
-        {
+        if (m_resizeEdges & Qt::RightEdge) {
             newGeometry.setRight(m_dragStartGeometry.right() + delta.x());
         }
-        if (m_resizeEdges & Qt::BottomEdge)
-        {
+        if (m_resizeEdges & Qt::TopEdge) {
+            int newHeight = m_dragStartGeometry.height() - delta.y();
+            if (newHeight >= minimumHeight()) {
+                newGeometry.setTop(m_dragStartGeometry.top() + delta.y());
+            }
+        }
+        if (m_resizeEdges & Qt::BottomEdge) {
             newGeometry.setBottom(m_dragStartGeometry.bottom() + delta.y());
         }
 
-        // Enforce minimum size
-        if (newGeometry.width() < 200)
-            newGeometry.setWidth(200);
-        if (newGeometry.height() < 150)
-            newGeometry.setHeight(150);
+        // Apply constraints
+        if (newGeometry.width() < 200) newGeometry.setWidth(200);
+        if (newGeometry.height() < 100) newGeometry.setHeight(100);
 
         setGeometry(newGeometry);
         event->accept();
         return;
     }
 
-    // Update cursor for resize
-    if (!m_isResizing)
-    {
-        updateCursor(event->pos());
-    }
-
+    // Always update cursor when mouse moves over the subwindow frame
+    updateCursor(event->pos());
     QWidget::mouseMoveEvent(event);
 }
 
@@ -367,6 +382,8 @@ void CustomMDISubWindow::focusInEvent(QFocusEvent *event)
 
 bool CustomMDISubWindow::isOnResizeBorder(const QPoint &pos, Qt::Edges &edges) const
 {
+    if (m_isMaximized) return false;
+    
     edges = Qt::Edges();
 
     if (pos.x() < RESIZE_BORDER_WIDTH)
@@ -558,7 +575,6 @@ bool CustomMDISubWindow::eventFilter(QObject *watched, QEvent *event)
                 Qt::Edges edges;
                 if (isOnResizeBorder(subWindowPos, edges))
                 {
-                    qDebug() << "[MDISubWindow]" << title() << "starting resize from content, edges:" << edges;
                     m_isResizing = true;
                     m_resizeEdges = edges;
                     m_dragStartPos = mouseEvent->globalPos();
@@ -578,26 +594,6 @@ bool CustomMDISubWindow::eventFilter(QObject *watched, QEvent *event)
                 return true;  // Event handled
             }
         }
-        else if (event->type() == QEvent::Close)
-        {
-            qDebug() << "[MDISubWindow] content widget closed, closing subwindow frame:" << title();
-            close(); // Close the subwindow frame too
-            return false; // Let the event propagate to content widget too
-        }
-        else if (event->type() == QEvent::KeyPress)
-        {
-            QKeyEvent *keyEvent = static_cast<QKeyEvent*>(event);
-            if (keyEvent->key() == Qt::Key_Escape)
-            {
-                // Only close if it's not a Market Watch window
-                if (m_windowType != "MarketWatch")
-                {
-                    qDebug() << "[MDISubWindow] Escape pressed in content - closing frame:" << title();
-                    close();
-                }
-                return true;
-            }
-        }
     }
     
     return QWidget::eventFilter(watched, event);
@@ -607,38 +603,44 @@ void CustomMDISubWindow::paintEvent(QPaintEvent *event)
 {
     QWidget::paintEvent(event);
     
-    // Manually paint border for Linux compatibility
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing);
     
-    // Determine border color based on state
     QColor borderColor;
-    int borderWidth = 2;
+    int borderWidth = 2; // Keep visual border thin for aesthetics
     
     if (m_isPinned)
     {
-        borderColor = QColor(206, 145, 120);  // Subtle orange for pinned
+        borderColor = QColor(206, 145, 120);
     }
     else if (m_titleBar && m_titleBar->property("isActive").toBool())
     {
-        borderColor = QColor(0, 122, 204);  // VS Code blue for active
+        borderColor = QColor(0, 122, 204);
     }
     else
     {
-        borderColor = QColor(62, 62, 66);  // Dark gray for inactive
+        borderColor = QColor(62, 62, 66);
     }
     
-    // Draw the border
     QPen pen(borderColor, borderWidth);
     painter.setPen(pen);
     painter.setBrush(Qt::NoBrush);
     
-    QRect borderRect = rect().adjusted(
-        borderWidth / 2,
-        borderWidth / 2,
-        -borderWidth / 2,
-        -borderWidth / 2
-    );
-    
+    QRect borderRect = rect().adjusted(1, 1, -1, -1);
     painter.drawRect(borderRect);
+    
+    // Optional: draw corner handles visually
+    if (!m_isMaximized && m_titleBar && m_titleBar->property("isActive").toBool()) {
+        painter.setBrush(borderColor);
+        int handleSize = 10;
+        // Bottom right corner handle
+        QRect brHandle(width() - handleSize, height() - handleSize, handleSize, handleSize);
+        // Just a subtle triangle or dot
+        QPainterPath path;
+        path.moveTo(width(), height() - handleSize);
+        path.lineTo(width(), height());
+        path.lineTo(width() - handleSize, height());
+        path.closeSubpath();
+        painter.fillPath(path, borderColor);
+    }
 }

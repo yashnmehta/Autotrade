@@ -53,6 +53,22 @@ public:
      * @return Token ID, or -1 if invalid
      */
     static int extractToken(const QString &line);
+
+    /**
+     * @brief Save portfolio to file
+     * @param filename Path to save file
+     * @param scrips List of scrips to save
+     * @return true if successful
+     */
+    static bool savePortfolio(const QString &filename, const QList<ScripData> &scrips);
+
+    /**
+     * @brief Load portfolio from file
+     * @param filename Path to load file
+     * @param scrips Output list of scrips
+     * @return true if successful
+     */
+    static bool loadPortfolio(const QString &filename, QList<ScripData> &scrips);
 };
 
 #endif // MARKETWATCHHELPERS_H

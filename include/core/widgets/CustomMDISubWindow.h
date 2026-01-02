@@ -80,6 +80,7 @@ private:
     CustomTitleBar *m_titleBar;
     QWidget *m_contentWidget;
     QVBoxLayout *m_mainLayout;
+    QVBoxLayout *m_contentLayout;
     QString m_windowType; // For workspace persistence
 
     // Window State
@@ -95,7 +96,7 @@ private:
     QRect m_dragStartGeometry;
     Qt::Edges m_resizeEdges;
 
-    static constexpr int RESIZE_BORDER_WIDTH = 10;  // Border width for resize detection
+    static constexpr int RESIZE_BORDER_WIDTH = 8;  // Increased for easier hit detection and margin support
 };
 
 #endif // CUSTOMMDISUBWINDOW_H

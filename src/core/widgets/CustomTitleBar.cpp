@@ -15,7 +15,9 @@ CustomTitleBar::CustomTitleBar(QWidget *parent)
     setStyleSheet("background-color: #2d2d30; color: #ffffff;");
 
     QHBoxLayout *layout = new QHBoxLayout(this);
-    layout->setContentsMargins(10, 0, 0, 0);
+    // Add small top and right margins (2px) to allow top/right edge resizing
+    // while keeping the buttons visually nearly flush.
+    layout->setContentsMargins(10, 2, 2, 0);
     layout->setSpacing(0);
 
     // Title Label
@@ -49,13 +51,13 @@ CustomTitleBar::CustomTitleBar(QWidget *parent)
                                "}";
 
     m_minimizeButton->setStyleSheet(buttonStyle);
-    m_minimizeButton->setFixedSize(46, 32);
+    m_minimizeButton->setFixedSize(46, 28); // Reduced from 32
 
     m_maximizeButton->setStyleSheet(buttonStyle);
-    m_maximizeButton->setFixedSize(46, 32);
+    m_maximizeButton->setFixedSize(46, 28); // Reduced from 32
 
     m_closeButton->setStyleSheet(closeButtonStyle);
-    m_closeButton->setFixedSize(46, 32);
+    m_closeButton->setFixedSize(46, 28); // Reduced from 32
 
     layout->addWidget(m_minimizeButton);
     layout->addWidget(m_maximizeButton);

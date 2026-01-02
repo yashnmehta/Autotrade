@@ -8,6 +8,198 @@
 #include <thread>
 #include <iostream>
 
+// ========== CONVERSION HELPERS: Native Protocol → UDP::MarketTick ==========
+
+namespace {
+
+// Convert NSE FO Touchline to UDP::MarketTick
+UDP::MarketTick convertNseFoTouchline(const nsefo::TouchlineData& data) {
+    UDP::MarketTick tick(UDP::ExchangeSegment::NSEFO, data.token);
+    tick.ltp = data.ltp;
+    tick.ltq = data.lastTradeQty;
+    tick.volume = data.volume;
+    tick.open = data.open;
+    tick.high = data.high;
+    tick.low = data.low;
+    tick.prevClose = data.close;  // NSE: "close" means previous close
+    tick.refNo = data.refNo;
+    tick.timestampUdpRecv = data.timestampRecv;
+    tick.timestampParsed = data.timestampParsed;
+    tick.timestampEmitted = LatencyTracker::now();
+    tick.messageType = 7200;  // BCAST_MBO_MBP_UPDATE
+    return tick;
+}
+
+// Convert NSE FO Market Depth to UDP::MarketTick
+UDP::MarketTick convertNseFoDepth(const nsefo::MarketDepthData& data) {
+    UDP::MarketTick tick(UDP::ExchangeSegment::NSEFO, data.token);
+    
+    // 5-level depth
+    for (int i = 0; i < 5; i++) {
+        tick.bids[i] = UDP::DepthLevel(data.bids[i].price, data.bids[i].quantity, data.bids[i].orders);
+        tick.asks[i] = UDP::DepthLevel(data.asks[i].price, data.asks[i].quantity, data.asks[i].orders);
+    }
+    
+    tick.totalBidQty = data.totalBuyQty;
+    tick.totalAskQty = data.totalSellQty;
+    tick.refNo = data.refNo;
+    tick.timestampUdpRecv = data.timestampRecv;
+    tick.timestampParsed = data.timestampParsed;
+    tick.timestampEmitted = LatencyTracker::now();
+    tick.messageType = 7200;
+    return tick;
+}
+
+// Convert NSE CM Touchline to UDP::MarketTick
+UDP::MarketTick convertNseCmTouchline(const nsecm::TouchlineData& data) {
+    UDP::MarketTick tick(UDP::ExchangeSegment::NSECM, data.token);
+    tick.ltp = data.ltp;
+    tick.ltq = data.lastTradeQty;
+    tick.volume = data.volume;
+    tick.open = data.open;
+    tick.high = data.high;
+    tick.low = data.low;
+    tick.prevClose = data.close;
+    tick.atp = data.avgPrice;
+    tick.refNo = data.refNo;
+    tick.timestampUdpRecv = data.timestampRecv;
+    tick.timestampParsed = data.timestampParsed;
+    tick.timestampEmitted = LatencyTracker::now();
+    tick.messageType = 7200;
+    return tick;
+}
+
+// Convert NSE CM Market Depth to UDP::MarketTick
+UDP::MarketTick convertNseCmDepth(const nsecm::MarketDepthData& data) {
+    UDP::MarketTick tick(UDP::ExchangeSegment::NSECM, data.token);
+    
+    // 5-level depth
+    for (int i = 0; i < 5; i++) {
+        tick.bids[i] = UDP::DepthLevel(data.bids[i].price, data.bids[i].quantity, data.bids[i].orders);
+        tick.asks[i] = UDP::DepthLevel(data.asks[i].price, data.asks[i].quantity, data.asks[i].orders);
+    }
+    
+    tick.totalBidQty = data.totalBuyQty;
+    tick.totalAskQty = data.totalSellQty;
+    tick.refNo = data.refNo;
+    tick.timestampUdpRecv = data.timestampRecv;
+    tick.timestampParsed = data.timestampParsed;
+    tick.timestampEmitted = LatencyTracker::now();
+    tick.messageType = 7200;
+    return tick;
+}
+
+// Convert BSE Record to UDP::MarketTick
+UDP::MarketTick convertBseRecord(const bse::DecodedRecord& record, UDP::ExchangeSegment segment) {
+    UDP::MarketTick tick(segment, record.token);
+    tick.ltp = record.ltp / 100.0;
+    tick.ltq = record.ltq;
+    tick.volume = record.volume;
+    tick.open = record.open / 100.0;
+    tick.high = record.high / 100.0;
+    tick.low = record.low / 100.0;
+    tick.prevClose = record.close / 100.0;  // BSE: close means previous close
+    tick.atp = record.weightedAvgPrice / 100.0;
+    
+    // 5-level depth
+    for (size_t i = 0; i < 5 && i < record.bids.size(); i++) {
+        tick.bids[i].price = record.bids[i].price / 100.0;
+        tick.bids[i].quantity = record.bids[i].quantity;
+        tick.bids[i].orders = record.bids[i].numOrders;
+    }
+    for (size_t i = 0; i < 5 && i < record.asks.size(); i++) {
+        tick.asks[i].price = record.asks[i].price / 100.0;
+        tick.asks[i].quantity = record.asks[i].quantity;
+        tick.asks[i].orders = record.asks[i].numOrders;
+    }
+    
+    tick.marketSeqNumber = 0;  // BSE doesn't provide this in 2020/2021
+    tick.timestampUdpRecv = record.packetTimestamp;
+    tick.timestampParsed = record.packetTimestamp;
+    tick.timestampEmitted = LatencyTracker::now();
+    tick.messageType = 2020;  // MARKET_PICTURE
+    return tick;
+}
+
+// Convert BSE Open Interest to UDP::MarketTick
+UDP::MarketTick convertBseOI(const bse::DecodedOpenInterest& oiData, UDP::ExchangeSegment segment) {
+    UDP::MarketTick tick(segment, oiData.token);
+    tick.openInterest = oiData.openInterest;
+    tick.oiChange = oiData.openInterestChange;
+    tick.timestampUdpRecv = oiData.packetTimestamp;
+    tick.timestampParsed = oiData.packetTimestamp;
+    tick.timestampEmitted = LatencyTracker::now();
+    tick.messageType = 2015;  // OPEN_INTEREST
+    return tick;
+}
+
+// Convert BSE Session State to UDP::SessionStateTick
+UDP::SessionStateTick convertBseSessionState(const bse::DecodedSessionState& state, UDP::ExchangeSegment segment) {
+    UDP::SessionStateTick sessTick;
+    sessTick.exchangeSegment = segment;
+    sessTick.sessionNumber = state.sessionNumber;
+    sessTick.marketSegmentId = state.marketSegmentId;
+    
+    // Map BSE market type to UDP::SessionState
+    switch (state.marketType) {
+        case 0: sessTick.state = UDP::SessionState::PRE_OPEN; break;
+        case 1: sessTick.state = UDP::SessionState::CONTINUOUS; break;
+        case 2: sessTick.state = UDP::SessionState::AUCTION; break;
+        default: sessTick.state = UDP::SessionState::UNKNOWN; break;
+    }
+    
+    sessTick.isStart = (state.startEndFlag == 0);
+    sessTick.timestamp = state.timestamp;
+    sessTick.timestampUdpRecv = state.packetTimestamp;
+    return sessTick;
+}
+
+// Backward compatibility: Convert UDP::MarketTick to legacy XTS::Tick
+XTS::Tick convertToLegacy(const UDP::MarketTick& udp) {
+    XTS::Tick tick;
+    tick.exchangeSegment = static_cast<int>(udp.exchangeSegment);
+    tick.exchangeInstrumentID = udp.token;
+    tick.lastTradedPrice = udp.ltp;
+    tick.lastTradedQuantity = (int)udp.ltq;
+    tick.volume = udp.volume;
+    tick.open = udp.open;
+    tick.high = udp.high;
+    tick.low = udp.low;
+    tick.close = udp.prevClose;  // Map prevClose → close (legacy field name)
+    tick.averagePrice = udp.atp;
+    tick.openInterest = udp.openInterest;
+    
+    // 5-level depth
+    for (int i = 0; i < 5; i++) {
+        tick.bidDepth[i].price = udp.bids[i].price;
+        tick.bidDepth[i].quantity = udp.bids[i].quantity;
+        tick.bidDepth[i].orders = (int)udp.bids[i].orders;
+        tick.askDepth[i].price = udp.asks[i].price;
+        tick.askDepth[i].quantity = udp.asks[i].quantity;
+        tick.askDepth[i].orders = (int)udp.asks[i].orders;
+    }
+    
+    // Best bid/ask
+    tick.bidPrice = udp.bestBid();
+    tick.bidQuantity = (int)udp.bids[0].quantity;
+    tick.askPrice = udp.bestAsk();
+    tick.askQuantity = (int)udp.asks[0].quantity;
+    tick.totalBuyQuantity = (int)udp.totalBidQty;
+    tick.totalSellQuantity = (int)udp.totalAskQty;
+    
+    // Latency tracking
+    tick.refNo = udp.refNo;
+    tick.timestampUdpRecv = udp.timestampUdpRecv;
+    tick.timestampParsed = udp.timestampParsed;
+    tick.timestampQueued = udp.timestampEmitted;
+    
+    return tick;
+}
+
+} // anonymous namespace
+
+// ========== SERVICE IMPLEMENTATION ==========
+
 UdpBroadcastService& UdpBroadcastService::instance() {
     static UdpBroadcastService inst;
     return inst;
@@ -21,130 +213,68 @@ UdpBroadcastService::~UdpBroadcastService() {
 
 void UdpBroadcastService::setupNseFoCallbacks() {
     nsefo::MarketDataCallbackRegistry::instance().registerTouchlineCallback([this](const nsefo::TouchlineData& data) {
-        XTS::Tick tick;
-        tick.exchangeSegment = 2; // NSEFO
-        tick.exchangeInstrumentID = data.token;
-        tick.lastTradedPrice = data.ltp;
-        tick.lastTradedQuantity = data.lastTradeQty;
-        tick.volume = data.volume;
-        tick.open = data.open;
-        tick.high = data.high;
-        tick.low = data.low;
-        tick.close = data.close;
-        tick.lastUpdateTime = data.lastTradeTime;
-        tick.refNo = data.refNo;
-        tick.timestampUdpRecv = data.timestampRecv;
-        tick.timestampParsed = data.timestampParsed;
-        tick.timestampQueued = LatencyTracker::now();
+        // Emit new UDP::MarketTick
+        UDP::MarketTick udpTick = convertNseFoTouchline(data);
+        emit udpTickReceived(udpTick);
         
+        // Emit legacy XTS::Tick for backward compatibility
+        XTS::Tick legacyTick = convertToLegacy(udpTick);
         m_totalTicks++;
-        emit tickReceived(tick);
+        emit tickReceived(legacyTick);
     });
 
     nsefo::MarketDataCallbackRegistry::instance().registerMarketDepthCallback([this](const nsefo::MarketDepthData& data) {
-        XTS::Tick tick;
-        tick.exchangeSegment = 2; // NSEFO
-        tick.exchangeInstrumentID = data.token;
+        // Emit new UDP::MarketTick
+        UDP::MarketTick udpTick = convertNseFoDepth(data);
+        emit udpTickReceived(udpTick);
         
-        // Populate all 5 levels of market depth
-        for (int i = 0; i < 5; i++) {
-            tick.bidDepth[i].price = data.bids[i].price;
-            tick.bidDepth[i].quantity = data.bids[i].quantity;
-            tick.bidDepth[i].orders = data.bids[i].orders;
-            tick.askDepth[i].price = data.asks[i].price;
-            tick.askDepth[i].quantity = data.asks[i].quantity;
-            tick.askDepth[i].orders = data.asks[i].orders;
-        }
-        
-        // Also set top-level bid/ask for backward compatibility
-        if (data.bids[0].quantity > 0) {
-            tick.bidPrice = data.bids[0].price;
-            tick.bidQuantity = data.bids[0].quantity;
-        }
-        if (data.asks[0].quantity > 0) {
-            tick.askPrice = data.asks[0].price;
-            tick.askQuantity = data.asks[0].quantity;
-        }
-        tick.totalBuyQuantity = (int)data.totalBuyQty;
-        tick.totalSellQuantity = (int)data.totalSellQty;
-        tick.refNo = data.refNo;
-        tick.timestampUdpRecv = data.timestampRecv;
-        tick.timestampParsed = data.timestampParsed;
-        
+        // Emit legacy XTS::Tick for backward compatibility
+        XTS::Tick legacyTick = convertToLegacy(udpTick);
         m_totalTicks++;
-        emit tickReceived(tick);
+        emit tickReceived(legacyTick);
     });
 
     nsefo::MarketDataCallbackRegistry::instance().registerTickerCallback([this](const nsefo::TickerData& data) {
         if (data.fillVolume > 0) {
-            XTS::Tick tick;
-            tick.exchangeSegment = 2;
-            tick.exchangeInstrumentID = data.token;
-            tick.volume = data.fillVolume;
-            tick.refNo = data.refNo;
-            tick.timestampUdpRecv = data.timestampRecv;
-            tick.timestampParsed = data.timestampParsed;
+            // Create UDP::MarketTick for ticker (partial update)
+            UDP::MarketTick udpTick(UDP::ExchangeSegment::NSEFO, data.token);
+            udpTick.volume = data.fillVolume;
+            udpTick.refNo = data.refNo;
+            udpTick.timestampUdpRecv = data.timestampRecv;
+            udpTick.timestampParsed = data.timestampParsed;
+            udpTick.timestampEmitted = LatencyTracker::now();
+            udpTick.messageType = 7202;  // BCAST_TICKER_AND_MKT_INDEX
+            emit udpTickReceived(udpTick);
             
+            // Legacy XTS::Tick
+            XTS::Tick legacyTick = convertToLegacy(udpTick);
             m_totalTicks++;
-            emit tickReceived(tick);
+            emit tickReceived(legacyTick);
         }
     });
 }
 
 void UdpBroadcastService::setupNseCmCallbacks() {
     nsecm::MarketDataCallbackRegistry::instance().registerTouchlineCallback([this](const nsecm::TouchlineData& data) {
-        XTS::Tick tick;
-        tick.exchangeSegment = 1; // NSECM
-        tick.exchangeInstrumentID = data.token;
-        tick.lastTradedPrice = data.ltp;
-        tick.lastTradedQuantity = data.lastTradeQty;
-        tick.volume = (uint32_t)data.volume;
-        tick.open = data.open;
-        tick.high = data.high;
-        tick.low = data.low;
-        tick.close = data.close;
-        tick.lastUpdateTime = data.lastTradeTime;
-        tick.averagePrice = data.avgPrice;
-        tick.refNo = data.refNo;
-        tick.timestampUdpRecv = data.timestampRecv;
-        tick.timestampParsed = data.timestampParsed;
+        // Emit new UDP::MarketTick
+        UDP::MarketTick udpTick = convertNseCmTouchline(data);
+        emit udpTickReceived(udpTick);
         
+        // Emit legacy XTS::Tick for backward compatibility
+        XTS::Tick legacyTick = convertToLegacy(udpTick);
         m_totalTicks++;
-        emit tickReceived(tick);
+        emit tickReceived(legacyTick);
     });
 
     nsecm::MarketDataCallbackRegistry::instance().registerMarketDepthCallback([this](const nsecm::MarketDepthData& data) {
-        XTS::Tick tick;
-        tick.exchangeSegment = 1; // NSECM
-        tick.exchangeInstrumentID = data.token;
+        // Emit new UDP::MarketTick
+        UDP::MarketTick udpTick = convertNseCmDepth(data);
+        emit udpTickReceived(udpTick);
         
-        // Populate all 5 levels of market depth
-        for (int i = 0; i < 5; i++) {
-            tick.bidDepth[i].price = data.bids[i].price;
-            tick.bidDepth[i].quantity = data.bids[i].quantity;
-            tick.bidDepth[i].orders = data.bids[i].orders;
-            tick.askDepth[i].price = data.asks[i].price;
-            tick.askDepth[i].quantity = data.asks[i].quantity;
-            tick.askDepth[i].orders = data.asks[i].orders;
-        }
-        
-        // Also set top-level bid/ask for backward compatibility
-        if (data.bids[0].quantity > 0) {
-            tick.bidPrice = data.bids[0].price;
-            tick.bidQuantity = (int)data.bids[0].quantity;
-        }
-        if (data.asks[0].quantity > 0) {
-            tick.askPrice = data.asks[0].price;
-            tick.askQuantity = (int)data.asks[0].quantity;
-        }
-        tick.totalBuyQuantity = (int)data.totalBuyQty;
-        tick.totalSellQuantity = (int)data.totalSellQty;
-        tick.refNo = data.refNo;
-        tick.timestampUdpRecv = data.timestampRecv;
-        tick.timestampParsed = data.timestampParsed;
-        
+        // Emit legacy XTS::Tick for backward compatibility
+        XTS::Tick legacyTick = convertToLegacy(udpTick);
         m_totalTicks++;
-        emit tickReceived(tick);
+        emit tickReceived(legacyTick);
     });
 }
 
@@ -152,53 +282,32 @@ void UdpBroadcastService::setupBseFoCallbacks() {
     if (!m_bseFoReceiver) return;
     
     m_bseFoReceiver->setRecordCallback([this](const bse::DecodedRecord& record) {
-        XTS::Tick tick;
-        tick.exchangeSegment = 12; // BSEFO
-        tick.exchangeInstrumentID = record.token;
-        tick.lastTradedPrice = record.ltp / 100.0;
-        tick.lastTradedQuantity = (int)record.ltq;
-        tick.volume = (uint32_t)record.volume;
-        tick.open = record.open / 100.0;
-        tick.high = record.high / 100.0;
-        tick.low = record.low / 100.0;
-        tick.close = record.close / 100.0;
-        tick.averagePrice = record.weightedAvgPrice / 100.0;
+        // Emit new UDP::MarketTick
+        UDP::MarketTick udpTick = convertBseRecord(record, UDP::ExchangeSegment::BSEFO);
+        emit udpTickReceived(udpTick);
         
-        // Populate all 5 levels of market depth
-        for (size_t i = 0; i < 5 && i < record.bids.size(); i++) {
-            tick.bidDepth[i].price = record.bids[i].price / 100.0;
-            tick.bidDepth[i].quantity = record.bids[i].quantity;
-        }
-        for (size_t i = 0; i < 5 && i < record.asks.size(); i++) {
-            tick.askDepth[i].price = record.asks[i].price / 100.0;
-            tick.askDepth[i].quantity = record.asks[i].quantity;
-        }
-        
-        // Also set top-level bid/ask for backward compatibility
-        if (!record.bids.empty()) {
-            tick.bidPrice = record.bids[0].price / 100.0;
-            tick.bidQuantity = (int)record.bids[0].quantity;
-        }
-        if (!record.asks.empty()) {
-            tick.askPrice = record.asks[0].price / 100.0;
-            tick.askQuantity = (int)record.asks[0].quantity;
-        }
-        tick.timestampUdpRecv = record.packetTimestamp;
-        
+        // Emit legacy XTS::Tick for backward compatibility
+        XTS::Tick legacyTick = convertToLegacy(udpTick);
         m_totalTicks++;
-        emit tickReceived(tick);
+        emit tickReceived(legacyTick);
     });
     
     // Open Interest callback for BSE FO derivatives
     m_bseFoReceiver->setOpenInterestCallback([this](const bse::DecodedOpenInterest& oiData) {
-        XTS::Tick tick;
-        tick.exchangeSegment = 12; // BSEFO
-        tick.exchangeInstrumentID = oiData.token;
-        tick.openInterest = oiData.openInterest;
-        tick.timestampUdpRecv = oiData.packetTimestamp;
+        // Emit new UDP::MarketTick
+        UDP::MarketTick udpTick = convertBseOI(oiData, UDP::ExchangeSegment::BSEFO);
+        emit udpTickReceived(udpTick);
         
+        // Emit legacy XTS::Tick for backward compatibility
+        XTS::Tick legacyTick = convertToLegacy(udpTick);
         m_totalTicks++;
-        emit tickReceived(tick);
+        emit tickReceived(legacyTick);
+    });
+    
+    // Session State callback for BSE FO
+    m_bseFoReceiver->setSessionStateCallback([this](const bse::DecodedSessionState& state) {
+        UDP::SessionStateTick sessTick = convertBseSessionState(state, UDP::ExchangeSegment::BSEFO);
+        emit udpSessionStateReceived(sessTick);
     });
 }
 

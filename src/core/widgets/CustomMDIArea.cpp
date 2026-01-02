@@ -73,15 +73,12 @@ void CustomMDIArea::addWindow(CustomMDISubWindow *window)
     window->installEventFilter(this);
 
     // Connect window signals
+    // Minimize needs MDIArea for taskbar management
     connect(window, &CustomMDISubWindow::minimizeRequested, this, [this, window]() {
         minimizeWindow(window);
     });
-    connect(window, &CustomMDISubWindow::maximizeRequested, this, [this, window]() {
-        if (window->isMaximized())
-            window->restore();
-        else
-            window->maximize();
-    });
+    // Maximize is handled directly by the window (no MDIArea involvement needed)
+    // windowActivated for focus/z-order management
     connect(window, &CustomMDISubWindow::windowActivated, this, [this, window]() {
         activateWindow(window);
     });
@@ -130,21 +127,14 @@ void CustomMDIArea::closeAllSubWindows()
 
 void CustomMDIArea::activateWindow(CustomMDISubWindow *window)
 {
-    qDebug() << "CustomMDIArea::activateWindow called with" << (window ? window->title() : QString("<null>"))
-             << "current active:" << (m_activeWindow ? m_activeWindow->title() : QString("<null>"));
-
     if (!window || window == m_activeWindow)
     {
-        qDebug() << "activateWindow: no-op (null or already active).";
         return;
     }
 
     // Deactivate old window
     if (m_activeWindow)
     {
-        m_activeWindow->setStyleSheet(
-            "CustomMDISubWindow { border: 1px solid #3e3e42; }");
-        // dim its titlebar
         m_activeWindow->setActive(false);
     }
 
@@ -153,15 +143,12 @@ void CustomMDIArea::activateWindow(CustomMDISubWindow *window)
     window->raise();
     window->activateWindow();
     window->setFocus(Qt::ActiveWindowFocusReason);
-    window->setStyleSheet(
-        "CustomMDISubWindow { border: 1px solid #007acc; }" // Active border (VS Code blue)
-    );
-    // make titlebar visually active
+    
+    // Subwindow knows how to style itself when set active
     window->setActive(true);
 
     emit windowActivated(window);
-
-    qDebug() << "CustomMDIArea: Window activated" << window->title();
+    qDebug() << "[MDIArea] Window activated:" << window->title();
 }
 
 void CustomMDIArea::minimizeWindow(CustomMDISubWindow *window)
@@ -213,12 +200,17 @@ void CustomMDIArea::resizeEvent(QResizeEvent *event)
 {
     QWidget::resizeEvent(event);
 
-    // Adjust maximized windows
+    int availableHeight = height();
+    if (m_taskBar && m_taskBar->isVisible()) {
+        availableHeight -= m_taskBar->height();
+    }
+
+    // Adjust maximized windows to fill new area
     for (CustomMDISubWindow *window : m_windows)
     {
         if (window->isMaximized())
         {
-            window->setGeometry(0, 0, width(), height() - m_taskBar->height());
+            window->setGeometry(0, 0, width(), availableHeight);
         }
     }
 }
