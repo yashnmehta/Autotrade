@@ -1,5 +1,6 @@
 #include "views/BuyWindow.h"
 #include "views/SellWindow.h"
+#include "api/XTSTypes.h"
 #include "utils/PreferencesManager.h"
 #include "utils/WindowSettingsHelper.h"
 #include "core/widgets/CustomMDISubWindow.h"
@@ -33,15 +34,46 @@ void BuyWindow::onSubmitClicked() {
     
     int quantity = m_leQty->text().toInt();
     double price = m_leRate->text().toDouble();
-    if (quantity <= 0 || price <= 0) {
+    if (quantity <= 0 || (m_cbOrdType->currentText() == "Limit" && price <= 0)) {
         QMessageBox::warning(this, "Buy Order", "Invalid quantity or price");
         return;
     }
 
-    emit orderSubmitted(m_cbEx->currentText(), m_leToken->text().toInt(), m_leSymbol->text(), 
-                        quantity, price, m_cbOrdType->currentText());
+    XTS::OrderParams params;
+    params.exchangeSegment = m_cbEx->currentText();
+    params.exchangeInstrumentID = m_leToken->text().toLongLong();
+    params.productType = m_cbProduct ? m_cbProduct->currentText() : "MIS";
+    params.orderType = m_cbOrdType->currentText();
+    params.orderSide = "BUY";
+    params.timeInForce = m_cbValidity ? m_cbValidity->currentText() : "DAY";
+    params.orderQuantity = quantity;
+    params.disclosedQuantity = m_leDiscloseQty ? m_leDiscloseQty->text().toInt() : 0;
+    params.limitPrice = price;
+    params.stopPrice = m_leTrigPrice ? m_leTrigPrice->text().toDouble() : 0.0;
+    params.orderUniqueIdentifier = "TradingTerminal"; 
+
+    // Handle clientID based on PRO/CLI selection
+    // PRO = Use "*****" (5 asterisks) as clientID
+    // CLI = Use the actual client ID from the text field
+    if (m_cbProCli && m_cbProCli->currentText() == "PRO") {
+        params.clientID = "*****";  // 5 asterisks for PRO
+    } else if (m_leClient && !m_leClient->text().isEmpty()) {
+        params.clientID = m_leClient->text();
+    }
+    // If neither is set, MainWindow will use default clientID from login
+
+    // Handle Market Orders logic if needed (price = 0)
+    // Handle Market Orders logic if needed (price = 0)
+    // "Market" and "StopMarket" usually require 0 price in XTS or ignored.
+    if (params.orderType == "Market" || params.orderType == "StopMarket") {
+        params.limitPrice = 0;
+    }
+
+    emit orderSubmitted(params);
     
-    QMessageBox::information(this, "Buy Order", "Order submitted");
+    // Optional: Don't show popup here, let MainWindow handle success/failure via callback?
+    // For now, we keep it consistent with previous behavior but ideally we wait for confirmation.
+    // QMessageBox::information(this, "Buy Order", "Order request sent");
 }
 
 void BuyWindow::calculateDefaultPrice(const WindowContext &context) {

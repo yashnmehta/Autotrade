@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>SellWindowForm</class>
- <widget class="QWidget" name="SellWindowForm">
+ <class>BuyWindowForm</class>
+ <widget class="QWidget" name="BuyWindowForm">
   <property name="geometry">
    <rect>
     <x>0</x>
@@ -29,16 +29,16 @@
    </size>
   </property>
   <property name="windowTitle">
-   <string>Sell Order</string>
+   <string>Buy Order</string>
   </property>
   <property name="styleSheet">
-   <string notr="true">QWidget#SellWindowForm {
+   <string notr="true">QWidget#BuyWindowForm {
     background-color: #f8fafc;
 }
 
 /* Header/Indicative bar at top */
 QWidget#headerBar {
-    background-color: #ef4444; /* Sell Red */
+    background-color: #3b82f6; /* Buy Blue */
     border-top-left-radius: 4px;
     border-top-right-radius: 4px;
 }
@@ -53,7 +53,7 @@ QLabel {
 }
 
 QLabel#lblSymbol {
-    color: #991b1b;
+    color: #1e3a8a;
     font-size: 14px;
     font-weight: 700;
 }
@@ -69,7 +69,7 @@ QLineEdit {
 }
 
 QLineEdit:focus {
-    border: 2px solid #ef4444;
+    border: 2px solid #3b82f6;
     background-color: #ffffff;
 }
 
@@ -94,11 +94,11 @@ QComboBox {
 }
 
 QComboBox:hover {
-    border: 1px solid #ef4444;
+    border: 1px solid #3b82f6;
 }
 
 QComboBox:focus {
-    border: 2px solid #ef4444;
+    border: 2px solid #3b82f6;
 }
 
 QComboBox::drop-down {
@@ -117,7 +117,7 @@ QComboBox::down-arrow {
 QComboBox QAbstractItemView {
     background-color: #ffffff;
     color: #0f172a;
-    selection-background-color: #ef4444;
+    selection-background-color: #3b82f6;
     selection-color: #ffffff;
     border: 1px solid #e2e8f0;
     outline: none;
@@ -132,17 +132,17 @@ QPushButton {
 }
 
 QPushButton#pbSubmit {
-    background-color: #dc2626; /* Sell Red */
+    background-color: #10b981; /* Emerald Green */
     color: #ffffff;
     border: none;
 }
 
 QPushButton#pbSubmit:hover {
-    background-color: #b91c1c;
+    background-color: #059669;
 }
 
 QPushButton#pbSubmit:pressed {
-    background-color: #991b1b;
+    background-color: #047857;
 }
 
 QPushButton#pbClear {

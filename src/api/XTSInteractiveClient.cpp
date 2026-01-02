@@ -1,8 +1,11 @@
 #include "api/XTSInteractiveClient.h"
+#include "api/NativeWebSocketClient.h"
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
+#include <QUrlQuery>
 #include <QDebug>
+#include <iostream>
 
 XTSInteractiveClient::XTSInteractiveClient(const QString &baseURL,
                                              const QString &apiKey,
@@ -15,11 +18,15 @@ XTSInteractiveClient::XTSInteractiveClient(const QString &baseURL,
     , m_secretKey(secretKey)
     , m_source(source)
     , m_httpClient(std::make_unique<NativeHTTPClient>())
+    , m_nativeWS(std::make_unique<NativeWebSocketClient>())
+    , m_wsConnected(false)
+    , m_wsConnectCallback(nullptr)
 {
 }
 
 XTSInteractiveClient::~XTSInteractiveClient()
 {
+    disconnectWebSocket();
 }
 
 void XTSInteractiveClient::login(std::function<void(bool, const QString&)> callback)
@@ -350,4 +357,286 @@ void XTSInteractiveClient::placeOrder(const QJsonObject &orderParams,
     } else {
         if (callback) callback(false, "", obj["description"].toString());
     }
+}
+
+void XTSInteractiveClient::connectWebSocket(std::function<void(bool, const QString&)> callback)
+{
+    if (m_token.isEmpty()) {
+        qWarning() << "Cannot connect Interactive WebSocket: Not logged in";
+        if (callback) callback(false, "Not logged in");
+        return;
+    }
+
+    // Interactive API Socket Path: /interactive/socket.io
+    // Based on Python reference: connection_url = URL + "/?token=" + token + "&userID=" + userID + "&apiType=INTERACTIVE"
+    // socketio_path = '/interactive/socket.io'
+    m_wsConnectCallback = callback;
+
+    QString wsUrl = m_baseURL;
+    QUrl baseUrl(wsUrl);
+    int port = baseUrl.port(3000);
+    QString scheme = (port == 3000) ? "ws" : "wss";
+    wsUrl = QString("%1://%2:%3").arg(scheme).arg(baseUrl.host()).arg(port);
+    
+    // Socket.IO v3 URL format: /socket.io/?EIO=3&transport=websocket&...
+    // With Interactive namespace and apiType=INTERACTIVE (like Python)
+    wsUrl += "/interactive/socket.io/?EIO=3&transport=websocket";
+    wsUrl += "&token=" + m_token;
+    wsUrl += "&userID=" + m_userID;
+    wsUrl += "&apiType=INTERACTIVE";  // Key parameter from Python implementation
+    if (!m_clientID.isEmpty()) wsUrl += "&clientID=" + m_clientID;
+    wsUrl += "&publishFormat=JSON";
+
+    qDebug() << "Connecting to Interactive WebSocket (native):" << wsUrl;
+    
+    m_nativeWS->setMessageCallback([this](const std::string& msg) {
+        this->onWSMessage(msg);
+    });
+    
+    // Enable auto-reconnect for Interactive socket
+    m_nativeWS->setAutoReconnect(true);
+    
+    m_nativeWS->connect(
+        wsUrl.toStdString(),
+        [this]() { this->onWSConnected(); },
+        [this](const std::string& reason) { this->onWSDisconnected(reason); },
+        [this](const std::string& error) { this->onWSError(error); }
+    );
+}
+
+void XTSInteractiveClient::disconnectWebSocket()
+{
+    if (m_nativeWS && m_wsConnected) {
+        m_nativeWS->disconnect();
+        m_wsConnected = false;
+    }
+}
+
+void XTSInteractiveClient::onWSConnected()
+{
+    m_wsConnected = true;
+    qDebug() << "✅ Interactive Native WebSocket connected";
+    emit connectionStatusChanged(true);
+    
+    // Send Socket.IO "join" event to register with the Interactive server
+    // This is REQUIRED by XTS to keep the connection alive and receive order updates
+    // Format: 42["join",{"userID":"<user>","publishFormat":"JSON"}]
+    // We send after a small delay to ensure Socket.IO namespace is connected first
+    std::thread([this]() {
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        
+        if (!m_wsConnected) return;
+        
+        QJsonObject joinData;
+        joinData["userID"] = m_userID;
+        joinData["publishFormat"] = "JSON";
+        if (!m_clientID.isEmpty()) {
+            joinData["clientID"] = m_clientID;
+        }
+        
+        QJsonArray eventArray;
+        eventArray.append("join");
+        eventArray.append(joinData);
+        
+        QJsonDocument doc(eventArray);
+        QString eventStr = "42" + QString::fromUtf8(doc.toJson(QJsonDocument::Compact));
+        
+        m_nativeWS->sendText(eventStr.toStdString());
+        qDebug() << "📤 Sent Interactive Socket.IO join event:" << eventStr;
+        
+    }).detach();
+    
+    if (m_wsConnectCallback) {
+        m_wsConnectCallback(true, "Connected");
+        m_wsConnectCallback = nullptr;
+    }
+}
+
+void XTSInteractiveClient::onWSDisconnected(const std::string& reason)
+{
+    m_wsConnected = false;
+    qDebug() << "❌ Interactive Native WebSocket disconnected:" << QString::fromStdString(reason);
+    emit connectionStatusChanged(false);
+}
+
+void XTSInteractiveClient::onWSError(const std::string& error)
+{
+    QString errorStr = QString::fromStdString(error);
+    qWarning() << "Interactive Native WebSocket error:" << errorStr;
+    emit errorOccurred(errorStr);
+    
+    if (m_wsConnectCallback) {
+        m_wsConnectCallback(false, errorStr);
+        m_wsConnectCallback = nullptr;
+    }
+}
+
+void XTSInteractiveClient::onWSMessage(const std::string& message)
+{
+    // Handle Socket.IO events for interactive
+    QString qmsg = QString::fromStdString(message);
+    
+    // Debug logging to see incoming socket messages
+    qDebug() << "[XTS IA WebSocket] Received message:" << qmsg.left(200);
+    
+    QJsonDocument doc = QJsonDocument::fromJson(qmsg.toUtf8());
+    if (doc.isArray()) {
+        QJsonArray arr = doc.array();
+        if (arr.size() >= 2) {
+            QString eventName = arr[0].toString();
+            qDebug() << "[XTS IA WebSocket] Event:" << eventName;
+            
+            // Data can be a JSON object or a JSON string that needs to be parsed again
+            QJsonObject data;
+            if (arr[1].isObject()) {
+                data = arr[1].toObject();
+            } else if (arr[1].isString()) {
+                // XTS sometimes sends data as a JSON string inside the array
+                QString dataStr = arr[1].toString();
+                QJsonDocument dataDoc = QJsonDocument::fromJson(dataStr.toUtf8());
+                if (dataDoc.isObject()) {
+                    data = dataDoc.object();
+                }
+            }
+            
+            if (!data.isEmpty()) {
+                if (eventName == "order") {
+                    qDebug() << "[XTS IA WebSocket] Processing ORDER event";
+                    processOrderData(data);
+                } else if (eventName == "trade") {
+                    qDebug() << "[XTS IA WebSocket] Processing TRADE event";
+                    processTradeData(data);
+                } else if (eventName == "position") {
+                    qDebug() << "[XTS IA WebSocket] Processing POSITION event";
+                    processPositionData(data);
+                } else if (eventName == "joined") {
+                    qDebug() << "[XTS IA WebSocket] Joined event received";
+                } else {
+                    qDebug() << "[XTS IA WebSocket] Unhandled event:" << eventName;
+                }
+            }
+        }
+    } else {
+        qDebug() << "[XTS IA WebSocket] Message is not a JSON array:" << qmsg.left(100);
+    }
+}
+
+void XTSInteractiveClient::processOrderData(const QJsonObject &json)
+{
+    XTS::Order order = parseOrderFromJson(json);
+    // Thread-safe: use invokeMethod to emit from main thread
+    QMetaObject::invokeMethod(this, [this, order]() {
+        emit orderEvent(order);
+    }, Qt::QueuedConnection);
+}
+
+void XTSInteractiveClient::processTradeData(const QJsonObject &json)
+{
+    XTS::Trade trade = parseTradeFromJson(json);
+    // Thread-safe: use invokeMethod to emit from main thread
+    QMetaObject::invokeMethod(this, [this, trade]() {
+        emit tradeEvent(trade);
+    }, Qt::QueuedConnection);
+}
+
+void XTSInteractiveClient::processPositionData(const QJsonObject &json)
+{
+    XTS::Position pos = parsePositionFromJson(json);
+    // Thread-safe: use invokeMethod to emit from main thread
+    QMetaObject::invokeMethod(this, [this, pos]() {
+        emit positionEvent(pos);
+    }, Qt::QueuedConnection);
+}
+
+XTS::Order XTSInteractiveClient::parseOrderFromJson(const QJsonObject &ord) const
+{
+    XTS::Order order;
+    order.appOrderID = ord["AppOrderID"].toVariant().toLongLong();
+    order.exchangeOrderID = ord["ExchangeOrderID"].toString();
+    order.clientID = ord["ClientID"].toString();
+    order.loginID = ord["LoginID"].toString();
+    order.exchangeSegment = ord["ExchangeSegment"].toString();
+    order.exchangeInstrumentID = ord["ExchangeInstrumentID"].toVariant().toLongLong();
+    order.tradingSymbol = ord["TradingSymbol"].toString();
+    order.orderSide = ord["OrderSide"].toString();
+    order.orderType = ord["OrderType"].toString();
+    order.orderPrice = ord["OrderPrice"].toVariant().toDouble();
+    order.orderStopPrice = ord["OrderStopPrice"].toVariant().toDouble();
+    order.orderQuantity = ord["OrderQuantity"].toVariant().toInt();
+    order.cumulativeQuantity = ord["CumulativeQuantity"].toVariant().toInt();
+    order.leavesQuantity = ord["LeavesQuantity"].toVariant().toInt();
+    order.orderStatus = ord["OrderStatus"].toString();
+    order.orderAverageTradedPrice = ord["OrderAverageTradedPrice"].toVariant().toDouble();
+    order.productType = ord["ProductType"].toString();
+    order.timeInForce = ord["TimeInForce"].toString();
+    order.orderGeneratedDateTime = ord["OrderGeneratedDateTime"].toString();
+    order.exchangeTransactTime = ord["ExchangeTransactTime"].toString();
+    order.lastUpdateDateTime = ord["LastUpdateDateTime"].toString();
+    order.orderUniqueIdentifier = ord["OrderUniqueIdentifier"].toString();
+    order.orderReferenceID = ord["OrderReferenceID"].toString();
+    order.cancelRejectReason = ord["CancelRejectReason"].toString();
+    order.orderCategoryType = ord["OrderCategoryType"].toString();
+    order.orderLegStatus = ord["OrderLegStatus"].toString();
+    order.orderDisclosedQuantity = ord["OrderDisclosedQuantity"].toVariant().toInt();
+    order.orderExpiryDate = ord["OrderExpiryDate"].toString();
+    return order;
+}
+
+XTS::Trade XTSInteractiveClient::parseTradeFromJson(const QJsonObject &tr) const
+{
+    XTS::Trade trade;
+    trade.executionID = tr["ExecutionID"].toString();
+    trade.appOrderID = tr["AppOrderID"].toVariant().toLongLong();
+    trade.exchangeOrderID = tr["ExchangeOrderID"].toString();
+    trade.clientID = tr["ClientID"].toString();
+    trade.loginID = tr["LoginID"].toString();
+    trade.exchangeSegment = tr["ExchangeSegment"].toString();
+    trade.exchangeInstrumentID = tr["ExchangeInstrumentID"].toVariant().toLongLong();
+    trade.tradingSymbol = tr["TradingSymbol"].toString();
+    trade.orderSide = tr["OrderSide"].toString();
+    trade.orderType = tr["OrderType"].toString();
+    trade.lastTradedPrice = tr["LastTradedPrice"].toVariant().toDouble();
+    trade.lastTradedQuantity = tr["LastTradedQuantity"].toVariant().toInt();
+    trade.lastExecutionTransactTime = tr["LastExecutionTransactTime"].toString();
+    trade.orderGeneratedDateTime = tr["OrderGeneratedDateTime"].toString();
+    trade.exchangeTransactTime = tr["ExchangeTransactTime"].toString();
+    trade.orderAverageTradedPrice = tr["OrderAverageTradedPrice"].toVariant().toDouble();
+    trade.cumulativeQuantity = tr["CumulativeQuantity"].toVariant().toInt();
+    trade.leavesQuantity = tr["LeavesQuantity"].toVariant().toInt();
+    trade.orderStatus = tr["OrderStatus"].toString();
+    trade.productType = tr["ProductType"].toString();
+    trade.orderUniqueIdentifier = tr["OrderUniqueIdentifier"].toString();
+    trade.orderPrice = tr["OrderPrice"].toVariant().toDouble();
+    trade.orderQuantity = tr["OrderQuantity"].toVariant().toInt();
+    return trade;
+}
+
+XTS::Position XTSInteractiveClient::parsePositionFromJson(const QJsonObject &pos) const
+{
+    XTS::Position position;
+    position.accountID = pos["AccountID"].toString();
+    position.actualBuyAmount = pos["ActualBuyAmount"].toVariant().toDouble();
+    position.actualBuyAveragePrice = pos["ActualBuyAveragePrice"].toVariant().toDouble();
+    position.actualSellAmount = pos["ActualSellAmount"].toVariant().toDouble();
+    position.actualSellAveragePrice = pos["ActualSellAveragePrice"].toVariant().toDouble();
+    position.bep = pos["BEP"].toVariant().toDouble();
+    position.buyAmount = pos["BuyAmount"].toVariant().toDouble();
+    position.buyAveragePrice = pos["BuyAveragePrice"].toVariant().toDouble();
+    position.exchangeInstrumentID = pos["ExchangeInstrumentId"].toVariant().toLongLong();
+    position.exchangeSegment = pos["ExchangeSegment"].toString();
+    position.loginID = pos["LoginID"].toString();
+    position.mtm = pos["MTM"].toVariant().toDouble();
+    position.marketLot = pos["Marketlot"].toVariant().toInt();
+    position.multiplier = pos["Multiplier"].toVariant().toDouble();
+    position.netAmount = pos["NetAmount"].toVariant().toDouble();
+    position.openBuyQuantity = pos["OpenBuyQuantity"].toVariant().toInt();
+    position.openSellQuantity = pos["OpenSellQuantity"].toVariant().toInt();
+    position.productType = pos["ProductType"].toString();
+    position.quantity = pos["Quantity"].toVariant().toInt();
+    position.realizedMTM = pos["RealizedMTM"].toVariant().toDouble();
+    position.sellAmount = pos["SellAmount"].toVariant().toDouble();
+    position.sellAveragePrice = pos["SellAveragePrice"].toVariant().toDouble();
+    position.tradingSymbol = pos["TradingSymbol"].toString();
+    position.unrealizedMTM = pos["UnrealizedMTM"].toVariant().toDouble();
+    return position;
 }

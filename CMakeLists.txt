@@ -22,6 +22,21 @@ find_package(OpenSSL REQUIRED)
 find_package(Threads REQUIRED)
 
 # ========================================
+# Socket.IO C++ Client Library - DISABLED
+# Official library has compilation issues with current compiler.
+# Using NativeWebSocketClient with proper Socket.IO protocol handling instead.
+# ========================================
+# include(FetchContent)
+# FetchContent_Declare(
+#     sioclient
+#     GIT_REPOSITORY https://github.com/socketio/socket.io-client-cpp.git
+#     GIT_TAG        3.1.0
+# )
+# set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+# set(CMAKE_POLICY_VERSION_MINIMUM 3.5 CACHE STRING "" FORCE)
+# FetchContent_MakeAvailable(sioclient)
+
+# ========================================
 # LZO Library Configuration (Cross-platform)
 # ========================================
 option(USE_SYSTEM_LZO "Use system-installed LZO library instead of bundled one" ON)
@@ -284,6 +299,7 @@ set(API_SOURCES
     src/api/XTSInteractiveClient.cpp
     src/api/NativeWebSocketClient.cpp
     src/api/NativeHTTPClient.cpp
+    # src/api/SocketIOInteractiveClient.cpp  # Disabled - using NativeWebSocketClient instead
 )
 
 set(API_HEADERS
@@ -292,6 +308,7 @@ set(API_HEADERS
     include/api/XTSInteractiveClient.h
     include/api/NativeWebSocketClient.h
     include/api/NativeHTTPClient.h
+    # include/api/SocketIOInteractiveClient.h  # Disabled
 )
 
 # ========================================
@@ -489,6 +506,7 @@ target_link_libraries(TradingTerminal PRIVATE
     OpenSSL::Crypto
     Threads::Threads
     ${LZO_LIBRARIES}
+    # sioclient  # Disabled
 )
 
 if(WIN32)
@@ -497,6 +515,11 @@ endif()
 
 # Include Boost headers (Beast is header-only)
 target_include_directories(TradingTerminal PRIVATE ${Boost_INCLUDE_DIRS})
+
+# Include socket.io-client-cpp headers - DISABLED
+# target_include_directories(TradingTerminal PRIVATE 
+#     ${CMAKE_BINARY_DIR}/_deps/sioclient-src/src
+# )
 
 # macOS Bundle Settings
 if(APPLE)

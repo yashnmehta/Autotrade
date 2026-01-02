@@ -27,8 +27,14 @@ int main(int argc, char *argv[])
     QApplication app(argc, argv);
 
     
-    // Register XTS::Tick for cross-thread signals (CRITICAL for UDP broadcast!)
+    // Register XTS types for cross-thread signals (CRITICAL for socket events!)
     qRegisterMetaType<XTS::Tick>("XTS::Tick");
+    qRegisterMetaType<XTS::Order>("XTS::Order");
+    qRegisterMetaType<XTS::Trade>("XTS::Trade");
+    qRegisterMetaType<XTS::Position>("XTS::Position");
+    qRegisterMetaType<QVector<XTS::Order>>("QVector<XTS::Order>");
+    qRegisterMetaType<QVector<XTS::Trade>>("QVector<XTS::Trade>");
+    qRegisterMetaType<QVector<XTS::Position>>("QVector<XTS::Position>");
 
     // Set application metadata
     app.setApplicationName("Trading Terminal");

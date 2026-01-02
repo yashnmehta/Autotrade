@@ -634,7 +634,7 @@ void MainWindow::onTickReceived(const XTS::Tick& tick) {
     if (tick.exchangeSegment == 12 || tick.exchangeSegment == 11) {
         static int mainWindowBseCount = 0;
         if (mainWindowBseCount++ < 10) {
-            qDebug() << "[MainWindow] BSE Tick received...";
+            // qDebug() << "[MainWindow] BSE Tick received...";
         }
     }
     

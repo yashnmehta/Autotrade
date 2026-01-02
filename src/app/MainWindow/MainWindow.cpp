@@ -1,4 +1,5 @@
 #include "app/MainWindow.h"
+#include "api/XTSInteractiveClient.h"
 #include "nsefo_callback.h"
 #include "nsecm_callback.h"
 #include "core/widgets/CustomMDIArea.h"
@@ -129,8 +130,8 @@ void MainWindow::onTickReceived(const XTS::Tick &tick)
     if (tick.exchangeSegment == 12 || tick.exchangeSegment == 11) {
         static int mainWindowBseCount = 0;
         if (mainWindowBseCount++ < 10) {
-            qDebug() << "[MainWindow] BSE Tick received - Segment:" << tick.exchangeSegment 
-                     << "Token:" << tick.exchangeInstrumentID << "LTP:" << tick.lastTradedPrice;
+            // qDebug() << "[MainWindow] BSE Tick received - Segment:" << tick.exchangeSegment 
+            //          << "Token:" << tick.exchangeInstrumentID << "LTP:" << tick.lastTradedPrice;
         }
     }
     
@@ -186,6 +187,85 @@ void MainWindow::onUdpTickReceived(const XTS::Tick& tick) {
 void MainWindow::showPreferences() {
     // Placeholder for preferences dialog
     qDebug() << "[MainWindow] showPreferences requested";
+}
+
+void MainWindow::placeOrder(const XTS::OrderParams &params) {
+    if (!m_xtsInteractiveClient || !m_xtsInteractiveClient->isLoggedIn()) {
+        if (m_statusBar) m_statusBar->showMessage("Error: Interactive API not logged in");
+        return;
+    }
+
+    QJsonObject orderJson;
+    orderJson["exchangeSegment"] = params.exchangeSegment;
+    orderJson["exchangeInstrumentID"] = params.exchangeInstrumentID;
+    orderJson["productType"] = params.productType;
+    orderJson["orderType"] = params.orderType;
+    orderJson["orderSide"] = params.orderSide;
+    orderJson["timeInForce"] = params.timeInForce;
+    orderJson["disclosedQuantity"] = params.disclosedQuantity;
+    orderJson["orderQuantity"] = params.orderQuantity;
+    orderJson["limitPrice"] = params.limitPrice;
+    orderJson["stopPrice"] = params.stopPrice;
+    orderJson["orderUniqueIdentifier"] = params.orderUniqueIdentifier;
+    
+    // Use stored/default clientID if not provided
+    QString clientID = params.clientID;
+    if (clientID.isEmpty()) clientID = m_xtsInteractiveClient->getClientID();
+    orderJson["clientID"] = clientID;
+
+    qDebug() << "[MainWindow] Placing order:" << orderJson;
+
+    m_xtsInteractiveClient->placeOrder(orderJson, [this](bool success, const QString &orderID, const QString &message) {
+        // CRITICAL: This callback runs from HTTP background thread!
+        // Must use invokeMethod to safely update UI on main thread
+        QMetaObject::invokeMethod(this, [this, success, orderID, message]() {
+            if (success) {
+                QString msg = QString("Order Placed Successfully. Order ID: %1").arg(orderID);
+                if (m_statusBar) m_statusBar->showMessage(msg, 5000);
+                QMessageBox::information(this, "Order Placed", msg);
+                
+                // Refresh orders via HTTP polling (since Interactive socket may not be stable)
+                // Use a short delay to allow server to process the order
+                QTimer::singleShot(5, this, [this]() {
+                    if (m_xtsInteractiveClient && m_tradingDataService) {
+                        // Refresh Orders
+                        m_xtsInteractiveClient->getOrders([this](bool ordersSuccess, const QVector<XTS::Order> &orders, const QString &) {
+                            QMetaObject::invokeMethod(this, [this, ordersSuccess, orders]() {
+                                if (ordersSuccess && m_tradingDataService) {
+                                    m_tradingDataService->setOrders(orders);
+                                    qDebug() << "[MainWindow] Orders refreshed via HTTP:" << orders.size();
+                                }
+                            }, Qt::QueuedConnection);
+                        });
+                        
+                        // Refresh Trades (for Trade Book)
+                        m_xtsInteractiveClient->getTrades([this](bool tradesSuccess, const QVector<XTS::Trade> &trades, const QString &) {
+                            QMetaObject::invokeMethod(this, [this, tradesSuccess, trades]() {
+                                if (tradesSuccess && m_tradingDataService) {
+                                    m_tradingDataService->setTrades(trades);
+                                    qDebug() << "[MainWindow] Trades refreshed via HTTP:" << trades.size();
+                                }
+                            }, Qt::QueuedConnection);
+                        });
+                        
+                        // Refresh Positions (for Net Position)
+                        m_xtsInteractiveClient->getPositions("NetWise", [this](bool posSuccess, const QVector<XTS::Position> &positions, const QString &) {
+                            QMetaObject::invokeMethod(this, [this, posSuccess, positions]() {
+                                if (posSuccess && m_tradingDataService) {
+                                    m_tradingDataService->setPositions(positions);
+                                    qDebug() << "[MainWindow] Positions refreshed via HTTP:" << positions.size();
+                                }
+                            }, Qt::QueuedConnection);
+                        });
+                    }
+                });
+            } else {
+                QString msg = QString("Order Failed: %1").arg(message);
+                if (m_statusBar) m_statusBar->showMessage(msg, 5000);
+                QMessageBox::critical(this, "Order Failed", msg);
+            }
+        }, Qt::QueuedConnection);
+    });
 }
 
 // setupShortcuts() is defined in core/GlobalShortcuts.cpp

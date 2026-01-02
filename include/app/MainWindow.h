@@ -50,6 +50,9 @@ public:
     // ScripBar refresh
     void refreshScripBar();
 
+    // Order placement
+    void placeOrder(const XTS::OrderParams &params);
+
 private slots:
     // Window actions
     void createMarketWatch();

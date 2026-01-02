@@ -202,6 +202,32 @@ struct Trade {
     QString tradeSide() const { return orderSide; }
 };
 
+// Order placement parameters
+struct OrderParams {
+    QString exchangeSegment;
+    int64_t exchangeInstrumentID;
+    QString productType;
+    QString orderType;
+    QString orderSide;
+    QString timeInForce;
+    int orderQuantity;
+    int disclosedQuantity;
+    double limitPrice;
+    double stopPrice;
+    QString orderUniqueIdentifier;
+    QString clientID; // Optional override
+};
+
 } // namespace XTS
+
+// Register XTS types with Qt's meta-type system for cross-thread signal/slot connections
+// This is REQUIRED for passing these types via queued connections (different threads)
+Q_DECLARE_METATYPE(XTS::Order)
+Q_DECLARE_METATYPE(XTS::Trade)
+Q_DECLARE_METATYPE(XTS::Position)
+Q_DECLARE_METATYPE(XTS::Tick)
+Q_DECLARE_METATYPE(QVector<XTS::Order>)
+Q_DECLARE_METATYPE(QVector<XTS::Trade>)
+Q_DECLARE_METATYPE(QVector<XTS::Position>)
 
 #endif // XTSTYPES_H

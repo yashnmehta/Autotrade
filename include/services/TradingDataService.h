@@ -36,6 +36,11 @@ public:
     // Clear all data
     void clearAll();
 
+public slots:
+    void onOrderEvent(const XTS::Order& order);
+    void onTradeEvent(const XTS::Trade& trade);
+    void onPositionEvent(const XTS::Position& position);
+
 signals:
     // Emitted when data is updated
     void positionsUpdated(const QVector<XTS::Position>& positions);

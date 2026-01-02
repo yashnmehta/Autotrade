@@ -37,14 +37,37 @@ public:
     // Trade queries
     void getTrades(std::function<void(bool, const QVector<XTS::Trade>&, const QString&)> callback);
 
+    // WebSocket connection
+    void connectWebSocket(std::function<void(bool, const QString&)> callback);
+    void disconnectWebSocket();
+
     // Order placement (for future implementation)
     void placeOrder(const QJsonObject &orderParams,
                     std::function<void(bool, const QString&, const QString&)> callback);
 
 signals:
     void errorOccurred(const QString &error);
+    void connectionStatusChanged(bool connected);
+    void orderEvent(const XTS::Order &order);
+    void tradeEvent(const XTS::Trade &trade);
+    void positionEvent(const XTS::Position &position);
+
+private slots:
+    void onWSConnected();
+    void onWSDisconnected(const std::string& reason);
+    void onWSError(const std::string& error);
+    void onWSMessage(const std::string& message);
 
 private:
+    void processOrderData(const QJsonObject &json);
+    void processTradeData(const QJsonObject &json);
+    void processPositionData(const QJsonObject &json);
+    
+    // Parsers
+    XTS::Order parseOrderFromJson(const QJsonObject &json) const;
+    XTS::Trade parseTradeFromJson(const QJsonObject &json) const;
+    XTS::Position parsePositionFromJson(const QJsonObject &json) const;
+
     QString m_baseURL;
     QString m_apiKey;
     QString m_secretKey;
@@ -55,6 +78,11 @@ private:
 
     // Native HTTP client (698x faster than Qt)
     std::unique_ptr<NativeHTTPClient> m_httpClient;
+    
+    // Native WebSocket (no Qt overhead)
+    std::unique_ptr<class NativeWebSocketClient> m_nativeWS;
+    bool m_wsConnected;
+    std::function<void(bool, const QString&)> m_wsConnectCallback;
 };
 
 #endif // XTSINTERACTIVECLIENT_H

@@ -89,6 +89,9 @@ public:
     // SSL configuration
     void setIgnoreSSLErrors(bool ignore) { m_ignoreSSLErrors = ignore; }
     
+    // Reconnection control
+    void setAutoReconnect(bool enabled) { m_shouldReconnect = enabled; }
+    
 private:
     // Internal handlers
     void onOpen();

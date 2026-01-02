@@ -77,21 +77,21 @@ void MarketWatchWindow::onTickUpdate(const XTS::Tick& tick)
         static int bseUpdateCount = 0;
         if (bseUpdateCount++ < 10) {
             int row = findTokenRow(token);
-            qDebug() << "[MarketWatch] BSE Tick Update - Token:" << token 
-                     << "LTP:" << tick.lastTradedPrice 
-                     << "Bid:" << tick.bidPrice << "BidQty:" << tick.bidQuantity
-                     << "Ask:" << tick.askPrice << "AskQty:" << tick.askQuantity
-                     << "Row:" << row;
+            // qDebug() << "[MarketWatch] BSE Tick Update - Token:" << token 
+            //          << "LTP:" << tick.lastTradedPrice 
+            //          << "Bid:" << tick.bidPrice << "BidQty:" << tick.bidQuantity
+            //          << "Ask:" << tick.askPrice << "AskQty:" << tick.askQuantity
+            //          << "Row:" << row;
         }
     }
     
     // Debug: Log all bid/ask updates for first 100 ticks (extended for diagnosis)
     static int bidAskDebugCount = 0;
     if (bidAskDebugCount++ < 100) {
-        qDebug() << "[MarketWatch] Tick" << bidAskDebugCount << "Token:" << token 
-                 << "Segment:" << tick.exchangeSegment
-                 << "Bid:" << tick.bidPrice << "(" << tick.bidQuantity << ")"
-                 << "Ask:" << tick.askPrice << "(" << tick.askQuantity << ")";
+        // qDebug() << "[MarketWatch] Tick" << bidAskDebugCount << "Token:" << token 
+        //          << "Segment:" << tick.exchangeSegment
+        //          << "Bid:" << tick.bidPrice << "(" << tick.bidQuantity << ")"
+        //          << "Ask:" << tick.askPrice << "(" << tick.askQuantity << ")";
     }
     
     // 1. Update LTP and OHLC if LTP is present (> 0)

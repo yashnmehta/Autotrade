@@ -60,6 +60,15 @@ void LoginFlowService::executeLogin(
     m_mdClient = new XTSMarketDataClient(mdBaseURL, mdAppKey, mdSecretKey, source, this);
     m_iaClient = new XTSInteractiveClient(iaBaseURL, iaAppKey, iaSecretKey, source, this);
 
+    // Connect Interactive Events to TradingDataService (if available)
+    // We defer actual connection because m_tradingDataService might be null here? 
+    // Usually setTradingDataService is called before executeLogin.
+    if (m_tradingDataService) {
+         connect(m_iaClient, &XTSInteractiveClient::orderEvent, m_tradingDataService, &TradingDataService::onOrderEvent);
+         connect(m_iaClient, &XTSInteractiveClient::tradeEvent, m_tradingDataService, &TradingDataService::onTradeEvent);
+         connect(m_iaClient, &XTSInteractiveClient::positionEvent, m_tradingDataService, &TradingDataService::onPositionEvent);
+    }
+
     // Phase 1: Market Data API Login
     updateStatus("md_login", "Connecting to Market Data API...", 10);
     
@@ -184,14 +193,17 @@ void LoginFlowService::executeLogin(
                     m_iaClient->getOrders([this](bool success, const QVector<XTS::Order> &orders, const QString &message) {
                         if (success) {
                             qDebug() << "[LoginFlowService] Loaded" << orders.size() << "orders";
-                            
-                            // Store in TradingDataService
-                            if (m_tradingDataService) {
-                                m_tradingDataService->setOrders(orders);
-                            }
+                            if (m_tradingDataService) m_tradingDataService->setOrders(orders);
                         } else {
-                            qWarning() << "[LoginFlowService] Failed to load orders: success=" << success << "message=" << message;
+                            qWarning() << "[LoginFlowService] Failed to load orders:" << message;
                         }
+
+                        // Connect Interactive Socket
+                        updateStatus("ia_socket", "Connecting Interactive Socket...", 98);
+                        m_iaClient->connectWebSocket([this](bool success, const QString& msg){
+                             if(!success) qWarning() << "[LoginFlowService] Interactive Socket Failed:" << msg;
+                             else qDebug() << "[LoginFlowService] Interactive Socket Connected";
+                        });
 
                         // Fetch trades
                         m_iaClient->getTrades([this](bool success, const QVector<XTS::Trade> &trades, const QString &message) {

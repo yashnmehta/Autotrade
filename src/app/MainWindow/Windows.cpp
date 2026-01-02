@@ -55,6 +55,14 @@ void MainWindow::connectWindowSignals(CustomMDISubWindow *window)
         CustomizeDialog dialog(windowType, targetWidget, this);
         dialog.exec();
     });
+
+    // Auto-connect BaseOrderWindow signals (Buy/Sell)
+    if (window->contentWidget() && (window->windowType() == "BuyWindow" || window->windowType() == "SellWindow")) {
+        BaseOrderWindow *orderWin = qobject_cast<BaseOrderWindow*>(window->contentWidget());
+        if (orderWin) {
+            connect(orderWin, &BaseOrderWindow::orderSubmitted, this, &MainWindow::placeOrder);
+        }
+    }
 }
 
 void MainWindow::createMarketWatch()
@@ -124,12 +132,26 @@ void MainWindow::createSellWindow()
         WindowContext context = activeMarketWatch->getSelectedContractContext();
         if (context.isValid()) {
             sellWindow = new SellWindow(context, window);
+        } else {
+            sellWindow = new SellWindow(window);
         }
+    } else {
+        CustomMDISubWindow *activeSub = m_mdiArea ? m_mdiArea->activeWindow() : nullptr;
+        if (activeSub) {
+            SnapQuoteWindow *snap = qobject_cast<SnapQuoteWindow*>(activeSub->contentWidget());
+            if (snap) {
+                WindowContext ctx = snap->getContext();
+                if (ctx.isValid()) {
+                    sellWindow = new SellWindow(ctx, window);
+                }
+            }
+        }
+        if (!sellWindow) sellWindow = new SellWindow(window);
     }
-    if (!sellWindow) sellWindow = new SellWindow(window);
     
     window->setContentWidget(sellWindow);
-    window->resize(600, 250);
+    window->setMinimumWidth(1200);
+    window->resize(1200, 200);
     connectWindowSignals(window);
     m_mdiArea->addWindow(window);
     window->activateWindow();

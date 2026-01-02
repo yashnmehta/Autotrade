@@ -20,6 +20,10 @@ PositionWindow::PositionWindow(TradingDataService* tradingDataService, QWidget *
     loadInitialProfile();
     
     if (m_tradingDataService) {
+        // Connect to real-time position updates from socket events
+        connect(m_tradingDataService, &TradingDataService::positionsUpdated, 
+                this, &PositionWindow::onPositionsUpdated);
+        // Load initial positions
         onPositionsUpdated(m_tradingDataService->getPositions());
     }
     if (m_filterShortcut) {

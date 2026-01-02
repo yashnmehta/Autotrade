@@ -10,6 +10,7 @@
 #include <QKeyEvent>
 #include <QCloseEvent>
 #include "models/WindowContext.h"
+#include "api/XTSTypes.h"
 
 /**
  * @brief Base class for Buy and Sell order entry windows.
@@ -24,8 +25,7 @@ public:
     void setScripDetails(const QString &exchange, int token, const QString &symbol);
 
 signals:
-    void orderSubmitted(const QString &exchange, int token, const QString &symbol, 
-                       int quantity, double price, const QString &orderType);
+    void orderSubmitted(const XTS::OrderParams &params);
 
 protected slots:
     virtual void onSubmitClicked() = 0;

@@ -92,13 +92,13 @@ void BaseOrderWindow::setupBaseConnections() {
 }
 
 void BaseOrderWindow::populateBaseComboBoxes() {
-    if (m_cbEx) m_cbEx->addItems({"NSE", "BSE", "MCX"});
+    if (m_cbEx) m_cbEx->addItems({"NSECM", "NSEFO", "NSECD", "BSECM", "BSEFO", "BSECD", "MCXFO"});
     if (m_cbInstrName) m_cbInstrName->addItems({"FUTIDX", "FUTSTK", "OPTIDX", "OPTSTK"});
-    if (m_cbOrdType) m_cbOrdType->addItems({"LIMIT", "MARKET", "SL", "SL-M"});
+    if (m_cbOrdType) m_cbOrdType->addItems({"Limit", "Market", "StopLimit", "StopMarket"});
     if (m_cbOrderType2) m_cbOrderType2->addItems({"CarryForward", "DELIVERY", "INTRADAY"});
     if (m_cbOptType) m_cbOptType->addItems({"CE", "PE"});
     if (m_cbMFAON) m_cbMFAON->addItems({"None", "MF", "AON"});
-    if (m_cbProduct) m_cbProduct->addItems({"INTRADAY", "DELIVERY", "CO", "BO"});
+    if (m_cbProduct) m_cbProduct->addItems({"MIS", "NRML", "CNC", "CO", "BO"}); // API compatible codes
     if (m_cbValidity) m_cbValidity->addItems({"DAY", "IOC", "GTD"});
     if (m_cbOC) m_cbOC->addItems({"OPEN", "CLOSE"});
     if (m_cbProCli) m_cbProCli->addItems({"PRO", "CLI"});
@@ -113,8 +113,13 @@ void BaseOrderWindow::loadBasePreferences() {
         onOrderTypeChanged(m_cbOrdType->currentText());
     }
     if (m_cbProduct) {
-        int idx = m_cbProduct->findText(prefs.getDefaultProduct());
-        if (idx < 0) idx = m_cbProduct->findText("INTRADAY"); // Simple mapping
+        QString defProd = prefs.getDefaultProduct();
+        // Map old preferences if they exist
+        if (defProd == "INTRADAY") defProd = "MIS";
+        else if (defProd == "DELIVERY") defProd = "NRML"; 
+        
+        int idx = m_cbProduct->findText(defProd);
+        if (idx < 0) idx = m_cbProduct->findText("MIS"); 
         if (idx >= 0) m_cbProduct->setCurrentIndex(idx);
     }
     if (m_cbValidity) {
@@ -130,8 +135,8 @@ void BaseOrderWindow::onClearClicked() {
 }
 
 void BaseOrderWindow::onOrderTypeChanged(const QString &orderType) {
-    bool priceEnabled = (orderType == "LIMIT" || orderType == "SL");
-    bool triggerEnabled = (orderType == "SL" || orderType == "SL-M");
+    bool priceEnabled = (orderType == "Limit" || orderType == "StopLimit");
+    bool triggerEnabled = (orderType == "StopLimit" || orderType == "StopMarket");
     if (m_leRate) {
         m_leRate->setEnabled(priceEnabled);
         if (!priceEnabled) m_leRate->clear();

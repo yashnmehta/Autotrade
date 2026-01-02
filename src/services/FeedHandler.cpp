@@ -96,8 +96,8 @@ void FeedHandler::onTickReceived(const XTS::Tick& tick) {
             if (exchangeSegment == 12 || exchangeSegment == 11) {
                 static int missingSubCount = 0;
                 if (missingSubCount++ < 10) {
-                    qDebug() << "[FeedHandler] ⚠ No subscriber for BSE - Segment:" << exchangeSegment
-                             << "Token:" << token << "Key:" << key;
+                    // qDebug() << "[FeedHandler] ⚠ No subscriber for BSE - Segment:" << exchangeSegment
+                    //          << "Token:" << token << "Key:" << key;
                 }
             }
         }
