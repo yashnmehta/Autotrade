@@ -191,6 +191,7 @@ set(VIEW_SOURCES
     src/views/SnapQuoteWindow/SnapQuoteWindow.cpp
     src/views/SnapQuoteWindow/UI.cpp
     src/views/SnapQuoteWindow/Actions.cpp
+    src/views/SnapQuoteWindow/Data.cpp
     src/views/PositionWindow/PositionWindow.cpp
     src/views/TradeBookWindow/TradeBookWindow.cpp
     src/views/OrderBookWindow/OrderBookWindow.cpp

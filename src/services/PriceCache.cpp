@@ -1,6 +1,4 @@
 #include "services/PriceCache.h"
-
-
 #include <mutex>
 
 PriceCache& PriceCache::instance() {
@@ -10,34 +8,34 @@ PriceCache& PriceCache::instance() {
 
 PriceCache::PriceCache() {
     // Pre-allocate space for typical number of subscriptions
-    m_cache.reserve(100);
-    std::cout << "⚡ Native PriceCache initialized (10x faster than Qt)" << std::endl;
+    m_cache.reserve(500);  // Increased for multi-exchange
+    std::cout << "⚡ Native PriceCache initialized (composite key: segment|token)" << std::endl;
 }
 
-void PriceCache::updatePrice(int token, const XTS::Tick& tick) {
-    // Fast path: Write lock only for the update
+// ========== COMPOSITE KEY API (RECOMMENDED) ==========
+
+void PriceCache::updatePrice(int exchangeSegment, int token, const XTS::Tick& tick) {
+    int64_t key = makeKey(exchangeSegment, token);
+    
     {
         std::unique_lock lock(m_mutex);
-        m_cache[token] = {
+        m_cache[key] = {
             tick,
-            std::chrono::steady_clock::now()  // Monotonic, no system call overhead
+            std::chrono::steady_clock::now()
         };
-    }  // Lock released here
-    
-    // Invoke callback OUTSIDE lock (avoid deadlocks and reduce contention)
-    if (m_callback) {
-        m_callback(token, tick);
     }
     
-    // Optional: Uncomment for debugging
-    // std::cout << "💾 Cached price for token: " << token 
-    //           << " LTP: " << tick.lastTradedPrice << std::endl;
+    // Invoke callback OUTSIDE lock
+    if (m_callback) {
+        m_callback(exchangeSegment, token, tick);
+    }
 }
 
-std::optional<XTS::Tick> PriceCache::getPrice(int token) const {
-    std::shared_lock lock(m_mutex);  // Multiple readers allowed
+std::optional<XTS::Tick> PriceCache::getPrice(int exchangeSegment, int token) const {
+    std::shared_lock lock(m_mutex);
     
-    auto it = m_cache.find(token);
+    int64_t key = makeKey(exchangeSegment, token);
+    auto it = m_cache.find(key);
     if (it != m_cache.end()) {
         return it->second.tick;
     }
@@ -45,50 +43,104 @@ std::optional<XTS::Tick> PriceCache::getPrice(int token) const {
     return std::nullopt;
 }
 
+bool PriceCache::hasPrice(int exchangeSegment, int token) const {
+    std::shared_lock lock(m_mutex);
+    int64_t key = makeKey(exchangeSegment, token);
+    return m_cache.find(key) != m_cache.end();
+}
+
+double PriceCache::getCacheAge(int exchangeSegment, int token) const {
+    std::shared_lock lock(m_mutex);
+    
+    int64_t key = makeKey(exchangeSegment, token);
+    auto it = m_cache.find(key);
+    if (it != m_cache.end()) {
+        auto age = std::chrono::steady_clock::now() - it->second.timestamp;
+        return std::chrono::duration<double>(age).count();
+    }
+    
+    return -1.0;
+}
+
+// ========== LEGACY TOKEN-ONLY API ==========
+
+void PriceCache::updatePrice(int token, const XTS::Tick& tick) {
+    // Use segment from tick if available
+    int segment = tick.exchangeSegment > 0 ? tick.exchangeSegment : 1;
+    updatePrice(segment, token, tick);
+}
+
+std::optional<XTS::Tick> PriceCache::getPrice(int token) const {
+    std::shared_lock lock(m_mutex);
+    
+    // Search common segments for backward compatibility
+    static const int segments[] = {1, 2, 11, 12};
+    for (int seg : segments) {
+        int64_t key = makeKey(seg, token);
+        auto it = m_cache.find(key);
+        if (it != m_cache.end()) {
+            return it->second.tick;
+        }
+    }
+    
+    return std::nullopt;
+}
+
 bool PriceCache::hasPrice(int token) const {
     std::shared_lock lock(m_mutex);
-    return m_cache.find(token) != m_cache.end();
+    
+    static const int segments[] = {1, 2, 11, 12};
+    for (int seg : segments) {
+        int64_t key = makeKey(seg, token);
+        if (m_cache.find(key) != m_cache.end()) {
+            return true;
+        }
+    }
+    
+    return false;
 }
+
+// ========== CACHE MANAGEMENT ==========
 
 int PriceCache::clearStale(int maxAgeSeconds) {
     std::unique_lock lock(m_mutex);
     
     auto now = std::chrono::steady_clock::now();
-    std::vector<int> tokensToRemove;
-    tokensToRemove.reserve(10);  // Avoid reallocation
+    std::vector<int64_t> keysToRemove;
+    keysToRemove.reserve(10);
     
-    for (const auto& [token, cached] : m_cache) {
+    for (const auto& [key, cached] : m_cache) {
         auto age = std::chrono::duration_cast<std::chrono::seconds>(
             now - cached.timestamp
         ).count();
         
         if (age > maxAgeSeconds) {
-            tokensToRemove.push_back(token);
+            keysToRemove.push_back(key);
         }
     }
     
-    for (int token : tokensToRemove) {
-        m_cache.erase(token);
+    for (int64_t key : keysToRemove) {
+        m_cache.erase(key);
     }
     
-    if (!tokensToRemove.empty()) {
-        std::cout << "🧹 Cleared " << tokensToRemove.size() << " stale prices" << std::endl;
+    if (!keysToRemove.empty()) {
+        std::cout << "🧹 Cleared " << keysToRemove.size() << " stale prices" << std::endl;
     }
     
-    return tokensToRemove.size();
+    return keysToRemove.size();
 }
 
-std::vector<int> PriceCache::getAllTokens() const {
+std::vector<int64_t> PriceCache::getAllKeys() const {
     std::shared_lock lock(m_mutex);
     
-    std::vector<int> tokens;
-    tokens.reserve(m_cache.size());
+    std::vector<int64_t> keys;
+    keys.reserve(m_cache.size());
     
-    for (const auto& [token, _] : m_cache) {
-        tokens.push_back(token);
+    for (const auto& [key, _] : m_cache) {
+        keys.push_back(key);
     }
     
-    return tokens;
+    return keys;
 }
 
 size_t PriceCache::size() const {
@@ -103,18 +155,6 @@ void PriceCache::clear() {
     std::cout << "🧹 Cleared all cached prices (" << count << " items)" << std::endl;
 }
 
-void PriceCache::setPriceUpdateCallback(std::function<void(int, const XTS::Tick&)> callback) {
+void PriceCache::setPriceUpdateCallback(std::function<void(int, int, const XTS::Tick&)> callback) {
     m_callback = std::move(callback);
-}
-
-double PriceCache::getCacheAge(int token) const {
-    std::shared_lock lock(m_mutex);
-    
-    auto it = m_cache.find(token);
-    if (it != m_cache.end()) {
-        auto age = std::chrono::steady_clock::now() - it->second.timestamp;
-        return std::chrono::duration<double>(age).count();
-    }
-    
-    return -1.0;  // Not found
 }
