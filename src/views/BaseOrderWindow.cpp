@@ -298,7 +298,18 @@ bool BaseOrderWindow::focusNextPrevChild(bool next) {
 }
 
 void BaseOrderWindow::keyPressEvent(QKeyEvent *event) {
-    if (event->key() == Qt::Key_Escape) close();
+    if (event->key() == Qt::Key_Escape) {
+        // Try to close parent MDI window first
+        QWidget *p = parentWidget();
+        while (p) {
+            if (p->inherits("CustomMDISubWindow")) {
+                p->close();
+                return;
+            }
+            p = p->parentWidget();
+        }
+        close();
+    }
     else if (event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter) onSubmitClicked();
     else QWidget::keyPressEvent(event);
 }

@@ -155,6 +155,21 @@ UDP::SessionStateTick convertBseSessionState(const bse::DecodedSessionState& sta
     return sessTick;
 }
 
+// Convert BSE Circuit Limit to UDP::CircuitLimitTick
+UDP::CircuitLimitTick convertBseCircuitLimit(uint32_t token, int32_t upperCircuit, int32_t lowerCircuit, 
+                                              UDP::ExchangeSegment segment, uint64_t timestamp) {
+    UDP::CircuitLimitTick tick;
+    tick.exchangeSegment = segment;
+    tick.token = token;
+    tick.upperLimit = upperCircuit / 100.0;  // Convert paise to rupees
+    tick.lowerLimit = lowerCircuit / 100.0;
+    tick.upperExecutionBand = tick.upperLimit;  // BSE uses same for execution band
+    tick.lowerExecutionBand = tick.lowerLimit;
+    tick.timestampUdpRecv = timestamp;
+    
+    return tick;
+}
+
 // Convert NSE FO Index Data to UDP::IndexTick
 UDP::IndexTick convertNseFoIndex(const nsefo::IndexData& data) {
     UDP::IndexTick tick;
@@ -368,6 +383,14 @@ void UdpBroadcastService::setupBseFoCallbacks() {
         XTS::Tick legacyTick = convertToLegacy(udpTick);
         m_totalTicks++;
         emit tickReceived(legacyTick);
+        
+        // Emit circuit limits if present
+        if (record.upperCircuit > 0 || record.lowerCircuit > 0) {
+            UDP::CircuitLimitTick limitTick = convertBseCircuitLimit(
+                record.token, record.upperCircuit, record.lowerCircuit, 
+                UDP::ExchangeSegment::BSEFO, record.packetTimestamp);
+            emit udpCircuitLimitReceived(limitTick);
+        }
     });
     
     // Open Interest callback for BSE FO derivatives
@@ -413,6 +436,14 @@ void UdpBroadcastService::setupBseCmCallbacks() {
         XTS::Tick legacyTick = convertToLegacy(udpTick);
         m_totalTicks++;
         emit tickReceived(legacyTick);
+        
+        // Emit circuit limits if present
+        if (record.upperCircuit > 0 || record.lowerCircuit > 0) {
+            UDP::CircuitLimitTick limitTick = convertBseCircuitLimit(
+                record.token, record.upperCircuit, record.lowerCircuit, 
+                UDP::ExchangeSegment::BSECM, record.packetTimestamp);
+            emit udpCircuitLimitReceived(limitTick);
+        }
     });
     
     // Session State callback for BSE CM
