@@ -57,6 +57,9 @@
 - 🔴 **Alt+Tab navigation not implemented** - only mouse activation works
 - 🔴 **Window Z-order management** - no explicit z-order control
 - 🔴 **No window groups/tabs** - can't group related windows
+- 🔴 **mditaskbar window preview not implemented**
+
+
 
 **Suggestions**:
 - 🟢 **HIGH PRIORITY**: Implement Ctrl+Tab/Ctrl+Shift+Tab for window cycling
@@ -1219,3 +1222,81 @@
 ---
 
 **Next Steps**: Review with team, prioritize features, create sprint backlog, start coding! 🚀
+
+---
+
+## 📅 UPDATE: Jan 3, 2026
+
+### ✅ Recently Completed Features
+
+#### 1. Advanced Workspace Management 🗂️
+- **Full State Persistence**: Now saves not just window positions, but their *internal content*.
+    - **Market Watch**: Scrips, column profiles, and active tab preserved.
+    - **Order/Trade/Position Books**: Column visibility, order, and sorting preferences preserved.
+- **Auto-Restore**: Seamlessly restores the last working state, including open windows and their specific configurations.
+- **Global Profile Defaults**: Saves "Default" column profiles for windows even if they aren't currently open, ensuring consistent setup on next launch.
+
+#### 2. Market Watch Enhancements 📈
+- **ScripBar (Ctrl+S)**: Fast, keyboard-centric scrip addition.
+    - Supports NSEFO, NSECM, BSEFO, BSECM.
+    - Fuzzy search and smart filtering.
+- **Focus Management**: Fixed issue where clicking inside the table view didn't activate the window. Now tracks global focus changes.
+- **JSON Serialization**: Robust `saveState`/`restoreState` using JSON for scrip lists and profiles.
+
+#### 3. Snap Quote Window ⚡
+- **Implemented**: Dedicated window for single-scrip analysis.
+- **Live Data**: Connected to `FeedHandler` for real-time best 5 bid/ask updates.
+
+#### 4. BSE Integration 🔗
+- **Repository Fixes**: Enabled correct searching and mapping for BSE F&O instruments.
+- **Data Binding**: Correctly routes BSE market data to UI.
+
+### ⏳ Pending Critical Items (Immediate Focus)
+
+1.  **Real-Time Order API Integration**
+    - `OrderBook`, `TradeBook`, `PositionWindow` are currently using dummy/static data. Needs connection to `XTSInteractiveClient`.
+2.  **Option Chain Logic**
+    - UI skeleton exists (`OptionChainWindow.h`), but full data population and Greeks calculation logic needs verification/completion.
+3.  **P&L Implementation**
+    - Live MTM in Position Window and InfoBar.
+4.  **Keyboard Navigation**
+    - `Ctrl+Tab` for cycling windows is still a missing "knitty-gritty" UX feature.
+
+### 💡 New Feature Suggestions (Beyond Original Roadmap)
+
+#### 1. ⌨️ Command Palette (Ctrl+Shift+P)
+*Like VS Code / Sublime Text*
+- **Why**: Menus are slow. A searchable command palette allows users to:
+    - "Open Order Book"
+    - "Buy RELIANCE"
+    - "Change Theme to Dark"
+    - "Close All Windows"
+- **Implementation**: A central dialog matching typed text to `QAction` triggers.
+
+#### 2. 🖥️ Floating / Multi-Monitor Windows
+- **Why**: Professional traders use 2-4 monitors. MDI restricts windows to the main application frame.
+- **Feature**: Right-click tab/title -> "Detach". Creates a separate top-level native window that can be moved to another screen, while maintaining data connection.
+
+#### 3. 🔗 Linked Windows (Color Grouping)
+- **Why**: Clicking a scrip in one window should update others.
+- **Feature**: Assign a "color group" (Blue, Red, Green) to windows. 
+    - *Example*: Market Watch (Group Blue) click -> Updates Chart (Group Blue) and Depth (Group Blue).
+    - Prevents accidental updates to a secondary monitoring setup.
+
+#### 4. 📐 Layout Templates (Presets)
+- **Why**: Setting up windows takes time.
+- **Feature**: One-click layout switching:
+    - "Morning Scan mode" (Big Market Watch, Scanner)
+    - "Trading mode" (Order Book, Positions, Chart)
+    - "Options mode" (Option Chain, Greeks, Spread Window)
+
+#### 5. 🤖 Scripting / Macro Support
+- **Why**: Power users need custom workflows.
+- **Feature**: Simple Lua or Python binding to:
+    - "Sell 50% of current position"
+    - "Cancel all buy orders"
+    - Map these scripts to custom Hotkeys.
+
+#### 6. 🔦 Spotlight Search for Scrips
+- **Why**: Finding a window or scrip in a busy terminal is hard.
+- **Feature**: Global hotkey (e.g., Spacebar) that opens a search bar in the center of the screen to quickly jump to a specific contract's chart or depth.

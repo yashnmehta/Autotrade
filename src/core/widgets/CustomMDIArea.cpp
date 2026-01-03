@@ -7,6 +7,9 @@
 #include <QtMath>
 #include <QSettings>
 
+#include <QApplication>
+#include <QShortcut>
+
 CustomMDIArea::CustomMDIArea(QWidget *parent)
     : QWidget(parent),
       m_activeWindow(nullptr),
@@ -39,6 +42,22 @@ CustomMDIArea::CustomMDIArea(QWidget *parent)
 
     connect(m_taskBar, &MDITaskBar::windowRestoreRequested,
             this, &CustomMDIArea::restoreWindow);
+
+    // Monitor global focus changes to handle activation when clicking inside child widgets (e.g., TableView)
+    connect(qApp, &QApplication::focusChanged, this, [this](QWidget *old, QWidget *now) {
+        if (!now) return;
+        
+        // Find if the focused widget belongs to one of our windows
+        for (CustomMDISubWindow *window : m_windows) {
+            if (window == now || window->isAncestorOf(now)) {
+                activateWindow(window);
+                break;
+            }
+        }
+    });
+
+
+
 }
 
 CustomMDIArea::~CustomMDIArea()
@@ -127,10 +146,14 @@ void CustomMDIArea::closeAllSubWindows()
 
 void CustomMDIArea::activateWindow(CustomMDISubWindow *window)
 {
-    if (!window || window == m_activeWindow)
-    {
+    if (!window) return;
+
+    if (window->isMinimized()) {
+        restoreWindow(window);
         return;
     }
+
+    if (window == m_activeWindow) return;
 
     // Deactivate old window
     if (m_activeWindow)
@@ -515,4 +538,22 @@ void CustomMDIArea::deleteWorkspace(const QString &name)
     settings.remove(name);
     settings.endGroup();
     qDebug() << "CustomMDIArea: Workspace deleted:" << name;
+}
+
+void CustomMDIArea::cycleActiveWindow(bool backward)
+{
+    if (m_windows.count() < 2) return;
+
+    int index = m_activeWindow ? m_windows.indexOf(m_activeWindow) : -1;
+    if (index == -1) index = 0;
+
+    int count = m_windows.count();
+    int nextIndex;
+    if (backward) {
+        nextIndex = (index - 1 + count) % count;
+    } else {
+        nextIndex = (index + 1) % count;
+    }
+
+    activateWindow(m_windows[nextIndex]);
 }

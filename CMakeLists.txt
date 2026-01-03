@@ -160,7 +160,7 @@ set(CORE_WIDGET_HEADERS
 # ========================================
 
 set(APP_SOURCES
-    src/main.cpp
+    src/main_work.cpp
     src/app/MainWindow/MainWindow.cpp
     src/app/MainWindow/UI.cpp
     src/app/MainWindow/Windows.cpp

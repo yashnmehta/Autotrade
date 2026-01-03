@@ -52,6 +52,9 @@ public:
 
     CustomMDISubWindow *activeWindow() const;
     QList<CustomMDISubWindow *> windowList() const;
+    
+    // Navigation
+    void cycleActiveWindow(bool backward = false);
 
     MDITaskBar *taskBar() const { return m_taskBar; }
 

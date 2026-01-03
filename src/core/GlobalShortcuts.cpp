@@ -7,11 +7,55 @@
 #include <QShortcut>
 #include <QKeySequence>
 #include <QDebug>
+#include <QApplication>
+#include <QKeyEvent>
 
 /**
  * @brief Centralized shortcut management for the entire application.
  * User requested all shortcuts for all classes to be in a single dedicated file.
  */
+
+// Event filter to handle Ctrl+Tab cycling robustly, bypassing widget focus issues
+class WindowCyclingFilter : public QObject {
+    MainWindow* m_window;
+public:
+    WindowCyclingFilter(MainWindow* win) : QObject(win), m_window(win) {}
+    
+    bool eventFilter(QObject* obj, QEvent* event) override {
+        if (event->type() == QEvent::KeyPress) {
+            QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
+            int key = keyEvent->key();
+            Qt::KeyboardModifiers mods = keyEvent->modifiers();
+
+#ifdef Q_OS_MAC
+            // 1. macOS Standard: Command + ~ (Tilde/Backtick)
+            // Qt::ControlModifier maps to Command on macOS
+            if ((mods & Qt::ControlModifier) && (key == Qt::Key_QuoteLeft || key == Qt::Key_AsciiTilde)) {
+                if (mods & Qt::ShiftModifier) {
+                    QMetaObject::invokeMethod(m_window, "cycleWindowsBackward");
+                } else {
+                    QMetaObject::invokeMethod(m_window, "cycleWindowsForward");
+                }
+                return true;
+            }
+#endif
+
+            // 2. Control + Tab (Physical Control on macOS = MetaModifier)
+            // We check both Meta and Control to be robust against key mapping settings
+            bool isCtrl = (mods & Qt::ControlModifier) || (mods & Qt::MetaModifier);
+
+            if (isCtrl && (key == Qt::Key_Tab || key == Qt::Key_Backtab)) {
+                if ((mods & Qt::ShiftModifier) || key == Qt::Key_Backtab) {
+                    QMetaObject::invokeMethod(m_window, "cycleWindowsBackward");
+                } else {
+                    QMetaObject::invokeMethod(m_window, "cycleWindowsForward");
+                }
+                return true; 
+            }
+        }
+        return QObject::eventFilter(obj, event);
+    }
+};
 
 // --- MAIN WINDOW SHORTCUTS ---
 void setupMainWindowShortcuts(MainWindow* window) {
@@ -24,17 +68,12 @@ void setupMainWindowShortcuts(MainWindow* window) {
     new QShortcut(QKeySequence("Alt+W"), window, SLOT(loadWorkspace()));
     new QShortcut(QKeySequence("Alt+S"), window, SLOT(saveCurrentWorkspace()));
     
-    // Window cycling shortcuts (Ctrl+Tab / Ctrl+Shift+Tab)
-    // Use explicit key codes and SLOT() macro for private slots
-    QShortcut *cycleForward = new QShortcut(QKeySequence(Qt::CTRL | Qt::Key_Tab), window);
-    cycleForward->setContext(Qt::ApplicationShortcut);
-    QObject::connect(cycleForward, SIGNAL(activated()), window, SLOT(cycleWindowsForward()));
+    // Install robust application-wide filter for Window Cycling (Ctrl+Tab)
+    // This bypasses focus-stealing widgets (like tables/inputs)
+    WindowCyclingFilter* cycleFilter = new WindowCyclingFilter(window);
+    qApp->installEventFilter(cycleFilter);
     
-    QShortcut *cycleBackward = new QShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_Tab), window);
-    cycleBackward->setContext(Qt::ApplicationShortcut);
-    QObject::connect(cycleBackward, SIGNAL(activated()), window, SLOT(cycleWindowsBackward()));
-    
-    qDebug() << "[GlobalShortcuts] Window cycling shortcuts registered (Ctrl+Tab / Ctrl+Shift+Tab)";
+    qDebug() << "[GlobalShortcuts] Global Event Filter installed for Window Cycling";
     
     // Additional window shortcuts
     new QShortcut(QKeySequence(Qt::Key_F3), window, SLOT(createOrderBookWindow()));

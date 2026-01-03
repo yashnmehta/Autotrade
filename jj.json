@@ -1,0 +1,18 @@
+[
+    {
+        "exchange": "NSEFO",
+        "instrumentName": "",
+        "isBlankRow": false,
+        "scripName": "",
+        "symbol": "BANKNIFTY",
+        "token": 49224
+    },
+    {
+        "exchange": "NSEFO",
+        "instrumentName": "",
+        "isBlankRow": false,
+        "scripName": "",
+        "symbol": "NIFTY",
+        "token": 40465
+    }
+]
