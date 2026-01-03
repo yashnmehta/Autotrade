@@ -6,6 +6,7 @@
 #include <QAbstractItemModel>
 #include <QSortFilterProxyModel>
 #include <QShortcut>
+#include <QSettings>
 #include "models/GenericTableProfile.h"
 
 class BaseBookWindow : public QWidget {
@@ -13,6 +14,9 @@ class BaseBookWindow : public QWidget {
 public:
     explicit BaseBookWindow(const QString& windowName, QWidget* parent = nullptr);
     virtual ~BaseBookWindow();
+
+    virtual void saveState(QSettings &settings);
+    virtual void restoreState(QSettings &settings);
 
 protected:
     virtual void setupUI() = 0;

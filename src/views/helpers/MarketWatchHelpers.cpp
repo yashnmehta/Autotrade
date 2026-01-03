@@ -208,3 +208,41 @@ bool MarketWatchHelpers::loadPortfolio(const QString &filename, QList<ScripData>
 
     return true;
 }
+
+QJsonObject MarketWatchHelpers::scripToJson(const ScripData &scrip)
+{
+    QJsonObject scripObject;
+    scripObject["symbol"] = scrip.symbol;
+    scripObject["exchange"] = scrip.exchange;
+    scripObject["token"] = scrip.token;
+    scripObject["isBlankRow"] = scrip.isBlankRow;
+    
+    // Save minimal instrument details to help with identification/validation on load
+    if (!scrip.isBlankRow) {
+       scripObject["scripName"] = scrip.scripName;
+       scripObject["instrumentName"] = scrip.instrumentName;
+    }
+    return scripObject;
+}
+
+ScripData MarketWatchHelpers::scripFromJson(const QJsonObject &obj)
+{
+    ScripData scrip;
+    
+    scrip.symbol = obj["symbol"].toString();
+    scrip.exchange = obj["exchange"].toString();
+    scrip.token = obj["token"].toInt();
+    scrip.isBlankRow = obj["isBlankRow"].toBool();
+    
+    if (!scrip.isBlankRow) {
+        scrip.scripName = obj["scripName"].toString();
+        scrip.instrumentName = obj["instrumentName"].toString();
+    } else {
+         // Ensure blank row has visual separator if not explicitly saved/loaded
+         if (scrip.symbol.isEmpty()) {
+             scrip.symbol = "───────────────";
+         }
+         scrip.token = -1;
+    }
+    return scrip;
+}

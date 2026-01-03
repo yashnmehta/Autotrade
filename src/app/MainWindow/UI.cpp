@@ -19,6 +19,12 @@
 #include "core/widgets/CustomMDISubWindow.h" // Needed for window iteration
 #include "views/CustomizeDialog.h"
 
+#include "views/MarketWatchWindow.h"
+#include "views/BaseBookWindow.h"
+#include "models/GenericProfileManager.h"
+#include "models/GenericTableProfile.h"
+#include <QJsonDocument>
+
 void MainWindow::setupContent()
 {
     // Get the central widget container from CustomMainWindow
@@ -103,6 +109,7 @@ void MainWindow::setupContent()
     m_mdiArea = new CustomMDIArea(container);
     // Dark MDI background
     m_mdiArea->setStyleSheet("CustomMDIArea { background-color: #a19d9d; }"); 
+    connect(m_mdiArea, &CustomMDIArea::restoreWindowRequested, this, &MainWindow::onRestoreWindowRequested);
     layout->addWidget(m_mdiArea, 1); // Give it stretch factor so it expands
 
     // Create info bar (using DockWidget approach as requested)
@@ -160,6 +167,12 @@ void MainWindow::createMenuBar()
 
     // File Menu
     QMenu *fileMenu = m_menuBar->addMenu("&File");
+
+    fileMenu->addAction("&Save Workspace...", this, &MainWindow::saveCurrentWorkspace);
+    fileMenu->addAction("&Load Workspace...", this, &MainWindow::loadWorkspace);
+
+    fileMenu->addSeparator();
+
     QAction *exitAction = fileMenu->addAction("E&xit");
     connect(exitAction, &QAction::triggered, this, &QWidget::close);
 
@@ -211,6 +224,7 @@ void MainWindow::createMenuBar()
     
     QAction *wmPosition = windowMenu->addAction("Net &Position\tAlt+F6");
     connect(wmPosition, &QAction::triggered, this, &MainWindow::createPositionWindow);
+
 
     windowMenu->addSeparator();
     windowMenu->addAction("&Cascade", this, [this](){ m_mdiArea->cascadeWindows(); });
@@ -375,7 +389,48 @@ void MainWindow::resetLayout()
 void MainWindow::saveCurrentWorkspace() {
     bool ok;
     QString name = QInputDialog::getText(this, "Save Workspace", "Workspace name:", QLineEdit::Normal, "", &ok);
-    if (ok && !name.isEmpty() && m_mdiArea) m_mdiArea->saveWorkspace(name);
+    if (!ok || name.isEmpty() || !m_mdiArea) return;
+
+    // 1. Save Window Layout (Geometry, Type, etc.)
+    m_mdiArea->saveWorkspace(name);
+
+    // 2. Save Specific Content (Scrips, Profiles) for OPEN windows
+    QSettings settings("TradingCompany", "TradingTerminal");
+    settings.beginGroup("workspaces/" + name);
+
+    QList<CustomMDISubWindow *> windows = m_mdiArea->windowList();
+    for (int i = 0; i < windows.count(); ++i) {
+        CustomMDISubWindow *window = windows[i];
+        if (!window->contentWidget()) continue;
+        
+        settings.beginGroup(QString("window_%1").arg(i));
+        
+        if (window->windowType() == "MarketWatch") {
+            MarketWatchWindow *mw = qobject_cast<MarketWatchWindow*>(window->contentWidget());
+            if (mw) mw->saveState(settings);
+        } else {
+            // Check for BaseBookWindow (OrderBook, TradeBook, PositionWindow)
+            BaseBookWindow *book = qobject_cast<BaseBookWindow*>(window->contentWidget());
+            if (book) book->saveState(settings);
+        }
+        
+        settings.endGroup();
+    }
+
+    // 3. Save Default Profiles for specific window types (even if not open)
+    // This ensures that when we load this workspace, these window types will use the saved profile
+    settings.beginGroup("global_profiles");
+    QStringList types = {"OrderBook", "TradeBook", "PositionWindow"};
+    GenericProfileManager pm("profiles");
+    for(const auto& type : types) {
+        GenericTableProfile p;
+        if(pm.loadProfile(type, pm.getDefaultProfileName(type), p)) {
+            settings.setValue(type, QJsonDocument(p.toJson()).toJson(QJsonDocument::Compact));
+        }
+    }
+    settings.endGroup();
+
+    settings.endGroup();
 }
 
 void MainWindow::loadWorkspace() {
@@ -384,7 +439,29 @@ void MainWindow::loadWorkspace() {
     if (workspaces.isEmpty()) return;
     bool ok;
     QString name = QInputDialog::getItem(this, "Load Workspace", "Select workspace:", workspaces, 0, false, &ok);
-    if (ok && !name.isEmpty()) m_mdiArea->loadWorkspace(name);
+    if (!ok || name.isEmpty()) return;
+
+    // 1. Restore Global Profiles (so newly created windows pick them up)
+    QSettings settings("TradingCompany", "TradingTerminal");
+    settings.beginGroup("workspaces/" + name + "/global_profiles");
+    
+    GenericProfileManager pm("profiles");
+    QStringList types = settings.childKeys(); // "OrderBook", etc.
+    for(const auto& type : types) {
+        QByteArray data = settings.value(type).toByteArray();
+        QJsonDocument doc = QJsonDocument::fromJson(data);
+        if(doc.isObject()) {
+            GenericTableProfile p;
+            p.fromJson(doc.object());
+            // Save as default so new windows use it
+            pm.saveProfile(type, p); 
+            pm.saveDefaultProfile(type, p.name());
+        }
+    }
+    settings.endGroup();
+
+    // 2. Load Layout (this triggers onRestoreWindowRequested for each window)
+    m_mdiArea->loadWorkspace(name);
 }
 
 void MainWindow::manageWorkspaces() {

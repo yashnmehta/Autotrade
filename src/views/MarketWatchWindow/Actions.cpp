@@ -13,6 +13,9 @@
 #include <QFileDialog>
 #include <QMessageBox>
 #include <algorithm>
+#include <QJsonDocument>
+#include <QJsonArray>
+#include <QJsonObject>
 
 bool MarketWatchWindow::addScrip(const QString &symbol, const QString &exchange, int token)
 {
@@ -359,4 +362,55 @@ void MarketWatchWindow::onLoadPortfolio()
     }
     
     QMessageBox::information(this, tr("Success"), tr("Portfolio loaded successfully."));
+}
+
+void MarketWatchWindow::saveState(QSettings &settings)
+{
+    // Save Scrips
+    QJsonArray scripsArray;
+    int rows = m_model->rowCount();
+    for (int i = 0; i < rows; ++i) {
+        // Use helper to serialize scrip
+        scripsArray.append(MarketWatchHelpers::scripToJson(m_model->getScripAt(i)));
+    }
+    settings.setValue("scrips", QJsonDocument(scripsArray).toJson(QJsonDocument::Compact));
+
+    // Save Column Profile & Geometry (delegated to helper which saves to specific keys)
+    // However, WindowSettingsHelper saves to a *global* location usually based on window type.
+    // For workspace-specific saving, we should save the profile into THIS settings object.
+    
+    // Serialize current column profile
+    settings.setValue("columnProfile", QJsonDocument(m_model->getColumnProfile().toJson()).toJson(QJsonDocument::Compact));
+}
+
+void MarketWatchWindow::restoreState(QSettings &settings)
+{
+    // Restore Scrips
+    if (settings.contains("scrips")) {
+        QByteArray data = settings.value("scrips").toByteArray();
+        QJsonDocument doc = QJsonDocument::fromJson(data);
+        if (doc.isArray()) {
+            QJsonArray scripsArray = doc.array();
+            for (const QJsonValue &val : scripsArray) {
+                ScripData scrip = MarketWatchHelpers::scripFromJson(val.toObject());
+                if (scrip.isBlankRow) {
+                    insertBlankRow(m_model->rowCount());
+                } else {
+                    addScripFromContract(scrip);
+                }
+            }
+        }
+    }
+
+    // Restore Column Profile
+    if (settings.contains("columnProfile")) {
+        QByteArray data = settings.value("columnProfile").toByteArray();
+        QJsonDocument doc = QJsonDocument::fromJson(data);
+        if (doc.isObject()) {
+            MarketWatchColumnProfile profile;
+            profile.fromJson(doc.object());
+            m_model->setColumnProfile(profile);
+            m_model->layoutChanged(); // Refresh view
+        }
+    }
 }

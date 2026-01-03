@@ -349,7 +349,80 @@ void MainWindow::onAddToWatchRequested(const InstrumentData &instrument)
                 marketWatch->updatePrice(instrument.exchangeInstrumentID, cached->lastTradedPrice, change, pct);
             } else {
                 marketWatch->updatePrice(instrument.exchangeInstrumentID, cached->lastTradedPrice, 0, 0);
+
             }
         }
     }
 }
+
+void MainWindow::onRestoreWindowRequested(const QString &type, const QString &title, const QRect &geometry, bool isMinimized, bool isMaximized, bool isPinned, const QString &workspaceName, int index)
+{
+    qDebug() << "[MainWindow] Restoring window:" << type << title << "Index:" << index;
+
+    // Create the window based on type
+    if (type == "MarketWatch") {
+        createMarketWatch();
+    } else if (type == "BuyWindow") {
+        createBuyWindow();
+    } else if (type == "SellWindow") {
+        createSellWindow();
+    } else if (type == "SnapQuote" || type.startsWith("SnapQuote")) {
+        createSnapQuoteWindow();
+    } else if (type == "OptionChain") {
+        createOptionChainWindow();
+    } else if (type == "OrderBook") {
+        createOrderBookWindow();
+    } else if (type == "TradeBook") {
+        createTradeBookWindow();
+    } else if (type == "PositionWindow") {
+        createPositionWindow();
+    } else {
+        qWarning() << "[MainWindow] Unknown window type for restore:" << type;
+        return;
+    }
+
+    // Find the window we just created
+    // Since createXWindow() functions activate the new window, it should be the active one.
+    CustomMDISubWindow *window = m_mdiArea->activeWindow();
+    if (!window) {
+        qWarning() << "[MainWindow] Failed to find restored window for:" << type;
+        return;
+    }
+
+    // Apply saved geometry
+    if (!isMaximized && !isMinimized) {
+         window->setGeometry(geometry);
+    }
+    
+    // Apply state
+    if (isMaximized) {
+        window->maximize(); 
+    } else if (isMinimized) {
+        m_mdiArea->minimizeWindow(window);
+    }
+
+    window->setPinned(isPinned);
+    
+    if (!title.isEmpty() && window->title() != title) {
+        window->setTitle(title);
+    }
+    
+    // Restore detailed state (Script lists, column profiles, etc.)
+    if (!workspaceName.isEmpty() && index >= 0 && window->contentWidget()) {
+        QSettings settings("TradingCompany", "TradingTerminal");
+        settings.beginGroup(QString("workspaces/%1/window_%2").arg(workspaceName).arg(index));
+        
+        if (type == "MarketWatch") {
+            MarketWatchWindow *mw = qobject_cast<MarketWatchWindow*>(window->contentWidget());
+            if (mw) mw->restoreState(settings);
+        } else {
+            // Try BaseBookWindow for order/trade/position windows
+            BaseBookWindow *book = qobject_cast<BaseBookWindow*>(window->contentWidget());
+            if (book) book->restoreState(settings);
+        }
+        
+        settings.endGroup();
+    }
+}
+
+

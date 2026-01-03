@@ -78,6 +78,7 @@ private slots:
     void saveCurrentWorkspace();
     void loadWorkspace();
     void manageWorkspaces();
+    void onRestoreWindowRequested(const QString &type, const QString &title, const QRect &geometry, bool isMinimized, bool isMaximized, bool isPinned, const QString &workspaceName, int index);
     void showPreferences();
     
     // Window cycling (Ctrl+Tab / Ctrl+Shift+Tab)

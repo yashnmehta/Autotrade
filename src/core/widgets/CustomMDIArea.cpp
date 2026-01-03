@@ -490,10 +490,9 @@ void CustomMDIArea::loadWorkspace(const QString &name)
         bool pinned = settings.value(prefix + "pinned").toBool();
 
         // Signal parent to create window of specific type
-        // This needs to be handled by MainWindow since it knows how to create specific window types
-        emit windowActivated(nullptr); // Signal to trigger window creation
+        emit restoreWindowRequested(type, title, geometry, minimized, maximized, pinned, name, i);
 
-        qDebug() << "CustomMDIArea: Need to create window:" << type << title;
+        qDebug() << "CustomMDIArea: Requesting restore for window:" << type << title;
     }
 
     settings.endGroup();

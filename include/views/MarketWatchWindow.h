@@ -11,6 +11,7 @@
 #include <QMenu>
 #include <QMessageBox>
 #include <unordered_map>
+#include <QSettings>
 
 class TokenAddressBook;
 class XTSMarketDataClient;
@@ -226,6 +227,16 @@ public slots:
      */
     void deleteSelectedRows();
     
+    /**
+     * @brief Save window state (scrips, profile)
+     */
+    void saveState(QSettings &settings);
+
+    /**
+     * @brief Restore window state (scrips, profile)
+     */
+    void restoreState(QSettings &settings);
+
     /**
      * @brief Copy selected rows to clipboard
      */

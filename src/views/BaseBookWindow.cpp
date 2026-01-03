@@ -68,3 +68,29 @@ void BaseBookWindow::closeEvent(QCloseEvent* event) {
     WindowSettingsHelper::saveWindowSettings(this, m_windowName);
     QWidget::closeEvent(event);
 }
+
+void BaseBookWindow::saveState(QSettings &settings)
+{
+    if (m_tableView && m_model) {
+        // Capture current visual state into m_columnProfile
+        TableProfileHelper::captureProfile(m_tableView, m_model, m_columnProfile);
+        
+        // Save to QSettings
+        settings.setValue("columnProfile", QJsonDocument(m_columnProfile.toJson()).toJson(QJsonDocument::Compact));
+    }
+}
+
+void BaseBookWindow::restoreState(QSettings &settings)
+{
+    if (settings.contains("columnProfile")) {
+        QByteArray data = settings.value("columnProfile").toByteArray();
+        QJsonDocument doc = QJsonDocument::fromJson(data);
+        if (doc.isObject()) {
+            m_columnProfile.fromJson(doc.object());
+            
+            if (m_tableView && m_model) {
+                TableProfileHelper::applyProfile(m_tableView, m_model, m_columnProfile);
+            }
+        }
+    }
+}

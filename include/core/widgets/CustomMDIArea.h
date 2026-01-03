@@ -59,6 +59,7 @@ signals:
     void windowActivated(CustomMDISubWindow *window);
     void windowAdded(CustomMDISubWindow *window);
     void windowRemoved(CustomMDISubWindow *window);
+    void restoreWindowRequested(const QString &type, const QString &title, const QRect &geometry, bool isMinimized, bool isMaximized, bool isPinned, const QString &workspaceName, int index);
 
 protected:
     void resizeEvent(QResizeEvent *event) override;

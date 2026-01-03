@@ -3,6 +3,7 @@
 
 #include <QString>
 #include <QStringList>
+#include <QJsonObject>
 
 // Forward declaration
 struct ScripData;
@@ -68,6 +69,16 @@ public:
      * @param scrips Output list of scrips
      * @return true if successful
      */
+    /**
+     * @brief Convert ScripData to JSON object
+     */
+    static QJsonObject scripToJson(const ScripData &scrip);
+
+    /**
+     * @brief Create ScripData from JSON object
+     */
+    static ScripData scripFromJson(const QJsonObject &json);
+
     static bool loadPortfolio(const QString &filename, QList<ScripData> &scrips);
 };
 
