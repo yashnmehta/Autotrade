@@ -39,6 +39,14 @@ target_link_libraries(test_ia_data_native
 # Add Winsock library on Windows for Boost.Asio
 if(WIN32)
     target_link_libraries(test_ia_data_native ws2_32 wsock32)
+    if(MINGW)
+        # MinGW needs explicit linking for pthread from msys64
+        if(EXISTS "C:/msys64/mingw64/lib/libwinpthread.dll.a")
+            target_link_libraries(test_ia_data_native "C:/msys64/mingw64/lib/libwinpthread.dll.a")
+        else()
+            target_link_libraries(test_ia_data_native winpthread)
+        endif()
+    endif()
 endif()
 set_target_properties(test_ia_data_native PROPERTIES AUTOMOC ON)
 

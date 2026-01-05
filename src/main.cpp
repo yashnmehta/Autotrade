@@ -45,86 +45,86 @@ int main(int argc, char *argv[])
     SplashScreen *splash = new SplashScreen();
     splash->showCentered();
     
-    // Preload masters during splash (non-blocking via timer)
-    splash->setStatus("Initializing...");
+    // OPTIMIZATION: Load config DURING splash screen (not after)
+    splash->setStatus("Loading configuration...");
+    splash->setProgress(5);
+    QApplication::processEvents();
+    
+    ConfigLoader *config = new ConfigLoader();
+    QString appDir = QCoreApplication::applicationDirPath();
+    
+    QStringList candidates;
+    // 1) Workspace config (highest priority for development)
+    candidates << QDir(appDir).filePath("../../../../configs/config.ini");
+    
+    // 2) Standard application config location (per-platform)
+    QString appConfigDir = QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation);
+    if (!appConfigDir.isEmpty()) {
+        candidates << QDir(appConfigDir).filePath("config.ini");
+    }
+
+    // 3) User-specific config in ~/.config/<AppName>/config.ini
+    QString homeConfig = QDir::home().filePath(QString(".config/%1/config.ini").arg(QCoreApplication::applicationName().replace(' ', "")));
+    candidates << homeConfig;
+
+    // 4) Common developer/project locations relative to the binary
+    candidates << QDir(appDir).filePath("../../../../../configs/config.ini");
+    candidates << QDir(appDir).filePath("../configs/config.ini");
+    candidates << QDir(appDir).filePath("configs/config.ini");
+
+    // 5) macOS specific: inside app bundle Resources (if bundled)
+    candidates << QDir(appDir).filePath("../Resources/config.ini");
+
+    QString foundPath;
+    for (const QString &cand : candidates) {
+        QString abs = QFileInfo(cand).absoluteFilePath();
+        qDebug() << "Checking config candidate:" << abs;
+        if (QFile::exists(abs)) {
+            qDebug() << "Found config at:" << abs;
+            if (config->load(abs)) {
+                foundPath = abs;
+                break;
+            } else {
+                qWarning() << "Found config but failed to load:" << abs;
+            }
+        }
+    }
+
+    if (!foundPath.isEmpty()) {
+        qDebug() << "✓ Config loaded from:" << foundPath;
+        splash->setStatus("Configuration loaded");
+    } else {
+        qDebug() << "Config file not found, using defaults";
+        splash->setStatus("Using default configuration");
+    }
     splash->setProgress(10);
+    QApplication::processEvents();
+    
+    // Preload masters during splash (event-driven, non-blocking)
+    splash->setStatus("Initializing...");
     splash->preloadMasters();
 
-    // Continue with loading simulation
-    QTimer splashTimer;
-    int splashProgress = 50;  // Start at 50 since preload takes us there
-    
-    QObject::connect(&splashTimer, &QTimer::timeout, [&]() {
-        splashProgress += 16;  // Adjusted increment
-        if (splashProgress <= 100) {
-            splash->setProgress(splashProgress);
-            if (splashProgress == 66) splash->setStatus("Preparing UI...");
-            else if (splashProgress == 82) splash->setStatus("Almost ready...");
-            else if (splashProgress >= 98) {
-                splash->setStatus("Ready!");
-                splashTimer.stop();
-                
-                // Delay before showing login
-                QTimer::singleShot(500, [&]() {
-                    splash->close();
-                    delete splash;
-                    
-                    // Phase 2: Show Login Window
+    // EVENT-DRIVEN APPROACH: Wait for splash to signal ready instead of using timer
+    // The splash screen will emit readyToClose() when:
+    // 1. Master loading complete (or not needed/failed/timeout)
+    // 2. Minimum display time elapsed (1.5 seconds)
+    QObject::connect(splash, &SplashScreen::readyToClose, [splash, config, foundPath]() {
+        qDebug() << "[Main] Splash screen ready to close, showing login window...";
+        
+        splash->close();
+        delete splash;
+        
+        // Phase 2: Show Login Window
                     LoginWindow *loginWindow = new LoginWindow();
                     
-                    // Load credentials from config file
-                    ConfigLoader *config = new ConfigLoader();
-                    // Determine a list of candidate config locations that work
-                    // across development builds, Linux, and macOS application bundles.
-                    QString appDir = QCoreApplication::applicationDirPath();
-
-                    QStringList candidates;
-                    // 1) Workspace config (highest priority for development)
-                    candidates << QDir(appDir).filePath("../../../../configs/config.ini");
-                    
-                    // 2) Standard application config location (per-platform)
-                    QString appConfigDir = QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation);
-                    if (!appConfigDir.isEmpty()) {
-                        candidates << QDir(appConfigDir).filePath("config.ini");
-                    }
-
-                    // 3) User-specific config in ~/.config/<AppName>/config.ini
-                    QString homeConfig = QDir::home().filePath(QString(".config/%1/config.ini").arg(QCoreApplication::applicationName().replace(' ', "")));
-                    candidates << homeConfig;
-
-                    // 4) Common developer/project locations relative to the binary
-                    // Keep the original project-relative fallback for dev builds
-                    candidates << QDir(appDir).filePath("../../../../../configs/config.ini");
-                    candidates << QDir(appDir).filePath("../configs/config.ini");
-                    candidates << QDir(appDir).filePath("configs/config.ini");
-
-                    // 4) macOS specific: inside app bundle Resources (if bundled)
-                    candidates << QDir(appDir).filePath("../Resources/config.ini");
-
-                    QString foundPath;
-                    for (const QString &cand : candidates) {
-                        QString abs = QFileInfo(cand).absoluteFilePath();
-                        qDebug() << "Checking config candidate:" << abs;
-                        if (QFile::exists(abs)) {
-                            qDebug() << "Found config at:" << abs;
-                            if (config->load(abs)) {
-                                foundPath = abs;
-                                break;
-                            } else {
-                                qWarning() << "Found config but failed to load:" << abs;
-                            }
-                        }
-                    }
-
+                    // Config already loaded during splash screen - just populate UI
                     if (!foundPath.isEmpty()) {
-                        qDebug() << "Loading credentials from config file";
+                        qDebug() << "Populating login window with credentials from config";
                         loginWindow->setMarketDataAppKey(config->getMarketDataAppKey());
                         loginWindow->setMarketDataSecretKey(config->getMarketDataSecretKey());
                         loginWindow->setInteractiveAppKey(config->getInteractiveAppKey());
                         loginWindow->setInteractiveSecretKey(config->getInteractiveSecretKey());
                         loginWindow->setLoginID(config->getUserID());
-                    } else {
-                        qDebug() << "Config file not found or failed to load, using empty defaults";
                     }
                     
                     // Create login flow service
@@ -251,7 +251,10 @@ int main(int argc, char *argv[])
                         loginWindow->deleteLater(); // Use deleteLater instead of delete for safer cleanup
                     });
                     
-                    // Show login window
+                    // Show login window centered
+                    loginWindow->showCentered();
+                    
+                    // Show login window as modal dialog
                     int result = loginWindow->exec();
                     
                     if (result == QDialog::Rejected) {
@@ -264,12 +267,7 @@ int main(int argc, char *argv[])
                         }
                         QApplication::quit();
                     }
-                });
-            }
-        }
     });
-    
-    splashTimer.start(300); // Update every 300ms
 
     int exitCode = app.exec();
     

@@ -1,6 +1,8 @@
 #include "ui/LoginWindow.h"
 #include "ui_LoginWindow.h"
 #include <QMessageBox>
+#include <QScreen>
+#include <QApplication>
 
 LoginWindow::LoginWindow(QWidget *parent)
     : QDialog(parent)
@@ -178,4 +180,23 @@ void LoginWindow::onExitButtonClicked()
 {
     emit exitClicked();
     reject(); // Close dialog with rejected status
+}
+
+void LoginWindow::showCentered()
+{
+    show();
+    
+    // Center on screen
+    QScreen *screen = QApplication::primaryScreen();
+    if (screen) {
+        QRect screenGeometry = screen->geometry();
+        int x = (screenGeometry.width() - width()) / 2;
+        int y = (screenGeometry.height() - height()) / 2;
+        move(x, y);
+    }
+    
+    raise();
+    activateWindow();
+    
+    QApplication::processEvents();
 }

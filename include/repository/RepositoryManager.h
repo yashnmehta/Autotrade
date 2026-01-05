@@ -79,6 +79,17 @@ public:
     bool loadCombinedMasterFile(const QString& filePath);
     
     /**
+     * @brief Load masters directly from in-memory CSV data (no file I/O)
+     * @param csvData Raw CSV data containing master contracts
+     * @return true if at least one segment loaded successfully
+     * 
+     * This method is optimized for loading freshly downloaded data directly
+     * from memory without writing to disk first. It parses the CSV data
+     * and populates repositories directly, avoiding file I/O overhead.
+     */
+    bool loadFromMemory(const QString& csvData);
+    
+    /**
      * @brief Save processed CSVs for faster loading
      * @param mastersPath Path to Masters directory
      * @return true if at least one segment saved successfully

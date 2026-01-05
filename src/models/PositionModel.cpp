@@ -1,6 +1,7 @@
 #include "models/PositionModel.h"
 #include <QColor>
 #include <QFont>
+#include <QSet>
 
 PositionModel::PositionModel(QObject* parent)
     : QAbstractTableModel(parent)

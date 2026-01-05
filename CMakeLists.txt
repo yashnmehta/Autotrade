@@ -18,6 +18,15 @@ find_package(Qt5 COMPONENTS Widgets Network WebSockets UiTools REQUIRED)
 # Find Boost for native WebSocket (Beast + Asio)
 # Boost.Beast is header-only, just need Boost headers
 find_package(Boost 1.70 REQUIRED)
+
+# Use msys64 OpenSSL 3.x instead of Qt's OpenSSL 1.0.x
+if(MINGW AND EXISTS "C:/msys64/mingw64")
+    set(OPENSSL_ROOT_DIR "C:/msys64/mingw64")
+    set(OPENSSL_INCLUDE_DIR "C:/msys64/mingw64/include")
+    set(OPENSSL_CRYPTO_LIBRARY "C:/msys64/mingw64/lib/libcrypto.dll.a")
+    set(OPENSSL_SSL_LIBRARY "C:/msys64/mingw64/lib/libssl.dll.a")
+endif()
+
 find_package(OpenSSL REQUIRED)
 find_package(Threads REQUIRED)
 
@@ -160,7 +169,7 @@ set(CORE_WIDGET_HEADERS
 # ========================================
 
 set(APP_SOURCES
-    src/main_work.cpp
+    src/main.cpp
     src/app/MainWindow/MainWindow.cpp
     src/app/MainWindow/UI.cpp
     src/app/MainWindow/Windows.cpp
@@ -266,6 +275,8 @@ set(SERVICE_SOURCES
     src/services/PriceCache.cpp
     src/services/FeedHandler.cpp
     src/services/UdpBroadcastService.cpp
+    src/services/MasterLoaderWorker.cpp
+    src/services/MasterDataState.cpp
 )
 
 set(SERVICE_HEADERS
@@ -275,6 +286,8 @@ set(SERVICE_HEADERS
     include/services/PriceCache.h
     include/services/FeedHandler.h
     include/services/UdpBroadcastService.h
+    include/services/MasterLoaderWorker.h
+    include/services/MasterDataState.h
 )
 
 # ========================================
@@ -513,6 +526,14 @@ target_link_libraries(TradingTerminal PRIVATE
 
 if(WIN32)
     target_link_libraries(TradingTerminal PRIVATE Ws2_32 Iphlpapi)
+    if(MINGW)
+        # MinGW needs explicit linking for pthread from msys64
+        if(EXISTS "C:/msys64/mingw64/lib/libwinpthread.dll.a")
+            target_link_libraries(TradingTerminal PRIVATE "C:/msys64/mingw64/lib/libwinpthread.dll.a")
+        else()
+            target_link_libraries(TradingTerminal PRIVATE winpthread)
+        endif()
+    endif()
 endif()
 
 # Include Boost headers (Beast is header-only)

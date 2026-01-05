@@ -7,6 +7,7 @@
 #include <QPushButton>
 #include <QGroupBox>
 #include <QWheelEvent>
+#include <QDate>
 #include <cmath>
 #include "repository/RepositoryManager.h"
 #include "services/FeedHandler.h"
@@ -979,7 +980,10 @@ void OptionChainWindow::populateExpiries(const QString &symbol)
          }
     }
     
-    std::sort(sortedDates.begin(), sortedDates.end());
+    // Sort using Qt's comparison operator for QDate
+    std::stable_sort(sortedDates.begin(), sortedDates.end(), [](const QDate& a, const QDate& b) {
+        return a < b;
+    });
     
     for (const QDate& d : sortedDates) {
         m_expiryCombo->addItem(dateToString[d]);

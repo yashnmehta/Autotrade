@@ -4,6 +4,7 @@
 #include <QString>
 #include <QVector>
 #include <QJsonObject>
+#include <QMetaType>
 
 namespace XTS {
 

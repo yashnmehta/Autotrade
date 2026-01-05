@@ -47,6 +47,9 @@ public:
     void setOnLoginClicked(std::function<void()> callback);
     void setOnContinueClicked(std::function<void()> callback);
 
+    // Display
+    void showCentered();
+
 signals:
     void loginClicked();
     void continueClicked();

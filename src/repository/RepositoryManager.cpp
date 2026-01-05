@@ -430,6 +430,122 @@ bool RepositoryManager::loadCombinedMasterFile(const QString& filePath) {
     return anyLoaded;
 }
 
+bool RepositoryManager::loadFromMemory(const QString& csvData) {
+    qDebug() << "[RepositoryManager] Loading masters from in-memory CSV data (size:"
+             << csvData.size() << "bytes)";
+    
+    // Parse CSV data directly from memory - no file I/O
+    QStringList lines = csvData.split('\n', Qt::SkipEmptyParts);
+    
+    QVector<MasterContract> nsefoContracts;
+    QVector<MasterContract> nsecmContracts;
+    QVector<MasterContract> bsefoContracts;
+    QVector<MasterContract> bsecmContracts;
+    
+    // Pre-allocate to avoid reallocations
+    nsefoContracts.reserve(90000);
+    nsecmContracts.reserve(5000);
+    bsefoContracts.reserve(1000);
+    bsecmContracts.reserve(1000);
+    
+    int lineCount = 0;
+    int parsedCount = 0;
+    
+    for (const QString& line : lines) {
+        lineCount++;
+        
+        // Trim whitespace
+        QString trimmedLine = line.trimmed();
+        if (trimmedLine.isEmpty()) {
+            continue;
+        }
+        
+        // Check segment prefix (first field before |)
+        QString segment = trimmedLine.section('|', 0, 0);
+        
+        MasterContract contract;
+        bool parsed = false;
+        
+        if (segment == "NSEFO") {
+            parsed = MasterFileParser::parseLine(trimmedLine, "NSEFO", contract);
+            if (parsed) {
+                nsefoContracts.append(contract);
+                parsedCount++;
+            }
+        }
+        else if (segment == "NSECM") {
+            parsed = MasterFileParser::parseLine(trimmedLine, "NSECM", contract);
+            if (parsed) {
+                nsecmContracts.append(contract);
+                parsedCount++;
+            }
+        }
+        else if (segment == "BSEFO") {
+            parsed = MasterFileParser::parseLine(trimmedLine, "BSEFO", contract);
+            if (parsed) {
+                bsefoContracts.append(contract);
+                parsedCount++;
+            }
+        }
+        else if (segment == "BSECM") {
+            parsed = MasterFileParser::parseLine(trimmedLine, "BSECM", contract);
+            if (parsed) {
+                bsecmContracts.append(contract);
+                parsedCount++;
+            }
+        }
+    }
+    
+    qDebug() << "[RepositoryManager] Parsed" << parsedCount << "contracts from" << lineCount << "lines:";
+    qDebug() << "  NSE FO:" << nsefoContracts.size();
+    qDebug() << "  NSE CM:" << nsecmContracts.size();
+    qDebug() << "  BSE FO:" << bsefoContracts.size();
+    qDebug() << "  BSE CM:" << bsecmContracts.size();
+    
+    // Load directly into repositories (no file I/O, no temp files)
+    bool anyLoaded = false;
+    
+    if (!nsefoContracts.isEmpty()) {
+        if (m_nsefo->loadFromContracts(nsefoContracts)) {
+            anyLoaded = true;
+            qDebug() << "[RepositoryManager] ✓ NSE FO loaded from memory (" 
+                     << nsefoContracts.size() << "contracts)";
+        }
+    }
+    
+    if (!nsecmContracts.isEmpty()) {
+        if (m_nsecm->loadFromContracts(nsecmContracts)) {
+            anyLoaded = true;
+            qDebug() << "[RepositoryManager] ✓ NSE CM loaded from memory (" 
+                     << nsecmContracts.size() << "contracts)";
+        }
+    }
+    
+    if (!bsefoContracts.isEmpty()) {
+        if (m_bsefo->loadFromContracts(bsefoContracts)) {
+            anyLoaded = true;
+            qDebug() << "[RepositoryManager] ✓ BSE FO loaded from memory (" 
+                     << bsefoContracts.size() << "contracts)";
+        }
+    }
+    
+    if (!bsecmContracts.isEmpty()) {
+        if (m_bsecm->loadFromContracts(bsecmContracts)) {
+            anyLoaded = true;
+            qDebug() << "[RepositoryManager] ✓ BSE CM loaded from memory (" 
+                     << bsecmContracts.size() << "contracts)";
+        }
+    }
+    
+    if (anyLoaded) {
+        qDebug() << "[RepositoryManager] ✓ In-memory load complete (no file I/O)";
+    } else {
+        qWarning() << "[RepositoryManager] ✗ Failed to load any segment from memory";
+    }
+    
+    return anyLoaded;
+}
+
 QVector<ContractData> RepositoryManager::searchScrips(
     const QString& exchange,
     const QString& segment,

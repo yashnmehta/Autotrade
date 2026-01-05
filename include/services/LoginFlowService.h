@@ -4,6 +4,7 @@
 #include "api/XTSMarketDataClient.h"
 #include "api/XTSInteractiveClient.h"
 #include "api/XTSTypes.h"
+#include "services/MasterLoaderWorker.h"
 #include <QObject>
 #include <functional>
 
@@ -48,10 +49,17 @@ signals:
 private:
     void updateStatus(const QString &phase, const QString &message, int progress);
     void notifyError(const QString &phase, const QString &error);
+    
+    // Internal methods for handling async master loading
+    void handleMasterLoadingComplete(int contractCount);
+    void handleMasterLoadingFailed(const QString& errorMessage);
+    void continueLoginAfterMasters();
+    void startMasterDownload(const QString& mastersDir);
 
     XTSMarketDataClient *m_mdClient;
     XTSInteractiveClient *m_iaClient;
     TradingDataService *m_tradingDataService;
+    MasterLoaderWorker *m_masterLoader;
 
     std::function<void(const QString&, const QString&, int)> m_statusCallback;
     std::function<void(const QString&, const QString&)> m_errorCallback;
