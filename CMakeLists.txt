@@ -160,7 +160,7 @@ set(CORE_WIDGET_HEADERS
 # ========================================
 
 set(APP_SOURCES
-    src/main_work.cpp
+    src/main.cpp
     src/app/MainWindow/MainWindow.cpp
     src/app/MainWindow/UI.cpp
     src/app/MainWindow/Windows.cpp
@@ -421,6 +421,7 @@ set(FORMS
     resources/forms/SplashScreen.ui
     resources/forms/LoginWindow.ui
     resources/forms/customize.ui
+    resources/forms/PreferencesWindow.ui
 )
 
 # Resource files
