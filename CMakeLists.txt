@@ -423,6 +423,7 @@ set(FORMS
     resources/forms/SplashScreen.ui
     resources/forms/LoginWindow.ui
     resources/forms/customize.ui
+    resources/forms/PreferencesWindow.ui
 )
 
 # Resource files

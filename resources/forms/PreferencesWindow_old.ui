@@ -1,0 +1,1186 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>PreferenceDialog</class>
+ <widget class="QDialog" name="PreferenceDialog">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>800</width>
+    <height>700</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Preferences</string>
+  </property>
+  <property name="modal">
+   <bool>true</bool>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout_main">
+   <property name="spacing">
+    <number>6</number>
+   </property>
+   <property name="leftMargin">
+    <number>6</number>
+   </property>
+   <property name="topMargin">
+    <number>6</number>
+   </property>
+   <property name="rightMargin">
+    <number>6</number>
+   </property>
+   <property name="bottomMargin">
+    <number>6</number>
+   </property>
+   <item>
+    <widget class="QTabWidget" name="tabWidget">
+     <property name="currentIndex">
+      <number>0</number>
+     </property>
+     
+     <!-- GENERAL TAB -->
+     <widget class="QWidget" name="tabGeneral">
+      <attribute name="title">
+       <string>General</string>
+      </attribute>
+      <layout class="QHBoxLayout" name="horizontalLayout_general">
+       <property name="spacing">
+        <number>10</number>
+       </property>
+       
+       <!-- LEFT PANEL -->
+       <item>
+        <layout class="QVBoxLayout" name="verticalLayout_left">
+         
+         <!-- ON EVENT GROUP -->
+         <item>
+          <widget class="QGroupBox" name="groupBox_onEvent">
+           <property name="title">
+            <string>On Event</string>
+           </property>
+           <layout class="QGridLayout" name="gridLayout_onEvent">
+            <item row="0" column="0">
+             <widget class="QLabel" name="label_event">
+              <property name="text">
+               <string>Event :</string>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="1" colspan="3">
+             <widget class="QComboBox" name="comboBox_event">
+              <item>
+               <property name="text">
+                <string>Order Error</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>Order Confirmation</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>Trade Confirmation</string>
+               </property>
+              </item>
+             </widget>
+            </item>
+            
+            <item row="1" column="0">
+             <widget class="QCheckBox" name="checkBox_beep">
+              <property name="text">
+               <string>Beep</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="1">
+             <widget class="QCheckBox" name="checkBox_flashMessageBar">
+              <property name="text">
+               <string>Flash Message Bar</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="2">
+             <widget class="QCheckBox" name="checkBox_messageBox">
+              <property name="text">
+               <string>Message Box</string>
+              </property>
+             </widget>
+            </item>
+            
+            <item row="2" column="0">
+             <widget class="QCheckBox" name="checkBox_staticMessageBox">
+              <property name="text">
+               <string>Static Message Box</string>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="1">
+             <widget class="QLineEdit" name="lineEdit_staticMessageBox">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="2">
+             <widget class="QCheckBox" name="checkBox_playSound">
+              <property name="text">
+               <string>Play Sound</string>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="3">
+             <widget class="QPushButton" name="pushButton_browse">
+              <property name="text">
+               <string>Browse</string>
+              </property>
+             </widget>
+            </item>
+            
+            <item row="3" column="0" colspan="4">
+             <widget class="QLabel" name="label_eventDescription">
+              <property name="text">
+               <string>Select the action when a particular event occurs e.g. Beep on Order Confirmation</string>
+              </property>
+              <property name="wordWrap">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </item>
+         
+         <!-- SHORTCUT KEY SCHEMES -->
+         <item>
+          <layout class="QHBoxLayout" name="horizontalLayout_shortcut">
+           <item>
+            <widget class="QLabel" name="label_shortcutKey">
+             <property name="text">
+              <string>Shortcut Key Schemes</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QComboBox" name="comboBox_shortcutScheme">
+             <item>
+              <property name="text">
+               <string>NSE</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>BSE</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>MCX</string>
+              </property>
+             </item>
+            </widget>
+           </item>
+          </layout>
+         </item>
+         
+         <!-- TICK DATA WINDOW -->
+         <item>
+          <widget class="QGroupBox" name="groupBox_tickDataWindow">
+           <property name="title">
+            <string>Tick Data Window</string>
+           </property>
+           <layout class="QGridLayout" name="gridLayout_tickData">
+            <item row="0" column="0">
+             <widget class="QCheckBox" name="checkBox_showDataWindow">
+              <property name="text">
+               <string>Show Data Window</string>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="1">
+             <widget class="QCheckBox" name="checkBox_showSingleSecurityInfo">
+              <property name="text">
+               <string>Show Single Security Info. Only</string>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="2">
+             <widget class="QCheckBox" name="checkBox_differentWindows">
+              <property name="text">
+               <string>Different Windows For Graph Types</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="0" colspan="3">
+             <layout class="QHBoxLayout" name="horizontalLayout_trendColor">
+              <item>
+               <widget class="QLabel" name="label_trendColor">
+                <property name="text">
+                 <string>Trend color based on :</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QRadioButton" name="radioButton_price">
+                <property name="text">
+                 <string>Price</string>
+                </property>
+                <property name="checked">
+                 <bool>true</bool>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QRadioButton" name="radioButton_volume">
+                <property name="text">
+                 <string>Volume</string>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </item>
+           </layout>
+          </widget>
+         </item>
+         
+         <!-- TIME FORMAT AND SETTINGS -->
+         <item>
+          <layout class="QGridLayout" name="gridLayout_timeSettings">
+           <item row="0" column="0">
+            <widget class="QLabel" name="label_timeFormat">
+             <property name="text">
+              <string>Time Format to be used in Views :</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="1">
+            <widget class="QComboBox" name="comboBox_timeFormat">
+             <item>
+              <property name="text">
+               <string>Time in 12-Hour Format</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>Time in 24-Hour Format</string>
+              </property>
+             </item>
+            </widget>
+           </item>
+           
+           <item row="1" column="0">
+            <widget class="QLabel" name="label_sortingMapped">
+             <property name="text">
+              <string>Sorting in Mapped Client/SubBroker :</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="1">
+            <layout class="QHBoxLayout" name="horizontalLayout_sorting">
+             <item>
+              <widget class="QRadioButton" name="radioButton_clientName">
+               <property name="text">
+                <string>Client Name</string>
+               </property>
+               <property name="checked">
+                <bool>true</bool>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QRadioButton" name="radioButton_clientCode">
+               <property name="text">
+                <string>Client Code</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+           
+           <item row="2" column="0">
+            <widget class="QLabel" name="label_orderBookWith">
+             <property name="text">
+              <string>Always open the Order Book with :</string>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="1">
+            <widget class="QComboBox" name="comboBox_orderBookOpen">
+             <item>
+              <property name="text">
+               <string>Pending</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>All Orders</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>Executed</string>
+              </property>
+             </item>
+            </widget>
+           </item>
+           
+           <item row="3" column="0">
+            <widget class="QLabel" name="label_preferredExchange">
+             <property name="text">
+              <string>Preferred Exchange :</string>
+             </property>
+            </widget>
+           </item>
+           <item row="3" column="1">
+            <widget class="QComboBox" name="comboBox_preferredExchange">
+             <item>
+              <property name="text">
+               <string>NSE</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>BSE</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>MCX</string>
+              </property>
+             </item>
+            </widget>
+           </item>
+           <item row="3" column="2">
+            <widget class="QLabel" name="label_orders">
+             <property name="text">
+              <string>Orders.</string>
+             </property>
+            </widget>
+           </item>
+           
+           <item row="4" column="0">
+            <widget class="QLabel" name="label_preferredProductType">
+             <property name="text">
+              <string>Preferred Product Type :</string>
+             </property>
+            </widget>
+           </item>
+           <item row="4" column="1">
+            <widget class="QComboBox" name="comboBox_preferredProductType">
+             <item>
+              <property name="text">
+               <string>(ALL)</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>NRML</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>MIS</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>CNC</string>
+              </property>
+             </item>
+            </widget>
+           </item>
+           
+           <item row="5" column="0">
+            <widget class="QLabel" name="label_preferredMarketSegment">
+             <property name="text">
+              <string>Preferred Market Segment:</string>
+             </property>
+            </widget>
+           </item>
+           <item row="5" column="1">
+            <widget class="QComboBox" name="comboBox_preferredSegment">
+             <item>
+              <property name="text">
+               <string>(ALL)</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>NSECM</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>NSEFO</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>BSECM</string>
+              </property>
+             </item>
+            </widget>
+           </item>
+           
+           <item row="6" column="0">
+            <widget class="QLabel" name="label_defaultExpiry">
+             <property name="text">
+              <string>Default Expiry of Portfolio :</string>
+             </property>
+            </widget>
+           </item>
+           <item row="6" column="1">
+            <widget class="QComboBox" name="comboBox_defaultExpiry">
+             <item>
+              <property name="text">
+               <string>(ALL)</string>
+              </property>
+             </item>
+            </widget>
+           </item>
+           
+           <item row="7" column="0">
+            <widget class="QLabel" name="label_stockWatchSubscription">
+             <property name="text">
+              <string>Stock Watch Subscription Time Interval</string>
+             </property>
+            </widget>
+           </item>
+           <item row="7" column="1">
+            <widget class="QSpinBox" name="spinBox_subscriptionInterval">
+             <property name="suffix">
+              <string> s</string>
+             </property>
+             <property name="minimum">
+              <number>1</number>
+             </property>
+             <property name="maximum">
+              <number>3600</number>
+             </property>
+             <property name="value">
+              <number>5</number>
+             </property>
+            </widget>
+           </item>
+           <item row="7" column="2">
+            <layout class="QHBoxLayout" name="horizontalLayout_closeOnEsc">
+             <item>
+              <widget class="QLabel" name="label_closeOnEsc">
+               <property name="text">
+                <string>Close On Esc Key:</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QComboBox" name="comboBox_closeOnEsc">
+               <item>
+                <property name="text">
+                 <string>Auction Inquiry</string>
+                </property>
+               </item>
+              </widget>
+             </item>
+            </layout>
+           </item>
+          </layout>
+         </item>
+         
+         <!-- CHECKBOXES SECTION 1 -->
+         <item>
+          <layout class="QGridLayout" name="gridLayout_checkboxes1">
+           <item row="0" column="0">
+            <widget class="QCheckBox" name="checkBox_defaultAuctionBroadcast">
+             <property name="text">
+              <string>Default Auction Broadcast</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="1">
+            <widget class="QCheckBox" name="checkBox_enableExcelFilter">
+             <property name="text">
+              <string>Enable Excel Filter</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="2">
+            <widget class="QCheckBox" name="checkBox_showSuspendedClient">
+             <property name="text">
+              <string>Show Suspended Client</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="3">
+            <widget class="QLineEdit" name="lineEdit_f3f8">
+             <property name="placeholderText">
+              <string>F3/F8</string>
+             </property>
+             <property name="maximumWidth">
+              <number>60</number>
+             </property>
+            </widget>
+           </item>
+           
+           <item row="1" column="0">
+            <widget class="QCheckBox" name="checkBox_enableToolTip">
+             <property name="text">
+              <string>Enable Tool Tip (Ctrl + B to Activate/De-activate)</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="1">
+            <widget class="QCheckBox" name="checkBox_dispatchOrderConfirmation">
+             <property name="text">
+              <string>Dispatch Order Confirmation</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="2">
+            <widget class="QCheckBox" name="checkBox_closeOrderEntry">
+             <property name="text">
+              <string>Close Order Entry on Submit</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="3">
+            <widget class="QCheckBox" name="checkBox_verticalSplitter">
+             <property name="text">
+              <string>Vertical Splitter</string>
+             </property>
+            </widget>
+           </item>
+           
+           <item row="2" column="0">
+            <widget class="QCheckBox" name="checkBox_includeAllPanic">
+             <property name="text">
+              <string>Include 'ALL' in Panic Withdrawal F10/CLI</string>
+             </property>
+             <property name="checked">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="1">
+            <widget class="QCheckBox" name="checkBox_filterMappedScripCode">
+             <property name="text">
+              <string>Filter Mapped Scrip Code</string>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="2">
+            <widget class="QCheckBox" name="checkBox_openExcelWithColor">
+             <property name="text">
+              <string>Open Excel With Color</string>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="3">
+            <widget class="QCheckBox" name="checkBox_mtmGL">
+             <property name="text">
+              <string>MTM G/L on trade confirmation</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </item>
+         
+         <!-- AUCTION POP UP MESSAGE -->
+         <item>
+          <layout class="QHBoxLayout" name="horizontalLayout_auctionPopup">
+           <item>
+            <widget class="QLabel" name="label_auctionPopup">
+             <property name="text">
+              <string>Auction Pop Up Message</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QComboBox" name="comboBox_auctionPopup">
+             <item>
+              <property name="text">
+               <string>YES</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>NO</string>
+              </property>
+             </item>
+            </widget>
+           </item>
+           <item>
+            <widget class="QLabel" name="label_defaultSquareOff">
+             <property name="text">
+              <string>Default square off price</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </item>
+         
+         <!-- CHECKBOXES SECTION 2 -->
+         <item>
+          <layout class="QGridLayout" name="gridLayout_checkboxes2">
+           <item row="0" column="0">
+            <widget class="QRadioButton" name="radioButton_counterTouchline">
+             <property name="text">
+              <string>Counter Touchline</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="1">
+            <widget class="QRadioButton" name="radioButton_percentCounter">
+             <property name="text">
+              <string>% Counter Touchline</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="2">
+            <widget class="QLineEdit" name="lineEdit_percentValue">
+             <property name="maximumWidth">
+              <number>80</number>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="3">
+            <widget class="QRadioButton" name="radioButton_sameSideTouchline">
+             <property name="text">
+              <string>Same Side Touchline</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="4">
+            <widget class="QRadioButton" name="radioButton_percentTouchlineDiff">
+             <property name="text">
+              <string>% Touchline Diff</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="5">
+            <widget class="QLineEdit" name="lineEdit_touchlineDiff">
+             <property name="maximumWidth">
+              <number>80</number>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="6">
+            <widget class="QRadioButton" name="radioButton_ltp">
+             <property name="text">
+              <string>LTP</string>
+             </property>
+             <property name="checked">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="7">
+            <widget class="QRadioButton" name="radioButton_marketPrice">
+             <property name="text">
+              <string>Market Price</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="8">
+            <widget class="QRadioButton" name="radioButton_closePrice">
+             <property name="text">
+              <string>Close Price</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="9">
+            <widget class="QLineEdit" name="lineEdit_closePrice">
+             <property name="maximumWidth">
+              <number>80</number>
+             </property>
+            </widget>
+           </item>
+           
+           <item row="1" column="0">
+            <widget class="QCheckBox" name="checkBox_autoStartSet">
+             <property name="text">
+              <string>Auto Start In Set Alert</string>
+             </property>
+             <property name="checked">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="1" colspan="2">
+            <widget class="QCheckBox" name="checkBox_retainLastAlert">
+             <property name="text">
+              <string>Retain Last Alert Profile</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="3" colspan="2">
+            <widget class="QCheckBox" name="checkBox_positionConversion">
+             <property name="text">
+              <string>Position Conversion Popup</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="5" colspan="2">
+            <widget class="QCheckBox" name="checkBox_f6AuctionBest">
+             <property name="text">
+              <string>F6 as Auction Best 5</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="7" colspan="3">
+            <widget class="QCheckBox" name="checkBox_enableHotKey">
+             <property name="text">
+              <string>Enable Hot Key</string>
+             </property>
+            </widget>
+           </item>
+           
+           <item row="2" column="0">
+            <widget class="QCheckBox" name="checkBox_showMarginInfo">
+             <property name="text">
+              <string>Show Margin Information On Order Entry</string>
+             </property>
+             <property name="checked">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="1" colspan="2">
+            <widget class="QCheckBox" name="checkBox_enableSecurityDescription">
+             <property name="text">
+              <string>Enable Security Description in Filter Bar</string>
+             </property>
+             <property name="checked">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </item>
+         
+         <item>
+          <spacer name="verticalSpacer_left">
+           <property name="orientation">
+            <enum>Qt::Vertical</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>20</width>
+             <height>40</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+        </layout>
+       </item>
+       
+       <!-- RIGHT PANEL -->
+       <item>
+        <layout class="QVBoxLayout" name="verticalLayout_right">
+         
+         <!-- TRANSACTION BACKUP GROUP -->
+         <item>
+          <widget class="QGroupBox" name="groupBox_transactionBackup">
+           <property name="title">
+            <string>Transaction Backup</string>
+           </property>
+           <layout class="QVBoxLayout" name="verticalLayout_transactionBackup">
+            <item>
+             <widget class="QCheckBox" name="checkBox_automatedBackup">
+              <property name="text">
+               <string>Automated backup</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QCheckBox" name="checkBox_retainBackupPath">
+              <property name="text">
+               <string>Retain Backup Path</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QCheckBox" name="checkBox_retainLastSetting">
+              <property name="text">
+               <string>Retain Last Setting</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QCheckBox" name="checkBox_defaultOnlinePath">
+              <property name="text">
+               <string>Default Online Path</string>
+              </property>
+              <property name="checked">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QCheckBox" name="checkBox_onlineSpecificSetting">
+              <property name="text">
+               <string>Online Specific Setting</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </item>
+         
+         <!-- WORKING ORDERS GROUP -->
+         <item>
+          <widget class="QGroupBox" name="groupBox_workingOrders">
+           <property name="title">
+            <string>Working Orders</string>
+           </property>
+           <layout class="QVBoxLayout" name="verticalLayout_workingOrders">
+            <item>
+             <widget class="QComboBox" name="comboBox_workingOrders">
+              <item>
+               <property name="text">
+                <string>Exchange</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>Product</string>
+               </property>
+              </item>
+             </widget>
+            </item>
+            <item>
+             <layout class="QHBoxLayout" name="horizontalLayout_preferredFilter">
+              <item>
+               <widget class="QLabel" name="label_preferredFilter">
+                <property name="text">
+                 <string>Preferred Filter</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QComboBox" name="comboBox_preferredFilter">
+                <item>
+                 <property name="text">
+                  <string>Exchange</string>
+                 </property>
+                </item>
+               </widget>
+              </item>
+             </layout>
+            </item>
+           </layout>
+          </widget>
+         </item>
+         
+         <!-- BULK ORDER UPLOAD FILE FORMAT -->
+         <item>
+          <widget class="QGroupBox" name="groupBox_bulkOrder">
+           <property name="title">
+            <string>Bulk Order Upload File Format</string>
+           </property>
+           <layout class="QVBoxLayout" name="verticalLayout_bulkOrder">
+            <item>
+             <widget class="QRadioButton" name="radioButton_exchangeFormat">
+              <property name="text">
+               <string>Exchange Format</string>
+              </property>
+              <property name="checked">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QRadioButton" name="radioButton_odinFormat">
+              <property name="text">
+               <string>ODIN Format</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QCheckBox" name="checkBox_defaultSecurityContract">
+              <property name="text">
+               <string>Defaults Security/Contract Window</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </item>
+         
+         <!-- ADDITIONAL CHECKBOXES -->
+         <item>
+          <widget class="QCheckBox" name="checkBox_closeAllWindows">
+           <property name="text">
+            <string>Close all windows on log-off</string>
+           </property>
+           <property name="checked">
+            <bool>true</bool>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QCheckBox" name="checkBox_allowTradeOrder">
+           <property name="text">
+            <string>Allow Trade/Order Confirmation Message</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QCheckBox" name="checkBox_showClosePrice">
+           <property name="text">
+            <string>Show Close Price</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QCheckBox" name="checkBox_bseF5F6Beep">
+           <property name="text">
+            <string>BSE F5/F6 Beep On</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QCheckBox" name="checkBox_autoReconnect">
+           <property name="text">
+            <string>Auto-Reconnect</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QCheckBox" name="checkBox_closePriceModification">
+           <property name="text">
+            <string>Close Price Modification window on Submit</string>
+           </property>
+           <property name="checked">
+            <bool>true</bool>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QCheckBox" name="checkBox_displayDate">
+           <property name="text">
+            <string>Display Date</string>
+           </property>
+           <property name="checked">
+            <bool>true</bool>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QCheckBox" name="checkBox_fetchNetQuantity">
+           <property name="text">
+            <string>Fetch Net Quantity / Price</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QCheckBox" name="checkBox_includeMemberTerminal">
+           <property name="text">
+            <string>Include Member Terminal Order</string>
+           </property>
+           <property name="checked">
+            <bool>true</bool>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QCheckBox" name="checkBox_displayBalloonMessage">
+           <property name="text">
+            <string>Display Balloon Message</string>
+           </property>
+           <property name="checked">
+            <bool>true</bool>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QCheckBox" name="checkBox_displayPriceDecimal">
+           <property name="text">
+            <string>Display Price in decimal in Net Pos(TRUNC-DN)</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QCheckBox" name="checkBox_disAllowMultipleF3F8">
+           <property name="text">
+            <string>DisAllow Multiple F3/F8</string>
+           </property>
+          </widget>
+         </item>
+         
+         <!-- SEGMENT BEST PRICE TO HIGHLIGHT -->
+         <item>
+          <layout class="QHBoxLayout" name="horizontalLayout_segmentBest">
+           <item>
+            <widget class="QLabel" name="label_segmentBest">
+             <property name="text">
+              <string>Segment Best Price To Highlight :</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QComboBox" name="comboBox_segmentBest">
+             <property name="editable">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </item>
+         
+         <!-- SELECT AUCTION TYPE -->
+         <item>
+          <layout class="QHBoxLayout" name="horizontalLayout_selectAuction">
+           <item>
+            <widget class="QLabel" name="label_selectAuction">
+             <property name="text">
+              <string>Select Auction Type</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QComboBox" name="comboBox_auctionType">
+             <item>
+              <property name="text">
+               <string>Backoffice</string>
+              </property>
+             </item>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="pushButton_restoreDefaults">
+             <property name="text">
+              <string>Restore Defaults</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </item>
+         
+         <!-- PREFERENCE BASED ON PREFERENCE -->
+         <item>
+          <layout class="QHBoxLayout" name="horizontalLayout_valueBasedPreference">
+           <item>
+            <widget class="QCheckBox" name="checkBox_valueBasedPreference">
+             <property name="text">
+              <string>Value Based On Prefrence</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QCheckBox" name="checkBox_loadAdminMessages">
+             <property name="text">
+              <string>Load Admin Messages</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </item>
+         
+         <item>
+          <spacer name="verticalSpacer_right">
+           <property name="orientation">
+            <enum>Qt::Vertical</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>20</width>
+             <height>40</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+        </layout>
+       </item>
+      </layout>
+     </widget>
+     
+     <!-- ORDER TAB (Placeholder) -->
+     <widget class="QWidget" name="tabOrder">
+      <attribute name="title">
+       <string>Order</string>
+      </attribute>
+     </widget>
+     
+     <!-- PORTFOLIO TAB (Placeholder) -->
+     <widget class="QWidget" name="tabPortfolio">
+      <attribute name="title">
+       <string>Portfolio</string>
+      </attribute>
+     </widget>
+     
+     <!-- WORK-SPACE TAB (Placeholder) -->
+     <widget class="QWidget" name="tabWorkSpace">
+      <attribute name="title">
+       <string>Work-Space</string>
+      </attribute>
+     </widget>
+     
+     <!-- DERIVATIVES TAB (Placeholder) -->
+     <widget class="QWidget" name="tabDerivatives">
+      <attribute name="title">
+       <string>Derivatives</string>
+      </attribute>
+     </widget>
+     
+     <!-- ALERTS MSG TAB (Placeholder) -->
+     <widget class="QWidget" name="tabAlertsMsg">
+      <attribute name="title">
+       <string>Alerts Msg</string>
+      </attribute>
+     </widget>
+     
+     <!-- BRACKET/MARGIN PLUS ORDER TAB (Placeholder) -->
+     <widget class="QWidget" name="tabBracketMargin">
+      <attribute name="title">
+       <string>Bracket/Margin Plus Order</string>
+      </attribute>
+     </widget>
+    </widget>
+   </item>
+   
+   <!-- DIALOG BUTTONS -->
+   <item>
+    <layout class="QHBoxLayout" name="horizontalLayout_buttons">
+     <item>
+      <spacer name="horizontalSpacer">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+     <item>
+      <widget class="QPushButton" name="pushButton_ok">
+       <property name="text">
+        <string>OK</string>
+       </property>
+       <property name="default">
+        <bool>true</bool>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="pushButton_cancel">
+       <property name="text">
+        <string>Cancel</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="pushButton_apply">
+       <property name="text">
+        <string>Apply</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

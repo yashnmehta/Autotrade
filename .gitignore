@@ -1,7 +1,7 @@
 # Build directories
 /build/
 /TradingTerminal_autogen/
-
+configs/*
 # CMake files
 CMakeFiles/
 CMakeCache.txt
@@ -59,7 +59,10 @@ masters
 # Backup files
 *.backup
 
+# Config files - ignore all config files in configs folder
+# /configs/*.ini
+# /configs/*.json
+# /configs/config.ini
 
-# add config files
-
-/configs/config.ini
+# If you want to ignore the entire configs folder (uncomment the line below)
+# /configs/

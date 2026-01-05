@@ -23,9 +23,6 @@ private slots:
     void onOkClicked();
     void onRestoreDefaultsClicked();
     void onBrowseClicked();
-    void onColorButtonClicked();
-    void onMoveUpClicked();
-    void onMoveDownClicked();
 
 private:
     void loadPreferences();
