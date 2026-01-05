@@ -23,6 +23,11 @@ public:
     void setStatusFilter(const QString &status);
     void setOrderTypeFilter(const QString &orderType);
 
+signals:
+    // Order modification/cancellation signals
+    void modifyOrderRequested(const XTS::Order &order);
+    void cancelOrderRequested(int64_t appOrderID);
+
 public slots:
     void refreshOrders();
 
@@ -38,6 +43,8 @@ private slots:
 protected:
     void setupUI() override;
     void onColumnFilterChanged(int column, const QStringList& selectedValues) override;
+    void onTextFilterChanged(int column, const QString& text) override;
+    void keyPressEvent(QKeyEvent *event) override;
 
 private:
     void setupTable();
@@ -47,6 +54,9 @@ private:
     
     QWidget* createFilterWidget();
     QWidget* createSummaryWidget();
+    
+    // Helper to get selected order
+    bool getSelectedOrder(XTS::Order &outOrder) const;
     
     TradingDataService* m_tradingDataService;
     QVector<XTS::Order> m_allOrders;
@@ -81,3 +91,4 @@ private:
 };
 
 #endif // ORDERBOOKWINDOW_H
+

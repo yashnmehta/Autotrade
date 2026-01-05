@@ -14,18 +14,33 @@
 
 /**
  * @brief Base class for Buy and Sell order entry windows.
+ * Supports both new order placement and order modification modes.
  */
 class BaseOrderWindow : public QWidget {
     Q_OBJECT
 public:
+    /**
+     * @brief Order entry mode
+     */
+    enum OrderMode {
+        NewOrder,   ///< Placing a new order
+        ModifyOrder ///< Modifying an existing order
+    };
+
     explicit BaseOrderWindow(const QString& uiFile, QWidget* parent = nullptr);
     virtual ~BaseOrderWindow();
 
     void loadFromContext(const WindowContext &context);
+    void loadFromOrder(const XTS::Order &order);  ///< Load from existing order for modification
     void setScripDetails(const QString &exchange, int token, const QString &symbol);
+    
+    bool isModifyMode() const { return m_orderMode == ModifyOrder; }
+    OrderMode orderMode() const { return m_orderMode; }
+    int64_t originalOrderID() const { return m_originalOrderID; }
 
 signals:
     void orderSubmitted(const XTS::OrderParams &params);
+    void orderModificationSubmitted(const XTS::ModifyOrderParams &params);
 
 protected slots:
     virtual void onSubmitClicked() = 0;
@@ -40,6 +55,8 @@ protected:
     void populateBaseComboBoxes();
     void loadBasePreferences();
     virtual void calculateDefaultPrice(const WindowContext &context) = 0;
+    void setModifyMode(bool enabled);  ///< Configure UI for modify mode (disable immutable fields)
+    void resetToNewOrderMode();        ///< Reset window to new order mode
 
     bool eventFilter(QObject *obj, QEvent *event) override;
     bool focusNextPrevChild(bool next) override;
@@ -48,6 +65,11 @@ protected:
 
     WindowContext m_context;
     QWidget *m_formWidget;
+    
+    // Order mode tracking
+    OrderMode m_orderMode = NewOrder;
+    int64_t m_originalOrderID = 0;          ///< AppOrderID of order being modified
+    XTS::Order m_originalOrder;              ///< Full order data for modification
 
     // Shared widgets
     QComboBox *m_cbEx;
@@ -86,3 +108,4 @@ protected:
 };
 
 #endif // BASEORDERWINDOW_H
+

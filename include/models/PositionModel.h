@@ -107,7 +107,8 @@ public:
     void setPositions(const QList<PositionData>& positions);
     void setSummary(const PositionData& summary);
     QList<PositionData> positions() const { return m_positions; }
-    void setFilterRowVisible(bool visible);
+    
+    Q_INVOKABLE void setFilterRowVisible(bool visible);
     bool isFilterRowVisible() const { return m_filterRowVisible; }
 
 private:

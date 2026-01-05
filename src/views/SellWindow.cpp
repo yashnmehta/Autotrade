@@ -39,6 +39,39 @@ void SellWindow::onSubmitClicked() {
         return;
     }
 
+    // Handle modification mode
+    if (isModifyMode()) {
+        // Validate: new quantity cannot be less than already filled quantity
+        if (quantity < m_originalOrder.cumulativeQuantity) {
+            QMessageBox::warning(this, "Modify Order", 
+                QString("New quantity (%1) cannot be less than already filled quantity (%2)")
+                    .arg(quantity).arg(m_originalOrder.cumulativeQuantity));
+            return;
+        }
+        
+        XTS::ModifyOrderParams params;
+        params.appOrderID = m_originalOrderID;
+        params.exchangeInstrumentID = m_leToken->text().toLongLong();
+        params.exchangeSegment = m_cbEx->currentText();
+        params.orderType = m_cbOrdType->currentText();
+        params.modifiedOrderQuantity = quantity;
+        params.modifiedDisclosedQuantity = m_leDiscloseQty ? m_leDiscloseQty->text().toInt() : 0;
+        params.modifiedLimitPrice = price;
+        params.modifiedStopPrice = m_leTrigPrice ? m_leTrigPrice->text().toDouble() : 0.0;
+        params.modifiedTimeInForce = m_cbValidity ? m_cbValidity->currentText() : "DAY";
+        params.orderUniqueIdentifier = "TradingTerminal_Modify";
+        
+        // Handle Market Orders (price = 0)
+        if (params.orderType == "Market" || params.orderType == "StopMarket") {
+            params.modifiedLimitPrice = 0;
+        }
+        
+        emit orderModificationSubmitted(params);
+        qDebug() << "[SellWindow] Modification request submitted for order:" << m_originalOrderID;
+        return;
+    }
+
+    // Standard new order flow
     XTS::OrderParams params;
     params.exchangeSegment = m_cbEx->currentText();
     params.exchangeInstrumentID = m_leToken->text().toLongLong();
@@ -53,14 +86,11 @@ void SellWindow::onSubmitClicked() {
     params.orderUniqueIdentifier = "TradingTerminal"; 
 
     // Handle clientID based on PRO/CLI selection
-    // PRO = Use "*****" (5 asterisks) as clientID
-    // CLI = Use the actual client ID from the text field
     if (m_cbProCli && m_cbProCli->currentText() == "PRO") {
-        params.clientID = "*****";  // 5 asterisks for PRO
+        params.clientID = "*****";
     } else if (m_leClient && !m_leClient->text().isEmpty()) {
         params.clientID = m_leClient->text();
     }
-    // If neither is set, MainWindow will use default clientID from login
 
     // Handle Market Orders logic if needed (price = 0)
     if (params.orderType == "Market" || params.orderType == "StopMarket") {
@@ -68,9 +98,8 @@ void SellWindow::onSubmitClicked() {
     }
 
     emit orderSubmitted(params);
-    
-    // QMessageBox::information(this, "Sell Order", "Order request sent");
 }
+
 
 void SellWindow::calculateDefaultPrice(const WindowContext &context) {
     if (!m_leRate) return;

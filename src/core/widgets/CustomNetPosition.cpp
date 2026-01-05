@@ -46,8 +46,12 @@ void CustomNetPosition::applyDefaultStyling()
     setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);
     
     // Row height
+    // Row height
     verticalHeader()->setDefaultSectionSize(28);
     verticalHeader()->hide();
+    
+    // Enable sorting
+    setSortingEnabled(true);
 }
 
 void CustomNetPosition::setupHeader()
@@ -99,6 +103,9 @@ QMenu* CustomNetPosition::createContextMenu()
     connect(closeAction, &QAction::triggered, this, &CustomNetPosition::closePositionRequested);
     
     menu->addSeparator();
+
+    QAction *filterAction = menu->addAction("Show/Hide Filter");
+    connect(filterAction, &QAction::triggered, this, &CustomNetPosition::filterToggleRequested);
     
     QAction *exportAction = menu->addAction("Export to CSV");
     connect(exportAction, &QAction::triggered, this, &CustomNetPosition::exportRequested);

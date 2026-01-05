@@ -40,7 +40,15 @@ QVariant PositionModel::data(const QModelIndex& index, int role) const
         return QVariant();
     }
 
-    const PositionData& pos = isSummaryRow ? m_summary : m_positions.at(m_filterRowVisible ? row - 1 : row);
+    if (isSummaryRow && role == Qt::UserRole) return "SUMMARY_ROW";
+
+    // Bounds checking to prevent crashes
+    int dataRow = m_filterRowVisible ? row - 1 : row;
+    if (!isSummaryRow && (dataRow < 0 || dataRow >= m_positions.size())) {
+        return QVariant(); // Safe return for out-of-bounds access
+    }
+    
+    const PositionData& pos = isSummaryRow ? m_summary : m_positions.at(dataRow);
 
     if (role == Qt::DisplayRole) {
         switch (col) {
@@ -250,13 +258,20 @@ void PositionModel::setPositions(const QList<PositionData>& newPositions)
 
 void PositionModel::setSummary(const PositionData& summary)
 {
-    m_summary = summary;
-    m_showSummary = true;
-    
-    // Summary row is always the last row
-    int summaryRow = rowCount() - 1;
-    if (summaryRow >= 0) {
-        emit dataChanged(index(summaryRow, 0), index(summaryRow, ColumnCount - 1));
+    if (!m_showSummary) {
+        // Showing summary for the first time - insert row
+        int newRowIdx = rowCount();
+        beginInsertRows(QModelIndex(), newRowIdx, newRowIdx);
+        m_summary = summary;
+        m_showSummary = true;
+        endInsertRows();
+    } else {
+        // Update existing summary
+        m_summary = summary;
+        int summaryRow = rowCount() - 1;
+        if (summaryRow >= 0) {
+            emit dataChanged(index(summaryRow, 0), index(summaryRow, ColumnCount - 1));
+        }
     }
 }
 

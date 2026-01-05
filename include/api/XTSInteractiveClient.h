@@ -41,9 +41,17 @@ public:
     void connectWebSocket(std::function<void(bool, const QString&)> callback);
     void disconnectWebSocket();
 
-    // Order placement (for future implementation)
+    // Order placement
     void placeOrder(const QJsonObject &orderParams,
                     std::function<void(bool, const QString&, const QString&)> callback);
+
+    // Order modification
+    void modifyOrder(const XTS::ModifyOrderParams &params,
+                     std::function<void(bool, const QString&, const QString&)> callback);
+
+    // Order cancellation
+    void cancelOrder(int64_t appOrderID,
+                     std::function<void(bool, const QString&)> callback);
 
 signals:
     void errorOccurred(const QString &error);

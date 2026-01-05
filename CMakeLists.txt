@@ -160,7 +160,7 @@ set(CORE_WIDGET_HEADERS
 # ========================================
 
 set(APP_SOURCES
-    src/main_work.cpp
+    src/main.cpp
     src/app/MainWindow/MainWindow.cpp
     src/app/MainWindow/UI.cpp
     src/app/MainWindow/Windows.cpp
@@ -244,6 +244,7 @@ set(MODEL_SOURCES
     src/models/OrderModel.cpp
     src/models/TradeModel.cpp
     src/models/PositionModel.cpp
+    src/models/PinnedRowProxyModel.cpp
 )
 
 set(MODEL_HEADERS
@@ -253,6 +254,7 @@ set(MODEL_HEADERS
     include/models/OrderModel.h
     include/models/TradeModel.h
     include/models/PositionModel.h
+    include/models/PinnedRowProxyModel.h
 )
 
 # ========================================

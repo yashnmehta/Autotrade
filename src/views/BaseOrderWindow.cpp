@@ -204,7 +204,140 @@ void BaseOrderWindow::loadFromContext(const WindowContext &context) {
         int idx = m_cbOptType->findText(context.optionType);
         if (idx >= 0) m_cbOptType->setCurrentIndex(idx);
     }
+    
+    // Set Product Type from context if available (e.g. from Net Position)
+    if (m_cbProduct && !context.productType.isEmpty()) {
+        int idx = m_cbProduct->findText(context.productType);
+        if (idx >= 0) m_cbProduct->setCurrentIndex(idx);
+    }
+
     calculateDefaultPrice(context);
+}
+
+void BaseOrderWindow::loadFromOrder(const XTS::Order &order) {
+    // Store original order for modification
+    m_originalOrder = order;
+    m_originalOrderID = order.appOrderID;
+    m_orderMode = ModifyOrder;
+    
+    // Populate UI fields from the order
+    if (m_cbEx) {
+        int idx = m_cbEx->findText(order.exchangeSegment, Qt::MatchContains);
+        if (idx >= 0) m_cbEx->setCurrentIndex(idx);
+    }
+    if (m_leToken) m_leToken->setText(QString::number(order.exchangeInstrumentID));
+    if (m_leSymbol) m_leSymbol->setText(order.tradingSymbol);
+    
+    // Order type
+    if (m_cbOrdType) {
+        int idx = m_cbOrdType->findText(order.orderType);
+        if (idx >= 0) m_cbOrdType->setCurrentIndex(idx);
+    }
+    
+    // Product type
+    if (m_cbProduct) {
+        int idx = m_cbProduct->findText(order.productType);
+        if (idx >= 0) m_cbProduct->setCurrentIndex(idx);
+    }
+    
+    // Quantity - show leaves quantity (remaining)
+    if (m_leQty) {
+        m_leQty->setText(QString::number(order.orderQuantity));
+        m_leQty->setFocus();
+        m_leQty->selectAll();
+    }
+    
+    // Disclosed quantity
+    if (m_leDiscloseQty) {
+        m_leDiscloseQty->setText(QString::number(order.orderDisclosedQuantity));
+    }
+    
+    // Price
+    if (m_leRate) {
+        m_leRate->setText(QString::number(order.orderPrice, 'f', 2));
+    }
+    
+    // Trigger price (for stop orders)
+    if (m_leTrigPrice) {
+        if (order.orderStopPrice > 0) {
+            m_leTrigPrice->setText(QString::number(order.orderStopPrice, 'f', 2));
+        }
+    }
+    
+    // Validity
+    if (m_cbValidity) {
+        int idx = m_cbValidity->findText(order.timeInForce);
+        if (idx >= 0) m_cbValidity->setCurrentIndex(idx);
+    }
+    
+    // Configure UI for modification mode
+    setModifyMode(true);
+    
+    qDebug() << "[BaseOrderWindow] Loaded order for modification. AppOrderID:" << order.appOrderID 
+             << "Symbol:" << order.tradingSymbol << "Qty:" << order.orderQuantity 
+             << "Price:" << order.orderPrice;
+}
+
+void BaseOrderWindow::setModifyMode(bool enabled) {
+    // Per NSE protocol, these fields CANNOT be modified:
+    // - Buy/Sell (handled by using correct window)
+    // - Symbol/Series/Contract
+    // - Participant
+    // - Pro/Cli (CM only)
+    // - Product type (cannot be changed after order is placed)
+    
+    // Disable immutable fields
+    if (m_cbEx) m_cbEx->setEnabled(!enabled);
+    if (m_leToken) m_leToken->setEnabled(!enabled);
+    if (m_leSymbol) m_leSymbol->setEnabled(!enabled);
+    if (m_leInsType) m_leInsType->setEnabled(!enabled);
+    if (m_cbInstrName) m_cbInstrName->setEnabled(!enabled);
+    if (m_cbExp) m_cbExp->setEnabled(!enabled);
+    if (m_cbStrike) m_cbStrike->setEnabled(!enabled);
+    if (m_cbOptType) m_cbOptType->setEnabled(!enabled);
+    if (m_cbProduct) m_cbProduct->setEnabled(!enabled);  // Product type cannot be modified
+    if (m_cbProCli) m_cbProCli->setEnabled(!enabled);
+    if (m_cbOC) m_cbOC->setEnabled(!enabled);
+    
+    // Editable fields remain enabled:
+    // - Quantity (m_leQty)
+    // - Disclosed Quantity (m_leDiscloseQty)
+    // - Price (m_leRate)
+    // - Trigger Price (m_leTrigPrice)
+    // - Validity (m_cbValidity)
+    // - Order Type (m_cbOrdType) - can toggle between RL/ST/SL
+    // - Remarks (m_leRemarks)
+    
+    // Update submit button text
+    if (m_pbSubmit) {
+        m_pbSubmit->setText(enabled ? "Modify Order" : "Submit Order");
+    }
+    
+    // Update window title indicator
+    if (enabled) {
+        setWindowTitle(windowTitle().replace("Buy", "Modify Buy").replace("Sell", "Modify Sell"));
+    }
+}
+
+void BaseOrderWindow::resetToNewOrderMode() {
+    m_orderMode = NewOrder;
+    m_originalOrderID = 0;
+    m_originalOrder = XTS::Order();
+    
+    // Re-enable all fields
+    setModifyMode(false);
+    
+    // Clear the form
+    onClearClicked();
+    
+    // Reset window title
+    QString title = windowTitle();
+    title.replace("Modify Buy", "Buy").replace("Modify Sell", "Sell");
+    setWindowTitle(title);
+    
+    if (m_pbSubmit) {
+        m_pbSubmit->setText("Submit Order");
+    }
 }
 
 bool BaseOrderWindow::eventFilter(QObject *obj, QEvent *event) {

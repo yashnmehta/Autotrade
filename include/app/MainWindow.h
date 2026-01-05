@@ -50,8 +50,14 @@ public:
     // ScripBar refresh
     void refreshScripBar();
 
-    // Order placement
+    // Order operations
     void placeOrder(const XTS::OrderParams &params);
+    void modifyOrder(const XTS::ModifyOrderParams &params);
+    void cancelOrder(int64_t appOrderID);
+    
+    // Open order window for modification
+    void openBuyWindowForModification(const XTS::Order &order);
+    void openSellWindowForModification(const XTS::Order &order);
 
 private slots:
     // Window actions

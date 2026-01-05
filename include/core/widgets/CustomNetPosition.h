@@ -78,6 +78,7 @@ signals:
      * @brief Emitted when user requests to export data
      */
     void exportRequested();
+    void filterToggleRequested();
 
 protected:
     QMenu *m_contextMenu;
