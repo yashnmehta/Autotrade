@@ -1,14 +1,14 @@
+#include <iostream>
+#include <cstring>
+#include <stdexcept>
+#include <cerrno>
+
 #include "multicast_receiver.h"
 #include "packet.h"
 #include "protocol.h" 
 #include "utils/parse_compressed_message.h"
 #include "utils/parse_uncompressed_packet.h"
 #include "socket_platform.h"
-
-#include <iostream>
-#include <cstring>
-#include <stdexcept>
-#include <cerrno>
 
 namespace nsefo {
 

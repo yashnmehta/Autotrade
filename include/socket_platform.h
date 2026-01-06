@@ -11,7 +11,11 @@
     #include <ws2tcpip.h>
     #include <windows.h>
     #pragma comment(lib, "ws2_32.lib")
-    // MinGW already defines ssize_t, so don't redefine it
+    
+    #ifndef __MINGW32__
+        typedef int ssize_t;
+    #endif
+
     typedef SOCKET socket_t;
     #define socket_close closesocket
     #define socket_invalid INVALID_SOCKET

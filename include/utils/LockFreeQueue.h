@@ -149,7 +149,7 @@ public:
         }
         
         // Limit to maxItems
-        const size_t toDrain = std::min(available, maxItems);
+        const size_t toDrain = (std::min)(available, maxItems);
         
         // Reserve space (avoid reallocations)
         output.reserve(output.size() + toDrain);

@@ -6,7 +6,7 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Set AUTOUIC search paths for .ui files
@@ -85,7 +85,7 @@ endif()
 if(USE_BUNDLED_LZO)
     # Build bundled LZO library
     add_subdirectory(lib/lzo-2.10)
-    set(LZO_LIBRARIES ${CMAKE_BINARY_DIR}/lib/lzo-2.10/liblzo2.a)
+    set(LZO_LIBRARIES lzo_static_lib)
     set(LZO_INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/lib/lzo-2.10/include)
 endif()
 

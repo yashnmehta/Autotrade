@@ -177,7 +177,9 @@ UDP::IndexTick convertNseFoIndex(const nsefo::IndexData& data) {
     tick.token = 0;  // Index doesn't have a token in 7207
     
     // Copy index name (ensure null-termination)
-    std::memcpy(tick.name, data.name, std::min(sizeof(tick.name) - 1, sizeof(data.name)));
+    size_t copySize = sizeof(tick.name) - 1;
+    if (sizeof(data.name) < copySize) copySize = sizeof(data.name);
+    std::memcpy(tick.name, data.name, copySize);
     tick.name[sizeof(tick.name) - 1] = '\0';
     
     tick.value = data.value;
@@ -203,7 +205,9 @@ UDP::IndexTick convertNseFoIndustryIndex(const nsefo::IndustryIndexData& data) {
     tick.token = 0;  // Industry index doesn't have a token
     
     // Copy industry name (ensure null-termination)
-    std::memcpy(tick.name, data.name, std::min(sizeof(tick.name) - 1, sizeof(data.name)));
+    size_t copySize2 = sizeof(tick.name) - 1;
+    if (sizeof(data.name) < copySize2) copySize2 = sizeof(data.name);
+    std::memcpy(tick.name, data.name, copySize2);
     tick.name[sizeof(tick.name) - 1] = '\0';
     
     tick.value = data.value;
