@@ -7,6 +7,7 @@
 #include <QSortFilterProxyModel>
 #include <QShortcut>
 #include <QSettings>
+#include <QMap>
 #include "models/GenericTableProfile.h"
 
 class BaseBookWindow : public QWidget {
@@ -34,13 +35,16 @@ protected:
     bool m_filterRowVisible;
     QList<QWidget*> m_filterWidgets;
     QShortcut* m_filterShortcut;
+    QMap<int, QString> m_textFilters;  ///< Column -> filter text for inline filtering
 
 protected slots:
     virtual void showColumnProfileDialog();
     virtual void onColumnFilterChanged(int col, const QStringList& filter);
+    virtual void onTextFilterChanged(int col, const QString& text);  ///< For inline text filters
 
 protected:
     void closeEvent(QCloseEvent* event) override;
 };
 
 #endif // BASEBOOKWINDOW_H
+

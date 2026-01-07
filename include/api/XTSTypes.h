@@ -219,6 +219,21 @@ struct OrderParams {
     QString clientID; // Optional override
 };
 
+// Order modification parameters
+struct ModifyOrderParams {
+    int64_t appOrderID;                 // Original order ID to modify
+    int64_t exchangeInstrumentID;       // Instrument token
+    QString exchangeSegment;            // Exchange segment (NSEFO, NSECM, etc.)
+    QString orderType;                  // Limit, Market, StopLimit, StopMarket
+    int modifiedOrderQuantity;          // New total quantity (must be >= filled qty)
+    int modifiedDisclosedQuantity;      // New disclosed quantity
+    double modifiedLimitPrice;          // New limit price
+    double modifiedStopPrice;           // New trigger price (for SL orders)
+    QString modifiedTimeInForce;        // DAY, IOC, GTD
+    QString orderUniqueIdentifier;      // Tracking ID
+    QString clientID;                   // Optional client ID override
+};
+
 } // namespace XTS
 
 // Register XTS types with Qt's meta-type system for cross-thread signal/slot connections

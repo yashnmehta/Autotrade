@@ -44,6 +44,10 @@ struct WindowContext {
     double tickSize = 0.05;
     int freezeQty = 0;
     
+    // Trading details
+    QString productType; // MIS, NRML, CNC, etc.
+    
+    
     // Additional metadata (extensible)
     QHash<QString, QVariant> metadata;
     

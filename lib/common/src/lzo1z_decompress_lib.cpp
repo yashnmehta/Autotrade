@@ -2,6 +2,7 @@
 #include <lzo/lzo1z.h>
 #include <stdexcept>
 #include <cstring>
+#include <string>
 
 namespace common {
 

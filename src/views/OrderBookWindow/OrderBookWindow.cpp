@@ -11,7 +11,8 @@
 #include <QMessageBox>
 #include <QDebug>
 #include <QMenu>
-#include <QSortFilterProxyModel>
+#include <QKeyEvent>
+#include "models/PinnedRowProxyModel.h"
 
 OrderBookWindow::OrderBookWindow(TradingDataService* tradingDataService, QWidget *parent)
     : BaseBookWindow("OrderBook", parent), m_tradingDataService(tradingDataService) 
@@ -80,8 +81,8 @@ void OrderBookWindow::setupTable() {
     m_tableView->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(m_tableView, &QTableView::customContextMenuRequested, this, [this](const QPoint &pos) {
         QMenu menu(this);
-        menu.addAction("Modify Order", this, &OrderBookWindow::onModifyOrder);
-        menu.addAction("Cancel Order", this, &OrderBookWindow::onCancelOrder);
+        menu.addAction("Modify Order (Shift+F2)", this, &OrderBookWindow::onModifyOrder);
+        menu.addAction("Cancel Order (Delete)", this, &OrderBookWindow::onCancelOrder);
         menu.addSeparator();
         menu.addAction("Export to CSV", this, &OrderBookWindow::exportToCSV);
         menu.addAction("Column Profile...", this, &OrderBookWindow::showColumnProfileDialog);
@@ -89,7 +90,7 @@ void OrderBookWindow::setupTable() {
     });
     OrderModel* model = new OrderModel(this);
     m_model = model;
-    m_proxyModel = new QSortFilterProxyModel(this);
+    m_proxyModel = new PinnedRowProxyModel(this);
     m_proxyModel->setSourceModel(m_model);
     m_tableView->setModel(m_proxyModel);
 }
@@ -118,6 +119,8 @@ void OrderBookWindow::clearFilters() {
 }
 
 void OrderBookWindow::applyFilterToModel() {
+    qDebug() << "[OrderBookWindow] applyFilterToModel: m_allOrders:" << m_allOrders.size() << "m_textFilters:" << m_textFilters.size();
+    
     QVector<XTS::Order> filtered;
     for (const auto& o : m_allOrders) {
         bool v = true;
@@ -130,6 +133,40 @@ void OrderBookWindow::applyFilterToModel() {
                 // column specific filtering...
             }
         }
+        
+        // Text filters (inline search)
+        if (v && !m_textFilters.isEmpty()) {
+            qDebug() << "[OrderBookWindow] Checking text filters for order:" << o.tradingSymbol;
+            for (auto it = m_textFilters.begin(); it != m_textFilters.end(); ++it) {
+                int col = it.key();
+                const QString& filterText = it.value();
+                if (filterText.isEmpty()) continue;
+                
+                QString val;
+                bool hasMapping = true;
+                switch (col) {
+                    case OrderModel::Symbol: val = o.tradingSymbol; break;
+                    case OrderModel::ExchangeCode: val = o.exchangeSegment; break;
+                    case OrderModel::BuySell: val = o.orderSide; break;
+                    case OrderModel::Status: val = o.orderStatus; break;
+                    case OrderModel::ExchOrdNo: val = o.exchangeOrderID; break;
+                    case OrderModel::Client: val = o.clientID; break;
+                    case OrderModel::OrderType: val = o.orderType; break;
+                    case OrderModel::User: val = o.loginID; break;
+                    case OrderModel::Code: val = QString::number(o.exchangeInstrumentID); break;
+                    case OrderModel::InstrumentName: val = o.tradingSymbol; break;
+                    case OrderModel::ScripName: val = o.tradingSymbol; break;
+                    default: hasMapping = false; break;
+                }
+                
+                // Only filter if we have a mapping for this column
+                if (hasMapping && !val.contains(filterText, Qt::CaseInsensitive)) {
+                    v = false;
+                    break;
+                }
+            }
+        }
+        
         if (v) filtered.append(o);
     }
     static_cast<OrderModel*>(m_model)->setOrders(filtered); 
@@ -146,14 +183,156 @@ void OrderBookWindow::onColumnFilterChanged(int c, const QStringList& s) {
     applyFilterToModel(); 
 }
 
-void OrderBookWindow::toggleFilterRow() { BaseBookWindow::toggleFilterRow(m_model, m_tableView); }
+void OrderBookWindow::onTextFilterChanged(int col, const QString& text) {
+    qDebug() << "[OrderBookWindow] onTextFilterChanged called: col=" << col << "text=" << text;
+    BaseBookWindow::onTextFilterChanged(col, text);
+    qDebug() << "[OrderBookWindow] Calling applyFilterToModel, m_textFilters size:" << m_textFilters.size();
+    applyFilterToModel();
+}
+
+void OrderBookWindow::toggleFilterRow() { 
+    OrderModel* om = qobject_cast<OrderModel*>(m_model);
+    if (om) {
+        om->setFilterRowVisible(!m_filterRowVisible);
+    }
+    BaseBookWindow::toggleFilterRow(m_model, m_tableView); 
+}
+
 void OrderBookWindow::exportToCSV() { BaseBookWindow::exportToCSV(m_model, m_tableView); }
 void OrderBookWindow::refreshOrders() { if (m_tradingDataService) onOrdersUpdated(m_tradingDataService->getOrders()); }
-void OrderBookWindow::onModifyOrder() { qDebug() << "Modify order"; }
-void OrderBookWindow::onCancelOrder() { qDebug() << "Cancel order"; }
+
+
+bool OrderBookWindow::getSelectedOrder(XTS::Order &outOrder) const {
+    QModelIndex index = m_tableView->currentIndex();
+    if (!index.isValid()) return false;
+    
+    // Map through proxy to source
+    QModelIndex sourceIndex = m_proxyModel->mapToSource(index);
+    if (!sourceIndex.isValid()) return false;
+    
+    OrderModel* orderModel = qobject_cast<OrderModel*>(m_model);
+    if (!orderModel) return false;
+    
+    // Skip filter row (row 0 when filter is visible)
+    int row = sourceIndex.row();
+    if (orderModel->isFilterRowVisible() && row == 0) return false;
+    
+    // Adjust row index when filter row is visible
+    int dataRow = orderModel->isFilterRowVisible() ? row - 1 : row;
+    if (dataRow < 0 || dataRow >= orderModel->getOrders().size()) return false;
+    
+    outOrder = orderModel->getOrderAt(dataRow);
+    return true;
+}
+
+void OrderBookWindow::onModifyOrder() {
+    XTS::Order order;
+    if (!getSelectedOrder(order)) {
+        QMessageBox::warning(this, "Modify Order", "Please select an order to modify.");
+        return;
+    }
+    
+    // Validate order status - can only modify open or partially filled orders
+    if (order.orderStatus != "Open" && order.orderStatus != "PartiallyFilled" && 
+        order.orderStatus != "New" && order.orderStatus != "PendingNew") {
+        QMessageBox::warning(this, "Modify Order", 
+            QString("Cannot modify order - Status: %1\nOnly Open or PartiallyFilled orders can be modified.")
+                .arg(order.orderStatus));
+        return;
+    }
+    
+    qDebug() << "[OrderBookWindow] Emitting modifyOrderRequested for AppOrderID:" << order.appOrderID 
+             << "Symbol:" << order.tradingSymbol << "Side:" << order.orderSide;
+    
+    emit modifyOrderRequested(order);
+}
+
+void OrderBookWindow::onCancelOrder() {
+    XTS::Order order;
+    if (!getSelectedOrder(order)) {
+        QMessageBox::warning(this, "Cancel Order", "Please select an order to cancel.");
+        return;
+    }
+    
+    // Validate order status - can only cancel open or partially filled orders
+    if (order.orderStatus != "Open" && order.orderStatus != "PartiallyFilled" && 
+        order.orderStatus != "New" && order.orderStatus != "PendingNew") {
+        QMessageBox::warning(this, "Cancel Order", 
+            QString("Cannot cancel order - Status: %1\nOnly Open or PartiallyFilled orders can be cancelled.")
+                .arg(order.orderStatus));
+        return;
+    }
+    
+    // Confirm cancellation
+    QString confirmMsg = QString("Cancel order?\n\n"
+                                 "Symbol: %1\n"
+                                 "Side: %2\n"
+                                 "Qty: %3 (Filled: %4)\n"
+                                 "Price: %5")
+                            .arg(order.tradingSymbol)
+                            .arg(order.orderSide)
+                            .arg(order.orderQuantity)
+                            .arg(order.cumulativeQuantity)
+                            .arg(order.orderPrice, 0, 'f', 2);
+    
+    if (QMessageBox::question(this, "Confirm Cancellation", confirmMsg, 
+                              QMessageBox::Yes | QMessageBox::No) == QMessageBox::Yes) {
+        qDebug() << "[OrderBookWindow] Emitting cancelOrderRequested for AppOrderID:" << order.appOrderID;
+        emit cancelOrderRequested(order.appOrderID);
+    }
+}
+
+void OrderBookWindow::keyPressEvent(QKeyEvent *event) {
+    // Shift+F1: Modify selected order (opens Buy window for BUY orders)
+    // Shift+F2: Modify selected order (opens Sell window for SELL orders)  
+    // Delete: Cancel selected order
+    
+    if (event->key() == Qt::Key_Delete) {
+        onCancelOrder();
+        return;
+    }
+    
+    if (event->modifiers() & Qt::ShiftModifier) {
+        if (event->key() == Qt::Key_F1 || event->key() == Qt::Key_F2) {
+            XTS::Order order;
+            if (getSelectedOrder(order)) {
+                // Validate order status before modification
+                if (order.orderStatus != "Open" && order.orderStatus != "PartiallyFilled" && 
+                    order.orderStatus != "New" && order.orderStatus != "PendingNew") {
+                    QMessageBox::warning(this, "Modify Order", 
+                        QString("Cannot modify order - Status: %1").arg(order.orderStatus));
+                    return;
+                }
+                
+                // Shift+F1 for buy side, Shift+F2 for sell side
+                bool isBuy = (event->key() == Qt::Key_F1);
+                bool orderIsBuy = (order.orderSide.toUpper() == "BUY");
+                
+                if (isBuy != orderIsBuy) {
+                    QMessageBox::warning(this, "Modify Order", 
+                        QString("Order side mismatch.\nOrder is %1 but Shift+%2 opens %3 window.\n\n"
+                                "Use Shift+%4 instead.")
+                            .arg(order.orderSide)
+                            .arg(isBuy ? "F1" : "F2")
+                            .arg(isBuy ? "Buy" : "Sell")
+                            .arg(orderIsBuy ? "F1" : "F2"));
+                    return;
+                }
+                
+                emit modifyOrderRequested(order);
+            } else {
+                QMessageBox::warning(this, "Modify Order", "Please select an order to modify.");
+            }
+            return;
+        }
+    }
+    
+    BaseBookWindow::keyPressEvent(event);
+}
 
 // setX methods...
 void OrderBookWindow::setInstrumentFilter(const QString& i) { m_instrumentTypeCombo->setCurrentText(i); applyFilters(); }
 void OrderBookWindow::setTimeFilter(const QDateTime& f, const QDateTime& t) { applyFilters(); }
 void OrderBookWindow::setStatusFilter(const QString& s) { m_statusCombo->setCurrentText(s); applyFilters(); }
 void OrderBookWindow::setOrderTypeFilter(const QString& o) { m_orderTypeCombo->setCurrentText(o); applyFilters(); }
+

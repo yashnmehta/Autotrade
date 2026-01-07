@@ -118,11 +118,22 @@ void MainWindow::createBuyWindow()
     } else {
         CustomMDISubWindow *activeSub = m_mdiArea ? m_mdiArea->activeWindow() : nullptr;
         if (activeSub) {
+            // Check for Snap Quote
             SnapQuoteWindow *snap = qobject_cast<SnapQuoteWindow*>(activeSub->contentWidget());
             if (snap) {
                 WindowContext ctx = snap->getContext();
                 if (ctx.isValid()) {
                     buyWindow = new BuyWindow(ctx, window);
+                }
+            } 
+            // Check for Position Window
+            else if (activeSub->windowType() == "PositionWindow") {
+                PositionWindow *pw = qobject_cast<PositionWindow*>(activeSub->contentWidget());
+                if (pw) {
+                    WindowContext ctx = pw->getSelectedContext();
+                    if (ctx.isValid()) {
+                        buyWindow = new BuyWindow(ctx, window);
+                    }
                 }
             }
         }
@@ -166,6 +177,16 @@ void MainWindow::createSellWindow()
                 WindowContext ctx = snap->getContext();
                 if (ctx.isValid()) {
                     sellWindow = new SellWindow(ctx, window);
+                }
+            }
+            // Check for Position Window
+            else if (activeSub->windowType() == "PositionWindow") {
+                PositionWindow *pw = qobject_cast<PositionWindow*>(activeSub->contentWidget());
+                if (pw) {
+                    WindowContext ctx = pw->getSelectedContext();
+                    if (ctx.isValid()) {
+                        sellWindow = new SellWindow(ctx, window);
+                    }
                 }
             }
         }
@@ -269,12 +290,26 @@ void MainWindow::createOrderBookWindow()
     CustomMDISubWindow *window = new CustomMDISubWindow("Order Book", m_mdiArea);
     window->setWindowType("OrderBook");
     OrderBookWindow *ob = new OrderBookWindow(m_tradingDataService, window);
+    
+    // Connect order modification signal - route to appropriate Buy/Sell window
+    connect(ob, &OrderBookWindow::modifyOrderRequested, this, [this](const XTS::Order &order) {
+        if (order.orderSide.toUpper() == "BUY") {
+            openBuyWindowForModification(order);
+        } else {
+            openSellWindowForModification(order);
+        }
+    });
+    
+    // Connect order cancellation signal
+    connect(ob, &OrderBookWindow::cancelOrderRequested, this, &MainWindow::cancelOrder);
+    
     window->setContentWidget(ob);
     window->resize(1400, 600);
     connectWindowSignals(window);
     m_mdiArea->addWindow(window);
     window->activateWindow();
 }
+
 
 void MainWindow::createTradeBookWindow()
 {

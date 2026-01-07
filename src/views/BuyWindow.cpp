@@ -39,6 +39,39 @@ void BuyWindow::onSubmitClicked() {
         return;
     }
 
+    // Handle modification mode
+    if (isModifyMode()) {
+        // Validate: new quantity cannot be less than already filled quantity
+        if (quantity < m_originalOrder.cumulativeQuantity) {
+            QMessageBox::warning(this, "Modify Order", 
+                QString("New quantity (%1) cannot be less than already filled quantity (%2)")
+                    .arg(quantity).arg(m_originalOrder.cumulativeQuantity));
+            return;
+        }
+        
+        XTS::ModifyOrderParams params;
+        params.appOrderID = m_originalOrderID;
+        params.exchangeInstrumentID = m_leToken->text().toLongLong();
+        params.exchangeSegment = m_cbEx->currentText();
+        params.orderType = m_cbOrdType->currentText();
+        params.modifiedOrderQuantity = quantity;
+        params.modifiedDisclosedQuantity = m_leDiscloseQty ? m_leDiscloseQty->text().toInt() : 0;
+        params.modifiedLimitPrice = price;
+        params.modifiedStopPrice = m_leTrigPrice ? m_leTrigPrice->text().toDouble() : 0.0;
+        params.modifiedTimeInForce = m_cbValidity ? m_cbValidity->currentText() : "DAY";
+        params.orderUniqueIdentifier = "TradingTerminal_Modify";
+        
+        // Handle Market Orders (price = 0)
+        if (params.orderType == "Market" || params.orderType == "StopMarket") {
+            params.modifiedLimitPrice = 0;
+        }
+        
+        emit orderModificationSubmitted(params);
+        qDebug() << "[BuyWindow] Modification request submitted for order:" << m_originalOrderID;
+        return;
+    }
+
+    // Standard new order flow
     XTS::OrderParams params;
     params.exchangeSegment = m_cbEx->currentText();
     params.exchangeInstrumentID = m_leToken->text().toLongLong();
@@ -63,18 +96,13 @@ void BuyWindow::onSubmitClicked() {
     // If neither is set, MainWindow will use default clientID from login
 
     // Handle Market Orders logic if needed (price = 0)
-    // Handle Market Orders logic if needed (price = 0)
-    // "Market" and "StopMarket" usually require 0 price in XTS or ignored.
     if (params.orderType == "Market" || params.orderType == "StopMarket") {
         params.limitPrice = 0;
     }
 
     emit orderSubmitted(params);
-    
-    // Optional: Don't show popup here, let MainWindow handle success/failure via callback?
-    // For now, we keep it consistent with previous behavior but ideally we wait for confirmation.
-    // QMessageBox::information(this, "Buy Order", "Order request sent");
 }
+
 
 void BuyWindow::calculateDefaultPrice(const WindowContext &context) {
     if (!m_leRate) return;

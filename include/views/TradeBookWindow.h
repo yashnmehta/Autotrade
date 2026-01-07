@@ -32,6 +32,7 @@ private slots:
 protected:
     void setupUI() override;
     void onColumnFilterChanged(int column, const QStringList& selectedValues) override;
+    void onTextFilterChanged(int column, const QString& text) override;
 
 private:
     void setupTable();

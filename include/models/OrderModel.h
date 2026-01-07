@@ -69,7 +69,7 @@ public:
     QVariant headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const override;
 
     void setOrders(const QVector<XTS::Order>& orders);
-    void setFilterRowVisible(bool visible);
+    Q_INVOKABLE void setFilterRowVisible(bool visible);
     bool isFilterRowVisible() const { return m_filterRowVisible; }
     
     const QVector<XTS::Order>& getOrders() const { return m_orders; }

@@ -38,18 +38,58 @@ void BaseBookWindow::toggleFilterRow(QAbstractItemModel* model, QTableView* tabl
     QMetaObject::invokeMethod(model, "setFilterRowVisible", Q_ARG(bool, m_filterRowVisible));
 
     if (m_filterRowVisible) {
+        // Fix memory leak: delete existing widgets before clearing
+        qDeleteAll(m_filterWidgets);
         m_filterWidgets.clear();
+        
+        QAbstractItemModel* viewModel = tableView->model();
+        QSortFilterProxyModel* proxy = qobject_cast<QSortFilterProxyModel*>(viewModel);
+
         for (int i = 0; i < model->columnCount(); ++i) {
-            GenericTableFilter* fw = new GenericTableFilter(i, model, tableView, tableView);
+            GenericTableFilter* fw = new GenericTableFilter(i, model, tableView, GenericTableFilter::CombinedMode, tableView);
             fw->setFilterRowOffset(1);
             m_filterWidgets.append(fw);
-            tableView->setIndexWidget(model->index(0, i), fw);
+            
+            QModelIndex sourceIdx = model->index(0, i);
+            QModelIndex viewIdx = sourceIdx;
+            
+            // Map index if view uses a proxy wrapping our model
+            if (proxy && proxy->sourceModel() == model) {
+                viewIdx = proxy->mapFromSource(sourceIdx);
+            }
+            
+            if (viewIdx.isValid()) {
+                tableView->setIndexWidget(viewIdx, fw);
+            }
+            
+            // Connect text filter signal for inline mode
+            connect(fw, &GenericTableFilter::textFilterChanged, this, &BaseBookWindow::onTextFilterChanged);
             connect(fw, &GenericTableFilter::filterChanged, this, &BaseBookWindow::onColumnFilterChanged);
+            connect(fw, &GenericTableFilter::sortRequested, [tableView](int col, Qt::SortOrder order){
+                tableView->sortByColumn(col, order);
+            });
         }
     } else {
+        QAbstractItemModel* viewModel = tableView->model();
+        QSortFilterProxyModel* proxy = qobject_cast<QSortFilterProxyModel*>(viewModel);
+
         for (int i = 0; i < model->columnCount(); ++i) {
-            tableView->setIndexWidget(model->index(0, i), nullptr);
+             QModelIndex sourceIdx = model->index(0, i);
+             QModelIndex viewIdx = sourceIdx;
+             
+             if (proxy && proxy->sourceModel() == model) {
+                 viewIdx = proxy->mapFromSource(sourceIdx);
+             }
+             
+             if (viewIdx.isValid()) {
+                 tableView->setIndexWidget(viewIdx, nullptr);
+             }
         }
+        
+        // Fix memory leak: delete widgets after removing from view
+        qDeleteAll(m_filterWidgets);
+        m_filterWidgets.clear();
+        
         // Notify subclasses to refresh data without column filters
         onColumnFilterChanged(-1, QStringList()); 
     }
@@ -59,6 +99,21 @@ void BaseBookWindow::onColumnFilterChanged(int col, const QStringList& filter) {
     // To be implemented by subclasses if they need custom filtering logic
 }
 
+void BaseBookWindow::onTextFilterChanged(int col, const QString& text) {
+    qDebug() << "[BaseBookWindow] onTextFilterChanged called: col=" << col << "text=" << text;
+    
+    // Store or clear the text filter
+    if (text.isEmpty()) {
+        m_textFilters.remove(col);
+    } else {
+        m_textFilters[col] = text;
+    }
+    
+    qDebug() << "[BaseBookWindow] m_textFilters now has" << m_textFilters.size() << "entries:" << m_textFilters;
+    
+    // Notify subclasses to refresh data with text filter applied
+    // Subclasses should override this and implement filtering in their applyFilterToModel()
+}
 void BaseBookWindow::exportToCSV(QAbstractItemModel* model, QTableView* tableView) {
     BookWindowHelper::exportToCSV(tableView, model, m_filterRowVisible, this);
 }

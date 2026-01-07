@@ -1,10 +1,10 @@
-#ifndef NSEFO_MULTICAST_RECEIVER_H
-#define NSEFO_MULTICAST_RECEIVER_H
+#ifndef NSEFO_MULTICAST_RECEIVER_H_V2
+#define NSEFO_MULTICAST_RECEIVER_H_V2
 
 #include <string>
-#include "socket_platform.h"
 #include <atomic>
-#include "udp_receiver.h"
+#include "socket_platform.h"
+#include "udp_receiver.h" // Defines UDPStats
 
 namespace nsefo {
 
@@ -38,4 +38,4 @@ private:
 
 } // namespace nsefo
 
-#endif // NSEFO_MULTICAST_RECEIVER_H
+#endif // NSEFO_MULTICAST_RECEIVER_H_V2

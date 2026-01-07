@@ -46,8 +46,16 @@ void XTSInteractiveClient::login(std::function<void(bool, const QString&)> callb
     
     auto response = m_httpClient->post(url, body, headers);
     
+    // DEBUG: Print raw response
+    qDebug() << "[XTS IA] Login Response Code:" << response.statusCode;
+    qDebug() << "[XTS IA] Login Response Body:" << QString::fromStdString(response.body);
+
+
     if (!response.success) {
-        QString error = QString("Interactive login failed: %1").arg(QString::fromStdString(response.error));
+        QString error = QString("Interactive login failed. Code: %1 Error: %2 Body: %3")
+                            .arg(response.statusCode)
+                            .arg(QString::fromStdString(response.error))
+                            .arg(QString::fromStdString(response.body));
         qWarning() << error;
         if (callback) callback(false, error);
         return;
@@ -356,6 +364,120 @@ void XTSInteractiveClient::placeOrder(const QJsonObject &orderParams,
         if (callback) callback(true, orderID, "Order placed successfully");
     } else {
         if (callback) callback(false, "", obj["description"].toString());
+    }
+}
+
+void XTSInteractiveClient::modifyOrder(const XTS::ModifyOrderParams &params,
+                                        std::function<void(bool, const QString&, const QString&)> callback)
+{
+    if (m_token.isEmpty()) {
+        if (callback) callback(false, "", "Not logged in");
+        return;
+    }
+
+    std::string url = (m_baseURL + "/interactive/orders").toStdString();
+    
+    // Build modification JSON payload
+    QJsonObject modifyData;
+    modifyData["appOrderID"] = QString::number(params.appOrderID);
+    modifyData["modifiedProductType"] = ""; // Keep original product type
+    modifyData["modifiedOrderType"] = params.orderType;
+    modifyData["modifiedOrderQuantity"] = params.modifiedOrderQuantity;
+    modifyData["modifiedDisclosedQuantity"] = params.modifiedDisclosedQuantity;
+    modifyData["modifiedLimitPrice"] = params.modifiedLimitPrice;
+    modifyData["modifiedStopPrice"] = params.modifiedStopPrice;
+    modifyData["modifiedTimeInForce"] = params.modifiedTimeInForce;
+    modifyData["orderUniqueIdentifier"] = params.orderUniqueIdentifier;
+    
+    // Add clientID if specified
+    if (!params.clientID.isEmpty()) {
+        modifyData["clientID"] = params.clientID;
+    } else if (!m_clientID.isEmpty()) {
+        modifyData["clientID"] = m_clientID;
+    }
+    
+    QJsonDocument doc(modifyData);
+    std::string body = doc.toJson().toStdString();
+    
+    qDebug() << "[XTS IA] modifyOrder request:" << QString::fromStdString(body);
+    
+    std::map<std::string, std::string> headers;
+    headers["Content-Type"] = "application/json";
+    headers["Authorization"] = m_token.toStdString();
+    
+    // Use PUT for modification
+    auto response = m_httpClient->put(url, body, headers);
+    
+    qDebug() << "[XTS IA] modifyOrder response:" << response.statusCode 
+             << QString::fromStdString(response.body).left(200);
+    
+    if (!response.success) {
+        QString error = QString("Modify order failed: %1").arg(QString::fromStdString(response.error));
+        qWarning() << error;
+        if (callback) callback(false, "", error);
+        return;
+    }
+    
+    QJsonDocument responseDoc = QJsonDocument::fromJson(QByteArray::fromStdString(response.body));
+    QJsonObject obj = responseDoc.object();
+    
+    if (obj["type"].toString() == "success") {
+        QJsonObject result = obj["result"].toObject();
+        QString orderID = QString::number(result["AppOrderID"].toVariant().toLongLong());
+        qDebug() << "[XTS IA] Order modified successfully. AppOrderID:" << orderID;
+        if (callback) callback(true, orderID, "Order modified successfully");
+    } else {
+        QString error = obj["description"].toString();
+        qWarning() << "[XTS IA] Modify order failed:" << error;
+        if (callback) callback(false, "", error);
+    }
+}
+
+void XTSInteractiveClient::cancelOrder(int64_t appOrderID,
+                                        std::function<void(bool, const QString&)> callback)
+{
+    if (m_token.isEmpty()) {
+        if (callback) callback(false, "Not logged in");
+        return;
+    }
+
+    // XTS cancel order uses DELETE with appOrderID as query param
+    QString urlStr = m_baseURL + "/interactive/orders?appOrderID=" + QString::number(appOrderID);
+    if (!m_clientID.isEmpty()) {
+        urlStr += "&clientID=" + m_clientID;
+    }
+    
+    std::string url = urlStr.toStdString();
+    
+    qDebug() << "[XTS IA] cancelOrder URL:" << urlStr;
+    
+    std::map<std::string, std::string> headers;
+    headers["Content-Type"] = "application/json";
+    headers["Authorization"] = m_token.toStdString();
+    
+    // Use DELETE for cancellation
+    auto response = m_httpClient->del(url, headers);
+    
+    qDebug() << "[XTS IA] cancelOrder response:" << response.statusCode 
+             << QString::fromStdString(response.body).left(200);
+    
+    if (!response.success) {
+        QString error = QString("Cancel order failed: %1").arg(QString::fromStdString(response.error));
+        qWarning() << error;
+        if (callback) callback(false, error);
+        return;
+    }
+    
+    QJsonDocument responseDoc = QJsonDocument::fromJson(QByteArray::fromStdString(response.body));
+    QJsonObject obj = responseDoc.object();
+    
+    if (obj["type"].toString() == "success") {
+        qDebug() << "[XTS IA] Order cancelled successfully. AppOrderID:" << appOrderID;
+        if (callback) callback(true, "Order cancelled successfully");
+    } else {
+        QString error = obj["description"].toString();
+        qWarning() << "[XTS IA] Cancel order failed:" << error;
+        if (callback) callback(false, error);
     }
 }
 

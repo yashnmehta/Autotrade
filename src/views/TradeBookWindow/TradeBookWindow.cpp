@@ -10,7 +10,7 @@
 #include <QLabel>
 #include <QMenu>
 #include <QDebug>
-#include <QSortFilterProxyModel>
+#include "models/PinnedRowProxyModel.h"
 
 TradeBookWindow::TradeBookWindow(TradingDataService* tradingDataService, QWidget *parent)
     : BaseBookWindow("TradeBook", parent), m_tradingDataService(tradingDataService) 
@@ -86,7 +86,7 @@ void TradeBookWindow::setupTable() {
     });
     TradeModel* model = new TradeModel(this);
     m_model = model;
-    m_proxyModel = new QSortFilterProxyModel(this);
+    m_proxyModel = new PinnedRowProxyModel(this);
     m_proxyModel->setSourceModel(m_model);
     m_tableView->setModel(m_proxyModel);
 }
@@ -117,11 +117,42 @@ void TradeBookWindow::applyFilterToModel() {
         if (v && !m_columnFilters.isEmpty()) {
             // column specific filtering...
         }
+        
+        // Text filters (inline search)
+        if (v && !m_textFilters.isEmpty()) {
+            for (auto it = m_textFilters.begin(); it != m_textFilters.end(); ++it) {
+                int col = it.key();
+                const QString& filterText = it.value();
+                if (filterText.isEmpty()) continue;
+                
+                QString val;
+                bool hasMapping = true;
+                switch (col) {
+                    case TradeModel::Symbol: val = t.tradingSymbol; break;
+                    case TradeModel::ExchangeCode: val = t.exchangeSegment; break;
+                    case TradeModel::BuySell: val = t.orderSide; break;
+                    case TradeModel::OrderType: val = t.orderType; break;
+                    case TradeModel::ExchOrdNo: val = t.exchangeOrderID; break;
+                    case TradeModel::Client: val = t.clientID; break;
+                    case TradeModel::InstrumentName: val = t.tradingSymbol; break;
+                    case TradeModel::Code: val = QString::number(t.exchangeInstrumentID); break;
+                    default: hasMapping = false; break;
+                }
+                
+                // Only filter if we have a mapping for this column
+                if (hasMapping && !val.contains(filterText, Qt::CaseInsensitive)) {
+                    v = false;
+                    break;
+                }
+            }
+        }
+        
         if (v) filtered.append(t);
     }
     static_cast<TradeModel*>(m_model)->setTrades(filtered); 
     updateSummary();
 }
+
 
 void TradeBookWindow::updateSummary() {
     int total = m_model->rowCount() - (m_filterRowVisible ? 1 : 0);
@@ -133,6 +164,12 @@ void TradeBookWindow::onColumnFilterChanged(int c, const QStringList& s) {
     applyFilterToModel(); 
 }
 
+void TradeBookWindow::onTextFilterChanged(int col, const QString& text) {
+    BaseBookWindow::onTextFilterChanged(col, text);
+    applyFilterToModel();
+}
+
 void TradeBookWindow::toggleFilterRow() { BaseBookWindow::toggleFilterRow(m_model, m_tableView); }
 void TradeBookWindow::exportToCSV() { BaseBookWindow::exportToCSV(m_model, m_tableView); }
 void TradeBookWindow::refreshTrades() { if (m_tradingDataService) onTradesUpdated(m_tradingDataService->getTrades()); }
+
