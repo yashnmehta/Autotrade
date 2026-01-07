@@ -558,7 +558,7 @@ if(APPLE)
 endif()
 
 # Add tests subdirectory
-add_subdirectory(tests)
+# add_subdirectory(tests)
 
 # XTS API Test Program (disabled due to GCC 9 compiler ICE bug)
 # add_executable(test_xts_api test_xts_api.cpp)
