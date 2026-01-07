@@ -17,6 +17,7 @@
 #include "socket_platform.h"
 
 #include <iostream>
+#include <iomanip>
 #include <cstring>
 #include <chrono>
 
@@ -165,7 +166,9 @@ bool BSEReceiver::validatePacket(const uint8_t* buffer, size_t length) {
         msgType != MSG_TYPE_MARKET_PICTURE_COMPLEX && 
         msgType != MSG_TYPE_INDEX &&
         msgType != MSG_TYPE_OPEN_INTEREST &&
-        msgType != MSG_TYPE_CLOSE_PRICE) {
+        msgType != MSG_TYPE_CLOSE_PRICE &&
+        msgType != MSG_TYPE_PRODUCT_STATE_CHANGE &&
+        msgType != MSG_TYPE_IMPLIED_VOLATILITY) {
         static int msgErrCount = 0;
         if (++msgErrCount % 10 == 0) std::cerr << "[" << segment_ << "] Validation Fail: MsgType=" << msgType << std::endl;
         return false;
@@ -228,6 +231,11 @@ void BSEReceiver::decodeAndDispatch(const uint8_t* buffer, size_t length) {
     else if (msgType == MSG_TYPE_CLOSE_PRICE) {
         // Handle close price update (2014)
         decodeClosePrice(buffer, length);
+        return;
+    }
+    else if (msgType == MSG_TYPE_IMPLIED_VOLATILITY) {
+        // Handle implied volatility update (2028)
+        decodeImpliedVolatility(buffer, length);
         return;
     }
     else if (msgType == MSG_TYPE_INDEX) {
@@ -524,6 +532,101 @@ void BSEReceiver::decodeClosePrice(const uint8_t* buffer, size_t length) {
         // Dispatch to callback
         if (closePriceCallback_) {
             closePriceCallback_(cp);
+        }
+    }
+}
+
+// ============================================================================
+// BSE IMPLIED VOLATILITY MESSAGE (2028) PARSER
+// ============================================================================
+// Based on BSE Manual V5.0 Section 4.19
+//
+// Header (36 bytes) same as other messages
+// Record layout per IV entry (72 bytes):
+//   +0-3:    Instrument ID (Long/uint32) - Little Endian
+//   +4-11:   Implied Volatility (Long Long/int64) - Little Endian
+//            To display in %, multiply by 100 and round to 2 decimals
+//   +12-59:  Reserved Fields 6-11 (6 × 8 bytes Long Long)
+//   +60-63:  Reserved Field 12 (4 bytes Long)
+//   +64-65:  Reserved Field 13 (2 bytes Short)
+//   +66-67:  Reserved Field 14 (2 bytes Short)
+//   +68:     Reserved Field 15 (1 byte Char)
+//   +69:     Reserved Field 16 (1 byte Char)
+//   +70-71:  Reserved Field 17 (2 bytes Char[2])
+//
+// Total record size: 72 bytes
+// Maximum records: 13
+// Applicable Segment: Equity Derivatives (BSEFO only)
+// Compression: No
+// ============================================================================
+
+void BSEReceiver::decodeImpliedVolatility(const uint8_t* buffer, size_t length) {
+    if (length < HEADER_SIZE) return;
+    
+    // Capture system timestamp
+    auto now = std::chrono::duration_cast<std::chrono::microseconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+    
+    // Number of records at offset 32-33 in header (per BSE manual standard)
+    uint16_t numRecords = le16toh_func(*(uint16_t*)(buffer + 32));
+    
+    // Validate number of records (max 13 per manual)
+    if (numRecords > 13) {
+        std::cerr << "[" << segment_ << "] IV Message: Invalid numRecords=" << numRecords << std::endl;
+        return;
+    }
+    
+    // IV Record size: 72 bytes
+    constexpr size_t IV_RECORD_SIZE = 72;
+    
+    // Records start after header (36 bytes)
+    size_t recordStart = HEADER_SIZE;
+    
+    static int ivLogCount = 0;
+    
+    for (uint16_t i = 0; i < numRecords; i++) {
+        size_t offset = recordStart + (i * IV_RECORD_SIZE);
+        
+        // Bounds check - ensure we have full record
+        if (offset + IV_RECORD_SIZE > length) {
+            std::cerr << "[" << segment_ << "] IV Message: Incomplete record " << i 
+                      << " at offset " << offset << " (packet size: " << length << ")" << std::endl;
+            break;
+        }
+        
+        const uint8_t* record = buffer + offset;
+        
+        DecodedImpliedVolatility ivRec;
+        ivRec.packetTimestamp = now;
+        
+        // Parse fields (Little Endian based on BSE protocol)
+        // +0-3: Instrument ID (Long/uint32)
+        ivRec.token = le32toh_func(*(uint32_t*)(record + 0));
+        
+        // Skip empty slots (token = 0)
+        if (ivRec.token == 0) continue;
+        
+        // +4-11: Implied Volatility (Long Long/int64)
+        // Raw value - multiply by 100 for percentage display
+        ivRec.impliedVolatility = le64toh_func(*(uint64_t*)(record + 4));
+        
+        // Reserved fields are at offsets 12-71 (not parsed, for future use)
+        
+        // Debug logging for first few messages
+        if (ivLogCount < 20) {
+            ivLogCount++;
+            // Calculate IV percentage: multiply by 100 for display
+            double ivPercent = ivRec.impliedVolatility * 100.0;
+            std::cout << "[" << segment_ << "] IV 2028 - "
+                      << "Token: " << ivRec.token
+                      << " IV: " << std::fixed << std::setprecision(2) << ivPercent << "%"
+                      << " (Raw: " << ivRec.impliedVolatility << ")"
+                      << std::endl;
+        }
+        
+        // Dispatch to callback (thread-safe - callback is set atomically)
+        if (ivCallback_) {
+            ivCallback_(ivRec);
         }
     }
 }

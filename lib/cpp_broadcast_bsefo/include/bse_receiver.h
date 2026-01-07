@@ -47,6 +47,10 @@ public:
     // Callback for Close Price updates
     using ClosePriceCallback = std::function<void(const DecodedClosePrice&)>;
     void setClosePriceCallback(ClosePriceCallback callback) { closePriceCallback_ = callback; }
+    
+    // Callback for Implied Volatility updates
+    using ImpliedVolatilityCallback = std::function<void(const DecodedImpliedVolatility&)>;
+    void setImpliedVolatilityCallback(ImpliedVolatilityCallback callback) { ivCallback_ = callback; }
 
     const ReceiverStats& getStats() const { return stats_; }
 
@@ -60,6 +64,7 @@ private:
     void decodeOpenInterest(const uint8_t* buffer, size_t length);
     void decodeSessionState(const uint8_t* buffer, size_t length);
     void decodeClosePrice(const uint8_t* buffer, size_t length);
+    void decodeImpliedVolatility(const uint8_t* buffer, size_t length);
 
     std::string ip_;
     int port_;
@@ -77,6 +82,7 @@ private:
     OpenInterestCallback oiCallback_;
     SessionStateCallback sessionStateCallback_;
     ClosePriceCallback closePriceCallback_;
+    ImpliedVolatilityCallback ivCallback_;
 };
 
 } // namespace bse

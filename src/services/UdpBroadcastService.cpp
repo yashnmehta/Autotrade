@@ -426,6 +426,16 @@ void UdpBroadcastService::setupBseFoCallbacks() {
         udpTick.messageType = 2014;  // CLOSE_PRICE
         emit udpTickReceived(udpTick);
     });
+    
+    // Implied Volatility callback for BSE FO (derivatives only)
+    m_bseFoReceiver->setImpliedVolatilityCallback([this](const bse::DecodedImpliedVolatility& iv) {
+        UDP::ImpliedVolatilityTick ivTick(UDP::ExchangeSegment::BSEFO, iv.token);
+        // Convert raw IV to percentage: multiply by 100
+        ivTick.impliedVolatility = iv.impliedVolatility * 100.0;
+        ivTick.timestampUdpRecv = iv.packetTimestamp;
+        ivTick.timestampEmitted = LatencyTracker::now();
+        emit udpImpliedVolatilityReceived(ivTick);
+    });
 }
 
 void UdpBroadcastService::setupBseCmCallbacks() {

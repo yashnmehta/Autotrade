@@ -114,6 +114,7 @@ signals:
     void udpIndexReceived(const UDP::IndexTick& index);  // Index updates
     void udpSessionStateReceived(const UDP::SessionStateTick& state);  // Session state
     void udpCircuitLimitReceived(const UDP::CircuitLimitTick& limit);  // Circuit limits
+    void udpImpliedVolatilityReceived(const UDP::ImpliedVolatilityTick& iv);  // Implied Volatility (BSE only)
     void statusChanged(bool active);
     void receiverStatusChanged(ExchangeReceiver receiver, bool active);
 

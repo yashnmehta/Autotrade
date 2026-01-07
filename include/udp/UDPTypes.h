@@ -226,6 +226,24 @@ struct CircuitLimitTick {
     CircuitLimitTick() : exchangeSegment(ExchangeSegment::NSECM), token(0) {}
 };
 
+/**
+ * @brief Implied Volatility tick (BSE: 2028)
+ * Applicable for derivatives contracts only
+ */
+struct ImpliedVolatilityTick {
+    ExchangeSegment exchangeSegment;
+    uint32_t token;
+    
+    double impliedVolatility = 0.0;   // IV in percentage (e.g., 25.50 means 25.50%)
+    
+    uint64_t timestampUdpRecv = 0;
+    uint64_t timestampEmitted = 0;
+    
+    ImpliedVolatilityTick() : exchangeSegment(ExchangeSegment::BSEFO), token(0) {}
+    ImpliedVolatilityTick(ExchangeSegment seg, uint32_t tok) 
+        : exchangeSegment(seg), token(tok) {}
+};
+
 } // namespace UDP
 
 #endif // UDP_TYPES_H
