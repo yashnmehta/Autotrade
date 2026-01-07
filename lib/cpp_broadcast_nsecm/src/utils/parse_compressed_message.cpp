@@ -74,6 +74,12 @@ void parse_compressed_message(const char* data, int16_t length, UDPStats& stats)
             }
             break;
             
+        case TxCodes::BCAST_BUY_BACK:
+            if (message_size >= sizeof(MS_BCAST_BUY_BACK)) {
+                parse_bcast_buy_back(reinterpret_cast<const MS_BCAST_BUY_BACK*>(message_data));
+            }
+            break;
+            
         case TxCodes::BCAST_MW_ROUND_ROBIN:
             if (message_size >= sizeof(MS_BCAST_INQ_RESP_2)) {
                 parse_market_watch(reinterpret_cast<const MS_BCAST_INQ_RESP_2*>(message_data));
@@ -89,6 +95,26 @@ void parse_compressed_message(const char* data, int16_t length, UDPStats& stats)
         case TxCodes::BCAST_IND_INDICES:
             if (message_size >= sizeof(MS_BCAST_INDUSTRY_INDICES)) {
                 parse_bcast_industry_indices(reinterpret_cast<const MS_BCAST_INDUSTRY_INDICES*>(message_data));
+            }
+            break;
+            
+        case TxCodes::BCAST_SYSTEM_INFORMATION_OUT:
+            if (message_size >= sizeof(MS_BCAST_SYSTEM_INFORMATION)) {
+                parse_system_information(reinterpret_cast<const MS_BCAST_SYSTEM_INFORMATION*>(message_data));
+            } else {
+                std::cerr << "[7206] Message too small: " << message_size 
+                          << " (expected " << sizeof(MS_BCAST_SYSTEM_INFORMATION) << ")" 
+                          << std::endl;
+            }
+            break;
+            
+        case TxCodes::BCAST_SECURITY_STATUS_CHG_PREOPEN:
+            if (message_size >= sizeof(MS_BCAST_CALL_AUCTION_ORD_CXL)) {
+                parse_call_auction_order_cxl(reinterpret_cast<const MS_BCAST_CALL_AUCTION_ORD_CXL*>(message_data));
+            } else {
+                std::cerr << "[7210] Message too small: " << message_size 
+                          << " (expected " << sizeof(MS_BCAST_CALL_AUCTION_ORD_CXL) << ")" 
+                          << std::endl;
             }
             break;
             

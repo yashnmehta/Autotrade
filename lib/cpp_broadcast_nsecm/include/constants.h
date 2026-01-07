@@ -13,27 +13,27 @@ namespace CommonConfig {
 
 // Broadcast Transaction Codes
 namespace TxCodes {
-    constexpr uint16_t BCAST_MBO_MBP_UPDATE = 7200;
-    constexpr uint16_t BCAST_MW_ROUND_ROBIN = 7201;
+    constexpr uint16_t BCAST_MBO_MBP_UPDATE = 7200; //done
+    constexpr uint16_t BCAST_MW_ROUND_ROBIN = 7201; //done
     constexpr uint16_t BCAST_IND_INDICES = 7203; // CM Industry Indices
-    constexpr uint16_t BCAST_SYSTEM_INFORMATION_OUT = 7206;
-    constexpr uint16_t BCAST_INDICES = 7207;
-    constexpr uint16_t BCAST_ONLY_MBP = 7208;
-    constexpr uint16_t BCAST_SECURITY_STATUS_CHG_PREOPEN = 7210;
+    constexpr uint16_t BCAST_SYSTEM_INFORMATION_OUT = 7206; //done
+    constexpr uint16_t BCAST_INDICES = 7207; //done
+    constexpr uint16_t BCAST_ONLY_MBP = 7208; //done
+    constexpr uint16_t BCAST_SECURITY_STATUS_CHG_PREOPEN = 7210; //done
     
-    constexpr uint16_t BC_OPEN_MSG = 6511;
-    constexpr uint16_t BC_CLOSE_MSG = 6521;
-    constexpr uint16_t BC_POSTCLOSE_MSG = 6522;
-    constexpr uint16_t BC_PRE_OR_POST_DAY_MSG = 6531;
-    constexpr uint16_t BC_CIRCUIT_CHECK = 6541;
-    constexpr uint16_t BC_NORMAL_MKT_PREOPEN_ENDED = 6571;
-    constexpr uint16_t BCAST_JRNL_VCT_MSG = 6501;
+    constexpr uint16_t BC_OPEN_MSG = 6511; //done
+    constexpr uint16_t BC_CLOSE_MSG = 6521; //done
+    constexpr uint16_t BC_POSTCLOSE_MSG = 6522; //done
+    constexpr uint16_t BC_PRE_OR_POST_DAY_MSG = 6531; //done
+    constexpr uint16_t BC_CIRCUIT_CHECK = 6541; //done
+    constexpr uint16_t BC_NORMAL_MKT_PREOPEN_ENDED = 6571; //done
+    constexpr uint16_t BCAST_JRNL_VCT_MSG = 6501; //done
     
-    constexpr uint16_t CTRL_MSG_TO_TRADER = 5295;
-    constexpr uint16_t SECURITY_OPEN_PRICE = 6013;
+    constexpr uint16_t CTRL_MSG_TO_TRADER = 5295; //done
+    constexpr uint16_t SECURITY_OPEN_PRICE = 6013; //done
     
-    constexpr uint16_t BCAST_TICKER_AND_MKT_INDEX = 18703; // CM Ticker
-    constexpr uint16_t BCAST_BUY_BACK = 18708;
+    constexpr uint16_t BCAST_TICKER_AND_MKT_INDEX = 18703; // CM Ticker done
+    constexpr uint16_t BCAST_BUY_BACK = 18708; //done
     
     constexpr uint16_t BCAST_TURNOVER_EXCEEDED = 9010;
     constexpr uint16_t BROADCAST_BROKER_REACTIVATED = 9011;
@@ -47,9 +47,12 @@ inline bool isCompressed(uint16_t code) {
         case TxCodes::BCAST_MBO_MBP_UPDATE:
         case TxCodes::BCAST_MW_ROUND_ROBIN:
         case TxCodes::BCAST_TICKER_AND_MKT_INDEX:
+        case TxCodes::BCAST_BUY_BACK:  // 18708 is compressed
         case TxCodes::BCAST_ONLY_MBP:
         case TxCodes::BCAST_IND_INDICES:
         case TxCodes::BCAST_INDICES:
+        case TxCodes::BCAST_SYSTEM_INFORMATION_OUT:  // 7206 is compressed
+        case TxCodes::BCAST_SECURITY_STATUS_CHG_PREOPEN:  // 7210 is compressed
             return true;
         default:
             return false;

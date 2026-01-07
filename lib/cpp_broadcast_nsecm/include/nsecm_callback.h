@@ -5,6 +5,8 @@
 #include <functional>
 #include <vector>
 #include <string>
+#include <mutex>
+#include <atomic>
 
 namespace nsecm {
 
@@ -114,6 +116,77 @@ struct AdminMessage {
 
 using AdminCallback = std::function<void(const AdminMessage&)>;
 
+// System information (from 7206)
+struct SystemInformationData {
+    // Market status fields
+    int16_t normalMarketStatus;
+    int16_t oddlotMarketStatus;
+    int16_t spotMarketStatus;
+    int16_t auctionMarketStatus;
+    int16_t callAuction1Status;
+    int16_t callAuction2Status;
+    
+    // Market parameters
+    int32_t marketIndex;
+    int16_t defaultSettlementPeriodNormal;
+    int16_t defaultSettlementPeriodSpot;
+    int16_t defaultSettlementPeriodAuction;
+    int16_t competitorPeriod;
+    int16_t solicitorPeriod;
+    
+    // Risk parameters
+    int16_t warningPercent;
+    int16_t volumeFreezePercent;
+    int16_t terminalIdleTime;
+    
+    // Trading parameters
+    int32_t boardLotQuantity;
+    int32_t tickSize;
+    int16_t maximumGtcDays;
+    int16_t disclosedQuantityPercentAllowed;
+    
+    // Bit flags
+    bool booksMerged;
+    bool minimumFillAllowed;
+    bool aonAllowed;
+    
+    // Timestamp
+    uint64_t timestampRecv = 0;
+};
+
+using SystemInformationCallback = std::function<void(const SystemInformationData&)>;
+
+// Call Auction Order Cancellation details (from 7210)
+struct OrderCancellationDetail {
+    uint32_t token;
+    int64_t buyOrdCxlCount;
+    int64_t buyOrdCxlVol;
+    int64_t sellOrdCxlCount;
+    int64_t sellOrdCxlVol;
+};
+
+// Call Auction Order Cancellation update (from 7210)
+struct CallAuctionOrderCxlData {
+    int16_t noOfRecords;
+    OrderCancellationDetail records[8];  // Max 8 securities
+    uint64_t timestampRecv = 0;
+};
+
+using CallAuctionOrderCxlCallback = std::function<void(const CallAuctionOrderCxlData&)>;
+
+// Market Open/Close/Pre-Open Messages (from 6511, 6521, 6531, 6571, 6583, 6584)
+struct MarketOpenMessage {
+    uint16_t txCode;            // Transaction code (6511, 6521, etc.)
+    uint32_t timestamp;         // Log time
+    std::string symbol;         // Symbol
+    std::string series;         // Series
+    int16_t marketType;         // 1=Normal, 2=Odd Lot, 3=Spot, 4=Auction, 5=Call auction1, 6=Call auction2
+    std::string message;        // Broadcast message content
+    uint64_t timestampRecv = 0; // Reception timestamp
+};
+
+using MarketOpenCallback = std::function<void(const MarketOpenMessage&)>;
+
 // Index item (from 7207)
 struct IndexData {
     char name[21];
@@ -151,65 +224,149 @@ public:
         return instance;
     }
     
-    // Register callbacks
+    // Register callbacks (thread-safe)
     void registerTouchlineCallback(TouchlineCallback callback) {
+        std::lock_guard<std::mutex> lock(callbackMutex);
         touchlineCallback = callback;
     }
     
     void registerMarketDepthCallback(MarketDepthCallback callback) {
+        std::lock_guard<std::mutex> lock(callbackMutex);
         marketDepthCallback = callback;
     }
     
     void registerTickerCallback(TickerCallback callback) {
+        std::lock_guard<std::mutex> lock(callbackMutex);
         tickerCallback = callback;
     }
     
     void registerMarketWatchCallback(MarketWatchCallback callback) {
+        std::lock_guard<std::mutex> lock(callbackMutex);
         marketWatchCallback = callback;
     }
 
     void registerIndexCallback(IndexCallback callback) {
+        std::lock_guard<std::mutex> lock(callbackMutex);
         indexCallback = callback;
     }
 
     void registerAdminCallback(AdminCallback callback) {
+        std::lock_guard<std::mutex> lock(callbackMutex);
         adminCallback = callback;
     }
+
+    void registerSystemInformationCallback(SystemInformationCallback callback) {
+        std::lock_guard<std::mutex> lock(callbackMutex);
+        systemInformationCallback = callback;
+    }
+
+    void registerCallAuctionOrderCxlCallback(CallAuctionOrderCxlCallback callback) {
+        std::lock_guard<std::mutex> lock(callbackMutex);
+        callAuctionOrderCxlCallback = callback;
+    }
+
+    void registerMarketOpenCallback(MarketOpenCallback callback) {
+        std::lock_guard<std::mutex> lock(callbackMutex);
+        marketOpenCallback = callback;
+    }
     
-    // Dispatch callbacks (called by parsers)
+    // Dispatch callbacks (called by parsers) - thread-safe
     void dispatchTouchline(const TouchlineData& data) {
-        if (touchlineCallback) {
-            touchlineCallback(data);
+        TouchlineCallback callback;
+        {
+            std::lock_guard<std::mutex> lock(callbackMutex);
+            callback = touchlineCallback;
+        }
+        if (callback) {
+            callback(data);
         }
     }
     
     void dispatchMarketDepth(const MarketDepthData& data) {
-        if (marketDepthCallback) {
-            marketDepthCallback(data);
+        MarketDepthCallback callback;
+        {
+            std::lock_guard<std::mutex> lock(callbackMutex);
+            callback = marketDepthCallback;
+        }
+        if (callback) {
+            callback(data);
         }
     }
     
     void dispatchTicker(const TickerData& data) {
-        if (tickerCallback) {
-            tickerCallback(data);
+        TickerCallback callback;
+        {
+            std::lock_guard<std::mutex> lock(callbackMutex);
+            callback = tickerCallback;
+        }
+        if (callback) {
+            callback(data);
         }
     }
     
     void dispatchMarketWatch(const MarketWatchData& data) {
-        if (marketWatchCallback) {
-            marketWatchCallback(data);
+        MarketWatchCallback callback;
+        {
+            std::lock_guard<std::mutex> lock(callbackMutex);
+            callback = marketWatchCallback;
+        }
+        if (callback) {
+            callback(data);
         }
     }
 
     void dispatchIndices(const IndicesUpdate& data) {
-        if (indexCallback) {
-            indexCallback(data);
+        IndexCallback callback;
+        {
+            std::lock_guard<std::mutex> lock(callbackMutex);
+            callback = indexCallback;
+        }
+        if (callback) {
+            callback(data);
         }
     }
 
     void dispatchAdmin(const AdminMessage& data) {
-        if (adminCallback) {
-            adminCallback(data);
+        AdminCallback callback;
+        {
+            std::lock_guard<std::mutex> lock(callbackMutex);
+            callback = adminCallback;
+        }
+        if (callback) {
+            callback(data);
+        }
+    }
+
+    void dispatchSystemInformation(const SystemInformationData& data) {
+        SystemInformationCallback callback;
+        {
+            std::lock_guard<std::mutex> lock(callbackMutex);
+            callback = systemInformationCallback;
+        }
+        if (callback) {
+            callback(data);
+        }
+    }
+
+    void dispatchCallAuctionOrderCxl(const CallAuctionOrderCxlData& data) {
+        CallAuctionOrderCxlCallback callback;
+        {
+            std::lock_guard<std::mutex> lock(callbackMutex);
+            callback = callAuctionOrderCxlCallback;
+        }
+        if (callback) {
+            callback(data);
+        }
+    }
+
+    void dispatchMarketOpen(const MarketOpenMessage& data) {
+        MarketOpenCallback callback;
+        {
+            std::lock_guard<std::mutex> lock(callbackMutex);
+            callback = marketOpenCallback;
+        }
+        if (callback) {
+            callback(data);
         }
     }
     
@@ -219,12 +376,17 @@ private:
     MarketDataCallbackRegistry(const MarketDataCallbackRegistry&) = delete;
     MarketDataCallbackRegistry& operator=(const MarketDataCallbackRegistry&) = delete;
     
+    // Thread-safe callback storage
+    mutable std::mutex callbackMutex;
     TouchlineCallback touchlineCallback;
     MarketDepthCallback marketDepthCallback;
     TickerCallback tickerCallback;
     MarketWatchCallback marketWatchCallback;
     IndexCallback indexCallback;
     AdminCallback adminCallback;
+    SystemInformationCallback systemInformationCallback;
+    CallAuctionOrderCxlCallback callAuctionOrderCxlCallback;
+    MarketOpenCallback marketOpenCallback;
 };
 
 } // namespace nsecm

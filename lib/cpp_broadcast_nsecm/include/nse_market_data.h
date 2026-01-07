@@ -163,6 +163,41 @@ struct MS_BCAST_INQ_RESP_2 {
     ST_MARKET_WATCH_BCAST records[4];  // Offset 42 (424 bytes)
 };
 
+// ============================================================================
+// BCAST_BUY_BACK (18708) - Buyback Information
+// ============================================================================
+
+// BUYBACKDATA - 64 bytes (per security)
+// Transaction Code: 18708 (BCAST_BUY_BACK)
+// Protocol Reference: NSE CM NNF Protocol v6.3, Table 46.1, Page 146
+struct BUYBACKDATA {
+    int32_t token;                     // Offset 0 (4 bytes) - Security token
+    char symbol[10];                   // Offset 4 (10 bytes) - Security symbol
+    char series[2];                    // Offset 14 (2 bytes) - Series
+    double pdayCumVol;                 // Offset 16 (8 bytes) - Previous day cumulative volume
+    int32_t pdayHighPrice;             // Offset 24 (4 bytes) - Previous day high price (paise)
+    int32_t pdayLowPrice;              // Offset 28 (4 bytes) - Previous day low price (paise)
+    int32_t pdayWtAvg;                 // Offset 32 (4 bytes) - Previous day weighted avg (paise)
+    double cdayCumVol;                 // Offset 36 (8 bytes) - Current day cumulative volume
+    int32_t cdayHighPrice;             // Offset 44 (4 bytes) - Current day high price (paise)
+    int32_t cdayLowPrice;              // Offset 48 (4 bytes) - Current day low price (paise)
+    int32_t cdayWtAvg;                 // Offset 52 (4 bytes) - Current day weighted avg (paise)
+    int32_t startDate;                 // Offset 56 (4 bytes) - Buyback start date
+    int32_t endDate;                   // Offset 60 (4 bytes) - Buyback end date
+};
+// Total: 4+10+2+8+4+4+4+8+4+4+4+4+4 = 64 bytes ✅
+
+// MS_BCAST_BUY_BACK - 426 bytes
+// Transaction Code: 18708
+// Contains: Buyback information for up to 6 securities
+// Broadcasted every hour from market open till close
+struct MS_BCAST_BUY_BACK {
+    BCAST_HEADER header;               // Offset 0 (40 bytes)
+    int16_t numberOfRecords;           // Offset 40 (2 bytes) - Number of securities (max 6)
+    BUYBACKDATA buyBackData[6];        // Offset 42 (384 bytes) - Array of 6 records
+};
+// Total: 40 + 2 + 384 = 426 bytes ✅
+
 #pragma pack(pop)
 
 #endif // NSE_MARKET_DATA_H

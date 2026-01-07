@@ -352,6 +352,7 @@ void UdpBroadcastService::setupNseFoCallbacks() {
 }
 
 void UdpBroadcastService::setupNseCmCallbacks() {
+    // Touchline updates (7200, 7208)
     nsecm::MarketDataCallbackRegistry::instance().registerTouchlineCallback([this](const nsecm::TouchlineData& data) {
         // Emit new UDP::MarketTick
         UDP::MarketTick udpTick = convertNseCmTouchline(data);
@@ -363,6 +364,7 @@ void UdpBroadcastService::setupNseCmCallbacks() {
         emit tickReceived(legacyTick);
     });
 
+    // Market depth updates (7200, 7208)
     nsecm::MarketDataCallbackRegistry::instance().registerMarketDepthCallback([this](const nsecm::MarketDepthData& data) {
         // Emit new UDP::MarketTick
         UDP::MarketTick udpTick = convertNseCmDepth(data);
@@ -372,6 +374,110 @@ void UdpBroadcastService::setupNseCmCallbacks() {
         XTS::Tick legacyTick = convertToLegacy(udpTick);
         m_totalTicks++;
         emit tickReceived(legacyTick);
+    });
+
+    // Ticker updates (18703)
+    nsecm::MarketDataCallbackRegistry::instance().registerTickerCallback([this](const nsecm::TickerData& data) {
+        // Log ticker data (can be removed in production)
+        // qDebug() << "NSE CM Ticker: Token=" << data.token << " Price=" << data.fillPrice << " Vol=" << data.fillVolume;
+    });
+
+    // Market watch updates (7201)
+    nsecm::MarketDataCallbackRegistry::instance().registerMarketWatchCallback([this](const nsecm::MarketWatchData& data) {
+        // Log market watch data (can be removed in production)
+        // qDebug() << "NSE CM Market Watch: Token=" << data.token;
+    });
+
+    // Index updates (7207, 7203)
+    nsecm::MarketDataCallbackRegistry::instance().registerIndexCallback([this](const nsecm::IndicesUpdate& data) {
+        // Create UDP::IndexTick for each index and emit
+        for (int i = 0; i < data.numRecords && i < 28; i++) {
+            const auto& idx = data.indices[i];
+            UDP::IndexTick indexTick;
+            indexTick.exchangeSegment = UDP::ExchangeSegment::NSECM;
+            indexTick.token = 0; // No token for indices in CM
+            
+            // Copy name (max 21 chars from protocol, 32 chars in IndexTick)
+            std::memcpy(indexTick.name, idx.name, std::min(21, 31));
+            indexTick.name[31] = '\0'; // Ensure null termination
+            
+            indexTick.value = idx.value;
+            indexTick.high = idx.high;
+            indexTick.low = idx.low;
+            indexTick.open = idx.open;
+            indexTick.prevClose = idx.close;
+            indexTick.change = idx.value - idx.close;
+            indexTick.changePercent = idx.percentChange;
+            indexTick.marketCap = static_cast<uint64_t>(idx.marketCap);
+            indexTick.numAdvances = idx.upMoves;
+            indexTick.numDeclines = idx.downMoves;
+            indexTick.timestampUdpRecv = LatencyTracker::now();
+            
+            emit udpIndexReceived(indexTick);
+        }
+    });
+
+    // Admin messages (6501, 6541)
+    nsecm::MarketDataCallbackRegistry::instance().registerAdminCallback([this](const nsecm::AdminMessage& data) {
+        // Log admin messages (can be removed in production)
+        // qDebug() << "NSE CM Admin: Action=" << QString::fromStdString(data.actionCode) 
+        //          << " Msg=" << QString::fromStdString(data.message);
+    });
+
+    // System information (7206)
+    nsecm::MarketDataCallbackRegistry::instance().registerSystemInformationCallback([this](const nsecm::SystemInformationData& data) {
+        // Log system information (can be removed in production)
+        // qDebug() << "NSE CM System Info: MarketIndex=" << data.marketIndex 
+        //          << " NormalStatus=" << data.normalMarketStatus;
+    });
+
+    // Call auction order cancellation (7210)
+    nsecm::MarketDataCallbackRegistry::instance().registerCallAuctionOrderCxlCallback([this](const nsecm::CallAuctionOrderCxlData& data) {
+        // Log call auction cancellations (can be removed in production)
+        // qDebug() << "NSE CM Call Auction Cxl: Records=" << data.noOfRecords;
+    });
+
+    // Market open/close/pre-open messages (6511, 6521, 6522, 6531, 6571)
+    nsecm::MarketDataCallbackRegistry::instance().registerMarketOpenCallback([this](const nsecm::MarketOpenMessage& data) {
+        // Create session state tick
+        UDP::SessionStateTick stateTick;
+        stateTick.exchangeSegment = UDP::ExchangeSegment::NSECM;
+        stateTick.timestamp = data.timestamp;
+        stateTick.timestampUdpRecv = LatencyTracker::now();
+        
+        // Set state based on transaction code
+        switch(data.txCode) {
+            case 6511: // BC_OPEN_MSG
+                stateTick.state = UDP::SessionState::PRE_OPEN;
+                stateTick.isStart = true;
+                break;
+            case 6521: // BC_CLOSE_MSG
+                stateTick.state = UDP::SessionState::CLOSED;
+                stateTick.isStart = false;
+                break;
+            case 6522: // BC_POSTCLOSE_MSG
+                stateTick.state = UDP::SessionState::POST_CLOSE;
+                stateTick.isStart = true;
+                break;
+            case 6531: // BC_PRE_OR_POST_DAY_MSG
+                stateTick.state = UDP::SessionState::PRE_OPEN;
+                stateTick.isStart = true;
+                break;
+            case 6571: // BC_NORMAL_MKT_PREOPEN_ENDED
+                stateTick.state = UDP::SessionState::CONTINUOUS;
+                stateTick.isStart = true;
+                break;
+            default:
+                stateTick.state = UDP::SessionState::UNKNOWN;
+                break;
+        }
+        
+        emit udpSessionStateReceived(stateTick);
+        
+        // Log for debugging (can be removed in production)
+        // qDebug() << "NSE CM Session State: TxCode=" << data.txCode 
+        //          << " Symbol=" << QString::fromStdString(data.symbol)
+        //          << " State=" << static_cast<int>(stateTick.state);
     });
 }
 

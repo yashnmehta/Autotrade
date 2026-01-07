@@ -480,12 +480,24 @@ set(NSECM_BROADCAST_SOURCES
     ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_nsecm/src/utils/parse_compressed_message.cpp
     ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_nsecm/src/utils/parse_uncompressed_message.cpp
     # Message parsers
+    ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_nsecm/src/parser/parse_message_5295.cpp
+    ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_nsecm/src/parser/parse_message_6013.cpp
     ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_nsecm/src/parser/parse_message_7200.cpp
     ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_nsecm/src/parser/parse_message_7201.cpp
     ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_nsecm/src/parser/parse_message_7208.cpp
     ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_nsecm/src/parser/parse_message_18703.cpp
+    ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_nsecm/src/parser/parse_message_18708.cpp
     ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_nsecm/src/parser/parse_message_7207.cpp
     ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_nsecm/src/parser/parse_message_7203.cpp
+    ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_nsecm/src/parser/parse_message_6501.cpp
+    ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_nsecm/src/parser/parse_message_7206.cpp
+    ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_nsecm/src/parser/parse_message_7210.cpp
+    ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_nsecm/src/parser/parse_message_6511.cpp
+    ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_nsecm/src/parser/parse_message_6521.cpp
+    ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_nsecm/src/parser/parse_message_6522.cpp
+    ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_nsecm/src/parser/parse_message_6531.cpp
+    ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_nsecm/src/parser/parse_message_6541.cpp
+    ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_nsecm/src/parser/parse_message_6571.cpp
 )
 
 

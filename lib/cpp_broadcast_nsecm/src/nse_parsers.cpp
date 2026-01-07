@@ -23,18 +23,6 @@ void parse_vct_messages(const BCAST_VCT_MESSAGES* msg) {
     MarketDataCallbackRegistry::instance().dispatchAdmin(admin);
 }
 
-void parse_jrnl_vct_msg(const MS_BCAST_MESSAGE* msg) {
-    AdminMessage admin;
-    admin.token = 0;
-    admin.timestamp = be32toh_func(msg->header.logTime);
-    uint16_t msgLen = be16toh_func(msg->broadcastMessageLength);
-    if (msgLen > 240) msgLen = 240;
-    admin.message = std::string(msg->broadcastMessage, msgLen);
-    admin.actionCode = std::string(msg->actionCode, 3);
-    
-    MarketDataCallbackRegistry::instance().dispatchAdmin(admin);
-}
-
 void parse_symbol_status_change(const BC_SYMBOL_STATUS_CHANGE_ACTION* msg) {
     AdminMessage admin;
     admin.token = 0;
