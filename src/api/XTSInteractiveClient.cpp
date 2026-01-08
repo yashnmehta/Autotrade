@@ -380,14 +380,14 @@ void XTSInteractiveClient::modifyOrder(const XTS::ModifyOrderParams &params,
     // Build modification JSON payload
     QJsonObject modifyData;
     modifyData["appOrderID"] = QString::number(params.appOrderID);
-    modifyData["modifiedProductType"] = ""; // Keep original product type
+    modifyData["modifiedProductType"] = params.productType;  // REQUIRED: Must send original product type
     modifyData["modifiedOrderType"] = params.orderType;
     modifyData["modifiedOrderQuantity"] = params.modifiedOrderQuantity;
     modifyData["modifiedDisclosedQuantity"] = params.modifiedDisclosedQuantity;
     modifyData["modifiedLimitPrice"] = params.modifiedLimitPrice;
     modifyData["modifiedStopPrice"] = params.modifiedStopPrice;
     modifyData["modifiedTimeInForce"] = params.modifiedTimeInForce;
-    modifyData["orderUniqueIdentifier"] = params.orderUniqueIdentifier;
+    modifyData["orderUniqueIdentifier"] = params.orderUniqueIdentifier;  // Use original order's identifier
     
     // Add clientID if specified
     if (!params.clientID.isEmpty()) {

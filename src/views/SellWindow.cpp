@@ -53,13 +53,14 @@ void SellWindow::onSubmitClicked() {
         params.appOrderID = m_originalOrderID;
         params.exchangeInstrumentID = m_leToken->text().toLongLong();
         params.exchangeSegment = m_cbEx->currentText();
+        params.productType = m_originalOrder.productType;  // Use original product type
         params.orderType = m_cbOrdType->currentText();
         params.modifiedOrderQuantity = quantity;
         params.modifiedDisclosedQuantity = m_leDiscloseQty ? m_leDiscloseQty->text().toInt() : 0;
         params.modifiedLimitPrice = price;
         params.modifiedStopPrice = m_leTrigPrice ? m_leTrigPrice->text().toDouble() : 0.0;
         params.modifiedTimeInForce = m_cbValidity ? m_cbValidity->currentText() : "DAY";
-        params.orderUniqueIdentifier = "TradingTerminal_Modify";
+        params.orderUniqueIdentifier = m_originalOrder.orderUniqueIdentifier;  // Use original identifier
         
         // Handle Market Orders (price = 0)
         if (params.orderType == "Market" || params.orderType == "StopMarket") {

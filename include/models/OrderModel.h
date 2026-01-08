@@ -57,8 +57,9 @@ public:
         UserRemarks,
         PartType,
         ProductType,
+        OrderUniqueID,  // New column for order unique identifier
         ServerEntryTime,
-        ColumnCount = 75
+        ColumnCount = 76  // Updated count
     };
 
     explicit OrderModel(QObject* parent = nullptr);

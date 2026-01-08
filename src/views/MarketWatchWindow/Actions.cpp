@@ -67,15 +67,17 @@ bool MarketWatchWindow::addScrip(const QString &symbol, const QString &exchange,
     else if (exchange == "BSECM") segment = UDP::ExchangeSegment::BSECM;
     FeedHandler::instance().subscribeUDP(segment, token, this, &MarketWatchWindow::onUdpTickUpdate);
     
-    // Also subscribe to legacy XTS::Tick for backward compatibility
-    FeedHandler::instance().subscribe(token, this, &MarketWatchWindow::onTickUpdate);
+    // Also subscribe to legacy XTS::Tick (using segment-specific overload)
+    FeedHandler::instance().subscribe(static_cast<int>(segment), token, this, &MarketWatchWindow::onTickUpdate);
     
+    // Initial Load from Cache
     // Initial Load from Cache
     if (auto cached = PriceCache::instance().getPrice(static_cast<int>(segment), token)) {
         onTickUpdate(*cached);
     }
     
-    m_tokenAddressBook->addToken(token, newRow);
+    m_tokenAddressBook->addCompositeToken(exchange, "", token, newRow);
+    m_tokenAddressBook->addIntKeyToken(static_cast<int>(segment), token, newRow);
     
     emit scripAdded(scrip.symbol, exchange, token);
     return true;
@@ -113,15 +115,16 @@ bool MarketWatchWindow::addScripFromContract(const ScripData &contractData)
     else if (scrip.exchange == "BSECM") segment = UDP::ExchangeSegment::BSECM;
     FeedHandler::instance().subscribeUDP(segment, scrip.token, this, &MarketWatchWindow::onUdpTickUpdate);
     
-    // Also subscribe to legacy XTS::Tick for backward compatibility
-    FeedHandler::instance().subscribe(scrip.token, this, &MarketWatchWindow::onTickUpdate);
+    // Also subscribe to legacy XTS::Tick (using segment-specific overload to avoid cross-talk)
+    FeedHandler::instance().subscribe(static_cast<int>(segment), scrip.token, this, &MarketWatchWindow::onTickUpdate);
     
     // Initial Load from Cache
     if (auto cached = PriceCache::instance().getPrice(static_cast<int>(segment), scrip.token)) {
         onTickUpdate(*cached);
     }
     
-    m_tokenAddressBook->addToken(scrip.token, newRow);
+    m_tokenAddressBook->addCompositeToken(scrip.exchange, "", scrip.token, newRow);
+    m_tokenAddressBook->addIntKeyToken(static_cast<int>(segment), scrip.token, newRow);
     
     emit scripAdded(scrip.symbol, scrip.exchange, scrip.token);
     return true;
@@ -133,10 +136,21 @@ void MarketWatchWindow::removeScrip(int row)
     const ScripData &scrip = m_model->getScripAt(row);
     if (!scrip.isBlankRow && scrip.isValid()) {
         TokenSubscriptionManager::instance()->unsubscribe(scrip.exchange, scrip.token);
+        
+        // Unsubscribe from UDP ticks
+        // Convert exchange string to segment for specific unsubscription
+        UDP::ExchangeSegment segment = UDP::ExchangeSegment::NSECM;  // default
+        if (scrip.exchange == "NSEFO") segment = UDP::ExchangeSegment::NSEFO;
+        else if (scrip.exchange == "NSECM") segment = UDP::ExchangeSegment::NSECM;
+        else if (scrip.exchange == "BSEFO") segment = UDP::ExchangeSegment::BSEFO;
+        else if (scrip.exchange == "BSECM") segment = UDP::ExchangeSegment::BSECM;
+        
         // Note: Individual token unsubscription for a specific receiver 
-        // will be handled by FeedHandler::unsubscribe(token, this)
-        FeedHandler::instance().unsubscribe(scrip.token, this);
-        m_tokenAddressBook->removeToken(scrip.token, row);
+        // FeedHandler::unsubscribe(token, this) is DEPRECATED as it unsubscribes all segments
+        FeedHandler::instance().unsubscribe(static_cast<int>(segment), scrip.token, this);
+        
+        m_tokenAddressBook->removeCompositeToken(scrip.exchange, "", scrip.token, row);
+        m_tokenAddressBook->removeIntKeyToken(static_cast<int>(segment), scrip.token, row);
         emit scripRemoved(scrip.token);
     }
     m_model->removeScrip(row);
@@ -232,8 +246,9 @@ void MarketWatchWindow::pasteFromClipboard()
             FeedHandler::instance().subscribeUDP(segment, scrip.token, this, &MarketWatchWindow::onUdpTickUpdate);
             
             // Also subscribe to legacy XTS::Tick for backward compatibility
-            FeedHandler::instance().subscribe(scrip.token, this, &MarketWatchWindow::onTickUpdate);
-            m_tokenAddressBook->addToken(scrip.token, currentInsertPos);
+            FeedHandler::instance().subscribe(static_cast<int>(segment), scrip.token, this, &MarketWatchWindow::onTickUpdate);
+            m_tokenAddressBook->addCompositeToken(scrip.exchange, "", scrip.token, currentInsertPos);
+            m_tokenAddressBook->addIntKeyToken(static_cast<int>(segment), scrip.token, currentInsertPos);
             emit scripAdded(scrip.symbol, scrip.exchange, scrip.token);
             currentInsertPos++;
         }
@@ -289,7 +304,14 @@ void MarketWatchWindow::performRowMoveByTokens(const QList<int> &tokens, int tar
         m_model->moveRow(sourceRow, targetSourceRow);
         int finalPos = (sourceRow < targetSourceRow) ? targetSourceRow - 1 : targetSourceRow;
         m_tokenAddressBook->onRowsInserted(finalPos, 1);
-        m_tokenAddressBook->addToken(scrip.token, finalPos);
+        m_tokenAddressBook->addCompositeToken(scrip.exchange, "", scrip.token, finalPos);
+        
+        // Derive segment for int key (similar to addScrip logic)
+        // We can optimize this by storing segment in scrip but for now simple mapping is fine for move operations
+        int segment = RepositoryManager::getExchangeSegmentID(scrip.exchange.left(3), scrip.exchange.mid(3));
+        if (segment > 0) {
+             m_tokenAddressBook->addIntKeyToken(segment, scrip.token, finalPos);
+        }
         
         int proxyPos = mapToProxy(finalPos);
         if (proxyPos >= 0) {
@@ -308,7 +330,12 @@ void MarketWatchWindow::performRowMoveByTokens(const QList<int> &tokens, int tar
         int adjustedTarget = std::max(0, std::min(m_model->rowCount(), targetSourceRow - adjustment));
         for (int i = 0; i < scrips.size(); ++i) {
             m_model->insertScrip(adjustedTarget + i, scrips[i]);
-            m_tokenAddressBook->addToken(scrips[i].token, adjustedTarget + i);
+            m_tokenAddressBook->addCompositeToken(scrips[i].exchange, "", scrips[i].token, adjustedTarget + i);
+            
+            int segment = RepositoryManager::getExchangeSegmentID(scrips[i].exchange.left(3), scrips[i].exchange.mid(3));
+            if (segment > 0) {
+                 m_tokenAddressBook->addIntKeyToken(segment, scrips[i].token, adjustedTarget + i);
+            }
         }
     }
 }

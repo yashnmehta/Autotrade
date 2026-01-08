@@ -46,6 +46,20 @@ void OptionChainDelegate::paint(QPainter *painter, const QStyleOptionViewItem &o
     QColor bgColor = QColor("#2A3A50"); // Default background
     QColor textColor = Qt::white;
     
+    // Column-specific background colors
+
+    // Check for dynamic tick update color first
+    int direction = index.data(Qt::UserRole + 1).toInt();
+    if (direction == 1) {
+        bgColor = QColor("#0000FF"); // Blue for Up
+    } else if (direction == 2) {
+        bgColor = QColor("#FF0000"); // Red for Down
+    } //else transparent
+    else{
+        bgColor = QColor("transparent");
+    }
+
+
     // Check for numeric values indicating change
     bool isChangeColumn = false;
     
@@ -403,25 +417,51 @@ void OptionChainWindow::updateStrikeData(double strike, const OptionStrikeData &
     int row = m_strikes.indexOf(strike);
     if (row < 0) return;
     
+    // Helper lambda to update item with color direction
+    auto updateItemWithColor = [](QStandardItem* item, double newValue, int precision = 2) {
+        double oldValue = item->text().toDouble();
+        item->setText(QString::number(newValue, 'f', precision));
+        
+        // Store direction: 1 for Up (Blue), 2 for Down (Red), 0 for No Change/Neutral
+        if (oldValue > 0 && newValue > oldValue) {
+            item->setData(1, Qt::UserRole + 1);
+        } else if (oldValue > 0 && newValue < oldValue) {
+            item->setData(2, Qt::UserRole + 1);
+        } else {
+             // Keep previous color if equal, or reset? Let's keep previous for flickering effect, or reset.
+             // Usually reset to neutral if equal, but market data usually flickers.
+             // If equal, maybe we don't change the data role, so it keeps the last state?
+             // Or better, 0 for neutral.
+             if (newValue != oldValue) item->setData(0, Qt::UserRole + 1);
+        }
+    };
+
     // Update call data
     m_callModel->item(row, CALL_OI)->setText(QString::number(data.callOI));
     m_callModel->item(row, CALL_CHNG_IN_OI)->setText(QString::number(data.callChngInOI));
     m_callModel->item(row, CALL_VOLUME)->setText(QString::number(data.callVolume));
     m_callModel->item(row, CALL_IV)->setText(QString::number(data.callIV, 'f', 2));
-    m_callModel->item(row, CALL_LTP)->setText(QString::number(data.callLTP, 'f', 2));
+    
+    updateItemWithColor(m_callModel->item(row, CALL_LTP), data.callLTP);
+    
     m_callModel->item(row, CALL_CHNG)->setText(QString::number(data.callChng, 'f', 2));
     m_callModel->item(row, CALL_BID_QTY)->setText(QString::number(data.callBidQty));
-    m_callModel->item(row, CALL_BID)->setText(QString::number(data.callBid, 'f', 2));
-    m_callModel->item(row, CALL_ASK)->setText(QString::number(data.callAsk, 'f', 2));
+    
+    updateItemWithColor(m_callModel->item(row, CALL_BID), data.callBid);
+    updateItemWithColor(m_callModel->item(row, CALL_ASK), data.callAsk);
+    
     m_callModel->item(row, CALL_ASK_QTY)->setText(QString::number(data.callAskQty));
     
     // Update put data
     m_putModel->item(row, PUT_BID_QTY)->setText(QString::number(data.putBidQty));
-    m_putModel->item(row, PUT_BID)->setText(QString::number(data.putBid, 'f', 2));
-    m_putModel->item(row, PUT_ASK)->setText(QString::number(data.putAsk, 'f', 2));
+    
+    updateItemWithColor(m_putModel->item(row, PUT_BID), data.putBid);
+    updateItemWithColor(m_putModel->item(row, PUT_ASK), data.putAsk);
+    
     m_putModel->item(row, PUT_ASK_QTY)->setText(QString::number(data.putAskQty));
     m_putModel->item(row, PUT_CHNG)->setText(QString::number(data.putChng, 'f', 2));
-    m_putModel->item(row, PUT_LTP)->setText(QString::number(data.putLTP, 'f', 2));
+    
+    updateItemWithColor(m_putModel->item(row, PUT_LTP), data.putLTP);
     m_putModel->item(row, PUT_IV)->setText(QString::number(data.putIV, 'f', 2));
     m_putModel->item(row, PUT_VOLUME)->setText(QString::number(data.putVolume));
     m_putModel->item(row, PUT_CHNG_IN_OI)->setText(QString::number(data.putChngInOI));
@@ -799,6 +839,8 @@ void OptionChainWindow::refreshData()
                << new QStandardItem("0") // ChngInOI
                << new QStandardItem("0") // OI
                << putCheckbox;
+        
+
 
         for (int i=0; i<putRow.size()-1; ++i) putRow[i]->setTextAlignment(Qt::AlignCenter);
         m_putModel->appendRow(putRow);
@@ -810,6 +852,77 @@ void OptionChainWindow::refreshData()
         m_atmStrike = m_strikes[m_strikes.size() / 2];
         highlightATMStrike();
     }
+    
+    // Initial color update
+    updateTableColors();
+}
+
+WindowContext OptionChainWindow::getSelectedContext() const
+{
+    WindowContext context;
+    context.sourceWindow = "OptionChain";
+    
+    double strike = 0.0;
+    QString optionType;
+    int token = 0;
+    
+    // Prioritize Call selection
+    if (m_selectedCallRow >= 0 && m_callTable->selectionModel()->hasSelection()) {
+        strike = getStrikeAtRow(m_selectedCallRow);
+        optionType = "CE";
+        if (m_strikeData.contains(strike)) {
+            token = m_strikeData[strike].callToken;
+            context.ltp = m_strikeData[strike].callLTP;
+            context.bid = m_strikeData[strike].callBid;
+            context.ask = m_strikeData[strike].callAsk;
+            context.volume = m_strikeData[strike].callVolume;
+        }
+    } 
+    // Check Put selection
+    else if (m_selectedPutRow >= 0 && m_putTable->selectionModel()->hasSelection()) {
+        strike = getStrikeAtRow(m_selectedPutRow);
+        optionType = "PE";
+        if (m_strikeData.contains(strike)) {
+            token = m_strikeData[strike].putToken;
+            context.ltp = m_strikeData[strike].putLTP;
+            context.bid = m_strikeData[strike].putBid;
+            context.ask = m_strikeData[strike].putAsk;
+            context.volume = m_strikeData[strike].putVolume;
+        }
+    }
+    
+    if (token > 0) {
+        context.token = token;
+        context.symbol = m_currentSymbol;
+        context.expiry = m_currentExpiry;
+        context.strikePrice = strike;
+        context.optionType = optionType;
+        
+        // Fetch detailed contract info
+        const ContractData* contract = nullptr;
+        
+        // Try to find in NSEFO first
+        contract = RepositoryManager::getInstance()->getContractByToken("NSEFO", token);
+        if (contract) {
+             context.exchange = "NSEFO";
+        } else {
+             // Try BSEFO
+             contract = RepositoryManager::getInstance()->getContractByToken("BSEFO", token);
+             if (contract) context.exchange = "BSEFO";
+        }
+        
+        if (contract) {
+            context.segment = "D"; // Derivative
+            context.instrumentType = contract->instrumentType;
+            context.lotSize = contract->lotSize;
+            context.tickSize = contract->tickSize;
+            context.freezeQty = contract->freezeQty;
+            context.displayName = contract->displayName;
+            context.series = contract->series;
+        }
+    }
+    
+    return context;
 }
 
 void OptionChainWindow::onTickUpdate(const XTS::Tick &tick)

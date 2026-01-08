@@ -40,6 +40,14 @@ inline uint64_t le64toh_func(uint64_t val) {
            ((uint64_t)p[4] << 32) | ((uint64_t)p[5] << 40) | ((uint64_t)p[6] << 48) | ((uint64_t)p[7] << 56);
 }
 
+// Host to Big Endian (Network)
+inline uint32_t htobe32_func(uint32_t val) { return htonl(val); }
+
+// Host to Little Endian (Identity on Windows/x86)
+inline uint16_t htole16_func(uint16_t val) { return val; }
+inline uint32_t htole32_func(uint32_t val) { return val; }
+inline uint64_t htole64_func(uint64_t val) { return val; }
+
 // Reads a compressed field (delta from base)
 // Advances cursor automatically.
 inline int32_t read_compressed(const uint8_t* buffer, size_t& cursor, int32_t base) {

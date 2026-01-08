@@ -22,7 +22,7 @@ OrderModel::OrderModel(QObject* parent)
         "Good Till Days/Date/Time", "MF/AON", "MF Quantity", "Trigger Price",
         "CP Broker Id", "Auction No.", "Last Modified Time", "Total Executed Quantity",
         "Avg. Price", "Reason", "User Remarks", "Part Type", "ProductType",
-        "Server Entry Time", "AMO Order ID", "OMSID", "Give Up Status", "EOMSID",
+        "Order Unique ID", "Server Entry Time", "AMO Order ID", "OMSID", "Give Up Status", "EOMSID",
         "BookingRef", "Dealing Instruction", "Order Instruction", "Pending Lots",
         "Total Lots", "Total Executed Lots", "Alias Settlor", "Alias PartType",
         "Initiated From", "Modified From", "Strategy", "Mapping", "Initiated From User Id",
@@ -102,6 +102,7 @@ QVariant OrderModel::data(const QModelIndex& index, int role) const
             case Reason: return order.cancelRejectReason;
             case UserRemarks: return order.orderUniqueIdentifier;
             case ProductType: return order.productType;
+            case OrderUniqueID: return order.orderUniqueIdentifier;  // Dedicated column
             case ServerEntryTime: return order.orderTimestamp();
             default: return QString();
         }
