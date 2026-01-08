@@ -1,68 +1,53 @@
 #include "views/PreferenceDialog.h"
-#include "ui_PreferencesWindow.h"
+#include "views/PreferencesGeneralTab.h"
+#include "ui_PreferencesWindowTab.h"
 #include "utils/PreferencesManager.h"
+#include <QUiLoader>
+#include <QFile>
 #include <QColorDialog>
 #include <QFileDialog>
 #include <QMessageBox>
 #include <QScrollArea>
 #include <QVBoxLayout>
+#include <QDebug>
 
 PreferenceDialog::PreferenceDialog(QWidget *parent)
     : QDialog(parent)
-    , ui(new Ui::PreferenceDialog)
+    , ui(new Ui::PreferencesWindowTab)
     , m_prefsManager(&PreferencesManager::instance())
+    , m_generalTab(nullptr)
 {
     ui->setupUi(this);
-    setupConnections();
     
-    // Set dialog properties BEFORE loading preferences
+    // Set dialog properties
     setWindowTitle("Preferences");
     setModal(true);
     
-    // Set fixed size to prevent resizing (updated for new UI to match ODIN)
-    setFixedSize(1000, 750);
+    // Set fixed size to prevent resizing
+    setFixedSize(770, 670);
     
     // Remove resize grip
     setSizeGripEnabled(false);
     
-    // Make tabs scrollable
-    if (ui->tabWidget) {
-        // Add scroll area to each tab
-        for (int i = 0; i < ui->tabWidget->count(); ++i) {
-            QWidget *tab = ui->tabWidget->widget(i);
-            if (tab) {
-                QLayout *originalLayout = tab->layout();
-                if (originalLayout) {
-                    // Set proper spacing for the original layout
-                    originalLayout->setSpacing(6);
-                    originalLayout->setContentsMargins(8, 8, 8, 8);
-                    
-                    // Create scroll area
-                    QScrollArea *scrollArea = new QScrollArea(tab);
-                    scrollArea->setWidgetResizable(true);
-                    scrollArea->setFrameShape(QFrame::NoFrame);
-                    scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-                    scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-                    
-                    // Create container widget for the content
-                    QWidget *container = new QWidget();
-                    container->setLayout(originalLayout);
-                    
-                    scrollArea->setWidget(container);
-                    
-                    // Create new layout for the tab
-                    QVBoxLayout *newLayout = new QVBoxLayout(tab);
-                    newLayout->setContentsMargins(0, 0, 0, 0);
-                    newLayout->setSpacing(0);
-                    newLayout->addWidget(scrollArea);
-                }
-            }
-        }
+    // Load individual tab UI files into tab containers
+    loadTabContent("tabGeneral", ":/forms/PreferencesGeneralTab.ui");
+    loadTabContent("tabOrder", ":/forms/PreferencesOrderTab.ui");
+    loadTabContent("tabPortfolio", ":/forms/PreferencesPortfolioTab.ui");
+    loadTabContent("tabWorkSpace", ":/forms/PreferencesWorkSpaceTab.ui");
+    loadTabContent("tabDerivatives", ":/forms/PreferencesDerivativeTab.ui");
+    loadTabContent("tabAlertsMsg", ":/forms/PreferencesAlertMessageTab.ui");
+    loadTabContent("tabMarginPlusOrder", ":/forms/PreferencesMarginPlusOrderTab.ui");
+    
+    // Initialize tab handlers after loading tab content
+    QWidget *generalTabWidget = findChild<QWidget*>("tabGeneral");
+    if (generalTabWidget) {
+        m_generalTab = new PreferencesGeneralTab(generalTabWidget, m_prefsManager, this);
     }
     
+    setupConnections();
     loadPreferences();
     
-    // Center the dialog on parent window AFTER setting size
+    // Center the dialog on parent window
     if (parent) {
         QRect parentGeometry = parent->geometry();
         int x = parentGeometry.x() + (parentGeometry.width() - width()) / 2;
@@ -76,6 +61,43 @@ PreferenceDialog::~PreferenceDialog()
     delete ui;
 }
 
+void PreferenceDialog::loadTabContent(const QString &tabName, const QString &uiFilePath)
+{
+    // Find the tab widget by name
+    QWidget *tabWidget = findChild<QWidget*>(tabName);
+    if (!tabWidget) {
+        qWarning() << "Tab widget not found:" << tabName;
+        return;
+    }
+    
+    // Get the layout of the tab
+    QVBoxLayout *layout = qobject_cast<QVBoxLayout*>(tabWidget->layout());
+    if (!layout) {
+        qWarning() << "Tab layout not found for:" << tabName;
+        return;
+    }
+    
+    // Load the UI file
+    QUiLoader loader;
+    QFile file(uiFilePath);
+    
+    if (!file.open(QFile::ReadOnly)) {
+        qWarning() << "Could not open UI file:" << uiFilePath;
+        return;
+    }
+    
+    QWidget *tabContent = loader.load(&file, tabWidget);
+    file.close();
+    
+    if (tabContent) {
+        // Add the loaded content to the tab's layout
+        layout->addWidget(tabContent);
+    } else {
+        qWarning() << "Failed to load UI file:" << uiFilePath;
+    }
+}
+
+
 void PreferenceDialog::setupConnections()
 {
     // Button connections for new UI
@@ -83,81 +105,38 @@ void PreferenceDialog::setupConnections()
     connect(ui->pushButton_cancel, &QPushButton::clicked, this, &QDialog::reject);
     connect(ui->pushButton_apply, &QPushButton::clicked, this, &PreferenceDialog::onApplyClicked);
     
-    // Restore defaults button
-    connect(ui->pushButton_restoreDefaults, &QPushButton::clicked, this, &PreferenceDialog::onRestoreDefaultsClicked);
-    
-    // Browse button
-    connect(ui->pushButton_browse, &QPushButton::clicked, this, &PreferenceDialog::onBrowseClicked);
+    // Note: Browse and Restore Defaults buttons are not in the container UI
+    // They would be in individual tab UIs if needed
 }
 
 void PreferenceDialog::loadPreferences()
 {
-    // Load preferences from PreferencesManager
-    // General Tab - On Event
-    ui->comboBox_event->setCurrentText(
-        m_prefsManager->value("General/Event", "Order Error").toString()
-    );
-    ui->checkBox_beep->setChecked(
-        m_prefsManager->value("General/Beep", false).toBool()
-    );
-    ui->checkBox_flashMessageBar->setChecked(
-        m_prefsManager->value("General/FlashMessageBar", false).toBool()
-    );
-    ui->checkBox_messageBox->setChecked(
-        m_prefsManager->value("General/MessageBox", false).toBool()
-    );
-    ui->checkBox_playSound->setChecked(
-        m_prefsManager->value("General/PlaySound", false).toBool()
-    );
+    // Load General tab preferences
+    if (m_generalTab) {
+        m_generalTab->loadPreferences();
+    }
     
-    // Shortcut Key Schemes
-    ui->comboBox_shortcutScheme->setCurrentText(
-        m_prefsManager->value("General/ShortcutScheme", "NSE").toString()
-    );
+    // TODO: Load other tab preferences when their handlers are created
+    // if (m_orderTab) m_orderTab->loadPreferences();
+    // if (m_portfolioTab) m_portfolioTab->loadPreferences();
+    // etc...
     
-    // Time Format
-    ui->comboBox_timeFormat->setCurrentText(
-        m_prefsManager->value("General/TimeFormat", "Time in 12-Hour Format").toString()
-    );
-    
-    // Preferred Exchange
-    ui->comboBox_preferredExchange->setCurrentText(
-        m_prefsManager->value("General/PreferredExchange", "NSE").toString()
-    );
-    
-    // Order Book
-    ui->comboBox_orderBookOpen->setCurrentText(
-        m_prefsManager->value("General/OrderBookOpen", "Pending").toString()
-    );
-    
-    // Checkboxes
-    ui->checkBox_closeAllWindows->setChecked(
-        m_prefsManager->value("General/CloseAllWindows", true).toBool()
-    );
-    ui->checkBox_autoReconnect->setChecked(
-        m_prefsManager->value("General/AutoReconnect", false).toBool()
-    );
-    ui->checkBox_displayDate->setChecked(
-        m_prefsManager->value("General/DisplayDate", true).toBool()
-    );
+    qDebug() << "PreferenceDialog: All preferences loaded";
 }
 
 void PreferenceDialog::savePreferences()
 {
-    // Save all preferences to PreferencesManager
-    // General Tab
-    m_prefsManager->setValue("General/Event", ui->comboBox_event->currentText());
-    m_prefsManager->setValue("General/Beep", ui->checkBox_beep->isChecked());
-    m_prefsManager->setValue("General/FlashMessageBar", ui->checkBox_flashMessageBar->isChecked());
-    m_prefsManager->setValue("General/MessageBox", ui->checkBox_messageBox->isChecked());
-    m_prefsManager->setValue("General/PlaySound", ui->checkBox_playSound->isChecked());
-    m_prefsManager->setValue("General/ShortcutScheme", ui->comboBox_shortcutScheme->currentText());
-    m_prefsManager->setValue("General/TimeFormat", ui->comboBox_timeFormat->currentText());
-    m_prefsManager->setValue("General/PreferredExchange", ui->comboBox_preferredExchange->currentText());
-    m_prefsManager->setValue("General/OrderBookOpen", ui->comboBox_orderBookOpen->currentText());
-    m_prefsManager->setValue("General/CloseAllWindows", ui->checkBox_closeAllWindows->isChecked());
-    m_prefsManager->setValue("General/AutoReconnect", ui->checkBox_autoReconnect->isChecked());
-    m_prefsManager->setValue("General/DisplayDate", ui->checkBox_displayDate->isChecked());
+    // Save General tab preferences
+    if (m_generalTab) {
+        m_generalTab->savePreferences();
+    }
+    
+    // TODO: Save other tab preferences when their handlers are created
+    // if (m_orderTab) m_orderTab->savePreferences();
+    // if (m_portfolioTab) m_portfolioTab->savePreferences();
+    // etc...
+    
+    qDebug() << "PreferenceDialog: All preferences saved";
 }
 
 void PreferenceDialog::applyPreferences()
@@ -187,10 +166,20 @@ void PreferenceDialog::onRestoreDefaultsClicked()
     );
     
     if (reply == QMessageBox::Yes) {
-        // Clear all preferences
+        // Restore defaults for General tab
+        if (m_generalTab) {
+            m_generalTab->restoreDefaults();
+        }
+        
+        // TODO: Restore defaults for other tabs when their handlers are created
+        
+        // Clear all preferences from manager
         m_prefsManager->clear();
+        
         // Reload with default values
         loadPreferences();
+        
+        QMessageBox::information(this, "Restore Defaults", "Default preferences have been restored.");
     }
 }
 

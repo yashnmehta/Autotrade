@@ -3,32 +3,53 @@
  <class>PreferenceDialog</class>
  <widget class="QDialog" name="PreferenceDialog">
   <property name="geometry">
-   <rect><x>0</x><y>0</y><width>1000</width><height>750</height></rect>
+   <rect><x>0</x><y>0</y><width>750</width><height>650</height></rect>
   </property>
   <property name="windowTitle">
    <string>Preferences</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
+   <property name="spacing"><number>4</number></property>
+   <property name="leftMargin"><number>6</number></property>
+   <property name="topMargin"><number>6</number></property>
+   <property name="rightMargin"><number>6</number></property>
+   <property name="bottomMargin"><number>6</number></property>
    <item>
     <widget class="QTabWidget" name="tabWidget">
      <property name="currentIndex"><number>0</number></property>
      <widget class="QWidget" name="tabGeneral">
       <attribute name="title"><string>General</string></attribute>
       <layout class="QHBoxLayout" name="horizontalLayout_general">
-       <property name="spacing"><number>10</number></property>
-       <property name="margin"><number>10</number></property>
+       <property name="spacing"><number>6</number></property>
+       <property name="leftMargin"><number>6</number></property>
+       <property name="topMargin"><number>6</number></property>
+       <property name="rightMargin"><number>6</number></property>
+       <property name="bottomMargin"><number>6</number></property>
        <item>
         <layout class="QVBoxLayout" name="verticalLayout_left">
-         <property name="spacing"><number>8</number></property>
+         <property name="spacing"><number>4</number></property>
          <!-- On Event GroupBox -->
          <item>
           <widget class="QGroupBox" name="groupBox_onEvent">
            <property name="title"><string>On Event</string></property>
            <layout class="QVBoxLayout" name="verticalLayout_onEvent">
+            <property name="spacing"><number>3</number></property>
+            <property name="leftMargin"><number>6</number></property>
+            <property name="topMargin"><number>6</number></property>
+            <property name="rightMargin"><number>6</number></property>
+            <property name="bottomMargin"><number>6</number></property>
             <item>
              <layout class="QHBoxLayout" name="horizontalLayout_event">
+              <property name="spacing"><number>4</number></property>
               <item><widget class="QLabel" name="label_event"><property name="text"><string>Event :</string></property></widget></item>
               <item><widget class="QComboBox" name="comboBox_event">
+               <property name="maximumWidth"><number>180</number></property>
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
                <item><property name="text"><string>Order Error</string></property></item>
                <item><property name="text"><string>Order Confirmation</string></property></item>
                <item><property name="text"><string>Trade Confirmation</string></property></item>
@@ -52,6 +73,7 @@
             </item>
             <item>
              <layout class="QHBoxLayout" name="horizontalLayout_sound">
+              <property name="spacing"><number>4</number></property>
               <item>
                <widget class="QCheckBox" name="checkBox_playSound">
                 <property name="text"><string>Play Sound</string></property>
@@ -60,6 +82,7 @@
               <item>
                <widget class="QPushButton" name="pushButton_browse">
                 <property name="text"><string>Browse</string></property>
+                <property name="maximumWidth"><number>80</number></property>
                </widget>
               </item>
              </layout>
@@ -68,6 +91,9 @@
              <widget class="QLabel" name="label_eventNote">
               <property name="text"><string>Select the action when a particular event occurs e.g. Beep on Order Confirmation</string></property>
               <property name="wordWrap"><bool>true</bool></property>
+              <property name="font">
+               <font><pointsize>8</pointsize></font>
+              </property>
              </widget>
             </item>
            </layout>
@@ -77,12 +103,26 @@
          <!-- Shortcut Key Schemes -->
          <item>
           <layout class="QHBoxLayout" name="horizontalLayout_shortcuts">
+           <property name="spacing"><number>4</number></property>
            <item><widget class="QLabel" name="label_shortcuts"><property name="text"><string>Shortcut Key Schemes</string></property></widget></item>
            <item>
             <widget class="QComboBox" name="comboBox_shortcutScheme">
+             <property name="maximumWidth"><number>120</number></property>
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
              <item><property name="text"><string>NSE</string></property></item>
              <item><property name="text"><string>BSE</string></property></item>
             </widget>
+           </item>
+           <item>
+            <spacer name="horizontalSpacer_shortcuts">
+             <property name="orientation"><enum>Qt::Horizontal</enum></property>
+             <property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property>
+            </spacer>
            </item>
           </layout>
          </item>
@@ -92,8 +132,15 @@
           <widget class="QGroupBox" name="groupBox_tickData">
            <property name="title"><string>Tick Data Window</string></property>
            <layout class="QVBoxLayout" name="verticalLayout_tickData">
+            <property name="spacing"><number>3</number></property>
+            <property name="leftMargin"><number>6</number></property>
+            <property name="topMargin"><number>6</number></property>
+            <property name="rightMargin"><number>6</number></property>
+            <property name="bottomMargin"><number>6</number></property>
             <item>
              <layout class="QGridLayout" name="gridLayout_tickData">
+              <property name="horizontalSpacing"><number>4</number></property>
+              <property name="verticalSpacing"><number>3</number></property>
               <item row="0" column="0">
                <widget class="QCheckBox" name="checkBox_showDataWindow">
                 <property name="text"><string>Show Data Window</string></property>
@@ -113,6 +160,7 @@
             </item>
             <item>
              <layout class="QHBoxLayout" name="horizontalLayout_trendColor">
+              <property name="spacing"><number>4</number></property>
               <item><widget class="QLabel" name="label_trendColor"><property name="text"><string>Trend color based on :</string></property></widget></item>
               <item>
                <widget class="QRadioButton" name="radioButton_price">
@@ -125,6 +173,12 @@
                 <property name="text"><string>Volume</string></property>
                </widget>
               </item>
+              <item>
+               <spacer name="horizontalSpacer_trendColor">
+                <property name="orientation"><enum>Qt::Horizontal</enum></property>
+                <property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property>
+               </spacer>
+              </item>
              </layout>
             </item>
            </layout>
@@ -134,11 +188,21 @@
          <!-- Time Format and Other Settings -->
          <item>
           <layout class="QFormLayout" name="formLayout_settings">
+           <property name="horizontalSpacing"><number>8</number></property>
+           <property name="verticalSpacing"><number>4</number></property>
+           <property name="fieldGrowthPolicy"><enum>QFormLayout::FieldsStayAtSizeHint</enum></property>
            <item row="0" column="0">
             <widget class="QLabel" name="label_timeFormat"><property name="text"><string>Time Format to be used in Views :</string></property></widget>
            </item>
            <item row="0" column="1">
             <widget class="QComboBox" name="comboBox_timeFormat">
+             <property name="maximumWidth"><number>200</number></property>
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
              <item><property name="text"><string>Time in 12-Hour Format</string></property></item>
              <item><property name="text"><string>Time in 24-Hour Format</string></property></item>
             </widget>
@@ -148,6 +212,7 @@
            </item>
            <item row="1" column="1">
             <layout class="QHBoxLayout" name="horizontalLayout_sorting">
+             <property name="spacing"><number>4</number></property>
              <item>
               <widget class="QRadioButton" name="radioButton_clientName">
                <property name="text"><string>Client Name</string></property>
@@ -166,6 +231,13 @@
            </item>
            <item row="2" column="1">
             <widget class="QComboBox" name="comboBox_orderBookOpen">
+             <property name="maximumWidth"><number>150</number></property>
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
              <item><property name="text"><string>Pending</string></property></item>
              <item><property name="text"><string>Executed</string></property></item>
              <item><property name="text"><string>All Orders</string></property></item>
@@ -176,8 +248,16 @@
            </item>
            <item row="3" column="1">
             <layout class="QHBoxLayout" name="horizontalLayout_exchange">
+             <property name="spacing"><number>4</number></property>
              <item>
               <widget class="QComboBox" name="comboBox_preferredExchange">
+               <property name="maximumWidth"><number>100</number></property>
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
                <item><property name="text"><string>NSE</string></property></item>
                <item><property name="text"><string>BSE</string></property></item>
               </widget>
@@ -190,6 +270,13 @@
            </item>
            <item row="4" column="1">
             <widget class="QComboBox" name="comboBox_preferredProduct">
+             <property name="maximumWidth"><number>100</number></property>
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
              <item><property name="text"><string>(ALL)</string></property></item>
              <item><property name="text"><string>CNC</string></property></item>
              <item><property name="text"><string>MIS</string></property></item>
@@ -200,6 +287,13 @@
            </item>
            <item row="5" column="1">
             <widget class="QComboBox" name="comboBox_marketSegment">
+             <property name="maximumWidth"><number>100</number></property>
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
              <item><property name="text"><string>(ALL)</string></property></item>
              <item><property name="text"><string>Cash</string></property></item>
              <item><property name="text"><string>F&amp;O</string></property></item>
@@ -210,6 +304,13 @@
            </item>
            <item row="6" column="1">
             <widget class="QComboBox" name="comboBox_defaultExpiry">
+             <property name="maximumWidth"><number>120</number></property>
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
              <item><property name="text"><string>(ALL)</string></property></item>
             </widget>
            </item>
@@ -218,7 +319,11 @@
            </item>
            <item row="7" column="1">
             <layout class="QHBoxLayout" name="horizontalLayout_stockWatch">
-             <item><widget class="QSpinBox" name="spinBox_stockWatch"><property name="value"><number>5</number></property></widget></item>
+             <property name="spacing"><number>4</number></property>
+             <item><widget class="QSpinBox" name="spinBox_stockWatch">
+              <property name="maximumWidth"><number>60</number></property>
+              <property name="value"><number>5</number></property>
+             </widget></item>
              <item><widget class="QLabel" name="label_stockWatchUnit"><property name="text"><string>s</string></property></widget></item>
              <item><widget class="QLabel" name="label_closeOnEsc"><property name="text"><string>Close On Esc Key:</string></property></widget></item>
             </layout>
@@ -229,6 +334,8 @@
          <!-- Checkboxes Grid -->
          <item>
           <layout class="QGridLayout" name="gridLayout_options">
+           <property name="horizontalSpacing"><number>4</number></property>
+           <property name="verticalSpacing"><number>2</number></property>
            <item row="0" column="0">
             <widget class="QCheckBox" name="checkBox_defaultAuctionBroadcast">
              <property name="text"><string>Default Auction Broadcast</string></property>

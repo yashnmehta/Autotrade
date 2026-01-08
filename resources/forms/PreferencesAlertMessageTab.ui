@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>PreferencesAlertMessageTab</class>
+ <widget class="QWidget" name="PreferencesAlertMessageTab">
+  <property name="geometry">
+   <rect><x>0</x><y>0</y><width>700</width><height>500</height></rect>
+  </property>
+  <property name="windowTitle">
+   <string>Alert Message</string>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout_alertMsg">
+   <property name="spacing"><number>8</number></property>
+   <property name="leftMargin"><number>10</number></property>
+   <property name="topMargin"><number>10</number></property>
+   <property name="rightMargin"><number>10</number></property>
+   <property name="bottomMargin"><number>10</number></property>
+   
+   <!-- Equity Field -->
+   <item>
+    <widget class="QGroupBox" name="groupBox_equityField">
+     <property name="title"><string>Equity Field</string></property>
+     <layout class="QVBoxLayout" name="verticalLayout_equityField">
+      <item>
+       <widget class="QLabel" name="label_equityFieldInfo">
+        <property name="text"><string>Configure equity field settings</string></property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   
+   <!-- Derivatives Field -->
+   <item>
+    <widget class="QGroupBox" name="groupBox_derivativesField">
+     <property name="title"><string>Derivatives Field</string></property>
+     <layout class="QVBoxLayout" name="verticalLayout_derivativesField">
+      <item>
+       <widget class="QLabel" name="label_derivativesFieldInfo">
+        <property name="text"><string>Configure derivatives field settings</string></property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   
+   <!-- Action Buttons -->
+   <item>
+    <layout class="QHBoxLayout" name="horizontalLayout_alertButtons">
+     <item>
+      <spacer name="horizontalSpacer_alertButtons">
+       <property name="orientation"><enum>Qt::Horizontal</enum></property>
+       <property name="sizeHint"><size><width>40</width><height>20</height></size></property>
+      </spacer>
+     </item>
+     <item>
+      <widget class="QPushButton" name="pushButton_applyAlerts">
+       <property name="text"><string>Apply</string></property>
+       <property name="maximumWidth"><number>100</number></property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   
+   <item>
+    <spacer name="verticalSpacer_alertMsg">
+     <property name="orientation"><enum>Qt::Vertical</enum></property>
+     <property name="sizeHint"><size><width>20</width><height>40</height></size></property>
+    </spacer>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

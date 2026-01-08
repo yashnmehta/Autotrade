@@ -5,10 +5,11 @@
 #include <QShortcut>
 
 namespace Ui {
-class PreferenceDialog;
+class PreferencesWindowTab;
 }
 
 class PreferencesManager;
+class PreferencesGeneralTab;
 
 class PreferenceDialog : public QDialog
 {
@@ -29,10 +30,14 @@ private:
     void savePreferences();
     void setupConnections();
     void applyPreferences();
+    void loadTabContent(const QString &tabName, const QString &uiFilePath);
 
-    Ui::PreferenceDialog *ui;
+    Ui::PreferencesWindowTab *ui;
     PreferencesManager *m_prefsManager;
     QShortcut* m_escShortcut;
+    
+    // Tab handlers
+    PreferencesGeneralTab *m_generalTab;
 };
 
 #endif // PREFERENCEDIALOG_H

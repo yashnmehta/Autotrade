@@ -1,6 +1,7 @@
 #include "views/OrderBookWindow.h"
 #include "core/widgets/CustomOrderBook.h"
 #include "services/TradingDataService.h"
+#include "utils/PreferencesManager.h"
 #include "api/XTSTypes.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -31,6 +32,26 @@ OrderBookWindow::OrderBookWindow(TradingDataService* tradingDataService, QWidget
     }
     
     connect(m_filterShortcut, &QShortcut::activated, this, &OrderBookWindow::toggleFilterRow);
+    
+    // Load default status filter from preferences AFTER UI is setup
+    QString defaultStatus = PreferencesManager::instance().value("General/OrderBookDefaultStatus", "All").toString();
+    qDebug() << "[OrderBookWindow] Loading default status from preferences:" << defaultStatus;
+    
+    if (!defaultStatus.isEmpty() && m_statusCombo) {
+        int index = m_statusCombo->findText(defaultStatus);
+        qDebug() << "[OrderBookWindow] Found index for status" << defaultStatus << "=" << index;
+        
+        if (index >= 0) {
+            m_statusCombo->setCurrentIndex(index);
+            m_statusFilter = defaultStatus;
+            qDebug() << "[OrderBookWindow] Applied default status filter:" << m_statusFilter;
+            applyFilterToModel();  // Apply the filter immediately
+        } else {
+            qDebug() << "[OrderBookWindow] ERROR: Status" << defaultStatus << "not found in dropdown!";
+        }
+    } else {
+        qDebug() << "[OrderBookWindow] Using default 'All' status (combo exists:" << (m_statusCombo != nullptr) << ")";
+    }
 }
 
 OrderBookWindow::~OrderBookWindow() {}
@@ -57,7 +78,7 @@ QWidget* OrderBookWindow::createFilterWidget() {
         QVBoxLayout *v = new QVBoxLayout(); v->addWidget(new QLabel(l)); c = new QComboBox(); c->addItems(i); v->addWidget(c); filterLayout->addLayout(v);
     };
     addCombo("Instrument", m_instrumentTypeCombo, {"All", "NSE OPT", "NSE FUT", "NSE EQ"});
-    addCombo("Status", m_statusCombo, {"All", "Open", "Filled", "Cancelled", "Rejected"});
+    addCombo("Status", m_statusCombo, {"All", "Pending", "Unconfirmed", "Open", "Filled", "Executed", "Success", "Cancelled", "Rejected", "Failed", "Admin pending", "min/admin Pending"});
     addCombo("Buy/Sell", m_buySellCombo, {"All", "Buy", "Sell"});
     addCombo("Exchange", m_exchangeCombo, {"All", "NSE", "BSE"});
     addCombo("Order Type", m_orderTypeCombo, {"All", "Market", "Limit"});
@@ -119,13 +140,23 @@ void OrderBookWindow::clearFilters() {
 }
 
 void OrderBookWindow::applyFilterToModel() {
-    qDebug() << "[OrderBookWindow] applyFilterToModel: m_allOrders:" << m_allOrders.size() << "m_textFilters:" << m_textFilters.size();
+    qDebug() << "[OrderBookWindow] applyFilterToModel: m_allOrders:" << m_allOrders.size() 
+             << "m_statusFilter:" << m_statusFilter;
     
     QVector<XTS::Order> filtered;
     for (const auto& o : m_allOrders) {
         bool v = true;
         if (m_instrumentFilter != "All" && !o.tradingSymbol.contains(m_instrumentFilter, Qt::CaseInsensitive)) v = false;
-        if (v && m_statusFilter != "All" && !o.orderStatus.contains(m_statusFilter, Qt::CaseInsensitive)) v = false;
+        
+        if (v && m_statusFilter != "All") {
+            bool statusMatches = o.orderStatus.contains(m_statusFilter, Qt::CaseInsensitive);
+            if (!statusMatches) {
+                qDebug() << "[OrderBookWindow] Filtering out order - Status:" << o.orderStatus 
+                         << "doesn't match filter:" << m_statusFilter;
+                v = false;
+            }
+        }
+        
         if (v && m_buySellFilter != "All" && o.orderSide.toUpper() != m_buySellFilter.toUpper()) v = false;
         
         if (v && !m_columnFilters.isEmpty()) {

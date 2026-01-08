@@ -1,0 +1,320 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>PreferencesMarginPlusOrderTab</class>
+ <widget class="QWidget" name="PreferencesMarginPlusOrderTab">
+  <property name="geometry">
+   <rect><x>0</x><y>0</y><width>800</width><height>650</height></rect>
+  </property>
+  <property name="windowTitle">
+   <string>Bracket / Margin Plus Order</string>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout_main">
+   <property name="spacing"><number>8</number></property>
+   <property name="leftMargin"><number>10</number></property>
+   <property name="topMargin"><number>10</number></property>
+   <property name="rightMargin"><number>10</number></property>
+   <property name="bottomMargin"><number>10</number></property>
+   
+   <!-- Bracket Order Configuration -->
+   <item>
+    <widget class="QGroupBox" name="groupBox_bracketOrder">
+     <property name="title"><string>Bracket Order Configuration</string></property>
+     <layout class="QVBoxLayout" name="verticalLayout_bracketOrder">
+      <property name="spacing"><number>6</number></property>
+      
+      <item>
+       <widget class="QCheckBox" name="checkBox_enableBracketOrder">
+        <property name="text"><string>Enable Bracket Order</string></property>
+       </widget>
+      </item>
+      
+      <item>
+       <layout class="QGridLayout" name="gridLayout_bracketSettings">
+        <property name="horizontalSpacing"><number>8</number></property>
+        <property name="verticalSpacing"><number>4</number></property>
+        
+        <item row="0" column="0">
+         <widget class="QLabel" name="label_defaultStopLoss">
+          <property name="text"><string>Default Stop Loss (%):</string></property>
+         </widget>
+        </item>
+        <item row="0" column="1">
+         <widget class="QDoubleSpinBox" name="doubleSpinBox_defaultStopLoss">
+          <property name="maximumWidth"><number>100</number></property>
+          <property name="suffix"><string> %</string></property>
+          <property name="decimals"><number>2</number></property>
+          <property name="maximum"><number>100.000000000000000</number></property>
+          <property name="singleStep"><number>0.500000000000000</number></property>
+          <property name="value"><number>2.000000000000000</number></property>
+         </widget>
+        </item>
+        
+        <item row="0" column="2">
+         <widget class="QLabel" name="label_defaultTarget">
+          <property name="text"><string>Default Target (%):</string></property>
+         </widget>
+        </item>
+        <item row="0" column="3">
+         <widget class="QDoubleSpinBox" name="doubleSpinBox_defaultTarget">
+          <property name="maximumWidth"><number>100</number></property>
+          <property name="suffix"><string> %</string></property>
+          <property name="decimals"><number>2</number></property>
+          <property name="maximum"><number>100.000000000000000</number></property>
+          <property name="singleStep"><number>0.500000000000000</number></property>
+          <property name="value"><number>3.000000000000000</number></property>
+         </widget>
+        </item>
+        
+        <item row="1" column="0">
+         <widget class="QLabel" name="label_trailingStopLoss">
+          <property name="text"><string>Trailing Stop Loss (%):</string></property>
+         </widget>
+        </item>
+        <item row="1" column="1">
+         <widget class="QDoubleSpinBox" name="doubleSpinBox_trailingStopLoss">
+          <property name="maximumWidth"><number>100</number></property>
+          <property name="suffix"><string> %</string></property>
+          <property name="decimals"><number>2</number></property>
+          <property name="maximum"><number>100.000000000000000</number></property>
+          <property name="singleStep"><number>0.100000000000000</number></property>
+          <property name="value"><number>0.500000000000000</number></property>
+         </widget>
+        </item>
+        
+        <item row="1" column="2">
+         <widget class="QLabel" name="label_bracketOrderType">
+          <property name="text"><string>Order Type:</string></property>
+         </widget>
+        </item>
+        <item row="1" column="3">
+         <widget class="QComboBox" name="comboBox_bracketOrderType">
+          <property name="maximumWidth"><number>120</number></property>
+          <item><property name="text"><string>Limit</string></property></item>
+          <item><property name="text"><string>Market</string></property></item>
+          <item><property name="text"><string>Stop Loss</string></property></item>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout_bracketOptions">
+        <item>
+         <widget class="QCheckBox" name="checkBox_autoSquareOff">
+          <property name="text"><string>Auto Square Off at Market Close</string></property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QCheckBox" name="checkBox_lockProfitOnTarget">
+          <property name="text"><string>Lock Profit on Target Achievement</string></property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   
+   <!-- Margin Plus Order Configuration -->
+   <item>
+    <widget class="QGroupBox" name="groupBox_marginPlusOrder">
+     <property name="title"><string>Margin Plus Order Configuration</string></property>
+     <layout class="QVBoxLayout" name="verticalLayout_marginPlus">
+      <property name="spacing"><number>6</number></property>
+      
+      <item>
+       <widget class="QCheckBox" name="checkBox_enableMarginPlus">
+        <property name="text"><string>Enable Margin Plus Order (Intraday with Leverage)</string></property>
+       </widget>
+      </item>
+      
+      <item>
+       <layout class="QGridLayout" name="gridLayout_marginSettings">
+        <property name="horizontalSpacing"><number>8</number></property>
+        <property name="verticalSpacing"><number>4</number></property>
+        
+        <item row="0" column="0">
+         <widget class="QLabel" name="label_marginMultiplier">
+          <property name="text"><string>Margin Multiplier:</string></property>
+         </widget>
+        </item>
+        <item row="0" column="1">
+         <widget class="QComboBox" name="comboBox_marginMultiplier">
+          <property name="maximumWidth"><number>100</number></property>
+          <item><property name="text"><string>1x</string></property></item>
+          <item><property name="text"><string>2x</string></property></item>
+          <item><property name="text"><string>3x</string></property></item>
+          <item><property name="text"><string>4x</string></property></item>
+          <item><property name="text"><string>5x</string></property></item>
+         </widget>
+        </item>
+        
+        <item row="0" column="2">
+         <widget class="QLabel" name="label_maxExposure">
+          <property name="text"><string>Max Exposure Limit (%):</string></property>
+         </widget>
+        </item>
+        <item row="0" column="3">
+         <widget class="QDoubleSpinBox" name="doubleSpinBox_maxExposure">
+          <property name="maximumWidth"><number>100</number></property>
+          <property name="suffix"><string> %</string></property>
+          <property name="decimals"><number>0</number></property>
+          <property name="minimum"><number>10.000000000000000</number></property>
+          <property name="maximum"><number>100.000000000000000</number></property>
+          <property name="singleStep"><number>5.000000000000000</number></property>
+          <property name="value"><number>80.000000000000000</number></property>
+         </widget>
+        </item>
+        
+        <item row="1" column="0">
+         <widget class="QLabel" name="label_autoSquareOffTime">
+          <property name="text"><string>Auto Square Off Time:</string></property>
+         </widget>
+        </item>
+        <item row="1" column="1">
+         <widget class="QTimeEdit" name="timeEdit_autoSquareOff">
+          <property name="maximumWidth"><number>100</number></property>
+          <property name="displayFormat"><string>HH:mm</string></property>
+          <property name="time"><time><hour>15</hour><minute>15</minute><second>0</second></time></property>
+         </widget>
+        </item>
+        
+        <item row="1" column="2">
+         <widget class="QLabel" name="label_marginCutOff">
+          <property name="text"><string>Margin Cut-Off (%):</string></property>
+         </widget>
+        </item>
+        <item row="1" column="3">
+         <widget class="QDoubleSpinBox" name="doubleSpinBox_marginCutOff">
+          <property name="maximumWidth"><number>100</number></property>
+          <property name="suffix"><string> %</string></property>
+          <property name="decimals"><number>0</number></property>
+          <property name="minimum"><number>50.000000000000000</number></property>
+          <property name="maximum"><number>100.000000000000000</number></property>
+          <property name="singleStep"><number>5.000000000000000</number></property>
+          <property name="value"><number>70.000000000000000</number></property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout_marginOptions">
+        <item>
+         <widget class="QCheckBox" name="checkBox_enableMarginAlert">
+          <property name="text"><string>Enable Margin Alert Notifications</string></property>
+          <property name="checked"><bool>true</bool></property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QCheckBox" name="checkBox_preventNegativeBalance">
+          <property name="text"><string>Prevent Negative Balance</string></property>
+          <property name="checked"><bool>true</bool></property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   
+   <!-- Risk Management -->
+   <item>
+    <widget class="QGroupBox" name="groupBox_riskManagement">
+     <property name="title"><string>Risk Management</string></property>
+     <layout class="QGridLayout" name="gridLayout_riskManagement">
+      <property name="horizontalSpacing"><number>8</number></property>
+      <property name="verticalSpacing"><number>4</number></property>
+      
+      <item row="0" column="0">
+       <widget class="QLabel" name="label_maxLossPerDay">
+        <property name="text"><string>Max Loss Per Day:</string></property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QDoubleSpinBox" name="doubleSpinBox_maxLossPerDay">
+        <property name="maximumWidth"><number>120</number></property>
+        <property name="prefix"><string>₹ </string></property>
+        <property name="decimals"><number>2</number></property>
+        <property name="maximum"><number>999999.990000000000000</number></property>
+        <property name="singleStep"><number>1000.000000000000000</number></property>
+       </widget>
+      </item>
+      
+      <item row="0" column="2">
+       <widget class="QLabel" name="label_maxLossPerTrade">
+        <property name="text"><string>Max Loss Per Trade:</string></property>
+       </widget>
+      </item>
+      <item row="0" column="3">
+       <widget class="QDoubleSpinBox" name="doubleSpinBox_maxLossPerTrade">
+        <property name="maximumWidth"><number>120</number></property>
+        <property name="prefix"><string>₹ </string></property>
+        <property name="decimals"><number>2</number></property>
+        <property name="maximum"><number>99999.990000000000000</number></property>
+        <property name="singleStep"><number>500.000000000000000</number></property>
+       </widget>
+      </item>
+      
+      <item row="1" column="0">
+       <widget class="QLabel" name="label_maxPositions">
+        <property name="text"><string>Max Open Positions:</string></property>
+       </widget>
+      </item>
+      <item row="1" column="1">
+       <widget class="QSpinBox" name="spinBox_maxPositions">
+        <property name="maximumWidth"><number>80</number></property>
+        <property name="minimum"><number>1</number></property>
+        <property name="maximum"><number>100</number></property>
+        <property name="value"><number>10</number></property>
+       </widget>
+      </item>
+      
+      <item row="1" column="2">
+       <widget class="QCheckBox" name="checkBox_enforceRiskLimits">
+        <property name="text"><string>Enforce Risk Limits (Block Orders)</string></property>
+        <property name="checked"><bool>true</bool></property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   
+   <!-- Order Confirmation -->
+   <item>
+    <widget class="QGroupBox" name="groupBox_orderConfirmation">
+     <property name="title"><string>Order Confirmation</string></property>
+     <layout class="QHBoxLayout" name="horizontalLayout_confirmation">
+      <item>
+       <widget class="QCheckBox" name="checkBox_confirmBracketOrders">
+        <property name="text"><string>Confirm Before Bracket Order Placement</string></property>
+        <property name="checked"><bool>true</bool></property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="checkBox_confirmMarginOrders">
+        <property name="text"><string>Confirm Before Margin Plus Order Placement</string></property>
+        <property name="checked"><bool>true</bool></property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="checkBox_showOrderSummary">
+        <property name="text"><string>Show Order Summary Dialog</string></property>
+        <property name="checked"><bool>true</bool></property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   
+   <item>
+    <spacer name="verticalSpacer_main">
+     <property name="orientation"><enum>Qt::Vertical</enum></property>
+     <property name="sizeHint"><size><width>20</width><height>40</height></size></property>
+    </spacer>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>
