@@ -511,6 +511,7 @@ target_link_libraries(TradingTerminal PRIVATE
     OpenSSL::Crypto
     Threads::Threads
     ${LZO_LIBRARIES}
+    cpp_broadcast_bsefo  # BSE FO broadcast library
     # sioclient  # Disabled
 )
 

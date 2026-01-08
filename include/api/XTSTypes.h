@@ -223,6 +223,7 @@ struct ModifyOrderParams {
     int64_t appOrderID;                 // Original order ID to modify
     int64_t exchangeInstrumentID;       // Instrument token
     QString exchangeSegment;            // Exchange segment (NSEFO, NSECM, etc.)
+    QString productType;                // Product type (MIS, NRML, CNC) - REQUIRED by API
     QString orderType;                  // Limit, Market, StopLimit, StopMarket
     int modifiedOrderQuantity;          // New total quantity (must be >= filled qty)
     int modifiedDisclosedQuantity;      // New disclosed quantity

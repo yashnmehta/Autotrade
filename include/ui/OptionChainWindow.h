@@ -15,6 +15,7 @@
 #include <QMap>
 #include "api/XTSTypes.h"
 #include "repository/ContractData.h"
+#include "models/WindowContext.h"
 
 /**
  * @brief Data structure for a single strike in the option chain
@@ -106,6 +107,7 @@ public:
     // Data retrieval
     QString currentSymbol() const { return m_currentSymbol; }
     QString currentExpiry() const { return m_currentExpiry; }
+    WindowContext getSelectedContext() const;
     
 signals:
     void tradeRequested(const QString &symbol, const QString &expiry, 

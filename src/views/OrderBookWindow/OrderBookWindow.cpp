@@ -225,12 +225,49 @@ bool OrderBookWindow::getSelectedOrder(XTS::Order &outOrder) const {
     return true;
 }
 
+QVector<XTS::Order> OrderBookWindow::getSelectedOrders() const {
+    QVector<XTS::Order> selectedOrders;
+    
+    QItemSelectionModel *selectionModel = m_tableView->selectionModel();
+    if (!selectionModel) return selectedOrders;
+    
+    QModelIndexList selectedIndexes = selectionModel->selectedRows();
+    
+    OrderModel* orderModel = qobject_cast<OrderModel*>(m_model);
+    if (!orderModel) return selectedOrders;
+    
+    for (const QModelIndex &index : selectedIndexes) {
+        // Map through proxy to source
+        QModelIndex sourceIndex = m_proxyModel->mapToSource(index);
+        if (!sourceIndex.isValid()) continue;
+        
+        // Skip filter row (row 0 when filter is visible)
+        int row = sourceIndex.row();
+        if (orderModel->isFilterRowVisible() && row == 0) continue;
+        
+        // Adjust row index when filter row is visible
+        int dataRow = orderModel->isFilterRowVisible() ? row - 1 : row;
+        if (dataRow < 0 || dataRow >= orderModel->getOrders().size()) continue;
+        
+        selectedOrders.append(orderModel->getOrderAt(dataRow));
+    }
+    
+    return selectedOrders;
+}
+
 void OrderBookWindow::onModifyOrder() {
-    XTS::Order order;
-    if (!getSelectedOrder(order)) {
+    QVector<XTS::Order> selectedOrders = getSelectedOrders();
+    if (selectedOrders.isEmpty()) {
         QMessageBox::warning(this, "Modify Order", "Please select an order to modify.");
         return;
     }
+    
+    if (selectedOrders.size() > 1) {
+        QMessageBox::warning(this, "Modify Order", "Please select only one order to modify.");
+        return;
+    }
+    
+    XTS::Order order = selectedOrders.first();
     
     // Validate order status - can only modify open or partially filled orders
     if (order.orderStatus != "Open" && order.orderStatus != "PartiallyFilled" && 
@@ -248,37 +285,50 @@ void OrderBookWindow::onModifyOrder() {
 }
 
 void OrderBookWindow::onCancelOrder() {
-    XTS::Order order;
-    if (!getSelectedOrder(order)) {
+    QVector<XTS::Order> selectedOrders = getSelectedOrders();
+    if (selectedOrders.isEmpty()) {
         QMessageBox::warning(this, "Cancel Order", "Please select an order to cancel.");
         return;
     }
     
-    // Validate order status - can only cancel open or partially filled orders
-    if (order.orderStatus != "Open" && order.orderStatus != "PartiallyFilled" && 
-        order.orderStatus != "New" && order.orderStatus != "PendingNew") {
-        QMessageBox::warning(this, "Cancel Order", 
-            QString("Cannot cancel order - Status: %1\nOnly Open or PartiallyFilled orders can be cancelled.")
-                .arg(order.orderStatus));
+    // Filter valid orders for cancellation
+    QVector<XTS::Order> validOrders;
+    for (const XTS::Order &order : selectedOrders) {
+        if (order.orderStatus == "Open" || order.orderStatus == "PartiallyFilled" || 
+            order.orderStatus == "New" || order.orderStatus == "PendingNew") {
+            validOrders.append(order);
+        }
+    }
+    
+    if (validOrders.isEmpty()) {
+        QMessageBox::warning(this, "Cancel Order", "No selected orders can be cancelled.\nOnly Open or PartiallyFilled orders can be cancelled.");
         return;
     }
     
     // Confirm cancellation
-    QString confirmMsg = QString("Cancel order?\n\n"
-                                 "Symbol: %1\n"
-                                 "Side: %2\n"
-                                 "Qty: %3 (Filled: %4)\n"
-                                 "Price: %5")
+    QString confirmMsg;
+    if (validOrders.size() == 1) {
+        const XTS::Order &order = validOrders.first();
+        confirmMsg = QString("Cancel order?\n\n"
+                             "Symbol: %1\n"
+                             "Side: %2\n"
+                             "Qty: %3 (Filled: %4)\n"
+                             "Price: %5")
                             .arg(order.tradingSymbol)
                             .arg(order.orderSide)
                             .arg(order.orderQuantity)
                             .arg(order.cumulativeQuantity)
                             .arg(order.orderPrice, 0, 'f', 2);
+    } else {
+        confirmMsg = QString("Cancel %1 selected orders?").arg(validOrders.size());
+    }
     
     if (QMessageBox::question(this, "Confirm Cancellation", confirmMsg, 
                               QMessageBox::Yes | QMessageBox::No) == QMessageBox::Yes) {
-        qDebug() << "[OrderBookWindow] Emitting cancelOrderRequested for AppOrderID:" << order.appOrderID;
-        emit cancelOrderRequested(order.appOrderID);
+        for (const XTS::Order &order : validOrders) {
+            qDebug() << "[OrderBookWindow] Emitting cancelOrderRequested for AppOrderID:" << order.appOrderID;
+            emit cancelOrderRequested(order.appOrderID);
+        }
     }
 }
 
@@ -294,35 +344,43 @@ void OrderBookWindow::keyPressEvent(QKeyEvent *event) {
     
     if (event->modifiers() & Qt::ShiftModifier) {
         if (event->key() == Qt::Key_F1 || event->key() == Qt::Key_F2) {
-            XTS::Order order;
-            if (getSelectedOrder(order)) {
-                // Validate order status before modification
-                if (order.orderStatus != "Open" && order.orderStatus != "PartiallyFilled" && 
-                    order.orderStatus != "New" && order.orderStatus != "PendingNew") {
-                    QMessageBox::warning(this, "Modify Order", 
-                        QString("Cannot modify order - Status: %1").arg(order.orderStatus));
-                    return;
-                }
-                
-                // Shift+F1 for buy side, Shift+F2 for sell side
-                bool isBuy = (event->key() == Qt::Key_F1);
-                bool orderIsBuy = (order.orderSide.toUpper() == "BUY");
-                
-                if (isBuy != orderIsBuy) {
-                    QMessageBox::warning(this, "Modify Order", 
-                        QString("Order side mismatch.\nOrder is %1 but Shift+%2 opens %3 window.\n\n"
-                                "Use Shift+%4 instead.")
-                            .arg(order.orderSide)
-                            .arg(isBuy ? "F1" : "F2")
-                            .arg(isBuy ? "Buy" : "Sell")
-                            .arg(orderIsBuy ? "F1" : "F2"));
-                    return;
-                }
-                
-                emit modifyOrderRequested(order);
-            } else {
+            QVector<XTS::Order> selectedOrders = getSelectedOrders();
+            if (selectedOrders.isEmpty()) {
                 QMessageBox::warning(this, "Modify Order", "Please select an order to modify.");
+                return;
             }
+            
+            if (selectedOrders.size() > 1) {
+                QMessageBox::warning(this, "Modify Order", "Please select only one order to modify.");
+                return;
+            }
+            
+            XTS::Order order = selectedOrders.first();
+            
+            // Validate order status before modification
+            if (order.orderStatus != "Open" && order.orderStatus != "PartiallyFilled" && 
+                order.orderStatus != "New" && order.orderStatus != "PendingNew") {
+                QMessageBox::warning(this, "Modify Order", 
+                    QString("Cannot modify order - Status: %1").arg(order.orderStatus));
+                return;
+            }
+            
+            // Shift+F1 for buy side, Shift+F2 for sell side
+            bool isBuy = (event->key() == Qt::Key_F1);
+            bool orderIsBuy = (order.orderSide.toUpper() == "BUY");
+            
+            if (isBuy != orderIsBuy) {
+                QMessageBox::warning(this, "Modify Order", 
+                    QString("Order side mismatch.\nOrder is %1 but Shift+%2 opens %3 window.\n\n"
+                            "Use Shift+%4 instead.")
+                        .arg(order.orderSide)
+                        .arg(isBuy ? "F1" : "F2")
+                        .arg(isBuy ? "Buy" : "Sell")
+                        .arg(orderIsBuy ? "F1" : "F2"));
+                return;
+            }
+            
+            emit modifyOrderRequested(order);
             return;
         }
     }

@@ -136,6 +136,16 @@ void MainWindow::createBuyWindow()
                     }
                 }
             }
+            // Check for Option Chain Window
+            else if (activeSub->windowType() == "OptionChain") {
+                OptionChainWindow *oc = qobject_cast<OptionChainWindow*>(activeSub->contentWidget());
+                if (oc) {
+                    WindowContext ctx = oc->getSelectedContext();
+                    if (ctx.isValid()) {
+                        buyWindow = new BuyWindow(ctx, window);
+                    }
+                }
+            }
         }
         if (!buyWindow) buyWindow = new BuyWindow(window);
     }
@@ -184,6 +194,16 @@ void MainWindow::createSellWindow()
                 PositionWindow *pw = qobject_cast<PositionWindow*>(activeSub->contentWidget());
                 if (pw) {
                     WindowContext ctx = pw->getSelectedContext();
+                    if (ctx.isValid()) {
+                        sellWindow = new SellWindow(ctx, window);
+                    }
+                }
+            }
+            // Check for Option Chain Window
+            else if (activeSub->windowType() == "OptionChain") {
+                OptionChainWindow *oc = qobject_cast<OptionChainWindow*>(activeSub->contentWidget());
+                if (oc) {
+                    WindowContext ctx = oc->getSelectedContext();
                     if (ctx.isValid()) {
                         sellWindow = new SellWindow(ctx, window);
                     }
@@ -248,6 +268,17 @@ void MainWindow::createSnapQuoteWindow()
         if (context.isValid()) {
             snapWindow = new SnapQuoteWindow(context, window);
         }
+    } else {
+         CustomMDISubWindow *activeSub = m_mdiArea ? m_mdiArea->activeWindow() : nullptr;
+         if (activeSub && activeSub->windowType() == "OptionChain") {
+             OptionChainWindow *oc = qobject_cast<OptionChainWindow*>(activeSub->contentWidget());
+             if (oc) {
+                 WindowContext ctx = oc->getSelectedContext();
+                 if (ctx.isValid()) {
+                     snapWindow = new SnapQuoteWindow(ctx, window);
+                 }
+             }
+         }
     }
     if (!snapWindow) snapWindow = new SnapQuoteWindow(window);
     

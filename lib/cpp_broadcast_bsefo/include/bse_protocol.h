@@ -141,7 +141,14 @@ struct DecodedClosePrice {
     uint64_t packetTimestamp;    // System time of receipt
 };
 
-#pragma pack(pop)
+// Decoded Implied Volatility (Message Type 2028)
+struct DecodedImpliedVolatility {
+    uint32_t token;
+    int64_t impliedVolatility;   // Raw value from packet
+    uint64_t packetTimestamp;    // System time of receipt
+};
+
+
 
 } // namespace bse
 

@@ -42,7 +42,7 @@ void CustomOrderBook::applyDefaultStyling()
     
     setAlternatingRowColors(false);
     setSelectionBehavior(QAbstractItemView::SelectRows);
-    setSelectionMode(QAbstractItemView::SingleSelection);
+    setSelectionMode(QAbstractItemView::ExtendedSelection);
     setShowGrid(true);
     setWordWrap(false);
 }

@@ -40,10 +40,20 @@ target_link_libraries(test_ia_data_native
 if(WIN32)
     target_link_libraries(test_ia_data_native ws2_32 wsock32)
 endif()
-set_target_properties(test_ia_data_native PROPERTIES AUTOMOC ON)
+# BSE Parser Test
+add_executable(test_bse_parser test_bse_parser.cpp)
+target_include_directories(test_bse_parser PRIVATE
+    ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_bsefo/include
+)
+target_link_libraries(test_bse_parser
+    cpp_broadcast_bsefo
+)
+if(WIN32)
+    target_link_libraries(test_bse_parser ws2_32)
+endif()
 
 # Set output directory for test binaries
-set_target_properties(test_marketdata_api test_interactive_api test_ia_data_native
+set_target_properties(test_marketdata_api test_interactive_api test_ia_data_native test_bse_parser
     PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests"
 )

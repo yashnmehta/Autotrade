@@ -8,11 +8,13 @@ include_directories(include)
 # Define source files
 set(SOURCES
     src/bse_receiver.cpp
+    src/bse_parser.cpp
 )
 
 # Define headers
 set(HEADERS
     include/bse_receiver.h
+    include/bse_parser.h
     include/bse_protocol.h
     include/bse_utils.h
 )

@@ -59,6 +59,16 @@ public:
     
     // === Utils ===
     static QString makeKey(const QString& exchange, const QString& client, int token);
+    static inline int64_t makeIntKey(int exchangeSegment, int token) {
+        return (static_cast<int64_t>(exchangeSegment) << 32) | static_cast<uint32_t>(token);
+    }
+
+    // === Optimized Int64 Lookups (FeedHandler Alignment) ===
+    void addIntKeyToken(int exchangeSegment, int token, int row);
+    void removeIntKeyToken(int exchangeSegment, int token, int row);
+    QList<int> getRowsForIntKey(int exchangeSegment, int token) const;
+    QList<int> getRowsForIntKey(int64_t key) const; // Direct key lookup
+    int64_t getIntKeyForRow(int row) const;
 
 signals:
     void tokenAdded(const QString& key, int row);
@@ -72,6 +82,10 @@ private:
     QMap<QString, QList<int>> m_keyToRows;
     // row -> key
     QMap<int, QString> m_rowToKey;
+    
+    // Optimized Int64 store
+    QMap<int64_t, QList<int>> m_intKeyToRows;
+    QMap<int, int64_t> m_rowToIntKey;
 };
 
 #endif // TOKENADDRESSBOOK_H

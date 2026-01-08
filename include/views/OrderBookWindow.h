@@ -57,6 +57,7 @@ private:
     
     // Helper to get selected order
     bool getSelectedOrder(XTS::Order &outOrder) const;
+    QVector<XTS::Order> getSelectedOrders() const;
     
     TradingDataService* m_tradingDataService;
     QVector<XTS::Order> m_allOrders;
