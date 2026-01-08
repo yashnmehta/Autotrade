@@ -222,6 +222,7 @@ set(VIEW_SOURCES
     src/views/ColumnProfileDialog.cpp
     src/views/GenericProfileDialog.cpp
     src/views/PreferenceDialog/PreferenceDialog.cpp
+    src/views/PreferenceDialog/PreferencesGeneralTab.cpp
     src/views/CustomizeDialog.cpp
 )
 
@@ -239,6 +240,7 @@ set(VIEW_HEADERS
     include/views/ColumnProfileDialog.h
     include/views/GenericProfileDialog.h
     include/views/PreferenceDialog.h
+    include/views/PreferencesGeneralTab.h
     include/views/CustomizeDialog.h
 )
 
@@ -295,14 +297,7 @@ set(SERVICE_HEADERS
 # ========================================
 # UTILS LAYER - Helper utilities
 # ========================================
-set(UTILS_SOURCES
-    src/utils/PreferencesManager.cpp
-)
-
-set(UTILS_HEADERS
-    include/utils/PreferencesManager.h
-    include/models/WindowContext.h
-)
+# (Moved to line 362 - see below)
 
 # ========================================
 # API LAYER - XTS API Integration
@@ -373,6 +368,7 @@ set(UTILS_SOURCES
     src/utils/SelectionHelpers.cpp
     src/utils/ConfigLoader.cpp
     src/utils/PreferencesManager.cpp
+    src/utils/SoundManager.cpp
 )
 
 set(UTILS_HEADERS
@@ -380,6 +376,7 @@ set(UTILS_HEADERS
     include/utils/SelectionHelpers.h
     include/utils/ConfigLoader.h
     include/utils/PreferencesManager.h
+    include/utils/SoundManager.h
     include/models/WindowContext.h
 )
 
@@ -436,7 +433,14 @@ set(FORMS
     resources/forms/SplashScreen.ui
     resources/forms/LoginWindow.ui
     resources/forms/customize.ui
-    resources/forms/PreferencesWindow.ui
+    resources/forms/PreferencesWindowTab.ui
+    resources/forms/PreferencesGeneralTab.ui
+    resources/forms/PreferencesOrderTab.ui
+    resources/forms/PreferencesPortfolioTab.ui
+    resources/forms/PreferencesWorkSpaceTab.ui
+    resources/forms/PreferencesDerivativeTab.ui
+    resources/forms/PreferencesAlertMessageTab.ui
+    resources/forms/PreferencesMarginPlusOrderTab.ui
 )
 
 # Resource files

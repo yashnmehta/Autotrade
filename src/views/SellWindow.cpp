@@ -2,6 +2,7 @@
 #include "views/BuyWindow.h"
 #include "api/XTSTypes.h"
 #include "utils/PreferencesManager.h"
+#include "utils/SoundManager.h"
 #include "utils/WindowSettingsHelper.h"
 #include "core/widgets/CustomMDISubWindow.h"
 #include <QMessageBox>
@@ -150,3 +151,9 @@ void SellWindow::closeCurrentWindow() {
 
 bool SellWindow::hasActiveWindow() { return s_instance != nullptr; }
 void SellWindow::setInstance(SellWindow* instance) { s_instance = instance; }
+
+void SellWindow::showEvent(QShowEvent *event)
+{
+    BaseOrderWindow::showEvent(event);
+    SoundManager::instance().playBeepForEvent(SoundManager::EventType::OrderConfirmation);
+}

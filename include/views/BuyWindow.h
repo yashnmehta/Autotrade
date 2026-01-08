@@ -24,6 +24,7 @@ protected:
     void calculateDefaultPrice(const WindowContext &context) override;
     void keyPressEvent(QKeyEvent *event) override;
     void closeEvent(QCloseEvent *event) override;
+    void showEvent(QShowEvent *event) override;
 
 private:
     static void setInstance(BuyWindow* instance);

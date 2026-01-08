@@ -1,0 +1,548 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>PreferencesOrderTab</class>
+ <widget class="QWidget" name="PreferencesOrderTab">
+  <property name="geometry">
+   <rect><x>0</x><y>0</y><width>800</width><height>700</height></rect>
+  </property>
+  <property name="windowTitle">
+   <string>Order</string>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout_order">
+   <property name="spacing"><number>6</number></property>
+   <property name="leftMargin"><number>10</number></property>
+   <property name="topMargin"><number>10</number></property>
+   <property name="rightMargin"><number>10</number></property>
+   <property name="bottomMargin"><number>10</number></property>
+   
+   <!-- Top Row: Market Segment and Product Type -->
+   <item>
+    <layout class="QHBoxLayout" name="horizontalLayout_orderTop">
+     <item>
+      <widget class="QLabel" name="label_marketSegmentOrder">
+       <property name="text"><string>Market Segment :</string></property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QComboBox" name="comboBox_marketSegmentOrder">
+       <item><property name="text"><string>NSE EQ</string></property></item>
+       <item><property name="text"><string>NSE FO</string></property></item>
+       <item><property name="text"><string>BSE EQ</string></property></item>
+      </widget>
+     </item>
+     <item><spacer name="horizontalSpacer_order1"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint"><size><width>40</width><height>20</height></size></property></spacer></item>
+     <item>
+      <widget class="QLabel" name="label_productTypeOrder">
+       <property name="text"><string>Product Type</string></property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QComboBox" name="comboBox_productTypeOrder">
+       <item><property name="text"><string>Margin</string></property></item>
+       <item><property name="text"><string>CNC</string></property></item>
+       <item><property name="text"><string>MIS</string></property></item>
+      </widget>
+     </item>
+     <item><spacer name="horizontalSpacer_order2"><property name="orientation"><enum>Qt::Horizontal</enum></property></spacer></item>
+    </layout>
+   </item>
+   
+   <!-- Print Confirmations Row -->
+   <item>
+    <layout class="QHBoxLayout" name="horizontalLayout_printConfirm">
+     <item>
+      <widget class="QCheckBox" name="checkBox_printOrderConfirm">
+       <property name="text"><string>Print Order Confirmations</string></property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QCheckBox" name="checkBox_printTradeConfirm">
+       <property name="text"><string>Print Trade Confirmations</string></property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QCheckBox" name="checkBox_mtmOnline">
+       <property name="text"><string>MTM Online Calculation</string></property>
+       <property name="checked"><bool>true</bool></property>
+      </widget>
+     </item>
+     <item><spacer name="horizontalSpacer_order3"><property name="orientation"><enum>Qt::Horizontal</enum></property></spacer></item>
+    </layout>
+   </item>
+   
+   <!-- Message Prompt Section -->
+   <item>
+    <layout class="QHBoxLayout" name="horizontalLayout_messagePrompt">
+     <item>
+      <widget class="QLabel" name="label_messagePrompt">
+       <property name="text"><string>Select an option to prompt for a confirmation in the form of a message</string></property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="label_validity">
+       <property name="text"><string>Validity :</string></property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QComboBox" name="comboBox_validity">
+       <item><property name="text"><string>DAY</string></property></item>
+       <item><property name="text"><string>IOC</string></property></item>
+       <item><property name="text"><string>GTD</string></property></item>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   
+   <!-- Order Type Checkboxes -->
+   <item>
+    <layout class="QHBoxLayout" name="horizontalLayout_orderTypes">
+     <item>
+      <widget class="QCheckBox" name="checkBox_freshOrder">
+       <property name="text"><string>Fresh Order</string></property>
+       <property name="checked"><bool>true</bool></property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QCheckBox" name="checkBox_orderModification">
+       <property name="text"><string>Order Modification</string></property>
+       <property name="checked"><bool>true</bool></property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QCheckBox" name="checkBox_marketOrder">
+       <property name="text"><string>Market Order</string></property>
+       <property name="checked"><bool>true</bool></property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QCheckBox" name="checkBox_orderCancellation">
+       <property name="text"><string>Order Cancellation</string></property>
+       <property name="checked"><bool>true</bool></property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   
+   <item>
+    <widget class="QCheckBox" name="checkBox_openOrderEntryMarket">
+     <property name="text"><string>Open Order Entry with Market Order</string></property>
+    </widget>
+   </item>
+   
+   <!-- Always use Min. Order Qty -->
+   <item>
+    <layout class="QHBoxLayout" name="horizontalLayout_minOrderQty">
+     <item>
+      <widget class="QCheckBox" name="checkBox_alwaysUseMinQty">
+       <property name="text"><string>Always use Min. Order Qty given here</string></property>
+       <property name="checked"><bool>true</bool></property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="label_forOrdersAlert">
+       <property name="text"><string>For Orders Alert Msg:</string></property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QComboBox" name="comboBox_forOrdersAlert">
+       <item><property name="text"><string>Yes/No Default Yes</string></property></item>
+       <item><property name="text"><string>Yes/No Default No</string></property></item>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   
+   <!-- Derivative Order Qty -->
+   <item>
+    <layout class="QHBoxLayout" name="horizontalLayout_derivativeQty">
+     <item>
+      <widget class="QCheckBox" name="checkBox_alwaysUseDerivativeQty">
+       <property name="text"><string>Always use Derivative Order Qty</string></property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QComboBox" name="comboBox_minLot">
+       <item><property name="text"><string>MIN LOT</string></property></item>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="label_defaultDQ">
+       <property name="text"><string>Default DQ % age</string></property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLineEdit" name="lineEdit_defaultDQ">
+       <property name="maximumWidth"><number>80</number></property>
+      </widget>
+     </item>
+     <item><spacer name="horizontalSpacer_order4"><property name="orientation"><enum>Qt::Horizontal</enum></property></spacer></item>
+    </layout>
+   </item>
+   
+   <!-- Set Default Button and Lot Increment -->
+   <item>
+    <layout class="QHBoxLayout" name="horizontalLayout_defaultButton">
+     <item>
+      <widget class="QCheckBox" name="checkBox_setDefaultYes">
+       <property name="text"><string>Set Default Button As Yes For Orders After Market Closed</string></property>
+       <property name="checked"><bool>true</bool></property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QCheckBox" name="checkBox_lotIncrement">
+       <property name="text"><string>Lot Increment</string></property>
+      </widget>
+     </item>
+     <item><spacer name="horizontalSpacer_order5"><property name="orientation"><enum>Qt::Horizontal</enum></property></spacer></item>
+    </layout>
+   </item>
+   
+   <!-- Market Order with Prot -->
+   <item>
+    <layout class="QHBoxLayout" name="horizontalLayout_marketOrderProt">
+     <item>
+      <widget class="QCheckBox" name="checkBox_marketOrderProt">
+       <property name="text"><string>Market Order with Prot % :</string></property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLineEdit" name="lineEdit_protPercent">
+       <property name="maximumWidth"><number>60</number></property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="label_theoreticalAlert">
+       <property name="text"><string>% Of Theoretical Alert :</string></property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLineEdit" name="lineEdit_theoreticalAlert">
+       <property name="maximumWidth"><number>60</number></property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="label_minNetPos">
+       <property name="text"><string>Min. Net Pos. (Lots):</string></property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLineEdit" name="lineEdit_minNetPos">
+       <property name="text"><string>0</string></property>
+       <property name="maximumWidth"><number>60</number></property>
+      </widget>
+     </item>
+     <item><spacer name="horizontalSpacer_order6"><property name="orientation"><enum>Qt::Horizontal</enum></property></spacer></item>
+    </layout>
+   </item>
+   
+   <!-- Comm Order Preferences -->
+   <item>
+    <layout class="QHBoxLayout" name="horizontalLayout_commOrder">
+     <item>
+      <widget class="QLabel" name="label_commOrderPref">
+       <property name="text"><string>Comm Order Preferences</string></property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QRadioButton" name="radioButton_unit">
+       <property name="text"><string>Unit</string></property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QRadioButton" name="radioButton_lot">
+       <property name="text"><string>Lot</string></property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QRadioButton" name="radioButton_weight">
+       <property name="text"><string>Weight</string></property>
+      </widget>
+     </item>
+     <item><spacer name="horizontalSpacer_order7"><property name="orientation"><enum>Qt::Horizontal</enum></property></spacer></item>
+    </layout>
+   </item>
+   
+   <!-- Min Order -->
+   <item>
+    <layout class="QHBoxLayout" name="horizontalLayout_minOrder">
+     <item>
+      <widget class="QLabel" name="label_minOrder">
+       <property name="text"><string>Min Order</string></property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QRadioButton" name="radioButton_qtyLots">
+       <property name="text"><string>Qty. Lots</string></property>
+       <property name="checked"><bool>true</bool></property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QRadioButton" name="radioButton_value">
+       <property name="text"><string>Value</string></property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="label_colon1">
+       <property name="text"><string>:</string></property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLineEdit" name="lineEdit_minOrderValue">
+       <property name="text"><string>1</string></property>
+       <property name="maximumWidth"><number>60</number></property>
+      </widget>
+     </item>
+     <item><spacer name="horizontalSpacer_order8"><property name="orientation"><enum>Qt::Horizontal</enum></property></spacer></item>
+    </layout>
+   </item>
+   
+   <!-- Price Alert -->
+   <item>
+    <layout class="QHBoxLayout" name="horizontalLayout_priceAlert">
+     <item>
+      <widget class="QLabel" name="label_priceAlert">
+       <property name="text"><string>Price Alert (% of LTP)</string></property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="label_colon2">
+       <property name="text"><string>:</string></property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLineEdit" name="lineEdit_priceAlert">
+       <property name="text"><string>0.00</string></property>
+       <property name="maximumWidth"><number>80</number></property>
+      </widget>
+     </item>
+     <item><spacer name="horizontalSpacer_order9"><property name="orientation"><enum>Qt::Horizontal</enum></property></spacer></item>
+    </layout>
+   </item>
+   
+   <!-- Qty Alert -->
+   <item>
+    <layout class="QHBoxLayout" name="horizontalLayout_qtyAlert">
+     <item>
+      <widget class="QLabel" name="label_qtyAlert">
+       <property name="text"><string>Qty Alert (In Market Lots)</string></property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="label_colon3">
+       <property name="text"><string>:</string></property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLineEdit" name="lineEdit_qtyAlert">
+       <property name="text"><string>0</string></property>
+       <property name="maximumWidth"><number>80</number></property>
+      </widget>
+     </item>
+     <item><spacer name="horizontalSpacer_order10"><property name="orientation"><enum>Qt::Horizontal</enum></property></spacer></item>
+    </layout>
+   </item>
+   
+   <!-- Value Alert -->
+   <item>
+    <layout class="QHBoxLayout" name="horizontalLayout_valueAlert">
+     <item>
+      <widget class="QLabel" name="label_valueAlert">
+       <property name="text"><string>Value Alert (Qty*Price)</string></property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="label_colon4">
+       <property name="text"><string>:</string></property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLineEdit" name="lineEdit_valueAlert">
+       <property name="text"><string>0</string></property>
+       <property name="maximumWidth"><number>80</number></property>
+      </widget>
+     </item>
+     <item><spacer name="horizontalSpacer_order11"><property name="orientation"><enum>Qt::Horizontal</enum></property></spacer></item>
+    </layout>
+   </item>
+   
+   <!-- Sq. Off Validity -->
+   <item>
+    <layout class="QHBoxLayout" name="horizontalLayout_sqOffValidity">
+     <item>
+      <widget class="QLabel" name="label_sqOffValidity">
+       <property name="text"><string>Sq. Off Validity :</string></property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QComboBox" name="comboBox_sqOffValidity">
+       <item><property name="text"><string>DAY</string></property></item>
+       <item><property name="text"><string>IOC</string></property></item>
+      </widget>
+     </item>
+     <item><spacer name="horizontalSpacer_order12"><property name="orientation"><enum>Qt::Horizontal</enum></property></spacer></item>
+    </layout>
+   </item>
+   
+   <!-- PRO/CLI Section -->
+   <item>
+    <layout class="QHBoxLayout" name="horizontalLayout_proCli">
+     <item>
+      <widget class="QLabel" name="label_proCliDefault">
+       <property name="text"><string>PRO/CLI (Default) :</string></property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QComboBox" name="comboBox_proCliDefault">
+       <item><property name="text"><string>PRO</string></property></item>
+       <item><property name="text"><string>CLI</string></property></item>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="label_clientSubBroker">
+       <property name="text"><string>Client / SubBroker</string></property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="label_scripCodePrefix">
+       <property name="text"><string>ScripCode Prefix :</string></property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLineEdit" name="lineEdit_scripCodePrefix">
+       <property name="maximumWidth"><number>150</number></property>
+      </widget>
+     </item>
+     <item><spacer name="horizontalSpacer_order13"><property name="orientation"><enum>Qt::Horizontal</enum></property></spacer></item>
+    </layout>
+   </item>
+   
+   <!-- Client Options Grid -->
+   <item>
+    <layout class="QGridLayout" name="gridLayout_clientOptions">
+     <item row="0" column="0">
+      <widget class="QCheckBox" name="checkBox_retainLastClientId">
+       <property name="text"><string>Retain Last Client Id</string></property>
+      </widget>
+     </item>
+     <item row="0" column="1">
+      <widget class="QCheckBox" name="checkBox_prefixClientIdWith">
+       <property name="text"><string>Prefix ClientId With :</string></property>
+      </widget>
+     </item>
+     <item row="0" column="2">
+      <widget class="QLineEdit" name="lineEdit_prefixClientId">
+       <property name="maximumWidth"><number>150</number></property>
+      </widget>
+     </item>
+     <item row="0" column="3">
+      <widget class="QCheckBox" name="checkBox_setFocusOrderEntry">
+       <property name="text"><string>Set Focus on Order Entry Price</string></property>
+      </widget>
+     </item>
+     <item row="1" column="0">
+      <widget class="QCheckBox" name="checkBox_retainLastSubBroker">
+       <property name="text"><string>Retain Last SubBroker Id</string></property>
+      </widget>
+     </item>
+     <item row="1" column="1">
+      <widget class="QCheckBox" name="checkBox_prefixSubBrokerId">
+       <property name="text"><string>Prefix SubBrokerID With :</string></property>
+      </widget>
+     </item>
+     <item row="1" column="2">
+      <widget class="QLineEdit" name="lineEdit_prefixSubBroker">
+       <property name="maximumWidth"><number>150</number></property>
+      </widget>
+     </item>
+     <item row="2" column="0">
+      <widget class="QCheckBox" name="checkBox_retainLastParticipant">
+       <property name="text"><string>Retain Last Participant Code</string></property>
+      </widget>
+     </item>
+     <item row="2" column="1">
+      <widget class="QCheckBox" name="checkBox_retainPartType">
+       <property name="text"><string>Retain Part Type</string></property>
+      </widget>
+     </item>
+     <item row="3" column="0">
+      <widget class="QCheckBox" name="checkBox_roundUpNearestTick">
+       <property name="text"><string>Round Up to Nearest Tick Size</string></property>
+      </widget>
+     </item>
+     <item row="4" column="0">
+      <widget class="QCheckBox" name="checkBox_roundNearestLot">
+       <property name="text"><string>Round To Nearest Lot Size</string></property>
+      </widget>
+     </item>
+     <item row="4" column="1">
+      <widget class="QCheckBox" name="checkBox_retainUserRemarks">
+       <property name="text"><string>Retain User Remarks</string></property>
+      </widget>
+     </item>
+     <item row="5" column="0">
+      <widget class="QCheckBox" name="checkBox_enableSettlorProOrder">
+       <property name="text"><string>Enable Settlor for Pro Order</string></property>
+      </widget>
+     </item>
+     <item row="5" column="1">
+      <widget class="QCheckBox" name="checkBox_retainClientIdPortfolio">
+       <property name="text"><string>Retain Client Id from Portfolio</string></property>
+      </widget>
+     </item>
+     <item row="5" column="2">
+      <widget class="QCheckBox" name="checkBox_autoFetchingClientCode">
+       <property name="text"><string>Auto Fetching Of Client Code</string></property>
+       <property name="checked"><bool>true</bool></property>
+      </widget>
+     </item>
+     <item row="6" column="0">
+      <widget class="QCheckBox" name="checkBox_useGroupBulkOrder">
+       <property name="text"><string>Use Group for bulk order</string></property>
+      </widget>
+     </item>
+     <item row="6" column="1" colspan="2">
+      <widget class="QCheckBox" name="checkBox_focusDPProCli">
+       <property name="text"><string>Focus DFPI/Pro/Cli,ClientCode,ParticipantCode)</string></property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   
+   <!-- Alert Message Group and Buttons -->
+   <item>
+    <layout class="QHBoxLayout" name="horizontalLayout_alertGroup">
+     <item>
+      <widget class="QLabel" name="label_alertMessageGroup">
+       <property name="text"><string>Alert Message Group:</string></property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QComboBox" name="comboBox_alertMessageGroup">
+       <property name="maximumWidth"><number>150</number></property>
+      </widget>
+     </item>
+     <item><spacer name="horizontalSpacer_order14"><property name="orientation"><enum>Qt::Horizontal</enum></property></spacer></item>
+     <item>
+      <widget class="QPushButton" name="pushButton_restoreDefaultsOrder">
+       <property name="text"><string>Restore Defaults</string></property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="pushButton_applyOrder">
+       <property name="text"><string>Apply</string></property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   
+   <item>
+    <spacer name="verticalSpacer_order">
+     <property name="orientation"><enum>Qt::Vertical</enum></property>
+     <property name="sizeHint"><size><width>20</width><height>40</height></size></property>
+    </spacer>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>
