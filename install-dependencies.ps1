@@ -52,7 +52,7 @@ Set-Location $vcpkgPath
 # Install Boost
 Write-Host ""
 Write-Host "Installing Boost (Beast + Asio)..." -ForegroundColor Yellow
-.\vcpkg install boost-beast:x64-windows boost-asio:x64-windows
+.\vcpkg install boost-beast:x64-mingw-dynamic boost-asio:x64-mingw-dynamic
 if ($LASTEXITCODE -ne 0) {
     Write-Host "ERROR: Failed to install Boost" -ForegroundColor Red
     exit 1
@@ -62,20 +62,20 @@ Write-Host "✓ Boost installed successfully" -ForegroundColor Green
 # Install OpenSSL
 Write-Host ""
 Write-Host "Installing OpenSSL..." -ForegroundColor Yellow
-.\vcpkg install openssl:x64-windows
+.\vcpkg install openssl:x64-mingw-dynamic
 if ($LASTEXITCODE -ne 0) {
     Write-Host "ERROR: Failed to install OpenSSL" -ForegroundColor Red
     exit 1
 }
 Write-Host "✓ OpenSSL installed successfully" -ForegroundColor Green
 
-# Integrate with Visual Studio
-Write-Host ""
-Write-Host "Integrating vcpkg with Visual Studio..." -ForegroundColor Yellow
-.\vcpkg integrate install
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "WARNING: vcpkg integration failed, but packages are installed" -ForegroundColor Yellow
-}
+# Integrate with Visual Studio (not needed for MinGW)
+# Write-Host ""
+# Write-Host "Integrating vcpkg with Visual Studio..." -ForegroundColor Yellow
+# .\vcpkg integrate install
+# if ($LASTEXITCODE -ne 0) {
+#     Write-Host "WARNING: vcpkg integration failed, but packages are installed" -ForegroundColor Yellow
+# }
 
 Write-Host ""
 Write-Host "================================================" -ForegroundColor Green
@@ -88,5 +88,5 @@ Write-Host "2. Run: setup-qt-env.bat" -ForegroundColor White
 Write-Host "3. Build the project" -ForegroundColor White
 Write-Host ""
 Write-Host "Installed packages location:" -ForegroundColor Cyan
-Write-Host "  $vcpkgPath\installed\x64-windows" -ForegroundColor White
+Write-Host "  $vcpkgPath\installed\x64-mingw-dynamic" -ForegroundColor White
 Write-Host ""
