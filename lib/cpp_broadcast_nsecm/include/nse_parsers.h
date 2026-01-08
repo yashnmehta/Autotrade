@@ -84,6 +84,14 @@ void parse_message_6541(const MS_BC_CIRCUIT_CHECK* msg);
 // TransCode 6571 (BC_NORMAL_MKT_PREOPEN_ENDED)
 void parse_message_6571(const BCAST_VCT_MESSAGES* msg);
 
+// TransCode 9010 (BCAST_TURNOVER_EXCEEDED)
+void parse_message_9010(const MS_BCAST_TURNOVER_EXCEEDED* msg);
+void parse_turnover_exceeded(const MS_BCAST_TURNOVER_EXCEEDED* msg);  // Alias
+
+// TransCode 9011 (BROADCAST_BROKER_REACTIVATED) - Uses same structure as 9010
+void parse_message_9011(const MS_BCAST_TURNOVER_EXCEEDED* msg);
+void parse_broker_reactivated(const MS_BCAST_TURNOVER_EXCEEDED* msg);  // Alias
+
 void parse_circuit_check(const MS_BC_CIRCUIT_CHECK* msg);
 void parse_vct_messages(const BCAST_VCT_MESSAGES* msg);
 void parse_symbol_status_change(const BC_SYMBOL_STATUS_CHANGE_ACTION* msg);

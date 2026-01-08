@@ -198,6 +198,28 @@ struct MS_BCAST_BUY_BACK {
 };
 // Total: 40 + 2 + 384 = 426 bytes ✅
 
+// ============================================================================
+// BCAST_TURNOVER_EXCEEDED (9010) - Turnover Limit Exceeded Alert
+// ============================================================================
+
+// Protocol Reference: NSE CM NNF Protocol v6.3, Table 32, Page 102-104
+// Structure: BROADCAST_LIMIT_EXCEEDED
+// Total Size: 77 bytes
+// Purpose: Alerts when broker turnover limit is about to exceed or has exceeded
+// Frequency: Sent when threshold is reached
+struct MS_BCAST_TURNOVER_EXCEEDED {
+    BCAST_HEADER header;           // Offset 0 (40 bytes) - Broadcast header
+    char brokerCode[5];            // Offset 40 (5 bytes) - Broker who exceeded limit
+    char counterBrokerCode[5];     // Offset 45 (5 bytes) - Not in use
+    int16_t warningType;           // Offset 50 (2 bytes) - 1=About to exceed, 2=Exceeded
+    SEC_INFO secInfo;              // Offset 52 (12 bytes) - Symbol and series
+    int32_t tradeNumber;           // Offset 64 (4 bytes) - Last trade number
+    int32_t tradePrice;            // Offset 68 (4 bytes) - Last trade price (in paise)
+    int32_t tradeVolume;           // Offset 72 (4 bytes) - Last trade quantity
+    char final;                    // Offset 76 (1 byte) - Final auction trade indicator
+};
+// Total: 40 + 5 + 5 + 2 + 12 + 4 + 4 + 4 + 1 = 77 bytes ✅
+
 #pragma pack(pop)
 
 #endif // NSE_MARKET_DATA_H

@@ -82,6 +82,18 @@ void parse_uncompressed_message(const char* data, int16_t length) {
             }
             break;
 
+        case TxCodes::BCAST_TURNOVER_EXCEEDED:
+            if (length >= sizeof(MS_BCAST_TURNOVER_EXCEEDED)) {
+                parse_message_9010(reinterpret_cast<const MS_BCAST_TURNOVER_EXCEEDED*>(data));
+            }
+            break;
+
+        case TxCodes::BROADCAST_BROKER_REACTIVATED:
+            if (length >= sizeof(MS_BCAST_TURNOVER_EXCEEDED)) {
+                parse_message_9011(reinterpret_cast<const MS_BCAST_TURNOVER_EXCEEDED*>(data));
+            }
+            break;
+
         default:
             break;
     }

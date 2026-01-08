@@ -35,8 +35,8 @@ namespace TxCodes {
     constexpr uint16_t BCAST_TICKER_AND_MKT_INDEX = 18703; // CM Ticker done
     constexpr uint16_t BCAST_BUY_BACK = 18708; //done
     
-    constexpr uint16_t BCAST_TURNOVER_EXCEEDED = 9010;
-    constexpr uint16_t BROADCAST_BROKER_REACTIVATED = 9011;
+    constexpr uint16_t BCAST_TURNOVER_EXCEEDED = 9010; //done
+    constexpr uint16_t BROADCAST_BROKER_REACTIVATED = 9011; //done
     
     constexpr uint16_t BC_SYMBOL_STATUS_CHANGE_ACTION = 7764;
 }
