@@ -35,7 +35,9 @@ void ScripBar::setupUI()
 
     // Exchange combo (custom)
     m_exchangeCombo = new CustomScripComboBox(this);
+    m_exchangeCombo->setMode(CustomScripComboBox::SelectorMode);
     m_exchangeCombo->setSortMode(CustomScripComboBox::AlphabeticalSort);
+
     m_exchangeCombo->setMinimumWidth(56);
     m_exchangeCombo->setObjectName("cbExchange");  // For keyboard shortcut
     m_layout->addWidget(m_exchangeCombo);
@@ -43,22 +45,28 @@ void ScripBar::setupUI()
 
     // Segment combo (custom)
     m_segmentCombo = new CustomScripComboBox(this);
+    m_segmentCombo->setMode(CustomScripComboBox::SelectorMode);
     m_segmentCombo->setSortMode(CustomScripComboBox::AlphabeticalSort);
+
     m_segmentCombo->setMinimumWidth(48);
     m_layout->addWidget(m_segmentCombo);
     connect(m_segmentCombo, &CustomScripComboBox::itemSelected, this, &ScripBar::onSegmentChanged);
 
     // Instrument combo (custom)
     m_instrumentCombo = new CustomScripComboBox(this);
+    m_instrumentCombo->setMode(CustomScripComboBox::SelectorMode);
     m_instrumentCombo->setSortMode(CustomScripComboBox::AlphabeticalSort);
+
     m_instrumentCombo->setMinimumWidth(80);
     m_layout->addWidget(m_instrumentCombo);
-    connect(m_instrumentCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+    connect(m_instrumentCombo, &CustomScripComboBox::itemSelected,
             this, &ScripBar::onInstrumentChanged);
 
     // BSE Scrip Code combo (only visible for BSE + E segment)
     m_bseScripCodeCombo = new CustomScripComboBox(this);
+    m_bseScripCodeCombo->setMode(CustomScripComboBox::SearchMode);
     m_bseScripCodeCombo->setSortMode(CustomScripComboBox::AlphabeticalSort);
+
     m_bseScripCodeCombo->setMinimumWidth(120);
     m_bseScripCodeCombo->setMaximumWidth(150);
     m_layout->addWidget(m_bseScripCodeCombo);
@@ -67,33 +75,41 @@ void ScripBar::setupUI()
 
     // Symbol combo (custom)
     m_symbolCombo = new CustomScripComboBox(this);
+    m_symbolCombo->setMode(CustomScripComboBox::SearchMode);
     m_symbolCombo->setSortMode(CustomScripComboBox::AlphabeticalSort);
+
     m_symbolCombo->setMinimumWidth(100);
     m_layout->addWidget(m_symbolCombo);
     connect(m_symbolCombo, &CustomScripComboBox::itemSelected, this, &ScripBar::onSymbolChanged);
 
     // Expiry combo (custom with date sorting)
     m_expiryCombo = new CustomScripComboBox(this);
+    m_expiryCombo->setMode(CustomScripComboBox::SearchMode);
     m_expiryCombo->setSortMode(CustomScripComboBox::ChronologicalSort);
+
     m_expiryCombo->setMinimumWidth(125);
     m_layout->addWidget(m_expiryCombo);
-    connect(m_expiryCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+    connect(m_expiryCombo, &CustomScripComboBox::itemSelected,
             this, &ScripBar::onExpiryChanged);
 
     // Strike combo (custom with numeric sorting)
     m_strikeCombo = new CustomScripComboBox(this);
+    m_strikeCombo->setMode(CustomScripComboBox::SearchMode);
     m_strikeCombo->setSortMode(CustomScripComboBox::NumericSort);
+
     m_strikeCombo->setMinimumWidth(140);
     m_layout->addWidget(m_strikeCombo);
-    connect(m_strikeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+    connect(m_strikeCombo, &CustomScripComboBox::itemSelected,
             this, &ScripBar::onStrikeChanged);
 
     // Option Type combo (custom)
     m_optionTypeCombo = new CustomScripComboBox(this);
+    m_optionTypeCombo->setMode(CustomScripComboBox::SearchMode);
     m_optionTypeCombo->setSortMode(CustomScripComboBox::NoSort);
+
     m_optionTypeCombo->setMinimumWidth(48);
     m_layout->addWidget(m_optionTypeCombo);
-    connect(m_optionTypeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+    connect(m_optionTypeCombo, &CustomScripComboBox::itemSelected,
             this, &ScripBar::onOptionTypeChanged);
 
     // Token line edit (read-only display of selected token)
@@ -127,6 +143,16 @@ void ScripBar::setupUI()
     connect(m_optionTypeCombo, &CustomScripComboBox::enterPressedWhenClosed,
             m_addToWatchButton, &QPushButton::click);
 
+    // Connect ESC key handling
+    connect(m_exchangeCombo, &CustomScripComboBox::escapePressed, this, &ScripBar::scripBarEscapePressed);
+    connect(m_segmentCombo, &CustomScripComboBox::escapePressed, this, &ScripBar::scripBarEscapePressed);
+    connect(m_instrumentCombo, &CustomScripComboBox::escapePressed, this, &ScripBar::scripBarEscapePressed);
+    connect(m_bseScripCodeCombo, &CustomScripComboBox::escapePressed, this, &ScripBar::scripBarEscapePressed);
+    connect(m_symbolCombo, &CustomScripComboBox::escapePressed, this, &ScripBar::scripBarEscapePressed);
+    connect(m_expiryCombo, &CustomScripComboBox::escapePressed, this, &ScripBar::scripBarEscapePressed);
+    connect(m_strikeCombo, &CustomScripComboBox::escapePressed, this, &ScripBar::scripBarEscapePressed);
+    connect(m_optionTypeCombo, &CustomScripComboBox::escapePressed, this, &ScripBar::scripBarEscapePressed);
+
     m_layout->addStretch();
 
     // Dark premium styling 
@@ -141,7 +167,8 @@ void ScripBar::setupUI()
         "QPushButton { background: #007acc; color: #ffffff; border: none; border-radius: 4px; font-weight: bold; padding: 4px 12px; }"
         "QPushButton:hover { background: #0062a3; }"
         "QPushButton:pressed { background: #004d80; }"
-        "QLineEdit { background: #3c3c3c; color: #d4d4d8; border: 1px solid #454545; border-radius: 4px; padding: 2px 6px; }"
+        "QLineEdit { background: #3c3c3c; color: #d4d4d8; border: 1px solid #454545; border-radius: 4px; padding: 2px 6px; selection-background-color: transparent; }"
+        "QLineEdit:focus { selection-background-color: #094771; }"
         "QLabel { color: #cccccc; }"
     );
 }
@@ -235,7 +262,7 @@ void ScripBar::populateInstruments(const QString &segment)
     if (!instruments.isEmpty() && m_instrumentCombo->lineEdit()) {
         m_instrumentCombo->lineEdit()->setText(instruments.first());
     }
-    onInstrumentChanged(0);
+    onInstrumentChanged();
 }
 
 void ScripBar::populateSymbols(const QString &instrument)
@@ -374,7 +401,7 @@ void ScripBar::populateExpiries(const QString &symbol)
     
     if (m_expiryCombo->count() > 0) {
         m_expiryCombo->setCurrentIndex(0);
-        onExpiryChanged(0);
+        onExpiryChanged();
     }
 }
 
@@ -415,7 +442,7 @@ void ScripBar::populateStrikes(const QString &expiry)
     
     if (m_strikeCombo->count() > 0) {
         m_strikeCombo->setCurrentIndex(0);
-        onStrikeChanged(0);
+        onStrikeChanged();
     }
 }
 
@@ -459,9 +486,9 @@ void ScripBar::onSegmentChanged(const QString &text)
     updateBseScripCodeVisibility();
 }
 
-void ScripBar::onInstrumentChanged(int index)
+void ScripBar::onInstrumentChanged(const QString &text)
 {
-    Q_UNUSED(index)
+    Q_UNUSED(text)
     QString inst = m_instrumentCombo->currentText();
     
     // Show/hide expiry, strike, option type based on instrument
@@ -487,11 +514,11 @@ void ScripBar::onSymbolChanged(const QString &text)
     updateTokenDisplay();
 }
 
-void ScripBar::onExpiryChanged(int index)
+void ScripBar::onExpiryChanged(const QString &text)
 {
-    Q_UNUSED(index)
+    Q_UNUSED(text)
     QString expiry = m_expiryCombo->currentText();
-    qDebug() << "[ScripBar] onExpiryChanged: expiry =" << expiry << "(index" << index << ")";
+    qDebug() << "[ScripBar] onExpiryChanged: expiry =" << expiry;
     populateStrikes(expiry);
     
     // For futures (no strikes), update token display now
@@ -503,19 +530,19 @@ void ScripBar::onExpiryChanged(int index)
     }
 }
 
-void ScripBar::onStrikeChanged(int index)
+void ScripBar::onStrikeChanged(const QString &text)
 {
-    Q_UNUSED(index)
+    Q_UNUSED(text)
     QString strike = m_strikeCombo->currentText();
-    qDebug() << "[ScripBar] onStrikeChanged: strike =" << strike << "(index" << index << ")";
+    qDebug() << "[ScripBar] onStrikeChanged: strike =" << strike;
     populateOptionTypes(strike);
 }
 
-void ScripBar::onOptionTypeChanged(int index)
+void ScripBar::onOptionTypeChanged(const QString &text)
 {
-    Q_UNUSED(index)
+    Q_UNUSED(text)
     QString optionType = m_optionTypeCombo->currentText();
-    qDebug() << "[ScripBar] onOptionTypeChanged: optionType =" << optionType << "(index" << index << ")";
+    qDebug() << "[ScripBar] onOptionTypeChanged: optionType =" << optionType;
     updateTokenDisplay();
 }
 

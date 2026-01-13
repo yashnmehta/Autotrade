@@ -49,16 +49,17 @@ public:
 
 signals:
     void addToWatchRequested(const InstrumentData &instrument);
+    void scripBarEscapePressed();
 
 private slots:
     void onExchangeChanged(const QString &text);
     void onSegmentChanged(const QString &text);
-    void onInstrumentChanged(int index);
+    void onInstrumentChanged(const QString &text = QString());
     void onSymbolChanged(const QString &text);
     void onBseScripCodeChanged(const QString &text);  // BSE scrip code search
-    void onExpiryChanged(int index);
-    void onStrikeChanged(int index);
-    void onOptionTypeChanged(int index);
+    void onExpiryChanged(const QString &text = QString());
+    void onStrikeChanged(const QString &text = QString());
+    void onOptionTypeChanged(const QString &text = QString());
     void onAddToWatchClicked();
 
 private:

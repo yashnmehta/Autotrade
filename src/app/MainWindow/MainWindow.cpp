@@ -431,3 +431,13 @@ void MainWindow::openBatchSellWindowForModification(const QVector<XTS::Order> &o
 
 // setupShortcuts() is defined in core/GlobalShortcuts.cpp
 
+void MainWindow::onScripBarEscapePressed() {
+    MarketWatchWindow* activeMW = getActiveMarketWatch();
+    if (activeMW) {
+        qDebug() << "[MainWindow] Shifting focus from ScripBar back to MarketWatch";
+        activeMW->setFocus();
+    } else {
+        qDebug() << "[MainWindow] No active MarketWatch to focus on ESC";
+    }
+}
+

@@ -99,6 +99,7 @@ private slots:
     void onUdpTickReceived(const XTS::Tick& tick);
     void startBroadcastReceiver();
     void stopBroadcastReceiver();
+    void onScripBarEscapePressed();
 
 private:
     void setupContent();
