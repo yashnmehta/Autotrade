@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>PreferencesDerivativeTab</class>
+ <widget class="QWidget" name="PreferencesDerivativeTab">
+  <property name="geometry">
+   <rect><x>0</x><y>0</y><width>800</width><height>700</height></rect>
+  </property>
+  <property name="windowTitle">
+   <string>Derivatives</string>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout_derivatives">
+   <property name="spacing"><number>8</number></property>
+   <property name="leftMargin"><number>10</number></property>
+   <property name="topMargin"><number>10</number></property>
+   <property name="rightMargin"><number>10</number></property>
+   <property name="bottomMargin"><number>10</number></property>
+   
+   <!-- Greek Neutralizer Section -->
+   <item>
+    <widget class="QGroupBox" name="groupBox_greekNeutralizer">
+     <property name="title"><string>Greek Neutralizer</string></property>
+     <layout class="QVBoxLayout" name="verticalLayout_greekNeutralizer">
+      <item>
+       <widget class="QLabel" name="label_greekNeutralizerInfo">
+        <property name="text"><string>Configure Greek Neutralizer settings</string></property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   
+   <!-- User/Default Exchange/Symbol Settings -->
+   <item>
+    <widget class="QGroupBox" name="groupBox_exchangeSymbol">
+     <property name="title"><string>User/Default Exchange/Symbol Settings</string></property>
+     <layout class="QFormLayout" name="formLayout_exchangeSymbol">
+      <item row="0" column="0">
+       <widget class="QLabel" name="label_defaultExchange">
+        <property name="text"><string>Default Exchange:</string></property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QComboBox" name="comboBox_defaultExchange">
+        <property name="maximumWidth"><number>150</number></property>
+       </widget>
+      </item>
+      <item row="1" column="0">
+       <widget class="QLabel" name="label_defaultSymbol">
+        <property name="text"><string>Default Symbol:</string></property>
+       </widget>
+      </item>
+      <item row="1" column="1">
+       <widget class="QLineEdit" name="lineEdit_defaultSymbol">
+        <property name="maximumWidth"><number>150</number></property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   
+   <!-- Dividend/Interest Rate -->
+   <item>
+    <widget class="QGroupBox" name="groupBox_dividendInterest">
+     <property name="title"><string>Dividend / Interest Rate</string></property>
+     <layout class="QFormLayout" name="formLayout_dividendInterest">
+      <property name="horizontalSpacing"><number>6</number></property>
+      <property name="verticalSpacing"><number>4</number></property>
+      <item row="0" column="0">
+       <widget class="QLabel" name="label_dividend">
+        <property name="text"><string>Dividend:</string></property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QDoubleSpinBox" name="doubleSpinBox_dividend">
+        <property name="maximumWidth"><number>100</number></property>
+       </widget>
+      </item>
+      <item row="1" column="0">
+       <widget class="QLabel" name="label_interestRate">
+        <property name="text"><string>Interest Rate:</string></property>
+       </widget>
+      </item>
+      <item row="1" column="1">
+       <widget class="QDoubleSpinBox" name="doubleSpinBox_interestRate">
+        <property name="maximumWidth"><number>100</number></property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   
+   <!-- Fair Value Calculation Options -->
+   <item>
+    <widget class="QGroupBox" name="groupBox_fairValue">
+     <property name="title"><string>Fair Value Calculation</string></property>
+     <layout class="QVBoxLayout" name="verticalLayout_fairValue">
+      <item>
+       <widget class="QCheckBox" name="checkBox_enableFairValue">
+        <property name="text"><string>Enable Fair Value Calculation</string></property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   
+   <!-- Underlying Price / Options Pricing Model -->
+   <item>
+    <widget class="QGroupBox" name="groupBox_pricingModel">
+     <property name="title"><string>Options Pricing Model</string></property>
+     <layout class="QFormLayout" name="formLayout_pricingModel">
+      <item row="0" column="0">
+       <widget class="QLabel" name="label_underlyingPrice">
+        <property name="text"><string>Underlying Price:</string></property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QComboBox" name="comboBox_underlyingPrice">
+        <property name="maximumWidth"><number>150</number></property>
+       </widget>
+      </item>
+      <item row="1" column="0">
+       <widget class="QLabel" name="label_pricingModel">
+        <property name="text"><string>Pricing Model:</string></property>
+       </widget>
+      </item>
+      <item row="1" column="1">
+       <widget class="QComboBox" name="comboBox_pricingModel">
+        <property name="maximumWidth"><number>150</number></property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   
+   <!-- Alert Settings -->
+   <item>
+    <widget class="QGroupBox" name="groupBox_derivativeAlerts">
+     <property name="title"><string>Alert Settings</string></property>
+     <layout class="QVBoxLayout" name="verticalLayout_derivativeAlerts">
+      <item>
+       <widget class="QCheckBox" name="checkBox_enableDerivativeAlerts">
+        <property name="text"><string>Enable Derivative Alerts</string></property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   
+   <item>
+    <spacer name="verticalSpacer_derivatives">
+     <property name="orientation"><enum>Qt::Vertical</enum></property>
+     <property name="sizeHint"><size><width>20</width><height>40</height></size></property>
+    </spacer>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

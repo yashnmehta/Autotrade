@@ -4,5 +4,12 @@
         <file>forms/BuyWindow.ui</file>
         <file>forms/SellWindow.ui</file>
         <file>forms/SnapQuote.ui</file>
+        <file>forms/PreferencesGeneralTab.ui</file>
+        <file>forms/PreferencesOrderTab.ui</file>
+        <file>forms/PreferencesPortfolioTab.ui</file>
+        <file>forms/PreferencesWorkSpaceTab.ui</file>
+        <file>forms/PreferencesDerivativeTab.ui</file>
+        <file>forms/PreferencesAlertMessageTab.ui</file>
+        <file>forms/PreferencesMarginPlusOrderTab.ui</file>
     </qresource>
 </RCC>

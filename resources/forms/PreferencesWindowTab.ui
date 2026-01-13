@@ -1,0 +1,281 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>PreferencesWindowTab</class>
+ <widget class="QWidget" name="PreferencesWindowTab">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>750</width>
+    <height>650</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Preferences</string>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout_main">
+   <property name="spacing">
+    <number>6</number>
+   </property>
+   <property name="leftMargin">
+    <number>10</number>
+   </property>
+   <property name="topMargin">
+    <number>10</number>
+   </property>
+   <property name="rightMargin">
+    <number>10</number>
+   </property>
+   <property name="bottomMargin">
+    <number>10</number>
+   </property>
+   
+   <!-- Tab Widget Container -->
+   <item>
+    <widget class="QTabWidget" name="tabWidget">
+     <property name="currentIndex">
+      <number>0</number>
+     </property>
+     
+     <!-- General Tab -->
+     <widget class="QWidget" name="tabGeneral">
+      <attribute name="title">
+       <string>General</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="verticalLayout_general">
+       <property name="spacing">
+        <number>0</number>
+       </property>
+       <property name="leftMargin">
+        <number>0</number>
+       </property>
+       <property name="topMargin">
+        <number>0</number>
+       </property>
+       <property name="rightMargin">
+        <number>0</number>
+       </property>
+       <property name="bottomMargin">
+        <number>0</number>
+       </property>
+       <!-- Content will be loaded from PreferencesGeneralTab.ui -->
+      </layout>
+     </widget>
+     
+     <!-- Order Tab -->
+     <widget class="QWidget" name="tabOrder">
+      <attribute name="title">
+       <string>Order</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="verticalLayout_order">
+       <property name="spacing">
+        <number>0</number>
+       </property>
+       <property name="leftMargin">
+        <number>0</number>
+       </property>
+       <property name="topMargin">
+        <number>0</number>
+       </property>
+       <property name="rightMargin">
+        <number>0</number>
+       </property>
+       <property name="bottomMargin">
+        <number>0</number>
+       </property>
+       <!-- Content will be loaded from PreferencesOrderTab.ui -->
+      </layout>
+     </widget>
+     
+     <!-- Portfolio Tab -->
+     <widget class="QWidget" name="tabPortfolio">
+      <attribute name="title">
+       <string>Portfolio</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="verticalLayout_portfolio">
+       <property name="spacing">
+        <number>0</number>
+       </property>
+       <property name="leftMargin">
+        <number>0</number>
+       </property>
+       <property name="topMargin">
+        <number>0</number>
+       </property>
+       <property name="rightMargin">
+        <number>0</number>
+       </property>
+       <property name="bottomMargin">
+        <number>0</number>
+       </property>
+       <!-- Content will be loaded from PreferencesPortfolioTab.ui -->
+      </layout>
+     </widget>
+     
+     <!-- Work-Space Tab -->
+     <widget class="QWidget" name="tabWorkSpace">
+      <attribute name="title">
+       <string>Work-Space</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="verticalLayout_workspace">
+       <property name="spacing">
+        <number>0</number>
+       </property>
+       <property name="leftMargin">
+        <number>0</number>
+       </property>
+       <property name="topMargin">
+        <number>0</number>
+       </property>
+       <property name="rightMargin">
+        <number>0</number>
+       </property>
+       <property name="bottomMargin">
+        <number>0</number>
+       </property>
+       <!-- Content will be loaded from PreferencesWorkSpaceTab.ui -->
+      </layout>
+     </widget>
+     
+     <!-- Derivatives Tab -->
+     <widget class="QWidget" name="tabDerivatives">
+      <attribute name="title">
+       <string>Derivatives</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="verticalLayout_derivatives">
+       <property name="spacing">
+        <number>0</number>
+       </property>
+       <property name="leftMargin">
+        <number>0</number>
+       </property>
+       <property name="topMargin">
+        <number>0</number>
+       </property>
+       <property name="rightMargin">
+        <number>0</number>
+       </property>
+       <property name="bottomMargin">
+        <number>0</number>
+       </property>
+       <!-- Content will be loaded from PreferencesDerivativeTab.ui -->
+      </layout>
+     </widget>
+     
+     <!-- Alerts Msg Tab -->
+     <widget class="QWidget" name="tabAlertsMsg">
+      <attribute name="title">
+       <string>Alerts Msg</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="verticalLayout_alertsmsg">
+       <property name="spacing">
+        <number>0</number>
+       </property>
+       <property name="leftMargin">
+        <number>0</number>
+       </property>
+       <property name="topMargin">
+        <number>0</number>
+       </property>
+       <property name="rightMargin">
+        <number>0</number>
+       </property>
+       <property name="bottomMargin">
+        <number>0</number>
+       </property>
+       <!-- Content will be loaded from PreferencesAlertMessageTab.ui -->
+      </layout>
+     </widget>
+     
+     <!-- Bracket/Margin Plus Order Tab -->
+     <widget class="QWidget" name="tabMarginPlusOrder">
+      <attribute name="title">
+       <string>Bracket/Margin Plus Order</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="verticalLayout_marginplus">
+       <property name="spacing">
+        <number>0</number>
+       </property>
+       <property name="leftMargin">
+        <number>0</number>
+       </property>
+       <property name="topMargin">
+        <number>0</number>
+       </property>
+       <property name="rightMargin">
+        <number>0</number>
+       </property>
+       <property name="bottomMargin">
+        <number>0</number>
+       </property>
+       <!-- Content will be loaded from PreferencesMarginPlusOrderTab.ui -->
+      </layout>
+     </widget>
+    </widget>
+   </item>
+   
+   <!-- Button Layout at Bottom -->
+   <item>
+    <layout class="QHBoxLayout" name="horizontalLayout_buttons">
+     <property name="spacing">
+      <number>6</number>
+     </property>
+     <item>
+      <spacer name="horizontalSpacer">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+     <item>
+      <widget class="QPushButton" name="pushButton_ok">
+       <property name="text">
+        <string>OK</string>
+       </property>
+       <property name="minimumSize">
+        <size>
+         <width>80</width>
+         <height>0</height>
+        </size>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="pushButton_cancel">
+       <property name="text">
+        <string>Cancel</string>
+       </property>
+       <property name="minimumSize">
+        <size>
+         <width>80</width>
+         <height>0</height>
+        </size>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="pushButton_apply">
+       <property name="text">
+        <string>Apply</string>
+       </property>
+       <property name="minimumSize">
+        <size>
+         <width>80</width>
+         <height>0</height>
+        </size>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

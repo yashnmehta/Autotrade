@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>PreferencesBracketMarginTab</class>
+ <widget class="QWidget" name="PreferencesBracketMarginTab">
+  <property name="geometry">
+   <rect><x>0</x><y>0</y><width>800</width><height>600</height></rect>
+  </property>
+  <property name="windowTitle">
+   <string>Bracket / Margin Plus Order</string>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout_bracketMargin">
+   <property name="spacing"><number>8</number></property>
+   <property name="leftMargin"><number>10</number></property>
+   <property name="topMargin"><number>10</number></property>
+   <property name="rightMargin"><number>10</number></property>
+   <property name="bottomMargin"><number>10</number></property>
+   
+   <!-- Bracket Order Settings -->
+   <item>
+    <widget class="QGroupBox" name="groupBox_bracketOrder">
+     <property name="title"><string>Bracket Order Settings</string></property>
+     <layout class="QVBoxLayout" name="verticalLayout_bracketOrder">
+      <item>
+       <widget class="QCheckBox" name="checkBox_enableBracketOrder">
+        <property name="text"><string>Enable Bracket Order</string></property>
+       </widget>
+      </item>
+      <item>
+       <layout class="QFormLayout" name="formLayout_bracketOrder">
+        <property name="horizontalSpacing"><number>6</number></property>
+        <property name="verticalSpacing"><number>4</number></property>
+        <item row="0" column="0">
+         <widget class="QLabel" name="label_stopLoss">
+          <property name="text"><string>Stop Loss:</string></property>
+         </widget>
+        </item>
+        <item row="0" column="1">
+         <widget class="QDoubleSpinBox" name="doubleSpinBox_stopLoss">
+          <property name="maximumWidth"><number>100</number></property>
+         </widget>
+        </item>
+        <item row="1" column="0">
+         <widget class="QLabel" name="label_target">
+          <property name="text"><string>Target:</string></property>
+         </widget>
+        </item>
+        <item row="1" column="1">
+         <widget class="QDoubleSpinBox" name="doubleSpinBox_target">
+          <property name="maximumWidth"><number>100</number></property>
+         </widget>
+        </item>
+        <item row="2" column="0">
+         <widget class="QLabel" name="label_trailingStopLoss">
+          <property name="text"><string>Trailing Stop Loss:</string></property>
+         </widget>
+        </item>
+        <item row="2" column="1">
+         <widget class="QDoubleSpinBox" name="doubleSpinBox_trailingStopLoss">
+          <property name="maximumWidth"><number>100</number></property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   
+   <!-- Margin Plus Order Settings -->
+   <item>
+    <widget class="QGroupBox" name="groupBox_marginPlusOrder">
+     <property name="title"><string>Margin Plus Order Settings</string></property>
+     <layout class="QVBoxLayout" name="verticalLayout_marginPlusOrder">
+      <item>
+       <widget class="QCheckBox" name="checkBox_enableMarginPlus">
+        <property name="text"><string>Enable Margin Plus Order</string></property>
+       </widget>
+      </item>
+      <item>
+       <layout class="QFormLayout" name="formLayout_marginPlus">
+        <property name="horizontalSpacing"><number>6</number></property>
+        <property name="verticalSpacing"><number>4</number></property>
+        <item row="0" column="0">
+         <widget class="QLabel" name="label_marginMultiplier">
+          <property name="text"><string>Margin Multiplier:</string></property>
+         </widget>
+        </item>
+        <item row="0" column="1">
+         <widget class="QDoubleSpinBox" name="doubleSpinBox_marginMultiplier">
+          <property name="maximumWidth"><number>100</number></property>
+         </widget>
+        </item>
+        <item row="1" column="0">
+         <widget class="QLabel" name="label_exposureLimit">
+          <property name="text"><string>Exposure Limit (%):</string></property>
+         </widget>
+        </item>
+        <item row="1" column="1">
+         <widget class="QDoubleSpinBox" name="doubleSpinBox_exposureLimit">
+          <property name="maximumWidth"><number>100</number></property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   
+   <!-- Order Execution Preferences -->
+   <item>
+    <widget class="QGroupBox" name="groupBox_orderExecution">
+     <property name="title"><string>Order Execution Preferences</string></property>
+     <layout class="QVBoxLayout" name="verticalLayout_orderExecution">
+      <item>
+       <widget class="QCheckBox" name="checkBox_autoSquareOff">
+        <property name="text"><string>Auto Square Off at Market Close</string></property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="checkBox_confirmOrders">
+        <property name="text"><string>Confirm Before Order Placement</string></property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   
+   <item>
+    <spacer name="verticalSpacer_bracketMargin">
+     <property name="orientation"><enum>Qt::Vertical</enum></property>
+     <property name="sizeHint"><size><width>20</width><height>40</height></size></property>
+    </spacer>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>
