@@ -159,6 +159,25 @@ void PreferencesManager::setShowOrderConfirmation(bool enabled)
 }
 
 // ============================================================================
+// PriceCache Mode Preference
+// ============================================================================
+
+bool PreferencesManager::getUseLegacyPriceCache() const
+{
+    // Default to true (legacy/current implementation) for safety
+    // Set to false to enable new zero-copy architecture
+    return m_settings.value("pricecache/use_legacy_mode", true).toBool();
+}
+
+void PreferencesManager::setUseLegacyPriceCache(bool useLegacy)
+{
+    m_settings.setValue("pricecache/use_legacy_mode", useLegacy);
+    qDebug() << "[PreferencesManager] PriceCache mode changed to:" 
+             << (useLegacy ? "LEGACY (current)" : "NEW (zero-copy)");
+    emit preferencesChanged("pricecache/use_legacy_mode");
+}
+
+// ============================================================================
 // Window-specific Preferences
 // ============================================================================
 

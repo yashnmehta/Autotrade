@@ -174,6 +174,14 @@ public:
         const QString& symbol
     ) const;
     
+    /**
+     * @brief Get all contracts for a specific segment
+     * @param exchange "NSE" or "BSE"
+     * @param segment "CM" or "FO"
+     * @return Vector of all contracts in that segment
+     */
+    QVector<ContractData> getContractsBySegment(const QString& exchange, const QString& segment) const;
+    
     // ===== UPDATE METHODS =====
     
     /**

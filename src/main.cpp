@@ -14,19 +14,29 @@
 #include <QFileInfo>
 #include <QStandardPaths>
 #include <QDir>
+#include <cstdio>
 
 int main(int argc, char *argv[])
 {
-    // Setup file logging FIRST (before any qDebug calls)
-    setupFileLogging();
-    
+    fprintf(stderr, "[Main] Starting application...\n");
+    fflush(stderr);
+
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
     QCoreApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);
 #endif
+
+    fprintf(stderr, "[Main] Creating QApplication...\n");
+    fflush(stderr);
     QApplication app(argc, argv);
 
+    fprintf(stderr, "[Main] Setting up File Logging...\n");
+    fflush(stderr);
+    // Setup file logging after QApplication is created
+    setupFileLogging();
     
+    fprintf(stderr, "[Main] Registering MetaTypes...\n");
+    fflush(stderr);
     // Register XTS types for cross-thread signals (CRITICAL for socket events!)
     qRegisterMetaType<XTS::Tick>("XTS::Tick");
     qRegisterMetaType<XTS::Order>("XTS::Order");

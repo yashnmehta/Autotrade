@@ -6,7 +6,7 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Set AUTOUIC search paths for .ui files
@@ -19,15 +19,60 @@ find_package(Qt5 COMPONENTS Widgets Network WebSockets UiTools REQUIRED)
 # Boost.Beast is header-only, just need Boost headers
 find_package(Boost 1.70 REQUIRED)
 
-# Use msys64 OpenSSL 3.x instead of Qt's OpenSSL 1.0.x
-if(MINGW AND EXISTS "C:/msys64/mingw64")
-    set(OPENSSL_ROOT_DIR "C:/msys64/mingw64")
-    set(OPENSSL_INCLUDE_DIR "C:/msys64/mingw64/include")
-    set(OPENSSL_CRYPTO_LIBRARY "C:/msys64/mingw64/lib/libcrypto.dll.a")
-    set(OPENSSL_SSL_LIBRARY "C:/msys64/mingw64/lib/libssl.dll.a")
+# Use OpenSSL from C:/Program Files/OpenSSL-Win64 (native Windows build)
+if(WIN32 AND EXISTS "C:/Program Files/OpenSSL-Win64")
+    message(STATUS "Detected native Windows OpenSSL installation")
+    set(OPENSSL_ROOT_DIR "C:/Program Files/OpenSSL-Win64" CACHE PATH "OpenSSL root directory" FORCE)
+    set(OPENSSL_INCLUDE_DIR "C:/Program Files/OpenSSL-Win64/include" CACHE PATH "OpenSSL include directory" FORCE)
+    set(OPENSSL_CRYPTO_LIBRARY "C:/Program Files/OpenSSL-Win64/lib/libcrypto.lib" CACHE FILEPATH "OpenSSL crypto library" FORCE)
+    set(OPENSSL_SSL_LIBRARY "C:/Program Files/OpenSSL-Win64/lib/libssl.lib" CACHE FILEPATH "OpenSSL SSL library" FORCE)
+    
+    # Verify OpenSSL files exist
+    if(NOT EXISTS "${OPENSSL_INCLUDE_DIR}/openssl/ssl.h")
+        message(FATAL_ERROR "OpenSSL headers not found at ${OPENSSL_INCLUDE_DIR}/openssl/ssl.h")
+    endif()
+    if(NOT EXISTS "${OPENSSL_CRYPTO_LIBRARY}")
+        message(FATAL_ERROR "OpenSSL crypto library not found at ${OPENSSL_CRYPTO_LIBRARY}")
+    endif()
+    if(NOT EXISTS "${OPENSSL_SSL_LIBRARY}")
+        message(FATAL_ERROR "OpenSSL SSL library not found at ${OPENSSL_SSL_LIBRARY}")
+    endif()
+    
+    message(STATUS "Using native Windows OpenSSL 1.1.1")
+    message(STATUS "  Include dir: ${OPENSSL_INCLUDE_DIR}")
+    message(STATUS "  Crypto library: ${OPENSSL_CRYPTO_LIBRARY}")
+    message(STATUS "  SSL library: ${OPENSSL_SSL_LIBRARY}")
+    
+    # Set the found flag manually since we're bypassing find_package
+    set(OPENSSL_FOUND TRUE CACHE BOOL "OpenSSL found" FORCE)
+    set(OPENSSL_VERSION "1.1.1" CACHE STRING "OpenSSL version" FORCE)
+    
+    # Create imported targets manually (required for target_link_libraries)
+    if(NOT TARGET OpenSSL::SSL)
+        add_library(OpenSSL::SSL UNKNOWN IMPORTED)
+        set_target_properties(OpenSSL::SSL PROPERTIES
+            IMPORTED_LOCATION "${OPENSSL_SSL_LIBRARY}"
+            INTERFACE_INCLUDE_DIRECTORIES "${OPENSSL_INCLUDE_DIR}"
+        )
+    endif()
+    
+    if(NOT TARGET OpenSSL::Crypto)
+        add_library(OpenSSL::Crypto UNKNOWN IMPORTED)
+        set_target_properties(OpenSSL::Crypto PROPERTIES
+            IMPORTED_LOCATION "${OPENSSL_CRYPTO_LIBRARY}"
+            INTERFACE_INCLUDE_DIRECTORIES "${OPENSSL_INCLUDE_DIR}"
+        )
+    endif()
+# MSYS2 OpenSSL configuration removed to avoid toolchain mismatch.
+# Relying on find_package(OpenSSL) or manual configuration via CMake variables.
+
 endif()
 
-find_package(OpenSSL REQUIRED)
+# Only call find_package if OpenSSL wasn't manually configured
+if(NOT OPENSSL_FOUND)
+    find_package(OpenSSL REQUIRED)
+endif()
+
 find_package(Threads REQUIRED)
 
 # ========================================
@@ -277,6 +322,7 @@ set(SERVICE_SOURCES
     src/services/LoginFlowService.cpp
     src/services/TradingDataService.cpp
     src/services/PriceCache.cpp
+    src/services/PriceCacheZeroCopy.cpp
     src/services/FeedHandler.cpp
     src/services/UdpBroadcastService.cpp
     src/services/MasterLoaderWorker.cpp
@@ -288,6 +334,7 @@ set(SERVICE_HEADERS
     include/services/LoginFlowService.h
     include/services/TradingDataService.h
     include/services/PriceCache.h
+    include/services/PriceCacheZeroCopy.h
     include/services/FeedHandler.h
     include/services/UdpBroadcastService.h
     include/services/MasterLoaderWorker.h
@@ -366,7 +413,8 @@ set(DATA_HEADERS
 set(UTILS_SOURCES
     src/utils/ClipboardHelpers.cpp
     src/utils/SelectionHelpers.cpp
-    src/utils/ConfigLoader.cpp
+    src/utils/FileLogger.cpp
+    src/utils/MemoryProfiler.cpp
     src/utils/PreferencesManager.cpp
     src/utils/SoundManager.cpp
 )
@@ -547,14 +595,15 @@ target_link_libraries(TradingTerminal PRIVATE
 )
 
 if(WIN32)
-    target_link_libraries(TradingTerminal PRIVATE Ws2_32 Iphlpapi)
+    target_link_libraries(TradingTerminal PRIVATE Ws2_32 Iphlpapi Psapi)
     if(MINGW)
-        # MinGW needs explicit linking for pthread from msys64
-        if(EXISTS "C:/msys64/mingw64/lib/libwinpthread.dll.a")
-            target_link_libraries(TradingTerminal PRIVATE "C:/msys64/mingw64/lib/libwinpthread.dll.a")
-        else()
-            target_link_libraries(TradingTerminal PRIVATE winpthread)
-        endif()
+        # Link winpthread from the current toolchain
+        target_link_libraries(TradingTerminal PRIVATE winpthread)
+        
+        # Link libgcc and libstdc++ statically to avoid "Entry Point Not Found" (__cxa_thread_atexit)
+        # and other DLL hell issues with different MinGW versions in PATH
+        target_link_options(TradingTerminal PRIVATE -static-libgcc -static-libstdc++)
+        message(STATUS "MinGW: Enabled static linking for libgcc and libstdc++")
     endif()
 endif()
 

@@ -16,6 +16,7 @@
 #include <QJsonDocument>
 #include <QJsonArray>
 #include <QJsonObject>
+#include <QUuid>
 
 bool MarketWatchWindow::addScrip(const QString &symbol, const QString &exchange, int token)
 {
@@ -54,26 +55,53 @@ bool MarketWatchWindow::addScrip(const QString &symbol, const QString &exchange,
     
     scrip.isBlankRow = false;
     
-    int newRow = m_model->rowCount();
-    m_model->addScrip(scrip);
-    
-    TokenSubscriptionManager::instance()->subscribe(exchange, token);
-    
-    // Subscribe to UDP ticks (new) - Convert exchange string to segment
+    // Convert exchange string to segment (needed for both modes)
     UDP::ExchangeSegment segment = UDP::ExchangeSegment::NSECM;  // default
     if (exchange == "NSEFO") segment = UDP::ExchangeSegment::NSEFO;
     else if (exchange == "NSECM") segment = UDP::ExchangeSegment::NSECM;
     else if (exchange == "BSEFO") segment = UDP::ExchangeSegment::BSEFO;
     else if (exchange == "BSECM") segment = UDP::ExchangeSegment::BSECM;
-    FeedHandler::instance().subscribeUDP(segment, token, this, &MarketWatchWindow::onUdpTickUpdate);
     
-    // Also subscribe to legacy XTS::Tick (using segment-specific overload)
-    FeedHandler::instance().subscribe(static_cast<int>(segment), token, this, &MarketWatchWindow::onTickUpdate);
+    int newRow = m_model->rowCount();
+    m_model->addScrip(scrip);
     
-    // Initial Load from Cache
-    // Initial Load from Cache
-    if (auto cached = PriceCache::instance().getPrice(static_cast<int>(segment), token)) {
-        onTickUpdate(*cached);
+    // ===================================================================
+    // CONDITIONAL PATH: Legacy vs Zero-Copy PriceCache
+    // ===================================================================
+    
+    if (m_useZeroCopyPriceCache) {
+        // ============================================================
+        // NEW ZERO-COPY MODE (use_legacy_mode = false)
+        // ============================================================
+        qDebug() << "[MarketWatch] Using ZERO-COPY PriceCache for token" << token;
+        
+        // Generate unique request ID
+        QString requesterId = QUuid::createUuid().toString();
+        m_pendingSubscriptions[requesterId] = token;
+        
+        // Emit async subscription request signal
+        // Flow: MarketWatch → FeedHandler → MainWindow → PriceCache
+        emit requestTokenSubscription(requesterId, token, static_cast<uint16_t>(segment));
+        
+        qDebug() << "[MarketWatch] Emitted zero-copy subscription request"
+                 << "RequesterId:" << requesterId << "Token:" << token << "Segment:" << static_cast<int>(segment);
+        
+    } else {
+        // ============================================================
+        // LEGACY MODE (use_legacy_mode = true) - UNCHANGED
+        // ============================================================
+        TokenSubscriptionManager::instance()->subscribe(exchange, token);
+        
+        // Subscribe to UDP ticks (new) - Convert exchange string to segment
+        FeedHandler::instance().subscribeUDP(segment, token, this, &MarketWatchWindow::onUdpTickUpdate);
+        
+        // Also subscribe to legacy XTS::Tick (using segment-specific overload)
+        FeedHandler::instance().subscribe(static_cast<int>(segment), token, this, &MarketWatchWindow::onTickUpdate);
+        
+        // Initial Load from Cache
+        if (auto cached = PriceCache::instance().getPrice(static_cast<int>(segment), token)) {
+            onTickUpdate(*cached);
+        }
     }
     
     m_tokenAddressBook->addCompositeToken(exchange, "", token, newRow);
@@ -102,25 +130,52 @@ bool MarketWatchWindow::addScripFromContract(const ScripData &contractData)
         }
     }
     
-    int newRow = m_model->rowCount();
-    m_model->addScrip(scrip);
-    
-    TokenSubscriptionManager::instance()->subscribe(scrip.exchange, scrip.token);
-    
-    // Subscribe to UDP ticks (new) - Convert exchange string to segment
+    // Convert exchange string to segment (needed for both modes)
     UDP::ExchangeSegment segment = UDP::ExchangeSegment::NSECM;  // default
     if (scrip.exchange == "NSEFO") segment = UDP::ExchangeSegment::NSEFO;
     else if (scrip.exchange == "NSECM") segment = UDP::ExchangeSegment::NSECM;
     else if (scrip.exchange == "BSEFO") segment = UDP::ExchangeSegment::BSEFO;
     else if (scrip.exchange == "BSECM") segment = UDP::ExchangeSegment::BSECM;
-    FeedHandler::instance().subscribeUDP(segment, scrip.token, this, &MarketWatchWindow::onUdpTickUpdate);
     
-    // Also subscribe to legacy XTS::Tick (using segment-specific overload to avoid cross-talk)
-    FeedHandler::instance().subscribe(static_cast<int>(segment), scrip.token, this, &MarketWatchWindow::onTickUpdate);
+    int newRow = m_model->rowCount();
+    m_model->addScrip(scrip);
     
-    // Initial Load from Cache
-    if (auto cached = PriceCache::instance().getPrice(static_cast<int>(segment), scrip.token)) {
-        onTickUpdate(*cached);
+    // ===================================================================
+    // CONDITIONAL PATH: Legacy vs Zero-Copy PriceCache
+    // ===================================================================
+    
+    if (m_useZeroCopyPriceCache) {
+        // ============================================================
+        // NEW ZERO-COPY MODE (use_legacy_mode = false)
+        // ============================================================
+        qDebug() << "[MarketWatch] Using ZERO-COPY PriceCache for token" << scrip.token;
+        
+        // Generate unique request ID
+        QString requesterId = QUuid::createUuid().toString();
+        m_pendingSubscriptions[requesterId] = scrip.token;
+        
+        // Emit async subscription request signal
+        emit requestTokenSubscription(requesterId, scrip.token, static_cast<uint16_t>(segment));
+        
+        qDebug() << "[MarketWatch] Emitted zero-copy subscription request"
+                 << "RequesterId:" << requesterId << "Token:" << scrip.token << "Segment:" << static_cast<int>(segment);
+        
+    } else {
+        // ============================================================
+        // LEGACY MODE (use_legacy_mode = true) - UNCHANGED
+        // ============================================================
+        TokenSubscriptionManager::instance()->subscribe(scrip.exchange, scrip.token);
+        
+        // Subscribe to UDP ticks (new) - Convert exchange string to segment
+        FeedHandler::instance().subscribeUDP(segment, scrip.token, this, &MarketWatchWindow::onUdpTickUpdate);
+        
+        // Also subscribe to legacy XTS::Tick (using segment-specific overload to avoid cross-talk)
+        FeedHandler::instance().subscribe(static_cast<int>(segment), scrip.token, this, &MarketWatchWindow::onTickUpdate);
+        
+        // Initial Load from Cache
+        if (auto cached = PriceCache::instance().getPrice(static_cast<int>(segment), scrip.token)) {
+            onTickUpdate(*cached);
+        }
     }
     
     m_tokenAddressBook->addCompositeToken(scrip.exchange, "", scrip.token, newRow);
@@ -441,3 +496,4 @@ void MarketWatchWindow::restoreState(QSettings &settings)
         }
     }
 }
+

@@ -710,6 +710,17 @@ QVector<ContractData> RepositoryManager::getOptionChain(
     return QVector<ContractData>();
 }
 
+QVector<ContractData> RepositoryManager::getContractsBySegment(const QString& exchange, const QString& segment) const {
+    QString segmentKey = getSegmentKey(exchange, segment);
+    
+    if (segmentKey == "NSEFO" && m_nsefo->isLoaded()) return m_nsefo->getAllContracts();
+    if (segmentKey == "NSECM" && m_nsecm->isLoaded()) return m_nsecm->getAllContracts();
+    if (segmentKey == "BSEFO" && m_bsefo->isLoaded()) return m_bsefo->getAllContracts();
+    if (segmentKey == "BSECM" && m_bsecm->isLoaded()) return m_bsecm->getAllContracts();
+    
+    return QVector<ContractData>();
+}
+
 void RepositoryManager::updateLiveData(
     const QString& exchange,
     const QString& segment,

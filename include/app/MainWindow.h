@@ -95,6 +95,15 @@ private slots:
     void onUdpTickReceived(const XTS::Tick& tick);
     void startBroadcastReceiver();
     void stopBroadcastReceiver();
+    
+    /**
+     * @brief Route price subscription request to PriceCache (zero-copy)
+     * Called when new PriceCache is enabled (use_legacy_mode = false)
+     * @param requesterId Unique ID to route response back to requester
+     * @param token Token to subscribe
+     * @param segment Market segment (1=NSECM, 2=NSEFO, 11=BSECM, 12=BSEFO)
+     */
+    void onPriceSubscriptionRequest(QString requesterId, uint32_t token, uint16_t segment);
 
 private:
     void setupContent();

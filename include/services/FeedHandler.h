@@ -164,6 +164,16 @@ public:
 
 signals:
     void subscriptionCountChanged(int token, size_t count);
+    
+    /**
+     * @brief Request price subscription from new PriceCache (zero-copy)
+     * Emitted by subscribers (MarketWatch, OptionChain) to request subscription
+     * Routed through: Subscriber → FeedHandler → MainWindow → PriceCache
+     * @param requesterId Unique ID to route response back
+     * @param token Token to subscribe
+     * @param segment Market segment
+     */
+    void requestPriceSubscription(QString requesterId, uint32_t token, uint16_t segment);
 
 private:
     FeedHandler();

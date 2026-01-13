@@ -1,5 +1,5 @@
 # Build directories
-/build/
+# /build/
 /TradingTerminal_autogen/
 configs/*
 # CMake files
@@ -66,3 +66,7 @@ masters
 
 # add config files
 /configs/config.ini
+
+
+#D:\Pratham\Terminal\trading_terminal_cpp\lib\cpp_broadcast_nsecm\CM_Tests add this into the gitignore
+/lib/cpp_broadcast_nsecm/CM_Tests/

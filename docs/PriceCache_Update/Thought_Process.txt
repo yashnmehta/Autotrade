@@ -1,0 +1,22 @@
+This is the new price cache implementation which is listed below:
+
+We will load the preferences of the users at the time of     initialization
+then we will load the master files and based on both the things we will make the Arrays based on those master files
+
+Here there will be 6 arrays, each of them will follow this below structures:
+Array_Size = No. of Tokens(We got from the master files) x Fields(this is upto 60 fields) * 4 bytes(as most of all the fields will be int)
+
+now those array values will be updated by the UDP receiver as the implementation of updation by Price Cache will be more hard
+So the UDP reader will directly update that those fields.
+
+Now if a subscriber subs a token, then the call will be sent to the feed handler and that will call to the mainUI and it'll call the PriceCache
+here priceCache will have the base Add of those arrays and based on the index it'll just calculate the locartion of that particular token.
+
+now that PriceCache will do two things it'll emit the QSignals, will send the latest data from the array 
+now that pricecache will also send the location of that particular token
+
+here the subscriber will have the memory Space which will save the addr. location helped for fetching the data directly using the Ptr
+
+now that subscriber will directly access the data from that memory space for the future updates!!
+
+price cache is like rest api call , it will serve the data to the requester , on demand basis (single shot).

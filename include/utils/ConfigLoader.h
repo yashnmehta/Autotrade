@@ -56,6 +56,9 @@ public:
     int getBSECMPort() const;
 
     QJsonObject getUDPConfig() const;
+    
+    // PriceCache Mode
+    bool getUseLegacyPriceCache() const;
 
 private:
     bool m_loaded;

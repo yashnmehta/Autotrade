@@ -3,12 +3,15 @@
 #include "repository/RepositoryManager.h"
 #include "services/MasterLoaderWorker.h"
 #include "services/MasterDataState.h"
+#include "services/PriceCacheZeroCopy.h"
+#include "utils/PreferencesManager.h"
 #include <QApplication>
 #include <QScreen>
 #include <QTimer>
 #include <QDebug>
 #include <QDir>
 #include <QFile>
+#include "utils/MemoryProfiler.h"
 
 SplashScreen::SplashScreen(QWidget *parent)
     : QWidget(parent, Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint)
@@ -25,6 +28,9 @@ SplashScreen::SplashScreen(QWidget *parent)
     // Set initial values
     ui->progressBar->setValue(0);
     ui->labelStatus->setText("Initializing...");
+    
+    // Load preferences first (including PriceCache mode)
+    loadPreferences();
     
     // Create master loader worker for async loading
     m_masterLoader = new MasterLoaderWorker(this);
@@ -170,6 +176,91 @@ void SplashScreen::onMasterLoadingComplete(int contractCount)
     qDebug() << "[SplashScreen]   BSE F&O:" << stats.bsefo << "contracts";
     qDebug() << "[SplashScreen]   BSE CM:" << stats.bsecm << "contracts";
     
+    // ===================================================================
+    // Initialize new PriceCache (zero-copy) if enabled
+    // ===================================================================
+    PreferencesManager& prefs = PreferencesManager::instance();
+    bool useLegacy = prefs.getUseLegacyPriceCache();
+    
+    // Log baseline RAM usage
+    MemoryProfiler::logSnapshot("Baseline (Masters Loaded)");
+
+    if (!useLegacy) {
+        qDebug() << "[SplashScreen] ========================================";
+        qDebug() << "[SplashScreen] Initializing Zero-Copy PriceCache...";
+        qDebug() << "[SplashScreen] ========================================";
+        
+        setStatus("Initializing zero-copy price cache...");
+        setProgress(90);
+        QApplication::processEvents();
+        
+        // Build token maps from repository
+        RepositoryManager* repo = RepositoryManager::getInstance();
+        
+        // NSE CM token map
+        std::unordered_map<uint32_t, uint32_t> nseCmTokens;
+        const auto& nseCmContracts = repo->getContractsBySegment("NSE", "CM");
+        uint32_t nseCmIndex = 0;
+        for (const auto& contract : nseCmContracts) {
+            nseCmTokens[contract.exchangeInstrumentID] = nseCmIndex++;
+        }
+        
+        // NSE FO token map
+        std::unordered_map<uint32_t, uint32_t> nseFoTokens;
+        const auto& nseFoContracts = repo->getContractsBySegment("NSE", "FO");
+        uint32_t nseFoIndex = 0;
+        for (const auto& contract : nseFoContracts) {
+            nseFoTokens[contract.exchangeInstrumentID] = nseFoIndex++;
+        }
+        
+        // BSE CM token map
+        std::unordered_map<uint32_t, uint32_t> bseCmTokens;
+        const auto& bseCmContracts = repo->getContractsBySegment("BSE", "CM");
+        uint32_t bseCmIndex = 0;
+        for (const auto& contract : bseCmContracts) {
+            bseCmTokens[contract.exchangeInstrumentID] = bseCmIndex++;
+        }
+        
+        // BSE FO token map
+        std::unordered_map<uint32_t, uint32_t> bseFoTokens;
+        const auto& bseFoContracts = repo->getContractsBySegment("BSE", "FO");
+        uint32_t bseFoIndex = 0;
+        for (const auto& contract : bseFoContracts) {
+            bseFoTokens[contract.exchangeInstrumentID] = bseFoIndex++;
+        }
+        
+        // Initialize PriceCacheZeroCopy
+        bool initSuccess = PriceCacheTypes::PriceCacheZeroCopy::getInstance().initialize(
+            nseCmTokens,
+            nseFoTokens,
+            bseCmTokens,
+            bseFoTokens
+        );
+        
+        if (initSuccess) {
+            auto cacheStats = PriceCacheTypes::PriceCacheZeroCopy::getInstance().getStats();
+            qDebug() << "[SplashScreen] \u2713 Zero-Copy PriceCache initialized successfully";
+            qDebug() << "[SplashScreen]   NSE CM tokens:" << cacheStats.nseCmTokenCount;
+            qDebug() << "[SplashScreen]   NSE FO tokens:" << cacheStats.nseFoTokenCount;
+            qDebug() << "[SplashScreen]   BSE CM tokens:" << cacheStats.bseCmTokenCount;
+            qDebug() << "[SplashScreen]   BSE FO tokens:" << cacheStats.bseFoTokenCount;
+            qDebug() << "[SplashScreen]   Total cache memory:" << (cacheStats.totalMemoryBytes / 1024 / 1024) << "MB";
+            qDebug() << "[SplashScreen] ========================================";
+            
+            // Log RAM after cache allocation
+            MemoryProfiler::logSnapshot("Zero-Copy Active");
+            
+            setStatus("Zero-copy cache ready!");
+        } else {
+            qCritical() << "[SplashScreen] \u2717 Failed to initialize Zero-Copy PriceCache!";
+            qCritical() << "[SplashScreen]   Falling back to legacy mode...";
+            setStatus("Cache initialization failed");
+        }
+    } else {
+        MemoryProfiler::logSnapshot("Legacy Mode Active");
+    }
+
+    
     // Mark loading complete and check if ready to close
     m_masterLoadingComplete = true;
     checkIfReadyToClose();
@@ -211,3 +302,37 @@ void SplashScreen::checkIfReadyToClose()
                  << m_masterLoadingComplete << "minimum time:" << m_minimumTimeElapsed;
     }
 }
+
+void SplashScreen::loadPreferences()
+{
+    setStatus("Loading preferences...");
+    setProgress(10);
+    
+    // Access PreferencesManager singleton
+    PreferencesManager& prefs = PreferencesManager::instance();
+    
+    // Load PriceCache mode flag
+    bool useLegacy = prefs.getUseLegacyPriceCache();
+    
+    qDebug() << "[SplashScreen] ========================================";
+    qDebug() << "[SplashScreen] Preferences Loaded";
+    qDebug() << "[SplashScreen] ========================================";
+    qDebug() << "[SplashScreen] PriceCache Mode:" << (useLegacy ? "LEGACY (current)" : "NEW (zero-copy)");
+    
+    if (!useLegacy) {
+        qDebug() << "[SplashScreen] ⚡ NEW ARCHITECTURE ENABLED ⚡";
+        qDebug() << "[SplashScreen]   - Zero-copy memory arrays";
+        qDebug() << "[SplashScreen]   - Direct UDP writes";
+        qDebug() << "[SplashScreen]   - Pointer-based subscriptions";
+        qDebug() << "[SplashScreen]   - Hybrid notification system";
+    } else {
+        qDebug() << "[SplashScreen] 📦 Using current implementation";
+    }
+    qDebug() << "[SplashScreen] ========================================";
+    
+    setStatus("Preferences loaded");
+    setProgress(20);
+    
+    QApplication::processEvents();
+}
+

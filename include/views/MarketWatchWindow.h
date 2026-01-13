@@ -13,8 +13,15 @@
 #include <unordered_map>
 #include <QSettings>
 
+// Forward declarations
 class TokenAddressBook;
 class XTSMarketDataClient;
+
+// Forward declaration for PriceCache namespace
+namespace PriceCacheTypes {
+    enum class MarketSegment : uint16_t;
+    struct ConsolidatedMarketData;
+}
 
 /**
  * @brief Professional Market Watch window with real-time updates
@@ -221,6 +228,12 @@ public:
      */
     void onModelReset() override;
 
+    /**
+     * @brief Setup connections to PriceCache (Zero-Copy Mode)
+     * This MUST be called after QApplication is created and before window is shown.
+     */
+    void setupZeroCopyMode();
+
 public slots:
     /**
      * @brief Delete selected rows
@@ -276,6 +289,13 @@ signals:
     // Context-aware signals (new) - includes full contract and market data
     void buyRequestedWithContext(const WindowContext &context);
     void sellRequestedWithContext(const WindowContext &context);
+    
+    /**
+     * @brief Request token subscription from new PriceCache (zero-copy mode)
+     * Emitted when use_legacy_pricecache = false
+     * Flow: MarketWatch → FeedHandler → MainWindow → PriceCache
+     */
+    void requestTokenSubscription(QString requesterId, uint32_t token, uint16_t segment);
 
 protected:
     /**
@@ -307,6 +327,32 @@ private slots:
     void onAddScripAction();
     void onSavePortfolio();
     void onLoadPortfolio();
+    
+    /**
+     * @brief Handle subscription response from new PriceCache (zero-copy mode)
+     * @param requesterId Unique ID to identify the requester
+     * @param token Token that was subscribed
+     * @param segment Market segment
+     * @param dataPointer Direct pointer for zero-copy reads (STORE THIS!)
+     * @param snapshot Initial data snapshot
+     * @param success Whether subscription succeeded
+     * @param errorMessage Error message if failed
+     */
+    void onPriceCacheSubscriptionReady(
+        QString requesterId,
+        uint32_t token,
+        PriceCacheTypes::MarketSegment segment,
+        PriceCacheTypes::ConsolidatedMarketData* dataPointer,
+        PriceCacheTypes::ConsolidatedMarketData snapshot,
+        bool success,
+        QString errorMessage
+    );
+    
+    /**
+     * @brief Timer callback for periodic zero-copy reads (new PriceCache mode)
+     * Reads directly from stored pointers without any function calls
+     */
+    void onZeroCopyTimerUpdate();
 
 private:
     void setupUI();
@@ -323,6 +369,21 @@ private:
     MarketWatchModel *m_model;
     TokenAddressBook *m_tokenAddressBook;
     XTSMarketDataClient *m_xtsClient;  // For BSE quote API fallback
+    
+    // ===================================================================
+    // New PriceCache (Zero-Copy Mode) - Only used when use_legacy_mode = false
+    // ===================================================================
+    bool m_useZeroCopyPriceCache;  // Loaded from preferences
+    QTimer* m_zeroCopyUpdateTimer; // Timer for periodic zero-copy reads
+    
+    // Token → Direct Memory Pointer mapping (zero-copy reads)
+    // Key: token, Value: pointer to ConsolidatedMarketData in PriceCache array
+    std::unordered_map<uint32_t, PriceCacheTypes::ConsolidatedMarketData*> m_tokenDataPointers;
+    
+    // Pending subscription requests (requesterId → token)
+    // Used to match async responses to requests
+    QHash<QString, uint32_t> m_pendingSubscriptions;
 };
 
 #endif // MARKETWATCHWINDOW_H
+

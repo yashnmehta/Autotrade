@@ -34,6 +34,14 @@ public:
      * Uses shared state to coordinate with LoginFlowService.
      */
     void preloadMasters();
+    
+    /**
+     * @brief Load user preferences at startup
+     * 
+     * Loads preferences including PriceCache mode flag that determines
+     * whether to use legacy or new zero-copy architecture.
+     */
+    void loadPreferences();
 
 signals:
     /**

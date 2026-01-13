@@ -85,6 +85,7 @@ void MainWindow::createMarketWatch()
     window->setWindowType("MarketWatch");
 
     MarketWatchWindow *marketWatch = new MarketWatchWindow(window);
+    marketWatch->setupZeroCopyMode();
     window->setContentWidget(marketWatch);
     window->resize(900, 400);
 
@@ -388,7 +389,10 @@ void MainWindow::onAddToWatchRequested(const InstrumentData &instrument)
     if (!marketWatch) {
         createMarketWatch();
         activeWindow = m_mdiArea->activeWindow();
-        if (activeWindow) marketWatch = qobject_cast<MarketWatchWindow*>(activeWindow->contentWidget());
+        if (activeWindow) {
+            marketWatch = qobject_cast<MarketWatchWindow*>(activeWindow->contentWidget());
+            if (marketWatch) marketWatch->setupZeroCopyMode();
+        }
     }
     
     if (marketWatch) {
@@ -480,7 +484,10 @@ void MainWindow::onRestoreWindowRequested(const QString &type, const QString &ti
         
         if (type == "MarketWatch") {
             MarketWatchWindow *mw = qobject_cast<MarketWatchWindow*>(window->contentWidget());
-            if (mw) mw->restoreState(settings);
+            if (mw) {
+                mw->setupZeroCopyMode();
+                mw->restoreState(settings);
+            }
         } else {
             // Try BaseBookWindow for order/trade/position windows
             BaseBookWindow *book = qobject_cast<BaseBookWindow*>(window->contentWidget());

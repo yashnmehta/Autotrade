@@ -252,3 +252,10 @@ QJsonObject ConfigLoader::getUDPConfig() const
     root["udp"] = config;
     return root;
 }
+
+bool ConfigLoader::getUseLegacyPriceCache() const
+{
+    // Default to true (legacy/current implementation) for safety
+    // Set to false in config.ini to enable new zero-copy architecture
+    return getBool("PRICECACHE", "use_legacy_mode", true);
+}

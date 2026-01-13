@@ -62,6 +62,10 @@ public:
     bool getShowOrderConfirmation() const;
     void setShowOrderConfirmation(bool enabled);
     
+    // PriceCache mode preference
+    bool getUseLegacyPriceCache() const;
+    void setUseLegacyPriceCache(bool useLegacy);
+    
     // Window-specific preferences
     QVariant getWindowPreference(const QString &window, const QString &key, 
                                  const QVariant &defaultValue = QVariant()) const;
