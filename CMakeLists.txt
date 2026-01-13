@@ -413,7 +413,7 @@ set(DATA_HEADERS
 set(UTILS_SOURCES
     src/utils/ClipboardHelpers.cpp
     src/utils/SelectionHelpers.cpp
-    src/utils/FileLogger.cpp
+    src/utils/ConfigLoader.cpp
     src/utils/MemoryProfiler.cpp
     src/utils/PreferencesManager.cpp
     src/utils/SoundManager.cpp
