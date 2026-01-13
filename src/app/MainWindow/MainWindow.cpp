@@ -352,9 +352,9 @@ void MainWindow::cancelOrder(int64_t appOrderID) {
 #include "core/widgets/CustomMDISubWindow.h"
 
 void MainWindow::openBuyWindowForModification(const XTS::Order &order) {
-    // Close any existing buy/sell window
-    closeWindowsByType("BuyWindow");
-    closeWindowsByType("SellWindow");
+    // Note: We deliberately DO NOT close existing windows here to allow multiple modification windows
+    // closeWindowsByType("BuyWindow");
+    // closeWindowsByType("SellWindow");
 
     CustomMDISubWindow *window = new CustomMDISubWindow("Modify Buy Order", m_mdiArea);
     window->setWindowType("BuyWindow");
@@ -373,15 +373,51 @@ void MainWindow::openBuyWindowForModification(const XTS::Order &order) {
 }
 
 void MainWindow::openSellWindowForModification(const XTS::Order &order) {
-    // Close any existing buy/sell window
-    closeWindowsByType("BuyWindow");
-    closeWindowsByType("SellWindow");
+    // Note: We deliberately DO NOT close existing windows here to allow multiple modification windows
+    // closeWindowsByType("BuyWindow");
+    // closeWindowsByType("SellWindow");
 
     CustomMDISubWindow *window = new CustomMDISubWindow("Modify Sell Order", m_mdiArea);
     window->setWindowType("SellWindow");
 
     SellWindow *sellWindow = new SellWindow(window);
     sellWindow->loadFromOrder(order);  // Load order data for modification
+    
+    // Connect the modification signal
+    connect(sellWindow, &BaseOrderWindow::orderModificationSubmitted, this, &MainWindow::modifyOrder);
+    
+    window->setContentWidget(sellWindow);
+    window->resize(1220, 260);
+    connectWindowSignals(window);
+    m_mdiArea->addWindow(window);
+    window->activateWindow();
+}
+
+void MainWindow::openBatchBuyWindowForModification(const QVector<XTS::Order> &orders) {
+    // Batch Modify Buy Window
+    CustomMDISubWindow *window = new CustomMDISubWindow("Batch Modify Buy", m_mdiArea);
+    window->setWindowType("BuyWindow");
+
+    BuyWindow *buyWindow = new BuyWindow(window);
+    buyWindow->loadFromOrders(orders); // Load BATCH of orders
+    
+    // Connect the modification signal
+    connect(buyWindow, &BaseOrderWindow::orderModificationSubmitted, this, &MainWindow::modifyOrder);
+    
+    window->setContentWidget(buyWindow);
+    window->resize(1220, 260);
+    connectWindowSignals(window);
+    m_mdiArea->addWindow(window);
+    window->activateWindow();
+}
+
+void MainWindow::openBatchSellWindowForModification(const QVector<XTS::Order> &orders) {
+    // Batch Modify Sell Window
+    CustomMDISubWindow *window = new CustomMDISubWindow("Batch Modify Sell", m_mdiArea);
+    window->setWindowType("SellWindow");
+
+    SellWindow *sellWindow = new SellWindow(window);
+    sellWindow->loadFromOrders(orders); // Load BATCH of orders
     
     // Connect the modification signal
     connect(sellWindow, &BaseOrderWindow::orderModificationSubmitted, this, &MainWindow::modifyOrder);

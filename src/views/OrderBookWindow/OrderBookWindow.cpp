@@ -262,26 +262,71 @@ void OrderBookWindow::onModifyOrder() {
         return;
     }
     
-    if (selectedOrders.size() > 1) {
-        QMessageBox::warning(this, "Modify Order", "Please select only one order to modify.");
-        return;
+    // Safety check for mass window opening
+    if (selectedOrders.size() > 5) {
+        // First check if they are batch-compatible
+        const XTS::Order &first = selectedOrders.first();
+        bool compatible = true;
+        for (int i = 1; i < selectedOrders.size(); ++i) {
+             if (selectedOrders[i].exchangeSegment != first.exchangeSegment ||
+                selectedOrders[i].exchangeInstrumentID != first.exchangeInstrumentID ||
+                selectedOrders[i].productType != first.productType ||
+                selectedOrders[i].timeInForce != first.timeInForce ||
+                selectedOrders[i].orderSide != first.orderSide) {
+                compatible = false;
+                break;
+            }
+        }
+        
+        if (!compatible) {
+            auto reply = QMessageBox::question(this, "Confirmation", 
+                QString("You are about to open %1 modification windows.\nAre you sure?").arg(selectedOrders.size()),
+                QMessageBox::Yes | QMessageBox::No);
+            if (reply == QMessageBox::No) return;
+        }
     }
     
-    XTS::Order order = selectedOrders.first();
-    
-    // Validate order status - can only modify open or partially filled orders
-    if (order.orderStatus != "Open" && order.orderStatus != "PartiallyFilled" && 
-        order.orderStatus != "New" && order.orderStatus != "PendingNew") {
-        QMessageBox::warning(this, "Modify Order", 
-            QString("Cannot modify order - Status: %1\nOnly Open or PartiallyFilled orders can be modified.")
-                .arg(order.orderStatus));
-        return;
+    // Filter out invalid orders (Closed/Rejected/etc)
+    QVector<XTS::Order> validOrders;
+    for (const auto& order : selectedOrders) {
+        if (order.orderStatus == "Open" || order.orderStatus == "PartiallyFilled" || 
+            order.orderStatus == "New" || order.orderStatus == "PendingNew") {
+            validOrders.append(order);
+        }
+    }
+
+    if (validOrders.isEmpty()) {
+         QMessageBox::warning(this, "Modify Order", "No modifiable orders selected (only Open/PartiallyFilled allowed).");
+         return;
+    }
+
+    // Smart Batch Logic
+    if (validOrders.size() > 1) {
+        const XTS::Order &first = validOrders.first();
+        bool compatible = true;
+        for (int i = 1; i < validOrders.size(); ++i) {
+             if (validOrders[i].exchangeSegment != first.exchangeSegment ||
+                validOrders[i].exchangeInstrumentID != first.exchangeInstrumentID ||
+                validOrders[i].productType != first.productType ||
+                validOrders[i].timeInForce != first.timeInForce ||
+                validOrders[i].orderSide != first.orderSide) {
+                compatible = false;
+                break;
+            }
+        }
+        
+        if (compatible) {
+            qDebug() << "[OrderBookWindow] Emitting batchModifyRequested for" << validOrders.size() << "orders.";
+            emit batchModifyRequested(validOrders);
+            return;
+        }
     }
     
-    qDebug() << "[OrderBookWindow] Emitting modifyOrderRequested for AppOrderID:" << order.appOrderID 
-             << "Symbol:" << order.tradingSymbol << "Side:" << order.orderSide;
-    
-    emit modifyOrderRequested(order);
+    // Fallback: Individual Modification
+    for (const XTS::Order &order : validOrders) {
+        qDebug() << "[OrderBookWindow] Emitting modifyOrderRequested for AppOrderID:" << order.appOrderID;
+        emit modifyOrderRequested(order);
+    }
 }
 
 void OrderBookWindow::onCancelOrder() {
@@ -350,37 +395,62 @@ void OrderBookWindow::keyPressEvent(QKeyEvent *event) {
                 return;
             }
             
-            if (selectedOrders.size() > 1) {
-                QMessageBox::warning(this, "Modify Order", "Please select only one order to modify.");
-                return;
+            bool isBuyKey = (event->key() == Qt::Key_F1);
+            QString expectedSide = isBuyKey ? "BUY" : "SELL";
+            
+            // Filter valid orders matching the key press side
+            QVector<XTS::Order> validOrders;
+            for (const auto& order : selectedOrders) {
+                // Check status
+                if (order.orderStatus != "Open" && order.orderStatus != "PartiallyFilled" && 
+                    order.orderStatus != "New" && order.orderStatus != "PendingNew") {
+                    continue;
+                }
+                // Check side
+                if (order.orderSide.toUpper() != expectedSide) {
+                    continue;
+                }
+                validOrders.append(order);
             }
             
-            XTS::Order order = selectedOrders.first();
-            
-            // Validate order status before modification
-            if (order.orderStatus != "Open" && order.orderStatus != "PartiallyFilled" && 
-                order.orderStatus != "New" && order.orderStatus != "PendingNew") {
+            if (validOrders.isEmpty()) {
                 QMessageBox::warning(this, "Modify Order", 
-                    QString("Cannot modify order - Status: %1").arg(order.orderStatus));
+                    QString("No valid %1 orders selected for modification.").arg(expectedSide));
                 return;
             }
             
-            // Shift+F1 for buy side, Shift+F2 for sell side
-            bool isBuy = (event->key() == Qt::Key_F1);
-            bool orderIsBuy = (order.orderSide.toUpper() == "BUY");
-            
-            if (isBuy != orderIsBuy) {
-                QMessageBox::warning(this, "Modify Order", 
-                    QString("Order side mismatch.\nOrder is %1 but Shift+%2 opens %3 window.\n\n"
-                            "Use Shift+%4 instead.")
-                        .arg(order.orderSide)
-                        .arg(isBuy ? "F1" : "F2")
-                        .arg(isBuy ? "Buy" : "Sell")
-                        .arg(orderIsBuy ? "F1" : "F2"));
-                return;
+            // Smart Batch Logic
+            if (validOrders.size() > 1) {
+                const XTS::Order &first = validOrders.first();
+                bool compatible = true;
+                for (int i = 1; i < validOrders.size(); ++i) {
+                     if (validOrders[i].exchangeSegment != first.exchangeSegment ||
+                        validOrders[i].exchangeInstrumentID != first.exchangeInstrumentID ||
+                        validOrders[i].productType != first.productType ||
+                        validOrders[i].timeInForce != first.timeInForce ||
+                        validOrders[i].orderSide != first.orderSide) {
+                        compatible = false;
+                        break;
+                    }
+                }
+                
+                if (compatible) {
+                    emit batchModifyRequested(validOrders);
+                    return;
+                }
             }
             
-            emit modifyOrderRequested(order);
+            // Fallback: Individual Modification
+            if (validOrders.size() > 5) {
+                auto reply = QMessageBox::question(this, "Confirmation", 
+                    QString("You are about to open %1 modification windows.\nAre you sure?").arg(validOrders.size()),
+                    QMessageBox::Yes | QMessageBox::No);
+                if (reply == QMessageBox::No) return;
+            }
+            
+            for (const XTS::Order &order : validOrders) {
+                emit modifyOrderRequested(order);
+            }
             return;
         }
     }

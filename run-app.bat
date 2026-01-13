@@ -1,20 +1,44 @@
 @echo off
+REM ============================================================
 REM Trading Terminal Launcher Script
 REM Sets up environment and runs the application
+REM ============================================================
 
-echo Starting Trading Terminal...
+echo.
+echo ================================================
+echo Trading Terminal Launcher
+echo ================================================
+echo.
 
-REM Add Qt DLLs to PATH
-set "PATH=C:\Qt\5.15.2\mingw81_64\bin;%PATH%"
+REM Setup environment first
+call setup-development-env.bat
+if %errorlevel% neq 0 (
+    echo Failed to setup development environment
+    pause
+    exit /b 1
+)
 
-REM Add vcpkg MinGW DLLs to PATH
-set "PATH=C:\vcpkg\installed\x64-mingw-dynamic\bin;%PATH%"
+REM Check if executable exists
+if not exist "build\TradingTerminal.exe" (
+    echo.
+    echo ERROR: TradingTerminal.exe not found!
+    echo.
+    echo Please build the project first:
+    echo   .\build-project.bat
+    echo.
+    pause
+    exit /b 1
+)
 
-REM Add MinGW runtime DLLs to PATH
-set "PATH=C:\ProgramData\chocolatey\lib\mingw\tools\install\mingw64\bin;%PATH%"
-
-REM Run the application from build directory
+REM Navigate to build directory and run
 cd build
-start "" TradingTerminal.exe
+echo Starting Trading Terminal...
+echo.
+TradingTerminal.exe
 
-echo Trading Terminal launched.
+REM Return to project root
+cd ..
+
+echo.
+echo Trading Terminal closed.
+echo.

@@ -84,7 +84,49 @@ void BSEParser::decodeMarketPicture(const uint8_t* buffer, size_t length, uint16
         decRec.volume = le32toh_func(*(uint32_t*)(record + 24)); // NOTE: Code uses 4 bytes, Manual V5 says 8. Sticking to code for 2020/2021.
         decRec.turnover = le32toh_func(*(uint32_t*)(record + 28));
         decRec.ltp = le32toh_func(*(uint32_t*)(record + 36));
+        
+        // Read unknown fields for analysis (48-83)
+        uint32_t field_48 = le32toh_func(*(uint32_t*)(record + 48));
+        uint32_t field_52 = le32toh_func(*(uint32_t*)(record + 52));
+        uint32_t field_56 = le32toh_func(*(uint32_t*)(record + 56));
+        uint32_t field_60 = le32toh_func(*(uint32_t*)(record + 60));
+        uint32_t field_64 = le32toh_func(*(uint32_t*)(record + 64));
+        uint32_t field_68 = le32toh_func(*(uint32_t*)(record + 68));
+        uint32_t field_72 = le32toh_func(*(uint32_t*)(record + 72));
+        uint32_t field_76 = le32toh_func(*(uint32_t*)(record + 76));
+        uint32_t field_80 = le32toh_func(*(uint32_t*)(record + 80));
+        
         decRec.weightedAvgPrice = le32toh_func(*(uint32_t*)(record + 84));
+        
+        // Read unknown fields (88-103)
+        uint32_t field_88 = le32toh_func(*(uint32_t*)(record + 88));
+        uint32_t field_92 = le32toh_func(*(uint32_t*)(record + 92));
+        uint32_t field_96 = le32toh_func(*(uint32_t*)(record + 96));
+        uint32_t field_100 = le32toh_func(*(uint32_t*)(record + 100));
+        
+        // Debug print for specific tokens we want to analyze
+        if (decRec.token == 1163264 || decRec.token == 1143697) {
+            std::cout << "\n=== BSE Record Debug (Token: " << decRec.token << ") ===" << std::endl;
+            std::cout << "Known Fields:" << std::endl;
+            std::cout << "  LTP: " << decRec.ltp << " (paise), Volume: " << decRec.volume 
+                      << ", Open: " << decRec.open << ", High: " << decRec.high << ", Low: " << decRec.low << std::endl;
+            std::cout << "  Turnover: " << decRec.turnover << ", ATP: " << decRec.weightedAvgPrice << std::endl;
+            std::cout << "Unknown Fields [48-83]:" << std::endl;
+            std::cout << "  [48-51]: " << field_48 << std::endl;
+            std::cout << "  [52-55]: " << field_52 << std::endl;
+            std::cout << "  [56-59]: " << field_56 << std::endl;
+            std::cout << "  [60-63]: " << field_60 << std::endl;
+            std::cout << "  [64-67]: " << field_64 << std::endl;
+            std::cout << "  [68-71]: " << field_68 << std::endl;
+            std::cout << "  [72-75]: " << field_72 << std::endl;
+            std::cout << "  [76-79]: " << field_76 << std::endl;
+            std::cout << "  [80-83]: " << field_80 << std::endl;
+            std::cout << "Unknown Fields [88-103]:" << std::endl;
+            std::cout << "  [88-91]: " << field_88 << std::endl;
+            std::cout << "  [92-95]: " << field_92 << std::endl;
+            std::cout << "  [96-99]: " << field_96 << std::endl;
+            std::cout << "  [100-103]: " << field_100 << std::endl;
+        }
         
         // Depth
         for (int level = 0; level < 5; level++) {

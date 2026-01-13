@@ -1,0 +1,183 @@
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│            Trading Terminal C++ - Setup Assistant               │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+
+🔍 CURRENT STATUS: Development environment needs cleanup and setup
+
+📋 PROBLEM IDENTIFIED:
+   • MinGW GCC 8.1.0 from Chocolatey is crashing during compilation
+   • AutoMoc preprocessing fails consistently
+   • Build process is blocked
+
+✅ SOLUTION READY:
+   • Clean up broken installations
+   • Install stable MinGW-w64 GCC 13.2+
+   • Install official Qt 5.15.2 with MinGW
+   • Configure environment properly
+   • Build and test successfully
+
+┌─────────────────────────────────────────────────────────────────┐
+│                     QUICK START GUIDE                           │
+└─────────────────────────────────────────────────────────────────┘
+
+📂 STEP 1: CLEANUP (5 minutes)
+   ─────────────────────────────────
+   Run as Administrator:
+   
+   PowerShell:
+   > .\cleanup-environment.ps1
+   
+   OR Batch:
+   > cleanup-environment.bat
+
+   This removes:
+   • Broken Chocolatey MinGW and Qt packages
+   • Build artifacts and temporary files
+
+📥 STEP 2: INSTALL MINGW (2 minutes)
+   ─────────────────────────────────
+   > winget install --id BrechtSanders.WinLibs.POSIX.UCRT
+   
+   Installs to: C:\mingw64
+   Version: GCC 13.2+ with full C++17 support
+
+📥 STEP 3: INSTALL QT (15-20 minutes)
+   ─────────────────────────────────
+   1. Download Qt installer:
+      https://www.qt.io/download-qt-installer
+   
+   2. Run installer (requires free Qt account)
+   
+   3. Select Custom Installation:
+      ☑ Qt 5.15.2
+        ☑ MinGW 8.1.0 64-bit
+      ☑ Developer Tools (optional)
+   
+   Installs to: C:\Qt\5.15.2\mingw81_64
+
+⚙️  STEP 4: CONFIGURE ENVIRONMENT (1 minute)
+   ─────────────────────────────────
+   Run PowerShell as Administrator:
+   
+   > [Environment]::SetEnvironmentVariable("Path", 
+       $env:Path + ";C:\mingw64\bin", "Machine")
+   
+   > [Environment]::SetEnvironmentVariable("Path", 
+       $env:Path + ";C:\Qt\5.15.2\mingw81_64\bin", "Machine")
+   
+   Then restart PowerShell
+
+✔️  STEP 5: VERIFY INSTALLATION
+   ─────────────────────────────────
+   > g++ --version
+   Should show: 13.2.0 or higher
+   
+   > qmake --version
+   Should show: Qt version 5.15.2
+   
+   > cmake --version
+   Should show: 3.20 or higher
+
+🔨 STEP 6: BUILD PROJECT (5-10 minutes)
+   ─────────────────────────────────
+   > .\configure-project.bat
+   > .\build-project.bat
+
+🚀 STEP 7: RUN APPLICATION
+   ─────────────────────────────────
+   > .\run-app.bat
+
+┌─────────────────────────────────────────────────────────────────┐
+│                    HELPER SCRIPTS AVAILABLE                     │
+└─────────────────────────────────────────────────────────────────┘
+
+   cleanup-environment.ps1     → Clean up broken installations
+   cleanup-environment.bat     → Same as above (batch version)
+   setup-development-env.bat   → Set environment variables
+   configure-project.bat       → Configure CMake
+   build-project.bat          → Build the project
+   clean-rebuild.bat          → Clean and rebuild from scratch
+   run-app.bat                → Launch application
+
+┌─────────────────────────────────────────────────────────────────┐
+│                    DOCUMENTATION AVAILABLE                      │
+└─────────────────────────────────────────────────────────────────┘
+
+   📖 SETUP_GUIDE.md    → Comprehensive setup guide (400+ lines)
+                          Complete instructions with troubleshooting
+   
+   📄 QUICK_START.md    → Quick reference (condensed version)
+                          Fast setup steps with time estimates
+   
+   📋 SUMMARY.md        → Setup summary and file purposes
+                          Overview of all created files
+
+┌─────────────────────────────────────────────────────────────────┐
+│                       TIME ESTIMATE                             │
+└─────────────────────────────────────────────────────────────────┘
+
+   Cleanup:                    5 minutes
+   Install MinGW:              2 minutes
+   Install Qt:                15-20 minutes
+   Configure environment:      1 minute
+   Build project:             5-10 minutes
+   ───────────────────────────────────────
+   TOTAL:                    30-40 minutes (one-time setup)
+
+┌─────────────────────────────────────────────────────────────────┐
+│                    WHAT HAPPENS NEXT                            │
+└─────────────────────────────────────────────────────────────────┘
+
+After successful setup:
+
+1. ✅ Application will build and run successfully
+
+2. 🧪 BSE Parser debug code is ready
+   • Already added to lib/cpp_broadcast_bsefo/src/bse_parser.cpp
+   • Will capture unknown field values for tokens:
+     - 1163264 (SENSEX option CE 84500)
+     - 1143697 (SENSEX future)
+
+3. 📊 Analyze debug output to identify:
+   • noOfTrades (incrementing counter)
+   • ltq - Last Traded Quantity
+   • totalBuyQty / totalSellQty
+   • lowerCircuit / upperCircuit
+   • Other market data fields at offsets 48-83 and 88-103
+
+4. 🔄 Update parser code with correct field mappings
+
+┌─────────────────────────────────────────────────────────────────┐
+│                      NEED HELP?                                 │
+└─────────────────────────────────────────────────────────────────┘
+
+   • Read SETUP_GUIDE.md for detailed instructions
+   • Check QUICK_START.md for quick reference
+   • Review SUMMARY.md for overview
+   • See troubleshooting section in SETUP_GUIDE.md
+
+┌─────────────────────────────────────────────────────────────────┐
+│                    START HERE                                   │
+└─────────────────────────────────────────────────────────────────┘
+
+   Step 1: Open PowerShell as Administrator
+   
+   Step 2: Navigate to project directory
+           cd C:\Users\admin\Desktop\trading_terminal_cpp
+   
+   Step 3: Run cleanup script
+           .\cleanup-environment.ps1
+   
+   Step 4: Follow the on-screen instructions
+
+   📖 For detailed instructions, see: SETUP_GUIDE.md
+
+═══════════════════════════════════════════════════════════════════
+
+Created: 2025-01-02
+Status: Ready for user execution
+Next Action: Run cleanup-environment.ps1 as Administrator
+
+═══════════════════════════════════════════════════════════════════

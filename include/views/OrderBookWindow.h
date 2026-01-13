@@ -26,6 +26,7 @@ public:
 signals:
     // Order modification/cancellation signals
     void modifyOrderRequested(const XTS::Order &order);
+    void batchModifyRequested(const QVector<XTS::Order> &orders);
     void cancelOrderRequested(int64_t appOrderID);
 
 public slots:

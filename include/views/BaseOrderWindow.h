@@ -23,8 +23,9 @@ public:
      * @brief Order entry mode
      */
     enum OrderMode {
-        NewOrder,   ///< Placing a new order
-        ModifyOrder ///< Modifying an existing order
+        NewOrder,       ///< Placing a new order
+        ModifyOrder,    ///< Modifying an existing order
+        BatchModifyOrder ///< Modifying multiple orders in batch
     };
 
     explicit BaseOrderWindow(const QString& uiFile, QWidget* parent = nullptr);
@@ -32,9 +33,12 @@ public:
 
     void loadFromContext(const WindowContext &context);
     void loadFromOrder(const XTS::Order &order);  ///< Load from existing order for modification
+    void loadFromOrders(const QVector<XTS::Order> &orders); ///< Load multiple orders for batch modification
+    
     void setScripDetails(const QString &exchange, int token, const QString &symbol);
     
     bool isModifyMode() const { return m_orderMode == ModifyOrder; }
+    bool isBatchModifyMode() const { return m_orderMode == BatchModifyOrder; }
     OrderMode orderMode() const { return m_orderMode; }
     int64_t originalOrderID() const { return m_originalOrderID; }
 
@@ -70,6 +74,7 @@ protected:
     OrderMode m_orderMode = NewOrder;
     int64_t m_originalOrderID = 0;          ///< AppOrderID of order being modified
     XTS::Order m_originalOrder;              ///< Full order data for modification
+    QVector<XTS::Order> m_batchOrders;       ///< List of orders for batch modification
 
     // Shared widgets
     QComboBox *m_cbEx;

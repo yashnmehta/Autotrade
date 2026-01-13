@@ -58,6 +58,10 @@ public:
     // Open order window for modification
     void openBuyWindowForModification(const XTS::Order &order);
     void openSellWindowForModification(const XTS::Order &order);
+    
+    // Batch modification
+    void openBatchBuyWindowForModification(const QVector<XTS::Order> &orders);
+    void openBatchSellWindowForModification(const QVector<XTS::Order> &orders);
 
 private slots:
     // Window actions
