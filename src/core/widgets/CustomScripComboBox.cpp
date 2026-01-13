@@ -199,7 +199,8 @@ void CustomScripComboBox::keyPressEvent(QKeyEvent *event)
             if (m_isPopupVisible) {
                 QModelIndex currentIndex = view()->currentIndex();
                 if (currentIndex.isValid()) {
-                    QString selectedText = m_sourceModel->data(currentIndex).toString();
+                    // Fix: Use data from currentIndex directly (it's from the proxy model)
+                    QString selectedText = currentIndex.data().toString();
                     if (auto* le = lineEdit()) le->setText(selectedText);
                 }
                 hidePopup();
@@ -254,7 +255,15 @@ void CustomScripComboBox::showPopup()
     if (current >= 0 && m_listView) {
         QTimer::singleShot(0, this, [this, current]() {
             if (m_listView && m_isPopupVisible) {
-                m_listView->scrollTo(m_sourceModel->index(current, 0), QAbstractItemView::PositionAtTop);
+                // Determine the correct index for scroll (handle proxy if necessary)
+                // If filtering is inactive on show, m_sourceModel indices match.
+                // If tricky, rely on view's current index if valid.
+                QModelIndex idx = view()->currentIndex();
+                if(idx.isValid()) {
+                    m_listView->scrollTo(idx, QAbstractItemView::PositionAtTop);
+                } else {
+                     m_listView->scrollTo(m_sourceModel->index(current, 0), QAbstractItemView::PositionAtTop);
+                }
             }
         });
     }
@@ -268,9 +277,21 @@ void CustomScripComboBox::hidePopup()
 
 void CustomScripComboBox::onItemActivated(int index)
 {
-    QModelIndex sourceIndex = m_sourceModel->index(index, 0);
-    QString selectedText = m_sourceModel->data(sourceIndex).toString();
+    // Fix: 'index' corresponds to the view's model (which might be a proxy)
+    // Use the model associated with the combo box at this moment (or view)
+    QString selectedText;
+    if (view() && view()->model()) {
+        QModelIndex idx = view()->model()->index(index, 0);
+        if (idx.isValid()) {
+             selectedText = idx.data().toString();
+        }
+    }
     
+    // Fallback if view model access fails (unlikely)
+    if (selectedText.isEmpty()) {
+         selectedText = itemText(index);
+    }
+
     // Update the line edit if we are in SearchMode (editable)
     if (auto* le = lineEdit()) {
         le->setText(selectedText);

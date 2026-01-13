@@ -86,15 +86,20 @@ void BSEParser::decodeMarketPicture(const uint8_t* buffer, size_t length, uint16
         decRec.ltp = le32toh_func(*(uint32_t*)(record + 36));
         
         // Read unknown fields for analysis (48-83)
+        // Read unknown fields for analysis (48-83)
         uint32_t field_48 = le32toh_func(*(uint32_t*)(record + 48));
         uint32_t field_52 = le32toh_func(*(uint32_t*)(record + 52));
         uint32_t field_56 = le32toh_func(*(uint32_t*)(record + 56));
         uint32_t field_60 = le32toh_func(*(uint32_t*)(record + 60));
-        uint32_t field_64 = le32toh_func(*(uint32_t*)(record + 64));
-        uint32_t field_68 = le32toh_func(*(uint32_t*)(record + 68));
+        
+        // Empirically Verified Fields
+        decRec.totalBuyQty = le32toh_func(*(uint32_t*)(record + 64));  // [64-67]
+        decRec.totalSellQty = le32toh_func(*(uint32_t*)(record + 68)); // [68-71]
+        
         uint32_t field_72 = le32toh_func(*(uint32_t*)(record + 72));
-        uint32_t field_76 = le32toh_func(*(uint32_t*)(record + 76));
-        uint32_t field_80 = le32toh_func(*(uint32_t*)(record + 80));
+        
+        decRec.lowerCircuit = le32toh_func(*(uint32_t*)(record + 76)); // [76-79]
+        decRec.upperCircuit = le32toh_func(*(uint32_t*)(record + 80)); // [80-83]
         
         decRec.weightedAvgPrice = le32toh_func(*(uint32_t*)(record + 84));
         
@@ -105,27 +110,25 @@ void BSEParser::decodeMarketPicture(const uint8_t* buffer, size_t length, uint16
         uint32_t field_100 = le32toh_func(*(uint32_t*)(record + 100));
         
         // Debug print for specific tokens we want to analyze
-        if (decRec.token == 1163264 || decRec.token == 1143697) {
+        if (decRec.token == 11632641 ) {
             std::cout << "\n=== BSE Record Debug (Token: " << decRec.token << ") ===" << std::endl;
             std::cout << "Known Fields:" << std::endl;
             std::cout << "  LTP: " << decRec.ltp << " (paise), Volume: " << decRec.volume 
                       << ", Open: " << decRec.open << ", High: " << decRec.high << ", Low: " << decRec.low << std::endl;
             std::cout << "  Turnover: " << decRec.turnover << ", ATP: " << decRec.weightedAvgPrice << std::endl;
-            std::cout << "Unknown Fields [48-83]:" << std::endl;
+            std::cout << "Verified New Fields:" << std::endl;
+            std::cout << "  Total Buy Qty [64-67]: " << decRec.totalBuyQty << std::endl;
+            std::cout << "  Total Sell Qty [68-71]: " << decRec.totalSellQty << std::endl;
+            std::cout << "  Lower Circuit [76-79]: " << decRec.lowerCircuit << std::endl;
+            std::cout << "  Upper Circuit [80-83]: " << decRec.upperCircuit << std::endl;
+            
+            std::cout << "Remaining Unknowns:" << std::endl;
             std::cout << "  [48-51]: " << field_48 << std::endl;
             std::cout << "  [52-55]: " << field_52 << std::endl;
             std::cout << "  [56-59]: " << field_56 << std::endl;
             std::cout << "  [60-63]: " << field_60 << std::endl;
-            std::cout << "  [64-67]: " << field_64 << std::endl;
-            std::cout << "  [68-71]: " << field_68 << std::endl;
             std::cout << "  [72-75]: " << field_72 << std::endl;
-            std::cout << "  [76-79]: " << field_76 << std::endl;
-            std::cout << "  [80-83]: " << field_80 << std::endl;
-            std::cout << "Unknown Fields [88-103]:" << std::endl;
-            std::cout << "  [88-91]: " << field_88 << std::endl;
-            std::cout << "  [92-95]: " << field_92 << std::endl;
-            std::cout << "  [96-99]: " << field_96 << std::endl;
-            std::cout << "  [100-103]: " << field_100 << std::endl;
+            std::cout << "  [88-103]: " << field_88 << ", " << field_92 << ", " << field_96 << ", " << field_100 << std::endl;
         }
         
         // Depth
@@ -152,8 +155,6 @@ void BSEParser::decodeMarketPicture(const uint8_t* buffer, size_t length, uint16
         // Defaults
         decRec.noOfTrades = 0;
         decRec.ltq = 0;
-        decRec.lowerCircuit = 0;
-        decRec.upperCircuit = 0;
         
         stats.packetsDecoded++;
         if (recordCallback_) recordCallback_(decRec);
