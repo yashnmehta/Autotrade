@@ -88,6 +88,7 @@ void SellWindow::onSubmitClicked() {
             }
             processModification(m_originalOrder, m_originalOrderID);
             qDebug() << "[SellWindow] Modification request submitted for order:" << m_originalOrderID;
+            close();
         }
         return;
     }
@@ -119,6 +120,7 @@ void SellWindow::onSubmitClicked() {
     }
 
     emit orderSubmitted(params);
+    close();
 }
 
 
