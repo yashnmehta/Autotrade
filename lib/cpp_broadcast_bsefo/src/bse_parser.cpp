@@ -84,7 +84,52 @@ void BSEParser::decodeMarketPicture(const uint8_t* buffer, size_t length, uint16
         decRec.volume = le32toh_func(*(uint32_t*)(record + 24)); // NOTE: Code uses 4 bytes, Manual V5 says 8. Sticking to code for 2020/2021.
         decRec.turnover = le32toh_func(*(uint32_t*)(record + 28));
         decRec.ltp = le32toh_func(*(uint32_t*)(record + 36));
+        
+        // Read unknown fields for analysis (48-83)
+        // Read unknown fields for analysis (48-83)
+        uint32_t field_48 = le32toh_func(*(uint32_t*)(record + 48));
+        uint32_t field_52 = le32toh_func(*(uint32_t*)(record + 52));
+        uint32_t field_56 = le32toh_func(*(uint32_t*)(record + 56));
+        uint32_t field_60 = le32toh_func(*(uint32_t*)(record + 60));
+        
+        // Empirically Verified Fields
+        decRec.totalBuyQty = le32toh_func(*(uint32_t*)(record + 64));  // [64-67]
+        decRec.totalSellQty = le32toh_func(*(uint32_t*)(record + 68)); // [68-71]
+        
+        uint32_t field_72 = le32toh_func(*(uint32_t*)(record + 72));
+        
+        decRec.lowerCircuit = le32toh_func(*(uint32_t*)(record + 76)); // [76-79]
+        decRec.upperCircuit = le32toh_func(*(uint32_t*)(record + 80)); // [80-83]
+        
         decRec.weightedAvgPrice = le32toh_func(*(uint32_t*)(record + 84));
+        
+        // Read unknown fields (88-103)
+        uint32_t field_88 = le32toh_func(*(uint32_t*)(record + 88));
+        uint32_t field_92 = le32toh_func(*(uint32_t*)(record + 92));
+        uint32_t field_96 = le32toh_func(*(uint32_t*)(record + 96));
+        uint32_t field_100 = le32toh_func(*(uint32_t*)(record + 100));
+        
+        // Debug print for specific tokens we want to analyze
+        if (decRec.token == 11632641 ) {
+            std::cout << "\n=== BSE Record Debug (Token: " << decRec.token << ") ===" << std::endl;
+            std::cout << "Known Fields:" << std::endl;
+            std::cout << "  LTP: " << decRec.ltp << " (paise), Volume: " << decRec.volume 
+                      << ", Open: " << decRec.open << ", High: " << decRec.high << ", Low: " << decRec.low << std::endl;
+            std::cout << "  Turnover: " << decRec.turnover << ", ATP: " << decRec.weightedAvgPrice << std::endl;
+            std::cout << "Verified New Fields:" << std::endl;
+            std::cout << "  Total Buy Qty [64-67]: " << decRec.totalBuyQty << std::endl;
+            std::cout << "  Total Sell Qty [68-71]: " << decRec.totalSellQty << std::endl;
+            std::cout << "  Lower Circuit [76-79]: " << decRec.lowerCircuit << std::endl;
+            std::cout << "  Upper Circuit [80-83]: " << decRec.upperCircuit << std::endl;
+            
+            std::cout << "Remaining Unknowns:" << std::endl;
+            std::cout << "  [48-51]: " << field_48 << std::endl;
+            std::cout << "  [52-55]: " << field_52 << std::endl;
+            std::cout << "  [56-59]: " << field_56 << std::endl;
+            std::cout << "  [60-63]: " << field_60 << std::endl;
+            std::cout << "  [72-75]: " << field_72 << std::endl;
+            std::cout << "  [88-103]: " << field_88 << ", " << field_92 << ", " << field_96 << ", " << field_100 << std::endl;
+        }
         
         // Depth
         for (int level = 0; level < 5; level++) {
@@ -110,8 +155,6 @@ void BSEParser::decodeMarketPicture(const uint8_t* buffer, size_t length, uint16
         // Defaults
         decRec.noOfTrades = 0;
         decRec.ltq = 0;
-        decRec.lowerCircuit = 0;
-        decRec.upperCircuit = 0;
         
         stats.packetsDecoded++;
         if (recordCallback_) recordCallback_(decRec);

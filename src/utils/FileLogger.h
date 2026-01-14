@@ -17,7 +17,12 @@ void messageHandler(QtMsgType type, const QMessageLogContext &context, const QSt
     
     QString level;
     switch (type) {
-        case QtDebugMsg:    level = "DEBUG"; break;
+        case QtDebugMsg:
+            // Info Mode: Skip debug logs
+            // Change false to true to enable debug logs
+            if (true) return; 
+            level = "DEBUG"; 
+            break;
         case QtInfoMsg:     level = "INFO "; break;
         case QtWarningMsg:  level = "WARN "; break;
         case QtCriticalMsg: level = "ERROR"; break;

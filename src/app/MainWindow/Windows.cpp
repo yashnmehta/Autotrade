@@ -331,6 +331,16 @@ void MainWindow::createOrderBookWindow()
             openSellWindowForModification(order);
         }
     });
+
+    // Connect Batch Modification signal
+    connect(ob, &OrderBookWindow::batchModifyRequested, this, [this](const QVector<XTS::Order> &orders) {
+        if (orders.isEmpty()) return;
+        if (orders.first().orderSide.toUpper() == "BUY") {
+            openBatchBuyWindowForModification(orders);
+        } else {
+            openBatchSellWindowForModification(orders);
+        }
+    });
     
     // Connect order cancellation signal
     connect(ob, &OrderBookWindow::cancelOrderRequested, this, &MainWindow::cancelOrder);

@@ -9,6 +9,9 @@
 #include <QWheelEvent>
 #include <QDate>
 #include <cmath>
+
+
+#include <QTimer>
 #include "repository/RepositoryManager.h"
 #include "services/FeedHandler.h"
 #include "services/PriceCache.h"
@@ -124,8 +127,11 @@ OptionChainWindow::OptionChainWindow(QWidget *parent)
     setupModels();
     setupConnections();
     
-    // Populate symbols (triggers chain reaction: symbol -> expiry -> refresh)
+    // Populate symbols (silently, without triggering partial refreshes)
     populateSymbols();
+    
+    // One explicit refresh to load initial data
+    refreshData();
     
     setWindowTitle("Option Chain");
     resize(1600, 800);
@@ -694,9 +700,11 @@ double OptionChainWindow::getStrikeAtRow(int row) const
 void OptionChainWindow::refreshData()
 {
     // Clear existing data and subscriptions
+
     FeedHandler::instance().unsubscribeAll(this);
     clearData();
     m_tokenToStrike.clear();
+
     
     // Get parameters
     QString symbol = m_symbolCombo->currentText();
@@ -741,10 +749,15 @@ void OptionChainWindow::refreshData()
     QList<double> sortedStrikes = strikes.values();
     std::sort(sortedStrikes.begin(), sortedStrikes.end());
     m_strikes = sortedStrikes;
-    
+
+    m_strikes = sortedStrikes;
+
     // Create Rows
-    QList<QStandardItem*> callRow;
-    QList<QStandardItem*> putRow;
+    QList<QList<QStandardItem*>> callRows;
+    QList<QList<QStandardItem*>> putRows;
+    QList<QStandardItem*> strikeRows;
+    
+    // Prepare data off-thread (conceptually) or just prepare all items first
     
     FeedHandler& feed = FeedHandler::instance();
     
@@ -752,14 +765,17 @@ void OptionChainWindow::refreshData()
         OptionStrikeData data;
         data.strikePrice = strike;
         
-        // Contracts
+        // Contracts & Subscription
         if (callContracts.contains(strike)) {
             data.callToken = callContracts[strike].exchangeInstrumentID;
-            // Subscribe
+            
+
+
             feed.subscribe(exchangeSegment, data.callToken, this, &OptionChainWindow::onTickUpdate);
+
+            
             m_tokenToStrike[data.callToken] = strike;
             
-            // Initial Load from Cache
             if (auto cached = PriceCache::instance().getPrice(exchangeSegment, data.callToken)) {
                 const auto& tick = *cached;
                 if (tick.lastTradedPrice > 0) {
@@ -777,11 +793,11 @@ void OptionChainWindow::refreshData()
         
         if (putContracts.contains(strike)) {
             data.putToken = putContracts[strike].exchangeInstrumentID;
-            // Subscribe
+            
             feed.subscribe(exchangeSegment, data.putToken, this, &OptionChainWindow::onTickUpdate);
+            
             m_tokenToStrike[data.putToken] = strike;
             
-            // Initial Load from Cache
             if (auto cached = PriceCache::instance().getPrice(exchangeSegment, data.putToken)) {
                 const auto& tick = *cached;
                 if (tick.lastTradedPrice > 0) {
@@ -799,62 +815,111 @@ void OptionChainWindow::refreshData()
         
         m_strikeData[strike] = data;
         
-        // Add visual rows (Initial empty/zero data)
-        // Checkbox column
-        QStandardItem *callCheckbox = new QStandardItem("");
-        callCheckbox->setCheckable(true);
-        callRow.clear();
-        callRow << callCheckbox
-                << new QStandardItem("0") // OI
-                << new QStandardItem("0") // ChangeInOI
-                << new QStandardItem("0") // Volume
-                << new QStandardItem("0.00") // IV
-                << new QStandardItem("0.00") // LTP
-                << new QStandardItem("0.00") // Chng
-                << new QStandardItem("0") // BidQty
-                << new QStandardItem("0.00") // Bid
-                << new QStandardItem("0.00") // Ask
-                << new QStandardItem("0"); // AskQty
+        // --- Create Visual Items ---
         
-        for (int i=1; i<callRow.size(); ++i) callRow[i]->setTextAlignment(Qt::AlignCenter);
-        m_callModel->appendRow(callRow);
+        // Helper to create colored item
+        auto createItem = [](double val, int precision = 2) {
+             return new QStandardItem(val == 0 ? "0" : QString::number(val, 'f', precision));
+        };
+        auto createIntItem = [](int64_t val) {
+             return new QStandardItem(val == 0 ? "0" : QString::number(val));
+        };
         
-        // Strike
-        QStandardItem *strikeItem = new QStandardItem(QString::number(strike, 'f', 2));
-        strikeItem->setTextAlignment(Qt::AlignCenter);
-        m_strikeModel->appendRow(strikeItem);
+        // Call Row
+        QList<QStandardItem*> cRow;
+        QStandardItem* cbCall = new QStandardItem(""); cbCall->setCheckable(true);
+        
+        cRow << cbCall
+             << createIntItem(data.callOI)
+             << createIntItem(data.callChngInOI)
+             << createIntItem(data.callVolume)
+             << createItem(data.callIV)
+             << createItem(data.callLTP)
+             << createItem(data.callChng)
+             << createIntItem(data.callBidQty)
+             << createItem(data.callBid)
+             << createItem(data.callAsk)
+             << createIntItem(data.callAskQty);
+             
+        for (int i=1; i<cRow.size(); ++i) cRow[i]->setTextAlignment(Qt::AlignCenter);
+        callRows.append(cRow);
+        
+        // Strike Row
+        QStandardItem *sItem = new QStandardItem(QString::number(strike, 'f', 2));
+        sItem->setTextAlignment(Qt::AlignCenter);
+        strikeRows.append(sItem);
         
         // Put Row
-        QStandardItem *putCheckbox = new QStandardItem("");
-        putCheckbox->setCheckable(true);
-        putRow.clear();
-        putRow << new QStandardItem("0") // BidQty
-               << new QStandardItem("0.00") // Bid
-               << new QStandardItem("0.00") // Ask
-               << new QStandardItem("0") // AskQty
-               << new QStandardItem("0.00") // Chng
-               << new QStandardItem("0.00") // LTP
-               << new QStandardItem("0.00") // IV
-               << new QStandardItem("0") // Vol
-               << new QStandardItem("0") // ChngInOI
-               << new QStandardItem("0") // OI
-               << putCheckbox;
+        QList<QStandardItem*> pRow;
+        QStandardItem* cbPut = new QStandardItem(""); cbPut->setCheckable(true);
         
-
-
-        for (int i=0; i<putRow.size()-1; ++i) putRow[i]->setTextAlignment(Qt::AlignCenter);
-        m_putModel->appendRow(putRow);
+        pRow << createIntItem(data.putBidQty)
+             << createItem(data.putBid)
+             << createItem(data.putAsk)
+             << createIntItem(data.putAskQty)
+             << createItem(data.putChng)
+             << createItem(data.putLTP)
+             << createItem(data.putIV)
+             << createIntItem(data.putVolume)
+             << createIntItem(data.putChngInOI)
+             << createIntItem(data.putOI)
+             << cbPut;
+             
+        for (int i=0; i<pRow.size()-1; ++i) pRow[i]->setTextAlignment(Qt::AlignCenter);
+        putRows.append(pRow);
     }
     
-    // Set ATM (approximate based on first futures or spot if available, otherwise middle)
-    // For now, pick middle strike
+    // Batch Insert to Views (Prevent Layout Thrashing)
+    m_callTable->setUpdatesEnabled(false);
+    m_strikeTable->setUpdatesEnabled(false);
+    m_putTable->setUpdatesEnabled(false);
+    
+    // Using simple appendRow loop but with updates disabled is better, 
+    // but insertRow is still O(N). 
+    // Ideally we should use standard item model's internal list but appendRow is fine if updates are off.
+    
+    // Even better: block signals from models?
+    // m_callModel->blockSignals(true); // No, this stops view from referencing items? calling appendRow notifies view.
+    
+    // Best:
+    // Layout change only happens once if we block signals or updates enabled.
+    
+    for (const auto& row : callRows) m_callModel->appendRow(row);
+    for (auto item : strikeRows) m_strikeModel->appendRow(item);
+    for (const auto& row : putRows) m_putModel->appendRow(row);
+    
+    m_callTable->setUpdatesEnabled(true);
+    m_strikeTable->setUpdatesEnabled(true);
+    m_putTable->setUpdatesEnabled(true);
+    
+    // Set ATM
     if (!m_strikes.isEmpty()) {
         m_atmStrike = m_strikes[m_strikes.size() / 2];
         highlightATMStrike();
+        
+        // Auto-scroll to ATM (Center the view)
+        int row = m_strikes.indexOf(m_atmStrike);
+        if (row >= 0) {
+             // Defer scrolling to allow view layout to update
+             QTimer::singleShot(0, this, [this, row]() {
+                 QModelIndex strikeIdx = m_strikeModel->index(row, 0);
+                 if (strikeIdx.isValid()) {
+                     // Scroll Master (Strike Table)
+                     m_strikeTable->scrollTo(strikeIdx, QAbstractItemView::PositionAtCenter);
+                     
+                     // Manually sync others to be safe
+                     int val = m_strikeTable->verticalScrollBar()->value();
+                     m_callTable->verticalScrollBar()->setValue(val);
+                     m_putTable->verticalScrollBar()->setValue(val);
+                 }
+             });
+        }
     }
     
     // Initial color update
     updateTableColors();
+    
+
 }
 
 WindowContext OptionChainWindow::getSelectedContext() const
@@ -980,6 +1045,7 @@ void OptionChainWindow::onTickUpdate(const XTS::Tick &tick)
 
 void OptionChainWindow::populateSymbols()
 {
+    const QSignalBlocker blocker(m_symbolCombo);
     m_symbolCombo->clear();
     
     RepositoryManager* repo = RepositoryManager::getInstance();
@@ -1021,10 +1087,19 @@ void OptionChainWindow::populateSymbols()
     } else if (!sortedSymbols.isEmpty()) {
         m_symbolCombo->setCurrentIndex(0);
     }
+    
+    // Manually chain to expiries since signals were blocked
+    if (m_symbolCombo->count() > 0) {
+        QString currentSym = m_symbolCombo->currentText();
+        m_currentSymbol = currentSym;
+        m_titleLabel->setText(currentSym);
+        populateExpiries(currentSym);
+    }
 }
 
 void OptionChainWindow::populateExpiries(const QString &symbol)
 {
+    const QSignalBlocker blocker(m_expiryCombo);
     m_expiryCombo->clear();
     if (symbol.isEmpty()) return;
     
@@ -1104,5 +1179,6 @@ void OptionChainWindow::populateExpiries(const QString &symbol)
     
     if (m_expiryCombo->count() > 0) {
         m_expiryCombo->setCurrentIndex(0); // Select nearest expiry
+        m_currentExpiry = m_expiryCombo->currentText();
     }
 }

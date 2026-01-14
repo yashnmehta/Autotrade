@@ -41,35 +41,55 @@ void SellWindow::onSubmitClicked() {
     }
 
     // Handle modification mode
-    if (isModifyMode()) {
-        // Validate: new quantity cannot be less than already filled quantity
-        if (quantity < m_originalOrder.cumulativeQuantity) {
-            QMessageBox::warning(this, "Modify Order", 
-                QString("New quantity (%1) cannot be less than already filled quantity (%2)")
-                    .arg(quantity).arg(m_originalOrder.cumulativeQuantity));
-            return;
+    if (isModifyMode() || isBatchModifyMode()) {
+        
+        // Helper lambda to modify a single order
+        auto processModification = [&](const XTS::Order &originalOrd, int64_t originalID) {
+             XTS::ModifyOrderParams params;
+            params.appOrderID = originalID;
+            params.exchangeInstrumentID = m_leToken->text().toLongLong();
+            params.exchangeSegment = m_cbEx->currentText();
+            params.productType = originalOrd.productType; 
+            params.orderType = m_cbOrdType->currentText();
+            
+            // In Batch Mode, we use original quantity. In Single Modify, we use UI quantity.
+            params.modifiedOrderQuantity = isBatchModifyMode() ? originalOrd.orderQuantity : quantity;
+            params.modifiedDisclosedQuantity = isBatchModifyMode() ? originalOrd.orderDisclosedQuantity : (m_leDiscloseQty ? m_leDiscloseQty->text().toInt() : 0);
+            
+            params.modifiedLimitPrice = price;
+            params.modifiedStopPrice = m_leTrigPrice ? m_leTrigPrice->text().toDouble() : 0.0;
+            params.modifiedTimeInForce = m_cbValidity ? m_cbValidity->currentText() : "DAY";
+            params.orderUniqueIdentifier = originalOrd.orderUniqueIdentifier;
+            
+            // Handle Market Orders (price = 0)
+            if (params.orderType == "Market" || params.orderType == "StopMarket") {
+                params.modifiedLimitPrice = 0;
+            }
+            
+            emit orderModificationSubmitted(params);
+        };
+
+        if (isBatchModifyMode()) {
+            int count = 0;
+            for (const auto &ord : m_batchOrders) {
+                processModification(ord, ord.appOrderID);
+                count++;
+            }
+            qDebug() << "[SellWindow] Batch modification submitted for" << count << "orders.";
+            QMessageBox::information(this, "Batch Modify", QString("Submitted modification requests for %1 orders.").arg(count));
+            close(); // Close window after batch submit
+        } else {
+             // Validate: new quantity cannot be less than already filled quantity
+            if (quantity < m_originalOrder.cumulativeQuantity) {
+                QMessageBox::warning(this, "Modify Order", 
+                    QString("New quantity (%1) cannot be less than already filled quantity (%2)")
+                        .arg(quantity).arg(m_originalOrder.cumulativeQuantity));
+                return;
+            }
+            processModification(m_originalOrder, m_originalOrderID);
+            qDebug() << "[SellWindow] Modification request submitted for order:" << m_originalOrderID;
+            close();
         }
-        
-        XTS::ModifyOrderParams params;
-        params.appOrderID = m_originalOrderID;
-        params.exchangeInstrumentID = m_leToken->text().toLongLong();
-        params.exchangeSegment = m_cbEx->currentText();
-        params.productType = m_originalOrder.productType;  // Use original product type
-        params.orderType = m_cbOrdType->currentText();
-        params.modifiedOrderQuantity = quantity;
-        params.modifiedDisclosedQuantity = m_leDiscloseQty ? m_leDiscloseQty->text().toInt() : 0;
-        params.modifiedLimitPrice = price;
-        params.modifiedStopPrice = m_leTrigPrice ? m_leTrigPrice->text().toDouble() : 0.0;
-        params.modifiedTimeInForce = m_cbValidity ? m_cbValidity->currentText() : "DAY";
-        params.orderUniqueIdentifier = m_originalOrder.orderUniqueIdentifier;  // Use original identifier
-        
-        // Handle Market Orders (price = 0)
-        if (params.orderType == "Market" || params.orderType == "StopMarket") {
-            params.modifiedLimitPrice = 0;
-        }
-        
-        emit orderModificationSubmitted(params);
-        qDebug() << "[SellWindow] Modification request submitted for order:" << m_originalOrderID;
         return;
     }
 
@@ -100,6 +120,7 @@ void SellWindow::onSubmitClicked() {
     }
 
     emit orderSubmitted(params);
+    close();
 }
 
 

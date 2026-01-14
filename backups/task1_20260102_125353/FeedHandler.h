@@ -83,8 +83,8 @@ public:
         TokenPublisher* pub = getOrCreatePublisher(key);
         connect(pub, &TokenPublisher::tickUpdated, receiver, slot);
         
-        qDebug() << "[FeedHandler] Connected slot for segment:" << exchangeSegment 
-                 << "token:" << token << "(key:" << key << ")";
+        // qDebug() << "[FeedHandler] Connected slot for segment:" << exchangeSegment 
+        //          << "token:" << token << "(key:" << key << ")";
         emit subscriptionCountChanged(token, 1);
     }
 

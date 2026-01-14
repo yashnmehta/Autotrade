@@ -110,6 +110,8 @@ struct DecodedRecord {
     int32_t weightedAvgPrice; 
     int32_t lowerCircuit;
     int32_t upperCircuit;
+    uint32_t totalBuyQty;
+    uint32_t totalSellQty;
     
     std::vector<DecodedDepthLevel> bids;
     std::vector<DecodedDepthLevel> asks;

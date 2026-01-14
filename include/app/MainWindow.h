@@ -58,6 +58,10 @@ public:
     // Open order window for modification
     void openBuyWindowForModification(const XTS::Order &order);
     void openSellWindowForModification(const XTS::Order &order);
+    
+    // Batch modification
+    void openBatchBuyWindowForModification(const QVector<XTS::Order> &orders);
+    void openBatchSellWindowForModification(const QVector<XTS::Order> &orders);
 
 private slots:
     // Window actions
@@ -95,7 +99,6 @@ private slots:
     void onUdpTickReceived(const XTS::Tick& tick);
     void startBroadcastReceiver();
     void stopBroadcastReceiver();
-    
     /**
      * @brief Route price subscription request to PriceCache (zero-copy)
      * Called when new PriceCache is enabled (use_legacy_mode = false)
@@ -104,6 +107,7 @@ private slots:
      * @param segment Market segment (1=NSECM, 2=NSEFO, 11=BSECM, 12=BSEFO)
      */
     void onPriceSubscriptionRequest(QString requesterId, uint32_t token, uint16_t segment);
+    void onScripBarEscapePressed();
 
 private:
     void setupContent();

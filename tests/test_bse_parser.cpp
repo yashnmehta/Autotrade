@@ -4,16 +4,29 @@
 #include <atomic>
 #include <map>
 #include <iomanip>
+#include <cstring>
 
-// Windows socket includes directly for simplicity in this standalone test
-#include <winsock2.h>
-#include <ws2tcpip.h>
-
-#pragma comment(lib, "ws2_32.lib")
+#ifdef _WIN32
+    #include <winsock2.h>
+    #include <ws2tcpip.h>
+    #pragma comment(lib, "ws2_32.lib")
+    typedef int socklen_t;
+#else
+    #include <sys/socket.h>
+    #include <netinet/in.h>
+    #include <arpa/inet.h>
+    #include <unistd.h>
+    #include <signal.h>
+    #define SOCKET int
+    #define INVALID_SOCKET -1
+    #define SOCKET_ERROR -1
+    #define closesocket close
+#endif
 
 std::atomic<bool> g_running(true);
 
-// Set Ctrl+C handler
+#ifdef _WIN32
+// Set Ctrl+C handler for Windows
 BOOL WINAPI ConsoleHandler(DWORD signal) {
     if (signal == CTRL_C_EVENT) {
         g_running = false;
@@ -22,8 +35,18 @@ BOOL WINAPI ConsoleHandler(DWORD signal) {
     }
     return FALSE;
 }
+#else
+// Set Ctrl+C handler for Unix
+void SignalHandler(int signal) {
+    if (signal == SIGINT) {
+        g_running = false;
+        std::cout << "\nStopping..." << std::endl;
+    }
+}
+#endif
 
 void run_sniffer(const std::string& ip, int port) {
+#ifdef _WIN32
     // 1. Init Winsock
     WSADATA wsaData;
     int res = WSAStartup(MAKEWORD(2, 2), &wsaData);
@@ -31,18 +54,21 @@ void run_sniffer(const std::string& ip, int port) {
         std::cerr << "WSAStartup failed: " << res << std::endl;
         return;
     }
+#endif
 
     // 2. Create Socket
     SOCKET sock = socket(AF_INET, SOCK_DGRAM, 0);
     if (sock == INVALID_SOCKET) {
         std::cerr << "Socket creation failed" << std::endl;
+#ifdef _WIN32
         WSACleanup();
+#endif
         return;
     }
 
     // 3. Reuse Address
     int reuse = 1;
-    setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (char*)&reuse, sizeof(reuse));
+    setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (const char*)&reuse, sizeof(reuse));
 
     // 4. Bind
     sockaddr_in addr;
@@ -54,25 +80,36 @@ void run_sniffer(const std::string& ip, int port) {
     if (bind(sock, (sockaddr*)&addr, sizeof(addr)) < 0) {
         std::cerr << "Bind failed" << std::endl;
         closesocket(sock);
+#ifdef _WIN32
         WSACleanup();
+#endif
         return;
     }
 
     // 5. Join Multicast
-    ip_mreq mreq;
+    struct ip_mreq mreq;
     mreq.imr_multiaddr.s_addr = inet_addr(ip.c_str());
     mreq.imr_interface.s_addr = htonl(INADDR_ANY); // Default interface
 
-    if (setsockopt(sock, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char*)&mreq, sizeof(mreq)) < 0) {
+    if (setsockopt(sock, IPPROTO_IP, IP_ADD_MEMBERSHIP, (const char*)&mreq, sizeof(mreq)) < 0) {
         std::cerr << "Failed to join multicast group " << ip << std::endl;
         closesocket(sock);
+#ifdef _WIN32
         WSACleanup();
+#endif
         return;
     }
 
     // 6. Set Timeout (optional, so we can check g_running)
+#ifdef _WIN32
     DWORD timeout = 1000;
-    setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (char*)&timeout, sizeof(timeout));
+    setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (const char*)&timeout, sizeof(timeout));
+#else
+    struct timeval tv;
+    tv.tv_sec = 1;
+    tv.tv_usec = 0;
+    setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof(tv));
+#endif
 
     std::cout << "Listening for BSE Packets on " << ip << ":" << port << "..." << std::endl;
     std::cout << "Printing Message Codes ONLY (Raw Sniffer)" << std::endl;
@@ -90,10 +127,6 @@ void run_sniffer(const std::string& ip, int port) {
             uint16_t msgType = *(uint16_t*)(buffer + 8);
 
             // Print it
-            // To avoid flood, maybe just print every time? User asked to "print it".
-            // But 5000 lines/sec is bad.
-            // Let's print non-2020 always, and 2020 occasionally.
-            
             bool isNew = counts[msgType] == 0;
             counts[msgType]++;
             if (msgType != 2020 || isNew) {
@@ -103,11 +136,17 @@ void run_sniffer(const std::string& ip, int port) {
     }
 
     closesocket(sock);
+#ifdef _WIN32
     WSACleanup();
+#endif
 }
 
 int main(int argc, char* argv[]) {
+#ifdef _WIN32
     SetConsoleCtrlHandler(ConsoleHandler, TRUE);
+#else
+    signal(SIGINT, SignalHandler);
+#endif
 
     std::string ip = "239.1.2.5";
     int port = 26002;

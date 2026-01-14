@@ -278,6 +278,42 @@ void BaseOrderWindow::loadFromOrder(const XTS::Order &order) {
              << "Price:" << order.orderPrice;
 }
 
+void BaseOrderWindow::loadFromOrders(const QVector<XTS::Order> &orders) {
+    if (orders.isEmpty()) return;
+    
+    // Validate that all orders are compatible for batch modification
+    const XTS::Order &first = orders.first();
+    bool compatible = true;
+    for (int i = 1; i < orders.size(); ++i) {
+        if (orders[i].exchangeSegment != first.exchangeSegment ||
+            orders[i].exchangeInstrumentID != first.exchangeInstrumentID ||
+            orders[i].productType != first.productType ||
+            orders[i].timeInForce != first.timeInForce ||
+            orders[i].orderSide != first.orderSide) {
+            compatible = false;
+            break;
+        }
+    }
+    
+    if (!compatible) {
+        qWarning() << "[BaseOrderWindow] Incompatible orders for batch modification";
+        return;
+    }
+
+    m_batchOrders = orders;
+    loadFromOrder(first); // Reuse single order load for UI population
+    
+    // Switch to Batch Mode
+    m_orderMode = BatchModifyOrder;
+    m_originalOrderID = 0; // Not applicable for batch
+    
+    // Update title
+    QString type = (first.orderSide.toUpper() == "BUY") ? "Buy" : "Sell";
+    setWindowTitle(QString("Batch Modify %1 Order (%2 orders)").arg(type).arg(orders.size()));
+    
+    qDebug() << "[BaseOrderWindow] Loaded batch of" << orders.size() << "orders for modification.";
+}
+
 void BaseOrderWindow::setModifyMode(bool enabled) {
     // Per NSE protocol, these fields CANNOT be modified:
     // - Buy/Sell (handled by using correct window)
@@ -300,21 +336,26 @@ void BaseOrderWindow::setModifyMode(bool enabled) {
     if (m_cbOC) m_cbOC->setEnabled(!enabled);
     
     // Editable fields remain enabled:
-    // - Quantity (m_leQty)
-    // - Disclosed Quantity (m_leDiscloseQty)
+    // - Quantity (m_leQty) - Disabled in Batch Mode to prevent accidental mass change
+    // - Disclosed Quantity (m_leDiscloseQty) - Disabled in Batch Mode
     // - Price (m_leRate)
     // - Trigger Price (m_leTrigPrice)
     // - Validity (m_cbValidity)
     // - Order Type (m_cbOrdType) - can toggle between RL/ST/SL
     // - Remarks (m_leRemarks)
     
+    bool isBatch = (m_orderMode == BatchModifyOrder);
+    if (m_leQty) m_leQty->setEnabled(!isBatch); 
+    if (m_leDiscloseQty) m_leDiscloseQty->setEnabled(!isBatch);
+    
     // Update submit button text
     if (m_pbSubmit) {
-        m_pbSubmit->setText(enabled ? "Modify Order" : "Submit Order");
+        if (isBatch) m_pbSubmit->setText(QString("Modify %1 Orders").arg(m_batchOrders.size()));
+        else m_pbSubmit->setText(enabled ? "Modify Order" : "Submit Order");
     }
     
     // Update window title indicator
-    if (enabled) {
+    if (enabled && !isBatch) {
         setWindowTitle(windowTitle().replace("Buy", "Modify Buy").replace("Sell", "Modify Sell"));
     }
 }
@@ -323,6 +364,7 @@ void BaseOrderWindow::resetToNewOrderMode() {
     m_orderMode = NewOrder;
     m_originalOrderID = 0;
     m_originalOrder = XTS::Order();
+    m_batchOrders.clear();
     
     // Re-enable all fields
     setModifyMode(false);

@@ -70,6 +70,7 @@ void CustomMarketWatch::applyDefaultStyling()
         "    gridline-color: #3f3f46;"
         "    selection-background-color: #094771;"
         "    selection-color: #ffffff;"
+        "    outline: 0;"
         "}"
         "QHeaderView::section {"
         "    background-color: #2d2d30;"
@@ -96,6 +97,9 @@ void CustomMarketWatch::applyDefaultStyling()
     // Row height
     verticalHeader()->setDefaultSectionSize(28);
     verticalHeader()->hide();
+    
+    // Disable tab key navigation to prevent focus jumping between cells
+    setTabKeyNavigation(false);
 }
 
 void CustomMarketWatch::setupHeader()

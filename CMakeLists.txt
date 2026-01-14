@@ -628,6 +628,81 @@ endif()
 # Add tests subdirectory
 # add_subdirectory(tests)
 
+# ========================================
+# Post-Build: Copy DLLs for Windows MinGW
+# ========================================
+if(WIN32 AND MINGW)
+    # Find windeployqt
+    find_program(WINDEPLOYQT_EXECUTABLE windeployqt HINTS "${Qt5_DIR}/../../../bin")
+    
+    if(WINDEPLOYQT_EXECUTABLE)
+        # Deploy Qt DLLs automatically after build
+        add_custom_command(TARGET TradingTerminal POST_BUILD
+            COMMAND "${WINDEPLOYQT_EXECUTABLE}"
+                --no-translations
+                --no-system-d3d-compiler
+                --no-opengl-sw
+                "$<TARGET_FILE:TradingTerminal>"
+            COMMENT "Running windeployqt to copy Qt DLLs..."
+        )
+        
+        # Manually copy Qt Network and WebSockets DLLs (windeployqt sometimes misses these)
+        get_target_property(QT_QMAKE_EXECUTABLE Qt5::qmake IMPORTED_LOCATION)
+        get_filename_component(QT_BIN_DIR "${QT_QMAKE_EXECUTABLE}" DIRECTORY)
+        add_custom_command(TARGET TradingTerminal POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${QT_BIN_DIR}/Qt5Network.dll"
+                "${QT_BIN_DIR}/Qt5WebSockets.dll"
+                "$<TARGET_FILE_DIR:TradingTerminal>"
+            COMMENT "Copying Qt Network and WebSockets DLLs..."
+        )
+    else()
+        message(WARNING "windeployqt not found. Qt DLLs will need to be copied manually.")
+    endif()
+    
+    # Copy vcpkg DLLs (OpenSSL, Boost if dynamic)
+    if(DEFINED VCPKG_TARGET_TRIPLET AND VCPKG_TARGET_TRIPLET MATCHES "mingw-dynamic")
+        file(GLOB VCPKG_DLLS 
+            "${CMAKE_TOOLCHAIN_FILE}/../../../installed/${VCPKG_TARGET_TRIPLET}/bin/*.dll"
+        )
+        if(VCPKG_DLLS)
+            add_custom_command(TARGET TradingTerminal POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E copy_if_different ${VCPKG_DLLS} "$<TARGET_FILE_DIR:TradingTerminal>"
+                COMMENT "Copying vcpkg DLLs..."
+            )
+        endif()
+    endif()
+    
+    # Copy MinGW runtime DLLs from Chocolatey installation
+    set(CHOCOLATEY_MINGW_BIN "C:/ProgramData/chocolatey/lib/mingw/tools/install/mingw64/bin")
+    if(EXISTS "${CHOCOLATEY_MINGW_BIN}")
+        add_custom_command(TARGET TradingTerminal POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${CHOCOLATEY_MINGW_BIN}/libgcc_s_seh-1.dll"
+                "${CHOCOLATEY_MINGW_BIN}/libstdc++-6.dll"
+                "${CHOCOLATEY_MINGW_BIN}/libwinpthread-1.dll"
+                "$<TARGET_FILE_DIR:TradingTerminal>"
+            COMMENT "Copying MinGW runtime DLLs from Chocolatey..."
+        )
+    else()
+        # Fallback: try to find MinGW DLLs relative to compiler
+        get_filename_component(MINGW_BIN_DIR "${CMAKE_CXX_COMPILER}" DIRECTORY)
+        file(GLOB MINGW_RUNTIME_DLLS
+            "${MINGW_BIN_DIR}/libgcc_s_seh-1.dll"
+            "${MINGW_BIN_DIR}/libstdc++-6.dll"
+            "${MINGW_BIN_DIR}/libwinpthread-1.dll"
+        )
+        if(MINGW_RUNTIME_DLLS)
+            add_custom_command(TARGET TradingTerminal POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E copy_if_different ${MINGW_RUNTIME_DLLS} "$<TARGET_FILE_DIR:TradingTerminal>"
+                COMMENT "Copying MinGW runtime DLLs..."
+            )
+        else()
+            message(WARNING "MinGW runtime DLLs not found. Application may not run without them.")
+        endif()
+    endif()
+endif()
+
 # XTS API Test Program (disabled due to GCC 9 compiler ICE bug)
 # add_executable(test_xts_api test_xts_api.cpp)
 # target_link_libraries(test_xts_api Qt5::Core Qt5::Network)

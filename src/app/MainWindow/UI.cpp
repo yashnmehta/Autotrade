@@ -81,6 +81,7 @@ void MainWindow::setupContent()
     // Create scrip bar toolbar
     m_scripBar = new ScripBar(toolbarHost);
     connect(m_scripBar, &ScripBar::addToWatchRequested, this, &MainWindow::onAddToWatchRequested);
+    connect(m_scripBar, &ScripBar::scripBarEscapePressed, this, &MainWindow::onScripBarEscapePressed);
     m_scripToolBar = new QToolBar(tr("Scrip Bar"), toolbarHost);
     m_scripToolBar->setObjectName("ScripToolBar");
     m_scripToolBar->setStyleSheet(
