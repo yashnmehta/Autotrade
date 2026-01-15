@@ -404,6 +404,114 @@ PriceCacheZeroCopy::CacheStats PriceCacheZeroCopy::getStats() const {
     return stats;
 }
 
+void PriceCacheZeroCopy::update(const XTS::Tick& tick)
+{
+    if (!m_initialized.load()) return;
+
+    MarketSegment segment = static_cast<MarketSegment>(tick.exchangeSegment);
+    uint32_t tokenIndex = 0;
+    if (!getTokenIndex(tick.exchangeInstrumentID, segment, tokenIndex)) {
+        return; // Token not in our cache maps
+    }
+
+    ConsolidatedMarketData* data = calculatePointer(tokenIndex, segment);
+    if (!data) return;
+
+    // Update core fields (convert rupees to paise)
+    if (tick.lastTradedPrice > 0) {
+        data->lastTradedPrice = static_cast<int32_t>(tick.lastTradedPrice * 100.0 + 0.5);
+    }
+    
+    data->lastTradeQuantity = static_cast<int32_t>(tick.lastTradedQuantity);
+    data->volumeTradedToday = tick.volume;
+
+    // Update OHLC
+    if (tick.open > 0) data->openPrice = static_cast<int32_t>(tick.open * 100.0 + 0.5);
+    if (tick.high > 0) data->highPrice = static_cast<int32_t>(tick.high * 100.0 + 0.5);
+    if (tick.low > 0) data->lowPrice = static_cast<int32_t>(tick.low * 100.0 + 0.5);
+    if (tick.close > 0) data->closePrice = static_cast<int32_t>(tick.close * 100.0 + 0.5);
+
+    // Update Bid/Ask (Best Level)
+    if (tick.bidPrice > 0) {
+        data->bidPrice[0] = static_cast<int32_t>(tick.bidPrice * 100.0 + 0.5);
+        data->bidQuantity[0] = static_cast<int64_t>(tick.bidQuantity);
+    }
+    if (tick.askPrice > 0) {
+        data->askPrice[0] = static_cast<int32_t>(tick.askPrice * 100.0 + 0.5);
+        data->askQuantity[0] = static_cast<int64_t>(tick.askQuantity);
+    }
+
+    // Update Depth if available
+    for (int i = 0; i < 5; ++i) {
+        if (tick.bidDepth[i].price > 0) {
+            data->bidPrice[i] = static_cast<int32_t>(tick.bidDepth[i].price * 100.0 + 0.5);
+            data->bidQuantity[i] = static_cast<int64_t>(tick.bidDepth[i].quantity);
+            data->bidOrders[i] = static_cast<int16_t>(tick.bidDepth[i].orders);
+        }
+        if (tick.askDepth[i].price > 0) {
+            data->askPrice[i] = static_cast<int32_t>(tick.askDepth[i].price * 100.0 + 0.5);
+            data->askQuantity[i] = static_cast<int64_t>(tick.askDepth[i].quantity);
+            data->askOrders[i] = static_cast<int16_t>(tick.askDepth[i].orders);
+        }
+    }
+
+    data->totalBuyQuantity = static_cast<int64_t>(tick.totalBuyQuantity);
+    data->totalSellQuantity = static_cast<int64_t>(tick.totalSellQuantity);
+    
+    if (tick.averagePrice > 0) {
+        data->averageTradePrice = static_cast<int32_t>(tick.averagePrice * 100.0 + 0.5);
+    }
+}
+
+void PriceCacheZeroCopy::update(const UDP::MarketTick& tick)
+{
+    if (!m_initialized.load()) return;
+
+    MarketSegment segment = static_cast<MarketSegment>(tick.exchangeSegment);
+    uint32_t tokenIndex = 0;
+    if (!getTokenIndex(tick.token, segment, tokenIndex)) {
+        return;
+    }
+
+    ConsolidatedMarketData* data = calculatePointer(tokenIndex, segment);
+    if (!data) return;
+
+    // Update core fields
+    if (tick.ltp > 0) {
+        data->lastTradedPrice = static_cast<int32_t>(tick.ltp * 100.0 + 0.5);
+    }
+    
+    data->lastTradeQuantity = static_cast<int32_t>(tick.ltq);
+    data->volumeTradedToday = tick.volume;
+
+    // Update OHLC
+    if (tick.open > 0) data->openPrice = static_cast<int32_t>(tick.open * 100.0 + 0.5);
+    if (tick.high > 0) data->highPrice = static_cast<int32_t>(tick.high * 100.0 + 0.5);
+    if (tick.low > 0) data->lowPrice = static_cast<int32_t>(tick.low * 100.0 + 0.5);
+    if (tick.prevClose > 0) data->closePrice = static_cast<int32_t>(tick.prevClose * 100.0 + 0.5);
+
+    // Update Depth
+    for (int i = 0; i < 5; ++i) {
+        if (tick.bids[i].price > 0) {
+            data->bidPrice[i] = static_cast<int32_t>(tick.bids[i].price * 100.0 + 0.5);
+            data->bidQuantity[i] = static_cast<int64_t>(tick.bids[i].quantity);
+            data->bidOrders[i] = static_cast<int16_t>(tick.bids[i].orders);
+        }
+        if (tick.asks[i].price > 0) {
+            data->askPrice[i] = static_cast<int32_t>(tick.asks[i].price * 100.0 + 0.5);
+            data->askQuantity[i] = static_cast<int64_t>(tick.asks[i].quantity);
+            data->askOrders[i] = static_cast<int16_t>(tick.asks[i].orders);
+        }
+    }
+
+    data->totalBuyQuantity = static_cast<int64_t>(tick.totalBidQty);
+    data->totalSellQuantity = static_cast<int64_t>(tick.totalAskQty);
+    
+    if (tick.atp > 0) {
+        data->averageTradePrice = static_cast<int32_t>(tick.atp * 100.0 + 0.5);
+    }
+}
+
 } // namespace PriceCacheTypes
 
 

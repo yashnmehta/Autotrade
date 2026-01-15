@@ -10,6 +10,8 @@
 #include <QString>
 #include <QObject>
 #include <QMetaType>
+#include "api/XTSTypes.h"
+#include "udp/UDPTypes.h"
 
 /**
  * @brief Zero-Copy Price Cache - High-Performance Market Data Storage
@@ -322,6 +324,18 @@ public:
         uint64_t totalSubscriptions;
     };
     CacheStats getStats() const;
+
+    /**
+     * @brief Update cache with data from XTS Tick
+     * @param tick Legacy XTS tick data
+     */
+    void update(const XTS::Tick& tick);
+
+    /**
+     * @brief Update cache with data from UDP MarketTick (NEW)
+     * @param tick Direct UDP tick data
+     */
+    void update(const UDP::MarketTick& tick);
 
 signals:
     /**

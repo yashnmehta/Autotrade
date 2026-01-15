@@ -1,6 +1,7 @@
 #include "services/FeedHandler.h"
 #include "services/PriceCache.h"
 #include "utils/LatencyTracker.h"
+#include "services/PriceCacheZeroCopy.h"
 #include <QDebug>
 
 FeedHandler& FeedHandler::instance() {
@@ -75,6 +76,9 @@ void FeedHandler::onTickReceived(const XTS::Tick &tick) {
     
     // Update Global Price Cache AND get merged tick
     XTS::Tick mergedTick = PriceCache::instance().updatePrice(exchangeSegment, token, tick);
+    
+    // Update New Zero-Copy Price Cache (Central Store)
+    PriceCacheTypes::PriceCacheZeroCopy::getInstance().update(mergedTick);
     
     // Debug logging for BSE tokens
     if (exchangeSegment == 12 || exchangeSegment == 11) {
@@ -161,6 +165,9 @@ void FeedHandler::onUdpTickReceived(const UDP::MarketTick& tick) {
 
     // 2. Update Global Price Cache AND get merged tick
     XTS::Tick mergedXts = PriceCache::instance().updatePrice(exchangeSegment, token, xtsTick);
+
+    // 2.1 Update New Zero-Copy Price Cache (Central Store)
+    PriceCacheTypes::PriceCacheZeroCopy::getInstance().update(mergedXts);
 
     // 3. Back-propagate Merged Data to UDP Tick for publishing
     // This ensures UI receives the full picture even if UDP packet was partial

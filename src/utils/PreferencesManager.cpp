@@ -164,9 +164,8 @@ void PreferencesManager::setShowOrderConfirmation(bool enabled)
 
 bool PreferencesManager::getUseLegacyPriceCache() const
 {
-    // Default to true (legacy/current implementation) for safety
-    // Set to false to enable new zero-copy architecture
-    return m_settings.value("pricecache/use_legacy_mode", true).toBool();
+    // Default to false to enable new zero-copy architecture by default for verification
+    return m_settings.value("pricecache/use_legacy_mode", false).toBool();
 }
 
 void PreferencesManager::setUseLegacyPriceCache(bool useLegacy)
