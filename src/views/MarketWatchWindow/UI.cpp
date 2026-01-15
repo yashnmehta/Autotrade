@@ -60,6 +60,8 @@ void MarketWatchWindow::setupUI()
     // Enable ultra-low latency (65ns vs 15ms) mode by registering direct callback ✅
     m_model->setViewCallback(this);
 
+    // Enable column reordering via drag-and-drop
+    horizontalHeader()->setSectionsMovable(true);
     
     // Create token address book
     m_tokenAddressBook = new TokenAddressBook(this);
@@ -143,11 +145,12 @@ void MarketWatchWindow::showContextMenu(const QPoint &pos)
 
 void MarketWatchWindow::showColumnProfileDialog()
 {
-    ColumnProfileDialog dialog(m_model->getColumnProfile(), this);
+    ColumnProfileDialog dialog(m_model->getColumnProfile(), ProfileContext::MarketWatch, this);
     
     if (dialog.exec() == QDialog::Accepted && dialog.wasAccepted()) {
         MarketWatchColumnProfile newProfile = dialog.getProfile();
         m_model->setColumnProfile(newProfile);
+        applyProfileToView(newProfile);
         
         qDebug() << "[MarketWatchWindow] Column profile updated to:" << newProfile.name();
     }

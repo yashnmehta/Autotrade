@@ -744,7 +744,14 @@ XTS::Position XTSInteractiveClient::parsePositionFromJson(const QJsonObject &pos
     position.bep = pos["BEP"].toVariant().toDouble();
     position.buyAmount = pos["BuyAmount"].toVariant().toDouble();
     position.buyAveragePrice = pos["BuyAveragePrice"].toVariant().toDouble();
-    position.exchangeInstrumentID = pos["ExchangeInstrumentId"].toVariant().toLongLong();
+    
+    // Robust Key Check for ExchangeInstrumentID (Socket often uses ID, REST uses Id)
+    if (pos.contains("ExchangeInstrumentID")) {
+        position.exchangeInstrumentID = pos["ExchangeInstrumentID"].toVariant().toLongLong();
+    } else {
+        position.exchangeInstrumentID = pos["ExchangeInstrumentId"].toVariant().toLongLong();
+    }
+    
     position.exchangeSegment = pos["ExchangeSegment"].toString();
     position.loginID = pos["LoginID"].toString();
     position.mtm = pos["MTM"].toVariant().toDouble();

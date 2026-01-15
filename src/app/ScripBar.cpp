@@ -156,19 +156,71 @@ void ScripBar::setupUI()
     m_layout->addStretch();
 
     // Dark premium styling 
+    // Dark premium styling with Light Input fields for contrast and focus visibility
     setStyleSheet(
         "QWidget { background-color: #2d2d30; border: none; }"
-        "CustomScripComboBox { color: #d4d4d8; background: #3e3e42; border: 1px solid #454545; padding: 2px 4px; border-radius: 4px; }"
-        "CustomScripComboBox:hover { border: 1px solid #007acc; }"
-        // "CustomScripComboBox::drop-down { subcontrol-origin: padding; subcontrol-position: top right; width: 20px; border-left: 1px solid #454545; background: #3e3e42; }"
-        // "CustomScripComboBox::down-arrow { image: url(none); width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 6px solid #d4d4d8; margin-right: 6px; }"
-        // "CustomScripComboBox::down-arrow:hover { border-top-color: #007acc; }"
-        "CustomScripComboBox QAbstractItemView { background: #252526; color: #d4d4d8; selection-background-color: #094771; selection-color: #ffffff; outline: none; border: 1px solid #454545; }"
+        
+        // ComboBox Styles - Light Mode for Inputs
+        "CustomScripComboBox {"
+        "    color: #000000;"
+        "    background: #ffffff;"
+        "    border: 1px solid #cccccc;"
+        "    padding: 2px 4px;"
+        "    border-radius: 4px;"
+        "}"
+        "CustomScripComboBox:hover {"
+        "    border: 1px solid #999999;"
+        "}"
+        "CustomScripComboBox:focus, CustomScripComboBox:on {"
+        "    border: 2px solid #007acc;" /* Clear Blue Focus Border */
+        "    padding: 1px 3px;" /* Adjust padding for 2px border */
+        "}"
+        
+        "CustomScripComboBox::drop-down {"
+        "    subcontrol-origin: padding;"
+        "    subcontrol-position: top right;"
+        "    width: 20px;"
+        "    border-left: 1px solid #cccccc;"
+        "    background: #f0f0f0;"
+        "}"
+        "CustomScripComboBox::down-arrow {"
+        "    image: url(none);"
+        "    width: 0; height: 0;"
+        "    border-left: 4px solid transparent;"
+        "    border-right: 4px solid transparent;"
+        "    border-top: 6px solid #555555;"
+        "    margin-right: 6px;"
+        "}"
+        "CustomScripComboBox::down-arrow:hover {"
+        "    border-top-color: #000000;"
+        "}"
+        
+        // Popup List Styles
+        "CustomScripComboBox QAbstractItemView {"
+        "    background: #ffffff;"
+        "    color: #000000;"
+        "    selection-background-color: #007acc;"
+        "    selection-color: #ffffff;"
+        "    outline: none;"
+        "    border: 1px solid #cccccc;"
+        "}"
+        
+        // Explicitly style the LineEdit inside the ComboBox to match basic combo style
+        "CustomScripComboBox QLineEdit {"
+        "    background: transparent;"
+        "    color: #000000;"
+        "    border: none;"
+        "}"
+
+        // Shared Button Styles
         "QPushButton { background: #007acc; color: #ffffff; border: none; border-radius: 4px; font-weight: bold; padding: 4px 12px; }"
         "QPushButton:hover { background: #0062a3; }"
         "QPushButton:pressed { background: #004d80; }"
-        "QLineEdit { background: #3c3c3c; color: #d4d4d8; border: 1px solid #454545; border-radius: 4px; padding: 2px 6px; selection-background-color: transparent; }"
-        "QLineEdit:focus { selection-background-color: #094771; }"
+        
+        // LineEdit Styles (Token display)
+        "QLineEdit { background: #ffffff; color: #000000; border: 1px solid #cccccc; border-radius: 4px; padding: 2px 6px; selection-background-color: #007acc; selection-color: #ffffff; }"
+        "QLineEdit:focus { border: 2px solid #007acc; padding: 1px 5px; }"
+        
         "QLabel { color: #cccccc; }"
     );
 }

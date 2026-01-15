@@ -214,7 +214,7 @@ set(CORE_WIDGET_HEADERS
 # ========================================
 
 set(APP_SOURCES
-    src/main.cpp
+    src/main_work.cpp
     src/app/MainWindow/MainWindow.cpp
     src/app/MainWindow/UI.cpp
     src/app/MainWindow/Windows.cpp
@@ -269,6 +269,7 @@ set(VIEW_SOURCES
     src/views/PreferenceDialog/PreferenceDialog.cpp
     src/views/PreferenceDialog/PreferencesGeneralTab.cpp
     src/views/CustomizeDialog.cpp
+    src/views/IndicesView.cpp
 )
 
 set(VIEW_HEADERS
@@ -287,6 +288,7 @@ set(VIEW_HEADERS
     include/views/PreferenceDialog.h
     include/views/PreferencesGeneralTab.h
     include/views/CustomizeDialog.h
+    include/views/IndicesView.h
 )
 
 # ========================================

@@ -203,36 +203,23 @@ void GenericProfileDialog::onRemoveColumn() {
     updateSelectedColumns();
 }
 
+// Operating directly on UI list for instant feedback and reliability
 void GenericProfileDialog::onMoveUp() {
     int row = m_selectedList->currentRow();
     if (row <= 0) return;
-    QList<int> order = m_profile.columnOrder();
-    int id = m_selectedList->item(row)->data(Qt::UserRole).toInt();
-    int prevId = m_selectedList->item(row-1)->data(Qt::UserRole).toInt();
-    int idx = order.indexOf(id);
-    int prevIdx = order.indexOf(prevId);
-    if (idx != -1 && prevIdx != -1) {
-        order.swap(idx, prevIdx);
-        m_profile.setColumnOrder(order);
-        updateSelectedColumns();
-        m_selectedList->setCurrentRow(row - 1);
-    }
+    
+    QListWidgetItem *item = m_selectedList->takeItem(row);
+    m_selectedList->insertItem(row - 1, item);
+    m_selectedList->setCurrentRow(row - 1);
 }
 
 void GenericProfileDialog::onMoveDown() {
     int row = m_selectedList->currentRow();
     if (row < 0 || row >= m_selectedList->count() - 1) return;
-    QList<int> order = m_profile.columnOrder();
-    int id = m_selectedList->item(row)->data(Qt::UserRole).toInt();
-    int nextId = m_selectedList->item(row+1)->data(Qt::UserRole).toInt();
-    int idx = order.indexOf(id);
-    int nextIdx = order.indexOf(nextId);
-    if (idx != -1 && nextIdx != -1) {
-        order.swap(idx, nextIdx);
-        m_profile.setColumnOrder(order);
-        updateSelectedColumns();
-        m_selectedList->setCurrentRow(row + 1);
-    }
+    
+    QListWidgetItem *item = m_selectedList->takeItem(row);
+    m_selectedList->insertItem(row + 1, item);
+    m_selectedList->setCurrentRow(row + 1);
 }
 
 void GenericProfileDialog::onSaveProfile() {
@@ -243,7 +230,21 @@ void GenericProfileDialog::onSaveProfile() {
             QMessageBox::warning(this, "Error", "Cannot overwrite 'Default' profile");
             return;
         }
+        
         m_profile.setName(name);
+        
+        // Reconstruct order from UI
+        QList<int> newOrder;
+        for(int i = 0; i < m_selectedList->count(); ++i) {
+            newOrder.append(m_selectedList->item(i)->data(Qt::UserRole).toInt());
+        }
+        // Append hidden columns
+        QList<int> fullOrder = m_profile.columnOrder();
+        for(int id : fullOrder) {
+            if (!m_profile.isColumnVisible(id)) newOrder.append(id);
+        }
+        m_profile.setColumnOrder(newOrder);
+        
         m_manager.saveProfile(m_windowName, m_profile);
         refreshProfileList();
     }
@@ -269,5 +270,20 @@ void GenericProfileDialog::onSetAsDefault() {
     m_manager.saveDefaultProfile(m_windowName, m_profile.name());
 }
 
-void GenericProfileDialog::onAccepted() { m_accepted = true; accept(); }
+void GenericProfileDialog::onAccepted() { 
+    // Reconstruct order from UI
+    QList<int> newOrder;
+    for(int i = 0; i < m_selectedList->count(); ++i) {
+        newOrder.append(m_selectedList->item(i)->data(Qt::UserRole).toInt());
+    }
+    // Append hidden columns
+    QList<int> fullOrder = m_profile.columnOrder();
+    for(int id : fullOrder) {
+        if (!m_profile.isColumnVisible(id)) newOrder.append(id);
+    }
+    m_profile.setColumnOrder(newOrder);
+    
+    m_accepted = true; 
+    accept(); 
+}
 void GenericProfileDialog::onRejected() { m_accepted = false; reject(); }

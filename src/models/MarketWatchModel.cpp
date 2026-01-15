@@ -472,6 +472,7 @@ void MarketWatchModel::saveProfile(const QString& profileName)
     profile.setName(profileName);
     
     manager.addProfile(profile);
+    manager.saveAllProfiles("profiles/marketwatch");  // Persist to disk
     qDebug() << "[MarketWatchModel] Profile saved:" << profileName;
 }
 

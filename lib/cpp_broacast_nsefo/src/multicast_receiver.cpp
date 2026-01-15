@@ -93,7 +93,9 @@ void MulticastReceiver::start() {
         
         // Handle timeout (allows checking running flag)
         if (n < 0) {
-            if (socket_errno == EAGAIN || socket_errno == EWOULDBLOCK) {
+            // On Windows, SO_RCVTIMEO returns WSAETIMEDOUT (10060)
+            // On POSIX, it returns EAGAIN/EWOULDBLOCK
+            if (socket_errno == EAGAIN || socket_errno == EWOULDBLOCK || socket_errno == 10060 /* WSAETIMEDOUT */) {
                 continue;  // Timeout, check running flag and continue
             }
             std::cerr << "recv() error: " << socket_error_string(socket_errno) << std::endl;

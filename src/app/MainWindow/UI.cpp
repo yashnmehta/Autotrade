@@ -3,6 +3,7 @@
 #include "core/widgets/InfoBar.h"
 #include "app/ScripBar.h"
 #include "views/PreferenceDialog.h"
+#include "views/IndicesView.h"
 #include <QMenuBar>
 #include <QToolBar>
 #include <QStatusBar>
@@ -116,6 +117,9 @@ void MainWindow::setupContent()
     // Create info bar (using DockWidget approach as requested)
     createInfoBar();
 
+    // Create indices view
+    createIndicesView();
+
     // Create status bar at the bottom
     createStatusBar();
     setCustomStatusBar(m_statusBar);
@@ -194,6 +198,12 @@ void MainWindow::createMenuBar()
     m_infoBarAction->setChecked(true); 
     connect(m_infoBarAction, &QAction::toggled, this, [this](bool visible)
             { if (m_infoDock) m_infoDock->setVisible(visible); });
+
+    m_indicesViewAction = viewMenu->addAction("In&dices View");
+    m_indicesViewAction->setCheckable(true);
+    m_indicesViewAction->setChecked(true);
+    connect(m_indicesViewAction, &QAction::toggled, this, [this](bool visible)
+            { if (m_indicesDock) m_indicesDock->setVisible(visible); });
             
     viewMenu->addSeparator();
     QAction *resetLayoutAction = viewMenu->addAction("Reset &Layout");
@@ -467,4 +477,29 @@ void MainWindow::loadWorkspace() {
 
 void MainWindow::manageWorkspaces() {
     // Basic implementation or dialog
+}
+
+void MainWindow::createIndicesView()
+{
+    m_indicesDock = new QDockWidget("Indices", this);
+    m_indicesDock->setObjectName("IndicesDock");
+    m_indicesDock->setAllowedAreas(Qt::TopDockWidgetArea | Qt::BottomDockWidgetArea);
+    m_indicesDock->setFeatures(QDockWidget::DockWidgetClosable | QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable);
+    
+    // Hide title bar by default for cleaner look, or keep it. 
+    // Usually indices view has a header, so title bar is redundant if we design it well.
+    // m_indicesDock->setTitleBarWidget(new QWidget()); 
+
+    m_indicesView = new IndicesView(this);
+    m_indicesView->setFixedHeight(120); // Initial height
+    m_indicesDock->setWidget(m_indicesView);
+    
+    addDockWidget(Qt::TopDockWidgetArea, m_indicesDock);
+    
+    // Visibility handling
+    connect(m_indicesDock, &QDockWidget::visibilityChanged, this, [this](bool visible) {
+        if (m_indicesViewAction) m_indicesViewAction->setChecked(visible);
+        QSettings s("TradingCompany", "TradingTerminal");
+        s.setValue("mainwindow/indices_visible", visible); 
+    });
 }

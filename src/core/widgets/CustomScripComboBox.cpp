@@ -66,49 +66,7 @@ void CustomScripComboBox::setMode(Mode mode)
     QString arrowWidth = "18px";
     QString arrowPadding = "4px";
 
-    setStyleSheet(
-        "QComboBox {"
-        "    border: 1px solid #3f3f46;"
-        "    border-radius: 3px;"
-        "    padding: 2px 8px;"
-        "    background: #1e1e1e;"
-        "    color: #ffffff;"
-        "}"
-        "QComboBox:focus {"
-        "    border: 1px solid #0e639c;"
-        "}"
-        "QComboBox::drop-down {"
-        "    border: none;"
-        "    width: " + arrowWidth + ";"
-        "}"
-        "QComboBox::down-arrow {"
-        "    border-left: 4px solid transparent;"
-        "    border-right: 4px solid transparent;"
-        "    border-top: 5px solid #888888;"
-        "    margin-top: 2px;"
-        "    margin-right: " + arrowPadding + ";"
-        "}"
-        "QComboBox QAbstractItemView {"
-        "    background: #1e1e1e;"
-        "    color: #ffffff;"
-        "    selection-background-color: #094771;"
-        "    selection-color: #ffffff;"
-        "    border: 1px solid #3f3f46;"
-        "    outline: none;"
-        "}"
-        "QLineEdit {"
-        "    border: none;"
-        "    background: transparent;"
-        "    color: #ffffff;"
-        "    selection-background-color: transparent;"
-        "}"
-        "QLineEdit:focus {"
-        "    selection-background-color: #094771;"
-        "}"
-        "QLineEdit:!focus {"
-        "    selection-background-color: transparent;"
-        "}"
-    );
+
 }
 
 void CustomScripComboBox::setSortMode(SortMode mode)

@@ -17,9 +17,11 @@
 #include <QSettings>
 #include <QStatusBar>
 #include <QDockWidget>
+#include <QAction>
 #include <QShortcut>
 #include "services/UdpBroadcastService.h"
 #include "views/MarketWatchWindow.h" // Needed for getActiveMarketWatch cast
+#include "views/IndicesView.h"
 
 MainWindow::MainWindow(QWidget *parent)
     : CustomMainWindow(parent)
@@ -27,6 +29,8 @@ MainWindow::MainWindow(QWidget *parent)
     , m_xtsInteractiveClient(nullptr)
     , m_tradingDataService(nullptr)
     , m_configLoader(nullptr)
+    , m_indicesDock(nullptr)
+    , m_indicesView(nullptr)
 {
     setTitle("Trading Terminal");
     resize(1600, 900);
@@ -54,12 +58,20 @@ MainWindow::MainWindow(QWidget *parent)
     // setupNetwork() will be called once configLoader is set
     // to ensure we have the correct multicast IPs and ports.
     
-    // Restore visibility preferences
+    // Restore visibility preferences AND sync menu actions
     QSettings s("TradingCompany", "TradingTerminal");
-    if (m_infoDock)
-        m_infoDock->setVisible(s.value("mainwindow/info_visible", true).toBool());
-    if (m_statusBar)
-        m_statusBar->setVisible(s.value("mainwindow/status_visible", true).toBool());
+    
+    bool infoVisible = s.value("mainwindow/info_visible", true).toBool();
+    if (m_infoDock) m_infoDock->setVisible(infoVisible);
+    if (m_infoBarAction) m_infoBarAction->setChecked(infoVisible);
+    
+    bool statusVisible = s.value("mainwindow/status_visible", true).toBool();
+    if (m_statusBar) m_statusBar->setVisible(statusVisible);
+    if (m_statusBarAction) m_statusBarAction->setChecked(statusVisible);
+
+    bool indicesVisible = s.value("mainwindow/indices_visible", true).toBool();
+    if (m_indicesDock) m_indicesDock->setVisible(indicesVisible);
+    if (m_indicesViewAction) m_indicesViewAction->setChecked(indicesVisible);
 }
 
 MainWindow::~MainWindow()
@@ -105,6 +117,8 @@ void MainWindow::closeEvent(QCloseEvent *event) {
         s.setValue("mainwindow/info_visible", m_infoDock->isVisible());
     if (m_statusBar)
         s.setValue("mainwindow/status_visible", m_statusBar->isVisible());
+    if (m_indicesDock)
+        s.setValue("mainwindow/indices_visible", m_indicesDock->isVisible());
         
     CustomMainWindow::closeEvent(event);
 }
