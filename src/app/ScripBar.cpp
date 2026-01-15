@@ -218,7 +218,8 @@ void ScripBar::setupUI()
         "QPushButton:pressed { background: #004d80; }"
         
         // LineEdit Styles (Token display)
-        "QLineEdit { background: #3c3c3c; color: #d4d4d8; border: 1px solid #454545; border-radius: 4px; padding: 2px 6px; selection-background-color: transparent; }"
+        "QLineEdit { background: #ffffff; color: #000000; border: 1px solid #cccccc; border-radius: 4px; padding: 2px 6px; selection-background-color: #007acc; selection-color: #ffffff; }"
+        "QLineEdit:focus { border: 2px solid #007acc; padding: 1px 5px; }"
         
         "QLabel { color: #cccccc; }"
     );

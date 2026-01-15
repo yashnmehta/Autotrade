@@ -15,6 +15,9 @@
 #include "utils/ConfigLoader.h"
 #include "utils/FileLogger.h"
 #include "api/XTSTypes.h"
+#include "services/UdpBroadcastService.h"
+#include "api/XTSMarketDataClient.h"
+#include "api/XTSInteractiveClient.h"
 #include <QApplication>
 #include <QTimer>
 #include <QDebug>
@@ -139,24 +142,79 @@ int main(int argc, char *argv[])
                     // Ensure window is deleted when closed (prevents memory leaks)
                     mainWindow->setAttribute(Qt::WA_DeleteOnClose);
                     
-                    // Create trading data service (empty, but prevents crashes)
-                    // Give it mainWindow as parent so Qt handles deletion automatically
+                    // 1. Create dummy XTS clients to prevent crashes
+                    // Load config first
+                    ConfigLoader *config = new ConfigLoader();
+                     // Default config paths (similar to main.cpp logic)
+                    QString appDir = QCoreApplication::applicationDirPath();
+                    QStringList candidates;
+                    // Fix: Add correct relative path to project root configs
+                    candidates << QDir(appDir).filePath("../configs/config.ini");        // MinGW build dir
+                    candidates << QDir(appDir).filePath("../../configs/config.ini");     // MSVC Debug/Release dir
+                    candidates << QDir(appDir).filePath("../../../../configs/config.ini"); // macOS bundle
+                    candidates << QDir(appDir).filePath("config.ini");                   // local
+
+                    
+                    QString configPath;
+                    for (const QString &path : candidates) {
+                        if (QFile::exists(path)) {
+                            configPath = path;
+                            break;
+                        }
+                    }
+                    
+                    if (!configPath.isEmpty()) {
+                        config->load(configPath);
+                        qDebug() << "[DevMode] Loaded config from:" << configPath;
+                    } else {
+                        qWarning() << "[DevMode] Could not find config.ini";
+                    }
+                    
+                    // IMPORTANT: Set config loader on MainWindow so it can use it later
+                    mainWindow->setConfigLoader(config);
+
+                    // Create dummy clients
+                    QString baseURL = config->getXTSUrl();
+                    if (baseURL.isEmpty()) baseURL = "http://localhost:3000";
+
+                    XTSMarketDataClient *mdClient = new XTSMarketDataClient(baseURL + "/apimarketdata", "DUMMY_KEY", "DUMMY_SECRET");
+                    XTSInteractiveClient *iaClient = new XTSInteractiveClient(baseURL, "DUMMY_KEY", "DUMMY_SECRET");
+                    
+                    mainWindow->setXTSClients(mdClient, iaClient);
+                    
+                    // Create trading data service
                     TradingDataService *tradingDataService = new TradingDataService(mainWindow);
                     mainWindow->setTradingDataService(tradingDataService);
                     
-                    // Note: XTS clients are NOT set - API calls will fail gracefully
-                    // This is expected in development mode
-                    qDebug() << "[DevMode] ⚠️ XTS clients NOT initialized (API calls will fail)";
-                    qDebug() << "[DevMode] This is normal for development mode";
+                    // 2. Start UDP Broadcast Service
+                    qDebug() << "[DevMode] Starting UDP Broadcast Service...";
+                    UdpBroadcastService::Config udpConfig;
+                    udpConfig.nseFoIp = config->getNSEFOMulticastIP().toStdString();
+                    udpConfig.nseFoPort = config->getNSEFOPort();
+                    udpConfig.nseCmIp = config->getNSECMMulticastIP().toStdString();
+                    udpConfig.nseCmPort = config->getNSECMPort();
+                    udpConfig.bseFoIp = config->getBSEFOMulticastIP().toStdString();
+                    udpConfig.bseFoPort = config->getBSEFOPort();
+                    udpConfig.bseCmIp = config->getBSECMMulticastIP().toStdString();
+                    udpConfig.bseCmPort = config->getBSECMPort();
                     
+                    // Auto-enable based on config presence
+                    udpConfig.enableNSEFO = !udpConfig.nseFoIp.empty();
+                    udpConfig.enableNSECM = !udpConfig.nseCmIp.empty();
+                    udpConfig.enableBSEFO = !udpConfig.bseFoIp.empty();
+                    udpConfig.enableBSECM = !udpConfig.bseCmIp.empty();
+                    
+                    UdpBroadcastService::instance().start(udpConfig);
+                    qDebug() << "[DevMode] UDP Service started. Active:" << UdpBroadcastService::instance().isActive();
+
                     // Show main window
                     mainWindow->show();
                     mainWindow->raise();
                     mainWindow->activateWindow();
                     
-                    qDebug() << "[DevMode] ✅ Main window shown";
+                    qDebug() << "[DevMode] ✅ Main window shown with UDP Broadcast enabled";
                     qDebug() << "[DevMode] You can now test UI functionality";
-                    qDebug() << "[DevMode] Note: Trading operations will not work without XTS server";
+                    qDebug() << "[DevMode] Dummy XTS clients initialized to prevent crashes";
                 });
             });
         });
