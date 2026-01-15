@@ -246,4 +246,9 @@ struct ImpliedVolatilityTick {
 
 } // namespace UDP
 
+#include <QMetaType>
+Q_DECLARE_METATYPE(UDP::MarketTick)
+Q_DECLARE_METATYPE(UDP::IndexTick)
+Q_DECLARE_METATYPE(UDP::CircuitLimitTick)
+
 #endif // UDP_TYPES_H

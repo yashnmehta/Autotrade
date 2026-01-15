@@ -40,6 +40,7 @@ public:
     void setOpenInterestCallback(OpenInterestCallback callback) { oiCallback_ = callback; }
     void setSessionStateCallback(SessionStateCallback callback) { sessionStateCallback_ = callback; }
     void setClosePriceCallback(ClosePriceCallback callback) { closePriceCallback_ = callback; }
+    void setIndexCallback(RecordCallback callback) { indexCallback_ = callback; }
     void setImpliedVolatilityCallback(ImpliedVolatilityCallback callback) { ivCallback_ = callback; }
 
 private:

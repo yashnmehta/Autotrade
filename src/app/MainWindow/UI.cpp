@@ -1,4 +1,5 @@
 #include "app/MainWindow.h"
+#include "services/UdpBroadcastService.h"
 #include "core/widgets/CustomMDIArea.h"
 #include "core/widgets/InfoBar.h"
 #include "app/ScripBar.h"
@@ -481,14 +482,22 @@ void MainWindow::manageWorkspaces() {
 
 void MainWindow::createIndicesView()
 {
-    m_indicesDock = new QDockWidget("Indices", this);
-    m_indicesDock->setObjectName("IndicesDock");
-    m_indicesDock->setAllowedAreas(Qt::TopDockWidgetArea | Qt::BottomDockWidgetArea);
-    m_indicesDock->setFeatures(QDockWidget::DockWidgetClosable | QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable);
+    // Create standalone tool window (subwindow to main app)
+    // Parented to this so it closes with app, but Qt::Tool makes it float on top
+    m_indicesView = new IndicesView(this);
+    m_indicesView->setWindowTitle("Indices");
+    m_indicesView->setWindowFlags(Qt::Tool | Qt::WindowStaysOnTopHint); 
     
-    // Hide title bar by default for cleaner look, or keep it. 
-    // Usually indices view has a header, so title bar is redundant if we design it well.
-    // m_indicesDock->setTitleBarWidget(new QWidget()); 
+    // Set initial size
+    m_indicesView->resize(400, 120);
+    
+    // Connect Data Source
+    connect(&UdpBroadcastService::instance(), &UdpBroadcastService::udpIndexReceived, 
+            m_indicesView, &IndicesView::onIndexReceived);
+    
+    // Restore Position if saved (TODO: Add position saving)
+    // For now, center relative to main window or top-right
+    // m_indicesView->move(this->x() + this->width() - 410, this->y() + 50);
 
     m_indicesView = new IndicesView(this);
     m_indicesView->setFixedHeight(120); // Initial height
