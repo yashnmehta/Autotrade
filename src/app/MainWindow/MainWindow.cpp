@@ -28,7 +28,6 @@ MainWindow::MainWindow(QWidget *parent)
     , m_xtsInteractiveClient(nullptr)
     , m_tradingDataService(nullptr)
     , m_configLoader(nullptr)
-    , m_indicesDock(nullptr)
     , m_indicesView(nullptr)
 {
     setTitle("Trading Terminal");
@@ -63,9 +62,12 @@ MainWindow::MainWindow(QWidget *parent)
     if (m_statusBar) m_statusBar->setVisible(statusVisible);
     if (m_statusBarAction) m_statusBarAction->setChecked(statusVisible);
 
+    //Indices logic moved to createIndicesView
+    /*
     bool indicesVisible = s.value("mainwindow/indices_visible", true).toBool();
     if (m_indicesDock) m_indicesDock->setVisible(indicesVisible);
     if (m_indicesViewAction) m_indicesViewAction->setChecked(indicesVisible);
+    */
 }
 
 MainWindow::~MainWindow()
@@ -111,8 +113,12 @@ void MainWindow::closeEvent(QCloseEvent *event) {
         s.setValue("mainwindow/info_visible", m_infoDock->isVisible());
     if (m_statusBar)
         s.setValue("mainwindow/status_visible", m_statusBar->isVisible());
+    if (m_indicesView)
+        s.setValue("mainwindow/indices_visible", m_indicesView->isVisible());
+    /*
     if (m_indicesDock)
         s.setValue("mainwindow/indices_visible", m_indicesDock->isVisible());
+    */
         
     CustomMainWindow::closeEvent(event);
 }

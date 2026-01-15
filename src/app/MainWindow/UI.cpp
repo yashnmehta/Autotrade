@@ -202,8 +202,11 @@ void MainWindow::createMenuBar()
     m_indicesViewAction = viewMenu->addAction("In&dices View");
     m_indicesViewAction->setCheckable(true);
     m_indicesViewAction->setChecked(true);
-    connect(m_indicesViewAction, &QAction::toggled, this, [this](bool visible)
-            { if (m_indicesDock) m_indicesDock->setVisible(visible); });
+    // Action connection moved to createIndicesView for correct capture of m_indicesView
+    // Just create the action here
+    m_indicesViewAction = viewMenu->addAction("In&dices View");
+    m_indicesViewAction->setCheckable(true);
+    m_indicesViewAction->setChecked(true);
             
     viewMenu->addSeparator();
     QAction *resetLayoutAction = viewMenu->addAction("Reset &Layout");
@@ -481,24 +484,42 @@ void MainWindow::manageWorkspaces() {
 
 void MainWindow::createIndicesView()
 {
-    m_indicesDock = new QDockWidget("Indices", this);
-    m_indicesDock->setObjectName("IndicesDock");
-    m_indicesDock->setAllowedAreas(Qt::TopDockWidgetArea | Qt::BottomDockWidgetArea);
-    m_indicesDock->setFeatures(QDockWidget::DockWidgetClosable | QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable);
-    
-    // Hide title bar by default for cleaner look, or keep it. 
-    // Usually indices view has a header, so title bar is redundant if we design it well.
-    // m_indicesDock->setTitleBarWidget(new QWidget()); 
-
+    // Create standalone tool window (subwindow to main app)
+    // Parented to this so it closes with app, but Qt::Tool makes it float on top
+    // Qt::FramelessWindowHint could be added if custom chrome is desired, 
+    // but the screenshot shows a standard title bar.
     m_indicesView = new IndicesView(this);
-    m_indicesView->setFixedHeight(120); // Initial height
-    m_indicesDock->setWidget(m_indicesView);
+    m_indicesView->setWindowTitle("Indices");
+    m_indicesView->setWindowFlags(Qt::Tool | Qt::WindowStaysOnTopHint); 
     
-    addDockWidget(Qt::TopDockWidgetArea, m_indicesDock);
+    // Set initial size
+    m_indicesView->resize(400, 120);
     
-    // Visibility handling
-    connect(m_indicesDock, &QDockWidget::visibilityChanged, this, [this](bool visible) {
-        if (m_indicesViewAction) m_indicesViewAction->setChecked(visible);
+    // Restore Position if saved (TODO: Add position saving)
+    // For now, center relative to main window or top-right
+    // m_indicesView->move(this->x() + this->width() - 410, this->y() + 50);
+
+    // Visibility handling triggers
+    // Since it's a window, we need to detect close events to update the action.
+    // However, IndicesView is a QWidget. We might need to override its closeEvent 
+    // or use a signal if we want the Action to uncheck when user clicks X.
+    // Use a lambda connection to the action for now.
+    
+    bool indicesVisible = QSettings("TradingCompany", "TradingTerminal").value("mainwindow/indices_visible", true).toBool();
+    m_indicesViewAction->setChecked(indicesVisible);
+    if(indicesVisible) m_indicesView->show();
+    
+    // Connect Action -> View visibility
+    connect(m_indicesViewAction, &QAction::toggled, this, [this](bool visible) {
+        if (visible) {
+            m_indicesView->show();
+            // Bring to front
+            m_indicesView->raise();
+            m_indicesView->activateWindow();
+        } else {
+            m_indicesView->hide();
+        }
+        
         QSettings s("TradingCompany", "TradingTerminal");
         s.setValue("mainwindow/indices_visible", visible); 
     });

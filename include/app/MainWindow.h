@@ -134,7 +134,7 @@ private:
     QDockWidget *m_infoDock; // Added dock widget
     
     // Indices View
-    QDockWidget *m_indicesDock;
+    // Indices View
     IndicesView *m_indicesView;
 
     QAction *m_statusBarAction;
