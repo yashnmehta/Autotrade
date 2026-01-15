@@ -9,12 +9,14 @@ QMap<MarketWatchColumn, ColumnInfo> MarketWatchColumnProfile::s_columnMetadata;
 
 MarketWatchColumnProfile::MarketWatchColumnProfile()
     : m_name("Unnamed Profile")
+    , m_context(ProfileContext::MarketWatch)
 {
     initializeDefaults();
 }
 
-MarketWatchColumnProfile::MarketWatchColumnProfile(const QString &name)
+MarketWatchColumnProfile::MarketWatchColumnProfile(const QString &name, ProfileContext context)
     : m_name(name)
+    , m_context(context)
 {
     initializeDefaults();
 }
@@ -516,6 +518,11 @@ void MarketWatchColumnProfile::initializeDefaults()
 {
     initializeColumnMetadata();
     
+    // Clear existing order to prevent duplicates if called multiple times
+    m_columnOrder.clear();
+    m_visibility.clear();
+    m_widths.clear();
+    
     // Set all columns to default visibility
     for (int i = 0; i < static_cast<int>(MarketWatchColumn::COLUMN_COUNT); ++i) {
         MarketWatchColumn col = static_cast<MarketWatchColumn>(i);
@@ -605,6 +612,7 @@ MarketWatchColumnProfile MarketWatchColumnProfile::createDefaultProfile()
 {
     MarketWatchColumnProfile profile("Default");
     profile.setDescription("Standard market watch view");
+    profile.setContext(ProfileContext::MarketWatch);
     // Uses default visibility settings from metadata
     return profile;
 }
@@ -723,8 +731,11 @@ MarketWatchColumnProfile MarketWatchColumnProfile::createTradingProfile()
 QJsonObject MarketWatchColumnProfile::toJson() const
 {
     QJsonObject json;
+    json["version"] = 2;  // Profile format version for future compatibility
     json["name"] = m_name;
+    json["context"] = static_cast<int>(m_context);
     json["description"] = m_description;
+    json["timestamp"] = QDateTime::currentDateTime().toString(Qt::ISODate);
     
     // Visibility map
     QJsonObject visibility;
@@ -752,10 +763,23 @@ QJsonObject MarketWatchColumnProfile::toJson() const
 
 bool MarketWatchColumnProfile::fromJson(const QJsonObject &json)
 {
-    if (!json.contains("name")) return false;
+    if (!json.contains("name")) {
+        qWarning() << "[MarketWatchColumnProfile] Profile missing required 'name' field";
+        return false;
+    }
+    
+    // Check version for compatibility
+    int version = json.value("version").toInt(1);  // Default to v1 for legacy files
+    if (version > 2) {
+        qWarning() << "[MarketWatchColumnProfile] Profile version" << version << "is newer than supported (2)";
+        // Continue anyway - forward compatibility attempt
+    }
     
     m_name = json["name"].toString();
+    m_context = static_cast<ProfileContext>(json.value("context").toInt(0));
     m_description = json.value("description").toString();
+    
+    qDebug() << "[MarketWatchColumnProfile] Loading profile:" << m_name << "version:" << version;
     
     // Visibility
     if (json.contains("visibility")) {
@@ -780,10 +804,43 @@ bool MarketWatchColumnProfile::fromJson(const QJsonObject &json)
     // Column order
     if (json.contains("columnOrder")) {
         QJsonArray order = json["columnOrder"].toArray();
-        m_columnOrder.clear();
+        QList<MarketWatchColumn> newOrder;
+        QSet<int> seen;
+        
         for (const QJsonValue &val : order) {
-            m_columnOrder.append(static_cast<MarketWatchColumn>(val.toInt()));
+            int colId = val.toInt();
+            
+            // Validate range
+            if (colId < 0 || colId >= static_cast<int>(MarketWatchColumn::COLUMN_COUNT)) {
+                qWarning() << "[MarketWatchColumnProfile] Invalid column ID in profile:" << colId << "- skipping";
+                continue;
+            }
+            
+            // Check for duplicates
+            if (seen.contains(colId)) {
+                qWarning() << "[MarketWatchColumnProfile] Duplicate column ID in profile:" << colId << "- skipping";
+                continue;
+            }
+            
+            seen.insert(colId);
+            newOrder.append(static_cast<MarketWatchColumn>(colId));
         }
+        
+        // Ensure all columns are present - add missing ones at end with warning
+        bool hadMissing = false;
+        for (int i = 0; i < static_cast<int>(MarketWatchColumn::COLUMN_COUNT); ++i) {
+            if (!seen.contains(i)) {
+                qWarning() << "[MarketWatchColumnProfile] Missing column ID in profile:" << i << "- adding at end";
+                newOrder.append(static_cast<MarketWatchColumn>(i));
+                hadMissing = true;
+            }
+        }
+        
+        if (hadMissing) {
+            qWarning() << "[MarketWatchColumnProfile] Profile was incomplete - added missing columns";
+        }
+        
+        m_columnOrder = newOrder;
     }
     
     return true;
@@ -840,7 +897,8 @@ MarketWatchProfileManager::MarketWatchProfileManager()
 void MarketWatchProfileManager::addProfile(const MarketWatchColumnProfile &profile)
 {
     m_profiles[profile.name()] = profile;
-    saveAllProfiles("profiles/marketwatch");
+    // Don't auto-save on every add - expensive and risky
+    // Caller should explicitly call saveAllProfiles() when appropriate
 }
 
 bool MarketWatchProfileManager::removeProfile(const QString &name)

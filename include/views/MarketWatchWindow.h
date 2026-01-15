@@ -320,9 +320,14 @@ private:
     void onUdpTickUpdate(const UDP::MarketTick& tick);
     
     // Data Components
+    // Data Components
     MarketWatchModel *m_model;
     TokenAddressBook *m_tokenAddressBook;
     XTSMarketDataClient *m_xtsClient;  // For BSE quote API fallback
+
+    // Internal Helpers for Visual Persistence
+    void captureProfileFromView(MarketWatchColumnProfile &profile);
+    void applyProfileToView(const MarketWatchColumnProfile &profile);
 };
 
 #endif // MARKETWATCHWINDOW_H

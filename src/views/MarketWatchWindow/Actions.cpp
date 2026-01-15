@@ -16,6 +16,7 @@
 #include <QJsonDocument>
 #include <QJsonArray>
 #include <QJsonObject>
+#include <QSet>
 
 bool MarketWatchWindow::addScrip(const QString &symbol, const QString &exchange, int token)
 {
@@ -351,7 +352,14 @@ void MarketWatchWindow::onSavePortfolio()
         scrips.append(m_model->getScripAt(i));
     }
 
-    if (MarketWatchHelpers::savePortfolio(fileName, scrips)) {
+    // Capture current visual state (widths & order) into model's profile
+    MarketWatchColumnProfile currentProfile = m_model->getColumnProfile();
+    captureProfileFromView(currentProfile);
+    
+    // DON'T update model during save - it triggers reset and corrupts state!
+    // The profile is saved to file, model doesn't need updating here.
+
+    if (MarketWatchHelpers::savePortfolio(fileName, scrips, currentProfile)) {
         QMessageBox::information(this, tr("Success"), tr("Portfolio saved successfully."));
     } else {
         QMessageBox::critical(this, tr("Error"), tr("Failed to save portfolio."));
@@ -364,7 +372,10 @@ void MarketWatchWindow::onLoadPortfolio()
     if (fileName.isEmpty()) return;
 
     QList<ScripData> scrips;
-    if (!MarketWatchHelpers::loadPortfolio(fileName, scrips)) {
+    MarketWatchColumnProfile profile;
+    
+    // Attempt to load scrips AND profile
+    if (!MarketWatchHelpers::loadPortfolio(fileName, scrips, profile)) {
         QMessageBox::critical(this, tr("Error"), tr("Failed to load portfolio."));
         return;
     }
@@ -388,6 +399,13 @@ void MarketWatchWindow::onLoadPortfolio()
         }
     }
     
+    // Apply the loaded profile keys to view
+    if (!profile.name().isEmpty()) {
+        m_model->setColumnProfile(profile);
+        applyProfileToView(profile);
+        qDebug() << "[MarketWatchWindow] Applied loaded profile:" << profile.name();
+    }
+
     QMessageBox::information(this, tr("Success"), tr("Portfolio loaded successfully."));
 }
 
@@ -435,9 +453,115 @@ void MarketWatchWindow::restoreState(QSettings &settings)
         QJsonDocument doc = QJsonDocument::fromJson(data);
         if (doc.isObject()) {
             MarketWatchColumnProfile profile;
-            profile.fromJson(doc.object());
-            m_model->setColumnProfile(profile);
-            m_model->layoutChanged(); // Refresh view
+            if (profile.fromJson(doc.object())) {
+                m_model->setColumnProfile(profile);
+                applyProfileToView(profile);  // Apply to view (widths + order)
+                qDebug() << "[MarketWatchWindow] Restored column profile:" << profile.name();
+            } else {
+                qWarning() << "[MarketWatchWindow] Failed to parse column profile from settings";
+            }
         }
     }
+}
+
+
+void MarketWatchWindow::captureProfileFromView(MarketWatchColumnProfile &profile)
+{
+    QHeaderView *header = this->horizontalHeader();
+    QList<MarketWatchColumn> modelColumns = m_model->getColumnProfile().visibleColumns();
+    
+    // Build a map of logical index -> MarketWatchColumn for currently visible columns
+    QMap<int, MarketWatchColumn> logicalToColumn;
+    for (int i = 0; i < modelColumns.size(); ++i) {
+        logicalToColumn[i] = modelColumns[i];
+    }
+    
+    QList<MarketWatchColumn> newVisibleOrder;
+    QList<MarketWatchColumn> capturedVisible;
+    
+    // 1. Capture ACTUAL visual order from QHeaderView
+    // Iterate through visual indices (user's displayed order after drag-and-drop)
+    for (int visualIdx = 0; visualIdx < header->count(); ++visualIdx) {
+        int logicalIdx = header->logicalIndex(visualIdx);  // Get logical index at this visual position
+        
+        if (logicalToColumn.contains(logicalIdx)) {
+            MarketWatchColumn col = logicalToColumn[logicalIdx];
+            
+            // Capture width from the logical section
+            int width = header->sectionSize(logicalIdx);
+            if (width > 0) {
+                profile.setColumnWidth(col, width);
+            }
+            
+            // Column is visible if not hidden
+            bool isHidden = header->isSectionHidden(logicalIdx);
+            profile.setColumnVisible(col, !isHidden);
+            
+            if (!isHidden) {
+                newVisibleOrder.append(col);
+                capturedVisible.append(col);
+            }
+        }
+    }
+    
+    // 2. Build complete column order: visible columns in visual order, then hidden columns
+    QList<MarketWatchColumn> completeOrder = newVisibleOrder;
+    
+    // Add hidden columns at the end, maintaining their original relative order
+    QList<MarketWatchColumn> existingOrder = profile.columnOrder();
+    for (MarketWatchColumn col : existingOrder) {
+        if (!capturedVisible.contains(col)) {
+            completeOrder.append(col);
+        }
+    }
+    
+    profile.setColumnOrder(completeOrder);
+    
+    qDebug() << "[captureProfileFromView] Captured" << newVisibleOrder.size() 
+             << "visible columns in visual order, total order size:" << completeOrder.size();
+}
+
+void MarketWatchWindow::applyProfileToView(const MarketWatchColumnProfile &profile)
+{
+    QHeaderView *header = this->horizontalHeader();
+    QList<MarketWatchColumn> visibleCols = profile.visibleColumns();
+    
+    // The model provides columns in logical order (0..N matching profile.visibleColumns())
+    // But the VIEW may have different visual order due to user drag-and-drop.
+    // We need to reorder the view to match the profile's intended order.
+    
+    // 1. First, reset view order to match model logical order (in case it was reordered)
+    // Build map of where each column currently is
+    QMap<MarketWatchColumn, int> columnToLogicalIndex;
+    for (int i = 0; i < visibleCols.size(); ++i) {
+        columnToLogicalIndex[visibleCols[i]] = i;
+    }
+    
+    // 2. Move sections to match profile's intended visual order
+    for (int targetVisualIdx = 0; targetVisualIdx < visibleCols.size(); ++targetVisualIdx) {
+        if (targetVisualIdx >= header->count()) break;
+        
+        MarketWatchColumn col = visibleCols[targetVisualIdx];
+        int logicalIdx = columnToLogicalIndex.value(col, -1);
+        
+        if (logicalIdx >= 0) {
+            // Move this logical section to the target visual position
+            int currentVisualIdx = header->visualIndex(logicalIdx);
+            if (currentVisualIdx != targetVisualIdx) {
+                header->moveSection(currentVisualIdx, targetVisualIdx);
+            }
+            
+            // Apply width
+            int width = profile.columnWidth(col);
+            if (width > 0) {
+                header->resizeSection(logicalIdx, width);
+            }
+            
+            // Ensure visible
+            header->setSectionHidden(logicalIdx, false);
+        }
+    }
+    
+    qDebug() << "[applyProfileToView] Applied column order and widths for" 
+             << visibleCols.size() << "columns";
 }

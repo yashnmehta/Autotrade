@@ -163,9 +163,34 @@ void PositionWindow::onPositionsUpdated(const QVector<XTS::Position>& positions)
         } else {
              lookupId = RepositoryManager::getExchangeSegmentID(pd.exchange, segmentSuffix);
         }
-
-        if (lookupId > 0) {
+        
+        // Fallback: If lookupId is invalid or suffix was empty, try to guess
+        if (lookupId <= 0) {
+            if (pd.exchange == "NSE") {
+                 // Try FO first for NIFTY/BANKNIFTY symbols usually
+                 contract = repo->getContractByToken(RepositoryManager::getExchangeSegmentID("NSE", "FO"), pd.scripCode);
+                 if (!contract) {
+                     contract = repo->getContractByToken(RepositoryManager::getExchangeSegmentID("NSE", "CM"), pd.scripCode);
+                 }
+            } else if (pd.exchange == "BSE") {
+                 contract = repo->getContractByToken(RepositoryManager::getExchangeSegmentID("BSE", "FO"), pd.scripCode);
+                 if (!contract) contract = repo->getContractByToken(RepositoryManager::getExchangeSegmentID("BSE", "CM"), pd.scripCode);
+            } else if (pd.exchange == "MCX") {
+                contract = repo->getContractByToken(RepositoryManager::getExchangeSegmentID("MCX", "FO"), pd.scripCode);
+            }
+        } else {
             contract = repo->getContractByToken(lookupId, pd.scripCode);
+            
+            // Double Check: If lookup failed but we have a code, maybe the segment was wrong?
+            if (!contract && pd.scripCode > 0) {
+                 if (pd.exchange == "NSE") {
+                     // If we tried one, try the other
+                     int altId = (segmentSuffix == "FO") ? 
+                                 RepositoryManager::getExchangeSegmentID("NSE", "CM") : 
+                                 RepositoryManager::getExchangeSegmentID("NSE", "FO");
+                     if (altId > 0) contract = repo->getContractByToken(altId, pd.scripCode);
+                 }
+            }
         }
 
         if (contract) {

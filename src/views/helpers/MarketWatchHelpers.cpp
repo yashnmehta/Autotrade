@@ -129,7 +129,7 @@ int MarketWatchHelpers::extractToken(const QString &line)
     return ok ? token : -1;
 }
 
-bool MarketWatchHelpers::savePortfolio(const QString &filename, const QList<ScripData> &scrips)
+bool MarketWatchHelpers::savePortfolio(const QString &filename, const QList<ScripData> &scrips, const MarketWatchColumnProfile &profile)
 {
     QFile file(filename);
     if (!file.open(QIODevice::WriteOnly)) {
@@ -137,31 +137,30 @@ bool MarketWatchHelpers::savePortfolio(const QString &filename, const QList<Scri
         return false;
     }
 
+    QJsonObject rootObj;
+    rootObj["version"] = 1;
+    
+    // Save Scrips
     QJsonArray scripArray;
     for (const auto &scrip : scrips) {
-        QJsonObject scripObject;
-        scripObject["symbol"] = scrip.symbol;
-        scripObject["exchange"] = scrip.exchange;
-        scripObject["token"] = scrip.token;
-        scripObject["isBlankRow"] = scrip.isBlankRow;
-        
-        // Save minimal instrument details to help with identification/validation on load
-        if (!scrip.isBlankRow) {
-           scripObject["scripName"] = scrip.scripName;
-           scripObject["instrumentName"] = scrip.instrumentName;
-        }
-
-        scripArray.append(scripObject);
+        scripArray.append(scripToJson(scrip));
     }
+    rootObj["scrips"] = scripArray;
+    
+    // Save Profile
+    rootObj["profile"] = profile.toJson();
+    
+    // Save Meta
+    rootObj["timestamp"] = QDateTime::currentDateTime().toString(Qt::ISODate);
 
-    QJsonDocument doc(scripArray);
+    QJsonDocument doc(rootObj);
     file.write(doc.toJson());
     file.close();
 
     return true;
 }
 
-bool MarketWatchHelpers::loadPortfolio(const QString &filename, QList<ScripData> &scrips)
+bool MarketWatchHelpers::loadPortfolio(const QString &filename, QList<ScripData> &scrips, MarketWatchColumnProfile &profile)
 {
     QFile file(filename);
     if (!file.open(QIODevice::ReadOnly)) {
@@ -173,40 +172,47 @@ bool MarketWatchHelpers::loadPortfolio(const QString &filename, QList<ScripData>
     file.close();
 
     QJsonDocument doc = QJsonDocument::fromJson(data);
-    if (doc.isNull() || !doc.isArray()) {
+    if (doc.isNull()) {
         qWarning() << "Invalid JSON in portfolio file:" << filename;
         return false;
     }
-
-    QJsonArray scripArray = doc.array();
+    
     scrips.clear();
-
-    for (const auto &val : scripArray) {
-        if (!val.isObject()) continue;
-        
-        QJsonObject obj = val.toObject();
-        ScripData scrip;
-        
-        scrip.symbol = obj["symbol"].toString();
-        scrip.exchange = obj["exchange"].toString();
-        scrip.token = obj["token"].toInt();
-        scrip.isBlankRow = obj["isBlankRow"].toBool();
-        
-        if (!scrip.isBlankRow) {
-            scrip.scripName = obj["scripName"].toString();
-            scrip.instrumentName = obj["instrumentName"].toString();
-        } else {
-             // Ensure blank row has visual separator if not explicitly saved/loaded
-             if (scrip.symbol.isEmpty()) {
-                 scrip.symbol = "───────────────";
-             }
-             scrip.token = -1;
+    
+    // Handle Legacy Format (Array root)
+    if (doc.isArray()) {
+        QJsonArray scripArray = doc.array();
+        for (const auto &val : scripArray) {
+            if (val.isObject()) {
+                scrips.append(scripFromJson(val.toObject()));
+            }
         }
-
-        scrips.append(scrip);
+        return true;
+    }
+    
+    // Handle New Format (Object root)
+    if (doc.isObject()) {
+        QJsonObject rootObj = doc.object();
+        
+        // Load Scrips
+        if (rootObj.contains("scrips") && rootObj["scrips"].isArray()) {
+            QJsonArray scripArray = rootObj["scrips"].toArray();
+            for (const auto &val : scripArray) {
+                if (val.isObject()) {
+                    scrips.append(scripFromJson(val.toObject()));
+                }
+            }
+        }
+        
+        // Load Profile
+        if (rootObj.contains("profile") && rootObj["profile"].isObject()) {
+            profile.fromJson(rootObj["profile"].toObject());
+        }
+        
+        return true;
     }
 
-    return true;
+    return false;
 }
 
 QJsonObject MarketWatchHelpers::scripToJson(const ScripData &scrip)
@@ -238,11 +244,16 @@ ScripData MarketWatchHelpers::scripFromJson(const QJsonObject &obj)
         scrip.scripName = obj["scripName"].toString();
         scrip.instrumentName = obj["instrumentName"].toString();
     } else {
-         // Ensure blank row has visual separator if not explicitly saved/loaded
          if (scrip.symbol.isEmpty()) {
              scrip.symbol = "───────────────";
          }
          scrip.token = -1;
     }
+    
+    // Fix: Ensure code maps to token if missing (solves Code 0 bug)
+    if (scrip.code <= 0 && scrip.token > 0) {
+        scrip.code = scrip.token;
+    }
+    
     return scrip;
 }

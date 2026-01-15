@@ -22,7 +22,7 @@ class ColumnProfileDialog : public QDialog
     Q_OBJECT
 
 public:
-    explicit ColumnProfileDialog(const MarketWatchColumnProfile &currentProfile, QWidget *parent = nullptr);
+    explicit ColumnProfileDialog(const MarketWatchColumnProfile &currentProfile, ProfileContext context = ProfileContext::MarketWatch, QWidget *parent = nullptr);
     
     /**
      * @brief Get the configured profile
@@ -71,6 +71,7 @@ private:
     
     // Data
     MarketWatchColumnProfile m_profile;
+    ProfileContext m_context;
     bool m_accepted;
 };
 

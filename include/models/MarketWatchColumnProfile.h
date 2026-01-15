@@ -13,6 +13,17 @@
  * 
  * Comprehensive list of 40+ columns for market watch display
  */
+enum class ProfileContext {
+    MarketWatch,
+    OrderBook,
+    TradeBook,
+    NetPosition,
+    Holdings
+};
+
+/**
+ * @brief Enumeration of all available market watch columns
+ */
 enum class MarketWatchColumn {
     // Identification (7 columns)
     CODE = 0,
@@ -117,8 +128,12 @@ class MarketWatchColumnProfile
 {
 public:
     MarketWatchColumnProfile();
-    explicit MarketWatchColumnProfile(const QString &name);
+    explicit MarketWatchColumnProfile(const QString &name, ProfileContext context = ProfileContext::MarketWatch);
     
+    // Context
+    ProfileContext context() const { return m_context; }
+    void setContext(ProfileContext context) { m_context = context; }
+
     // Profile Management
     QString name() const { return m_name; }
     void setName(const QString &name) { m_name = name; }
@@ -165,6 +180,7 @@ public:
     
 private:
     QString m_name;
+    ProfileContext m_context;
     QString m_description;
     QMap<MarketWatchColumn, bool> m_visibility;
     QMap<MarketWatchColumn, int> m_widths;

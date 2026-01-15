@@ -4,6 +4,7 @@
 #include <QString>
 #include <QStringList>
 #include <QJsonObject>
+#include "models/MarketWatchColumnProfile.h"
 
 // Forward declaration
 struct ScripData;
@@ -59,9 +60,10 @@ public:
      * @brief Save portfolio to file
      * @param filename Path to save file
      * @param scrips List of scrips to save
+     * @param profile Optional column profile to save
      * @return true if successful
      */
-    static bool savePortfolio(const QString &filename, const QList<ScripData> &scrips);
+    static bool savePortfolio(const QString &filename, const QList<ScripData> &scrips, const MarketWatchColumnProfile &profile = MarketWatchColumnProfile());
 
     /**
      * @brief Load portfolio from file
@@ -79,7 +81,7 @@ public:
      */
     static ScripData scripFromJson(const QJsonObject &json);
 
-    static bool loadPortfolio(const QString &filename, QList<ScripData> &scrips);
+    static bool loadPortfolio(const QString &filename, QList<ScripData> &scrips, MarketWatchColumnProfile &profile);
 };
 
 #endif // MARKETWATCHHELPERS_H

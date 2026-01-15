@@ -8,9 +8,10 @@
 #include <QMessageBox>
 #include <QDebug>
 
-ColumnProfileDialog::ColumnProfileDialog(const MarketWatchColumnProfile &currentProfile, QWidget *parent)
+ColumnProfileDialog::ColumnProfileDialog(const MarketWatchColumnProfile &currentProfile, ProfileContext context, QWidget *parent)
     : QDialog(parent)
     , m_profile(currentProfile)
+    , m_context(context)
     , m_accepted(false)
 {
     setWindowTitle("Market Watch - Column Selection");
@@ -288,12 +289,23 @@ void ColumnProfileDialog::refreshProfileList()
     m_profileCombo->addItem("Trading");
     
     // Add custom profiles
+    // Add custom profiles matching current context
     MarketWatchProfileManager &manager = MarketWatchProfileManager::instance();
     QStringList customProfiles = manager.profileNames();
     
     if (!customProfiles.isEmpty()) {
-        m_profileCombo->insertSeparator(m_profileCombo->count());
-        m_profileCombo->addItems(customProfiles);
+        bool separatorAdded = false;
+        
+        for (const QString &name : customProfiles) {
+            // Filter by context
+            if (manager.getProfile(name).context() == m_context) {
+                if (!separatorAdded) {
+                    m_profileCombo->insertSeparator(m_profileCombo->count());
+                    separatorAdded = true;
+                }
+                m_profileCombo->addItem(name);
+            }
+        }
     }
     
     // Set current profile
@@ -388,63 +400,23 @@ void ColumnProfileDialog::onRemoveColumn()
 void ColumnProfileDialog::onMoveUp()
 {
     int currentRow = m_selectedList->currentRow();
+    if (currentRow <= 0) return;
     
-    if (currentRow <= 0) {
-        return;  // Already at top or nothing selected
-    }
-    
-    QList<MarketWatchColumn> order = m_profile.columnOrder();
-    QList<MarketWatchColumn> visibleCols = m_profile.visibleColumns();
-    
-    // Find position in visible columns
-    int visibleIndex = 0;
-    for (int i = 0; i < order.size() && visibleIndex < currentRow; ++i) {
-        if (m_profile.isColumnVisible(order[i])) {
-            visibleIndex++;
-        }
-    }
-    
-    // Swap in order (using swap() for Qt 5.12 compatibility)
-    order.swap(visibleIndex, visibleIndex - 1);
-    m_profile.setColumnOrder(order);
-    
-    updateSelectedColumns();
+    QListWidgetItem *currentItem = m_selectedList->takeItem(currentRow);
+    m_selectedList->insertItem(currentRow - 1, currentItem);
     m_selectedList->setCurrentRow(currentRow - 1);
+    
+    // Update profile order immediately to reflect UI state
+    // (This ensures consistency if multiple moves happen)
 }
 
 void ColumnProfileDialog::onMoveDown()
 {
     int currentRow = m_selectedList->currentRow();
-    int visibleCount = m_profile.visibleColumnCount();
+    if (currentRow < 0 || currentRow >= m_selectedList->count() - 1) return;
     
-    if (currentRow < 0 || currentRow >= visibleCount - 1) {
-        return;  // Already at bottom or nothing selected
-    }
-    
-    QList<MarketWatchColumn> order = m_profile.columnOrder();
-    
-    // Find position in visible columns
-    int visibleIndex = 0;
-    int orderIndex = 0;
-    for (; orderIndex < order.size() && visibleIndex < currentRow; ++orderIndex) {
-        if (m_profile.isColumnVisible(order[orderIndex])) {
-            visibleIndex++;
-        }
-    }
-    
-    // Find next visible column
-    int nextVisibleIndex = orderIndex + 1;
-    while (nextVisibleIndex < order.size() && !m_profile.isColumnVisible(order[nextVisibleIndex])) {
-        nextVisibleIndex++;
-    }
-    
-    if (nextVisibleIndex < order.size()) {
-        // Use swap() for Qt 5.12 compatibility
-        order.swap(orderIndex, nextVisibleIndex);
-        m_profile.setColumnOrder(order);
-    }
-    
-    updateSelectedColumns();
+    QListWidgetItem *currentItem = m_selectedList->takeItem(currentRow);
+    m_selectedList->insertItem(currentRow + 1, currentItem);
     m_selectedList->setCurrentRow(currentRow + 1);
 }
 
@@ -468,9 +440,29 @@ void ColumnProfileDialog::onSaveProfile()
     }
     
     m_profile.setName(name);
+    m_profile.setContext(m_context); // Ensure generic context is set
+    
+    // Reconstruct column order from UI before saving
+    QList<MarketWatchColumn> newOrder;
+    QList<MarketWatchColumn> currentFullOrder = m_profile.columnOrder();
+    
+    // 1. Add visible columns in UI order
+    for(int i = 0; i < m_selectedList->count(); ++i) {
+        QListWidgetItem *item = m_selectedList->item(i);
+        newOrder.append(static_cast<MarketWatchColumn>(item->data(Qt::UserRole).toInt()));
+    }
+    
+    // 2. Append hidden columns (maintain their relative order if possible, or just append)
+    for(auto col : currentFullOrder) {
+        if (!m_profile.isColumnVisible(col)) {
+            newOrder.append(col);
+        }
+    }
+    m_profile.setColumnOrder(newOrder);
     
     MarketWatchProfileManager &manager = MarketWatchProfileManager::instance();
     manager.addProfile(m_profile);
+    manager.saveAllProfiles("profiles/marketwatch");  // Persist to disk
     
     QMessageBox::information(this, "Profile Saved", 
                            QString("Profile '%1' has been saved.").arg(name));
@@ -519,6 +511,24 @@ void ColumnProfileDialog::onSetAsDefault()
 
 void ColumnProfileDialog::onAccepted()
 {
+    // Reconstruct final column order from UI
+    QList<MarketWatchColumn> newOrder;
+    QList<MarketWatchColumn> currentFullOrder = m_profile.columnOrder();
+    
+    // 1. Add visible columns in UI order
+    for(int i = 0; i < m_selectedList->count(); ++i) {
+        QListWidgetItem *item = m_selectedList->item(i);
+        newOrder.append(static_cast<MarketWatchColumn>(item->data(Qt::UserRole).toInt()));
+    }
+    
+    // 2. Append hidden columns
+    for(auto col : currentFullOrder) {
+        if (!m_profile.isColumnVisible(col)) {
+            newOrder.append(col);
+        }
+    }
+    m_profile.setColumnOrder(newOrder);
+
     m_accepted = true;
     accept();
 }
