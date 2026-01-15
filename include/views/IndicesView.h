@@ -5,6 +5,11 @@
 #include <QTableWidget>
 #include <QVector>
 #include "api/XTSTypes.h"
+#include <QHeaderView>
+#include "udp/UDPTypes.h"
+
+// Forward declaration
+namespace UDP { struct IndexTick; }
 
 class IndicesView : public QWidget
 {
@@ -14,9 +19,16 @@ public:
     explicit IndicesView(QWidget *parent = nullptr);
     ~IndicesView();
 
-    // Update index data
-    void updateIndex(int64_t token, const QString& symbol, double ltp, double percentChange);
+    // Call this to update an index value
+    // name: Index Name (e.g., "NIFTY 50")
+    // ltp: Last Traded Price
+    // change: Absolute change
+    // percentChange: Percentage change
+    void updateIndex(int64_t token, const QString &name, double ltp, double change, double percentChange);
     
+    // Process broadcast updates
+    void onIndexReceived(const UDP::IndexTick& tick);
+
     // Clear all data
     void clear();
 

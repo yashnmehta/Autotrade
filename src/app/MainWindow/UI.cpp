@@ -1,4 +1,5 @@
 #include "app/MainWindow.h"
+#include "services/UdpBroadcastService.h"
 #include "core/widgets/CustomMDIArea.h"
 #include "core/widgets/InfoBar.h"
 #include "app/ScripBar.h"
@@ -494,6 +495,10 @@ void MainWindow::createIndicesView()
     
     // Set initial size
     m_indicesView->resize(400, 120);
+    
+    // Connect Data Source
+    connect(&UdpBroadcastService::instance(), &UdpBroadcastService::udpIndexReceived, 
+            m_indicesView, &IndicesView::onIndexReceived);
     
     // Restore Position if saved (TODO: Add position saving)
     // For now, center relative to main window or top-right

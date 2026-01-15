@@ -9,8 +9,9 @@ IndicesView::IndicesView(QWidget *parent)
     setupUI();
     
     // detailed dummy data for testing UI
-    updateIndex(26000, "NIFTY 50", 22500.00, 0.50);
-    updateIndex(26001, "BANKNIFTY", 48000.00, -0.25);
+    // detailed dummy data for testing UI
+    updateIndex(26000, "NIFTY 50", 22500.00, 111.94, 0.50);
+    updateIndex(26001, "BANKNIFTY", 48000.00, -120.30, -0.25);
 }
 
 IndicesView::~IndicesView()
@@ -55,7 +56,7 @@ void IndicesView::setupUI()
     layout->addWidget(m_table);
 }
 
-void IndicesView::updateIndex(int64_t token, const QString& symbol, double ltp, double percentChange)
+void IndicesView::updateIndex(int64_t token, const QString& symbol, double ltp, double change, double percentChange)
 {
     int row = getRowForToken(token);
     
@@ -70,8 +71,8 @@ void IndicesView::updateIndex(int64_t token, const QString& symbol, double ltp, 
     }
     
     // Calculate Change
-    double prev = ltp / (1.0 + (percentChange / 100.0));
-    double absChg = ltp - prev;
+    // double prev = ltp / (1.0 + (percentChange / 100.0));
+    double absChg = change; // Use passed change value
     
     // Color coding based on change
     QColor textColor = (percentChange >= 0) ? QColor("#00aa00") : QColor("#ff0000"); // Green : Red
@@ -132,8 +133,46 @@ int IndicesView::getRowForToken(int64_t token)
     return row;
 }
 
+void IndicesView::onIndexReceived(const UDP::IndexTick& tick)
+{
+    // Log Stage 4: UI Reception
+    qDebug() << "[IndicesView] Received tick for:" << tick.name << "Token:" << tick.token << "Value:" << tick.value;
+
+    // Filter/Map Logic
+    // Needs optimization for real usage (e.g. hash map of tracked tokens)
+    
+    // NSECM Nifty 50 (Token usually 0 or specific depending on feed, Name "Nifty 50")
+    // BSE Sensex (Token 1, Name "SENSEX")
+    
+    QString name = QString::fromLatin1(tick.name).trimmed();
+    
+    // For BSE, name might be empty, so map from token
+    if (tick.exchangeSegment == UDP::ExchangeSegment::BSECM || tick.exchangeSegment == UDP::ExchangeSegment::BSEFO) {
+        if (tick.token == 1) name = "SENSEX";
+        else if (tick.token == 2) name = "BSE 100"; // Example
+        else return; // Ignore other BSE indices for now
+    }
+    
+    // For NSE, name comes from broadcast but we might want to standardize
+    if (name.compare("Nifty 50", Qt::CaseInsensitive) == 0 || name == "NIFTY") {
+        name = "NIFTY 50";
+    } else if (name.compare("Nifty Bank", Qt::CaseInsensitive) == 0 || name == "BANKNIFTY") {
+        name = "BANKNIFTY";
+    }
+    
+    // Only update if it's one of the watched indices
+    if (m_tokenToRow.contains(tick.token)) { // Using m_tokenToRow for consistency with existing updateIndex
+        updateIndex(tick.token, name, tick.value, tick.change, tick.changePercent);
+    } else {
+        // Or add it if we want dynamic list
+        if (name == "NIFTY 50" || name == "BANKNIFTY" || name == "SENSEX") {
+            updateIndex(tick.token, name, tick.value, tick.change, tick.changePercent);
+        }
+    }
+}
+
 void IndicesView::clear()
 {
-    m_table->setRowCount(0);
-    m_tokenToRow.clear();
+    m_table->setRowCount(0); // Changed from m_tableWidget to m_table
+    m_tokenToRow.clear(); // Changed from m_rowMap to m_tokenToRow
 }

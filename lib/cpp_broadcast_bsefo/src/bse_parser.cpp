@@ -269,7 +269,9 @@ void BSEParser::decodeIndex(const uint8_t* buffer, size_t length, ParserStats& s
         decRec.turnover = 0;
         
         stats.packetsDecoded++;
-        if (recordCallback_) recordCallback_(decRec);
+        stats.packetsDecoded++;
+        if (indexCallback_) indexCallback_(decRec);
+        else if (recordCallback_) recordCallback_(decRec); // Fallback
     }
 }
 

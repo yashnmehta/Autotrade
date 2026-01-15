@@ -38,6 +38,8 @@ public:
     void setOpenInterestCallback(BSEParser::OpenInterestCallback callback) { parser_.setOpenInterestCallback(callback); }
     void setSessionStateCallback(BSEParser::SessionStateCallback callback) { parser_.setSessionStateCallback(callback); }
     void setClosePriceCallback(BSEParser::ClosePriceCallback callback) { parser_.setClosePriceCallback(callback); }
+
+    void setIndexCallback(BSEParser::RecordCallback callback) { parser_.setIndexCallback(callback); }
     void setImpliedVolatilityCallback(BSEParser::ImpliedVolatilityCallback callback) { parser_.setImpliedVolatilityCallback(callback); }
 
     const ReceiverStats& getStats() const { return stats_; }

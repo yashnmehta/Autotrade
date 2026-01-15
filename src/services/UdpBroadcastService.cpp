@@ -216,6 +216,36 @@ UDP::IndexTick convertNseFoIndustryIndex(const nsefo::IndustryIndexData& data) {
     return tick;
 }
 
+
+
+// Convert BSE Index (DecodedRecord) to UDP::IndexTick
+UDP::IndexTick convertBseIndex(const bse::DecodedRecord& record, UDP::ExchangeSegment segment) {
+    UDP::IndexTick tick;
+    tick.exchangeSegment = segment;
+    tick.token = record.token;
+    
+    // Name is not in the record, will rely on UI to map token to name
+    tick.name[0] = '\0';
+    
+    tick.value = record.ltp / 100.0;
+    tick.open = record.open / 100.0;
+    tick.high = record.high / 100.0;
+    tick.low = record.low / 100.0;
+    tick.prevClose = record.close / 100.0;
+    tick.change = tick.value - tick.prevClose;
+    tick.changePercent = (tick.prevClose > 0) ? (tick.change / tick.prevClose) * 100.0 : 0.0;
+    
+    // Not provided in BSE 2012 message
+    tick.marketCap = 0;
+    tick.numAdvances = 0;
+    tick.numDeclines = 0;
+    tick.numUnchanged = 0;
+    
+    tick.timestampUdpRecv = record.packetTimestamp;
+    
+    return tick;
+}
+
 // Convert NSE FO Circuit Limit Data to UDP::CircuitLimitTick
 UDP::CircuitLimitTick convertNseFoCircuitLimit(const nsefo::CircuitLimitData& data) {
     UDP::CircuitLimitTick tick;
@@ -373,6 +403,45 @@ void UdpBroadcastService::setupNseCmCallbacks() {
         m_totalTicks++;
         emit tickReceived(legacyTick);
     });
+
+    // 7207 Index Callback for CM
+    nsecm::MarketDataCallbackRegistry::instance().registerIndexCallback([this](const nsecm::IndicesUpdate& update) {
+        // Log Stage 1: Reception
+        // qDebug() << "[UDP] Received NSECM Index Update (7207), Records:" << update.numRecords;
+        
+        // Iterate through all indices in the update
+        for (int i = 0; i < update.numRecords; i++) {
+            const auto& data = update.indices[i];
+            
+            // Log Stage 2: Data Content
+            // qDebug() << "  -> Index:" << data.name << "Value:" << data.value << "Change:" << (data.value - data.close);
+
+            UDP::IndexTick tick;
+            tick.exchangeSegment = UDP::ExchangeSegment::NSECM;
+            tick.token = 0; // No token in 7207
+            
+            // Name
+            size_t copySize = sizeof(tick.name) - 1;
+            if (sizeof(data.name) < copySize) copySize = sizeof(data.name);
+            std::memcpy(tick.name, data.name, copySize);
+            tick.name[sizeof(tick.name) - 1] = '\0';
+            
+            tick.value = data.value;
+            tick.open = data.open;
+            tick.high = data.high;
+            tick.low = data.low;
+            tick.prevClose = data.close;
+            tick.changePercent = data.percentChange;
+            tick.change = tick.value - tick.prevClose;
+            tick.marketCap = static_cast<uint64_t>(data.marketCap);
+            tick.numAdvances = data.upMoves;
+            tick.numDeclines = data.downMoves;
+            
+            // Log Stage 3: Emission
+            qDebug() << "[UDP] Emitting NSECM Index For:" << tick.name << "Val:" << tick.value;
+            emit udpIndexReceived(tick);
+        }
+    });
 }
 
 void UdpBroadcastService::setupBseFoCallbacks() {
@@ -426,6 +495,12 @@ void UdpBroadcastService::setupBseFoCallbacks() {
         udpTick.messageType = 2014;  // CLOSE_PRICE
         emit udpTickReceived(udpTick);
     });
+    
+    // Index Callback (2012)
+    m_bseFoReceiver->setIndexCallback([this](const bse::DecodedRecord& record) {
+        UDP::IndexTick indexTick = convertBseIndex(record, UDP::ExchangeSegment::BSEFO);
+        emit udpIndexReceived(indexTick);
+    });
 }
 
 void UdpBroadcastService::setupBseCmCallbacks() {
@@ -465,6 +540,12 @@ void UdpBroadcastService::setupBseCmCallbacks() {
         udpTick.timestampEmitted = LatencyTracker::now();
         udpTick.messageType = 2014;  // CLOSE_PRICE
         emit udpTickReceived(udpTick);
+    });
+    
+    // Index Callback (2012)
+    m_bseCmReceiver->setIndexCallback([this](const bse::DecodedRecord& record) {
+        UDP::IndexTick indexTick = convertBseIndex(record, UDP::ExchangeSegment::BSECM);
+        emit udpIndexReceived(indexTick);
     });
 }
 

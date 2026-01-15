@@ -36,6 +36,11 @@ int main(int argc, char *argv[])
     qRegisterMetaType<QVector<XTS::Trade>>("QVector<XTS::Trade>");
     qRegisterMetaType<QVector<XTS::Position>>("QVector<XTS::Position>");
 
+    // Register UDP types for broadcast signals
+    qRegisterMetaType<UDP::MarketTick>("UDP::MarketTick");
+    qRegisterMetaType<UDP::IndexTick>("UDP::IndexTick");
+    qRegisterMetaType<UDP::CircuitLimitTick>("UDP::CircuitLimitTick");
+
     // Set application metadata
     app.setApplicationName("Trading Terminal");
     app.setOrganizationName("TradingCo");
