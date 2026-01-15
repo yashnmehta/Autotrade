@@ -1,5 +1,6 @@
 #include "views/PreferenceDialog.h"
 #include "views/PreferencesGeneralTab.h"
+#include "views/PreferencesOrderTab.h"
 #include "ui_PreferencesWindowTab.h"
 #include "utils/PreferencesManager.h"
 #include <QUiLoader>
@@ -16,6 +17,7 @@ PreferenceDialog::PreferenceDialog(QWidget *parent)
     , ui(new Ui::PreferencesWindowTab)
     , m_prefsManager(&PreferencesManager::instance())
     , m_generalTab(nullptr)
+    , m_orderTab(nullptr)
 {
     ui->setupUi(this);
     
@@ -32,8 +34,6 @@ PreferenceDialog::PreferenceDialog(QWidget *parent)
     // Load individual tab UI files into tab containers
     loadTabContent("tabGeneral", ":/forms/PreferencesGeneralTab.ui");
     loadTabContent("tabOrder", ":/forms/PreferencesOrderTab.ui");
-    loadTabContent("tabPortfolio", ":/forms/PreferencesPortfolioTab.ui");
-    loadTabContent("tabWorkSpace", ":/forms/PreferencesWorkSpaceTab.ui");
     loadTabContent("tabDerivatives", ":/forms/PreferencesDerivativeTab.ui");
     loadTabContent("tabAlertsMsg", ":/forms/PreferencesAlertMessageTab.ui");
     loadTabContent("tabMarginPlusOrder", ":/forms/PreferencesMarginPlusOrderTab.ui");
@@ -42,6 +42,11 @@ PreferenceDialog::PreferenceDialog(QWidget *parent)
     QWidget *generalTabWidget = findChild<QWidget*>("tabGeneral");
     if (generalTabWidget) {
         m_generalTab = new PreferencesGeneralTab(generalTabWidget, m_prefsManager, this);
+    }
+    
+    QWidget *orderTabWidget = findChild<QWidget*>("tabOrder");
+    if (orderTabWidget) {
+        m_orderTab = new PreferencesOrderTab(orderTabWidget, m_prefsManager, this);
     }
     
     setupConnections();
@@ -116,10 +121,8 @@ void PreferenceDialog::loadPreferences()
         m_generalTab->loadPreferences();
     }
     
-    // TODO: Load other tab preferences when their handlers are created
-    // if (m_orderTab) m_orderTab->loadPreferences();
-    // if (m_portfolioTab) m_portfolioTab->loadPreferences();
-    // etc...
+    // Load other tab preferences when their handlers are created
+    if (m_orderTab) m_orderTab->loadPreferences();
     
     qDebug() << "PreferenceDialog: All preferences loaded";
 }
@@ -131,10 +134,8 @@ void PreferenceDialog::savePreferences()
         m_generalTab->savePreferences();
     }
     
-    // TODO: Save other tab preferences when their handlers are created
-    // if (m_orderTab) m_orderTab->savePreferences();
-    // if (m_portfolioTab) m_portfolioTab->savePreferences();
-    // etc...
+    // Save other tab preferences when their handlers are created
+    if (m_orderTab) m_orderTab->savePreferences();
     
     qDebug() << "PreferenceDialog: All preferences saved";
 }
@@ -156,6 +157,11 @@ void PreferenceDialog::onOkClicked()
     accept();
 }
 
+void PreferenceDialog::onCancelClicked()
+{
+    reject();
+}
+
 void PreferenceDialog::onRestoreDefaultsClicked()
 {
     auto reply = QMessageBox::question(
@@ -171,7 +177,8 @@ void PreferenceDialog::onRestoreDefaultsClicked()
             m_generalTab->restoreDefaults();
         }
         
-        // TODO: Restore defaults for other tabs when their handlers are created
+        // Restore defaults for other tabs when their handlers are created
+        if (m_orderTab) m_orderTab->restoreDefaults();
         
         // Clear all preferences from manager
         m_prefsManager->clear();

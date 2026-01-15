@@ -16,6 +16,8 @@
 #include "utils/FileLogger.h"
 #include "api/XTSTypes.h"
 #include "services/UdpBroadcastService.h"
+#include "services/PriceCacheZeroCopy.h"
+#include "udp/UDPTypes.h"
 #include "api/XTSMarketDataClient.h"
 #include "api/XTSInteractiveClient.h"
 #include <QApplication>
@@ -26,6 +28,7 @@
 #include <QStandardPaths>
 #include <QDir>
 #include <QMessageBox>
+#include <unordered_map>
 
 int main(int argc, char *argv[])
 {
@@ -40,6 +43,10 @@ int main(int argc, char *argv[])
 
     // Register XTS::Tick for cross-thread signals
     qRegisterMetaType<XTS::Tick>("XTS::Tick");
+    
+    // Register UDP types for cross-thread signals (required for Qt::QueuedConnection)
+    qRegisterMetaType<UDP::MarketTick>("UDP::MarketTick");
+    qRegisterMetaType<UDP::IndexTick>("UDP::IndexTick");
 
     // Set application metadata
     app.setApplicationName("Trading Terminal");
@@ -206,6 +213,39 @@ int main(int argc, char *argv[])
                     
                     UdpBroadcastService::instance().start(udpConfig);
                     qDebug() << "[DevMode] UDP Service started. Active:" << UdpBroadcastService::instance().isActive();
+
+                    /* 
+                    // 3. Initialize PriceCacheZeroCopy (DISABLED due to build errors)
+                    qDebug() << "[DevMode] Initializing Zero-Copy Price Cache...";
+                    std::unordered_map<uint32_t, uint32_t> nseCmMap, nseFoMap, bseCmMap, bseFoMap;
+                    
+                    if (auto* r = repo->getNSECMRepository()) {
+                        uint32_t idx = 0;
+                        for (const auto& c : r->getAllContracts()) nseCmMap[static_cast<uint32_t>(c.token)] = idx++;
+                        qDebug() << "  -> NSECM Tokens:" << nseCmMap.size();
+                    }
+                    if (auto* r = repo->getNSEFORepository()) {
+                        uint32_t idx = 0;
+                        for (const auto& c : r->getAllContracts()) nseFoMap[static_cast<uint32_t>(c.token)] = idx++;
+                        qDebug() << "  -> NSEFO Tokens:" << nseFoMap.size();
+                    }
+                    if (auto* r = repo->getBSECMRepository()) {
+                        uint32_t idx = 0;
+                        for (const auto& c : r->getAllContracts()) bseCmMap[static_cast<uint32_t>(c.token)] = idx++;
+                        qDebug() << "  -> BSECM Tokens:" << bseCmMap.size();
+                    }
+                    if (auto* r = repo->getBSEFORepository()) {
+                        uint32_t idx = 0;
+                        for (const auto& c : r->getAllContracts()) bseFoMap[static_cast<uint32_t>(c.token)] = idx++;
+                        qDebug() << "  -> BSEFO Tokens:" << bseFoMap.size();
+                    }
+                    
+                    if (PriceCacheZeroCopy::getInstance().initialize(nseCmMap, nseFoMap, bseCmMap, bseFoMap)) {
+                        qDebug() << "[DevMode] ✅ PriceCacheZeroCopy initialized successfully";
+                    } else {
+                        qCritical() << "[DevMode] ❌ PriceCacheZeroCopy initialization FAILED";
+                    }
+                    */
 
                     // Show main window
                     mainWindow->show();

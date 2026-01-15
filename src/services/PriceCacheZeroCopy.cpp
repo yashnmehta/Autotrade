@@ -476,40 +476,72 @@ void PriceCacheZeroCopy::update(const UDP::MarketTick& tick)
     ConsolidatedMarketData* data = calculatePointer(tokenIndex, segment);
     if (!data) return;
 
-    // Update core fields
+    // ========== MESSAGE-CODE-AWARE MERGE LOGIC ==========
+    
+    // Update LTP and LTQ (Message Code 2101 - Trade)
     if (tick.ltp > 0) {
         data->lastTradedPrice = static_cast<int32_t>(tick.ltp * 100.0 + 0.5);
+        data->lastTradeQuantity = static_cast<int32_t>(tick.ltq);
     }
     
-    data->lastTradeQuantity = static_cast<int32_t>(tick.ltq);
-    data->volumeTradedToday = tick.volume;
+    // Volume is CUMULATIVE - only increase, never decrease
+    if (tick.volume > data->volumeTradedToday) {
+        data->volumeTradedToday = tick.volume;
+    }
 
-    // Update OHLC
-    if (tick.open > 0) data->openPrice = static_cast<int32_t>(tick.open * 100.0 + 0.5);
-    if (tick.high > 0) data->highPrice = static_cast<int32_t>(tick.high * 100.0 + 0.5);
-    if (tick.low > 0) data->lowPrice = static_cast<int32_t>(tick.low * 100.0 + 0.5);
-    if (tick.prevClose > 0) data->closePrice = static_cast<int32_t>(tick.prevClose * 100.0 + 0.5);
+    // OHLC PROTECTION: high never decreases, low never increases
+    if (tick.open > 0) {
+        data->openPrice = static_cast<int32_t>(tick.open * 100.0 + 0.5);
+    }
+    if (tick.high > 0) {
+        int32_t newHigh = static_cast<int32_t>(tick.high * 100.0 + 0.5);
+        if (newHigh > data->highPrice) {  // High only increases
+            data->highPrice = newHigh;
+        }
+    }
+    if (tick.low > 0) {
+        int32_t newLow = static_cast<int32_t>(tick.low * 100.0 + 0.5);
+        if (data->lowPrice == 0 || newLow < data->lowPrice) {  // Low only decreases
+            data->lowPrice = newLow;
+        }
+    }
+    if (tick.prevClose > 0) {
+        data->closePrice = static_cast<int32_t>(tick.prevClose * 100.0 + 0.5);
+    }
 
-    // Update Depth
+    // Depth Merge (Message Code 2001/7207 - Quote/Depth)
+    // Only update if new data present, preserve existing otherwise
     for (int i = 0; i < 5; ++i) {
         if (tick.bids[i].price > 0) {
             data->bidPrice[i] = static_cast<int32_t>(tick.bids[i].price * 100.0 + 0.5);
             data->bidQuantity[i] = static_cast<int64_t>(tick.bids[i].quantity);
             data->bidOrders[i] = static_cast<int16_t>(tick.bids[i].orders);
         }
+        // Don't clear bid if not in packet - preserve existing
+        
         if (tick.asks[i].price > 0) {
             data->askPrice[i] = static_cast<int32_t>(tick.asks[i].price * 100.0 + 0.5);
             data->askQuantity[i] = static_cast<int64_t>(tick.asks[i].quantity);
             data->askOrders[i] = static_cast<int16_t>(tick.asks[i].orders);
         }
+        // Don't clear ask if not in packet - preserve existing
     }
 
-    data->totalBuyQuantity = static_cast<int64_t>(tick.totalBidQty);
-    data->totalSellQuantity = static_cast<int64_t>(tick.totalAskQty);
+    // Update totals if present
+    if (tick.totalBidQty > 0) {
+        data->totalBuyQuantity = static_cast<int64_t>(tick.totalBidQty);
+    }
+    if (tick.totalAskQty > 0) {
+        data->totalSellQuantity = static_cast<int64_t>(tick.totalAskQty);
+    }
     
+    // Update ATP if present
     if (tick.atp > 0) {
         data->averageTradePrice = static_cast<int32_t>(tick.atp * 100.0 + 0.5);
     }
+    
+    // Update timestamp for staleness tracking
+    data->lastUpdateTime = tick.timestampEmitted;
 }
 
 } // namespace PriceCacheTypes

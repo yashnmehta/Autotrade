@@ -307,7 +307,11 @@ void MarketWatchWindow::onZeroCopyTimerUpdate()
     }
     
     // Read all subscribed tokens (ultra-fast direct memory access)
-    for (auto& [token, dataPtr] : m_tokenDataPointers) {
+    // Iterate using iterator for QMap
+    for (auto it = m_tokenDataPointers.begin(); it != m_tokenDataPointers.end(); ++it) {
+        uint32_t token = it.key();
+        PriceCacheTypes::ConsolidatedMarketData* dataPtr = it.value();
+        
         if (!dataPtr) continue; // Safety check
         
         // Zero-copy read! Direct memory access (< 100ns)

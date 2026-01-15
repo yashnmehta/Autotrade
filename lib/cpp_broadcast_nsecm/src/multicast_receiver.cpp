@@ -81,7 +81,7 @@ void MulticastReceiver::start() {
     }
     
     running = true;
-    std::cout << "Starting MulticastReceiver..." << std::endl;
+    std::cout << "Starting MulticastReceiver... nsecm " << std::endl;
     
     int packet_count = 0;
     

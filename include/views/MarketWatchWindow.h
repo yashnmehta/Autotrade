@@ -12,6 +12,9 @@
 #include <QMessageBox>
 #include <unordered_map>
 #include <QSettings>
+#include <QTimer>
+#include <QMap>
+#include "services/PriceCacheZeroCopy.h"
 
 class TokenAddressBook;
 class XTSMarketDataClient;
@@ -129,6 +132,11 @@ public:
      * @return Pointer to MarketWatchModel
      */
     MarketWatchModel* getModel() const { return m_model; }
+
+    /**
+     * @brief Configure zero-copy mode for high frequency updates
+     */
+    void setupZeroCopyMode();
     
     // === Price Update Operations ===
     
@@ -277,6 +285,11 @@ signals:
     void buyRequestedWithContext(const WindowContext &context);
     void sellRequestedWithContext(const WindowContext &context);
 
+    /**
+     * @brief Emitted when a token subscription is requested (Zero-Copy mode)
+     */
+    void requestTokenSubscription(QString requesterId, uint32_t token, uint16_t segment);
+
 protected:
     /**
      * @brief Handle keyboard events (Delete key)
@@ -307,6 +320,18 @@ private slots:
     void onAddScripAction();
     void onSavePortfolio();
     void onLoadPortfolio();
+    
+    // Zero-Copy Slots
+    void onPriceCacheSubscriptionReady(
+        QString requesterId,
+        uint32_t token,
+        PriceCacheTypes::MarketSegment segment,
+        PriceCacheTypes::ConsolidatedMarketData* dataPointer,
+        PriceCacheTypes::ConsolidatedMarketData snapshot,
+        bool success,
+        QString errorMessage
+    );
+    void onZeroCopyTimerUpdate();
 
 private:
     void setupUI();
@@ -324,6 +349,12 @@ private:
     MarketWatchModel *m_model;
     TokenAddressBook *m_tokenAddressBook;
     XTSMarketDataClient *m_xtsClient;  // For BSE quote API fallback
+    
+    // Zero-Copy Members
+    bool m_useZeroCopyPriceCache = true; // Default to true
+    QTimer *m_zeroCopyUpdateTimer = nullptr;
+    QMap<QString, uint32_t> m_pendingSubscriptions;
+    QMap<uint32_t, PriceCacheTypes::ConsolidatedMarketData*> m_tokenDataPointers;
 
     // Internal Helpers for Visual Persistence
     void captureProfileFromView(MarketWatchColumnProfile &profile);

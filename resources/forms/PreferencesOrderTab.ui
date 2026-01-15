@@ -435,9 +435,20 @@
       </widget>
      </item>
      <item row="0" column="3">
-      <widget class="QCheckBox" name="checkBox_setFocusOrderEntry">
-       <property name="text"><string>Set Focus on Order Entry Price</string></property>
-      </widget>
+       <layout class="QHBoxLayout" name="horizontalLayout_focusField">
+        <item>
+         <widget class="QLabel" name="label_defaultFocus">
+          <property name="text"><string>Default Focus:</string></property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QComboBox" name="comboBox_defaultFocus">
+          <item><property name="text"><string>Quantity</string></property></item>
+          <item><property name="text"><string>Price</string></property></item>
+          <item><property name="text"><string>Scrip</string></property></item>
+         </widget>
+        </item>
+       </layout>
      </item>
      <item row="1" column="0">
       <widget class="QCheckBox" name="checkBox_retainLastSubBroker">

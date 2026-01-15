@@ -14,7 +14,12 @@ void parse_message_7207(const MS_BCAST_INDICES* msg) {
     for (int i = 0; i < update.numRecords; i++) {
         const auto& rec = msg->indices[i];
         IndexData& data = update.indices[i];
+        
+        // Copy name and null-terminate
         std::memcpy(data.name, rec.indexName, 21);
+        data.name[20] = '\0';
+        
+        // Parse values from big-endian
         data.value = (int32_t)be32toh_func(rec.indexValue) / 100.0;
         data.high = (int32_t)be32toh_func(rec.highIndexValue) / 100.0;
         data.low = (int32_t)be32toh_func(rec.lowIndexValue) / 100.0;
@@ -25,10 +30,16 @@ void parse_message_7207(const MS_BCAST_INDICES* msg) {
         data.yearlyLow = (int32_t)be32toh_func(rec.yearlyLow) / 100.0;
         data.upMoves = be32toh_func(rec.noOfUpmoves);
         data.downMoves = be32toh_func(rec.noOfDownmoves);
-        data.marketCap = rec.marketCapitalisation; 
+        
+        // marketCapitalisation is a double - needs byte swap
+        uint64_t rawMktCap;
+        std::memcpy(&rawMktCap, &rec.marketCapitalisation, sizeof(double));
+        rawMktCap = be64toh_func(rawMktCap);
+        std::memcpy(&data.marketCap, &rawMktCap, sizeof(double));
+        
         data.netChangeIndicator = rec.netChangeIndicator;
     }
-    
+
     MarketDataCallbackRegistry::instance().dispatchIndices(update);
 }
 

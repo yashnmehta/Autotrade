@@ -36,7 +36,16 @@ public:
     /**
      * @brief Get singleton instance
      */
+    /**
+     * @brief Get singleton instance
+     */
     static RepositoryManager* getInstance();
+    
+    // Repository Accessors
+    const NSECMRepository* getNSECMRepository() const { return m_nsecm.get(); }
+    const NSEFORepository* getNSEFORepository() const { return m_nsefo.get(); }
+    const BSECMRepository* getBSECMRepository() const { return m_bsecm.get(); }
+    const BSEFORepository* getBSEFORepository() const { return m_bsefo.get(); }
     
     /**
      * @brief Load all master contract files

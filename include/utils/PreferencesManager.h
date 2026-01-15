@@ -66,6 +66,33 @@ public:
     bool getUseLegacyPriceCache() const;
     void setUseLegacyPriceCache(bool useLegacy);
     
+    // ============================================================================
+    // NEW: Order Window Focus Field (default: Quantity)
+    // ============================================================================
+    enum class FocusField { Quantity, Price, Scrip };
+    FocusField getOrderWindowFocusField() const;
+    void setOrderWindowFocusField(FocusField field);
+    QString focusFieldToString(FocusField field) const;
+    FocusField stringToFocusField(const QString& str) const;
+    
+    // ============================================================================
+    // NEW: Default Workspace (loads on login)
+    // ============================================================================
+    QString getDefaultWorkspace() const;
+    void setDefaultWorkspace(const QString& workspaceName);
+    
+    // ============================================================================
+    // NEW: Order Book Default Filter (default: Pending)
+    // ============================================================================
+    QString getOrderBookDefaultFilter() const;  // "All", "Pending", "Executed", "Cancelled"
+    void setOrderBookDefaultFilter(const QString& filter);
+    
+    // ============================================================================
+    // NEW: Position Book Default View (default: Net wise)
+    // ============================================================================
+    QString getPositionBookDefaultView() const;  // "Net", "DayWise"
+    void setPositionBookDefaultView(const QString& view);
+    
     // Window-specific preferences
     QVariant getWindowPreference(const QString &window, const QString &key, 
                                  const QVariant &defaultValue = QVariant()) const;

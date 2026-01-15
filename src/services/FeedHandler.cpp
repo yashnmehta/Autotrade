@@ -2,6 +2,7 @@
 #include "services/PriceCache.h"
 #include "utils/LatencyTracker.h"
 #include "services/PriceCacheZeroCopy.h"
+#include "utils/PreferencesManager.h"
 #include <QDebug>
 
 FeedHandler& FeedHandler::instance() {
@@ -74,11 +75,18 @@ void FeedHandler::onTickReceived(const XTS::Tick &tick) {
     int token = (int)tick.exchangeInstrumentID;
     int64_t key = makeKey(exchangeSegment, token);
     
-    // Update Global Price Cache AND get merged tick
-    XTS::Tick mergedTick = PriceCache::instance().updatePrice(exchangeSegment, token, tick);
+    // Update ONLY the selected cache based on user preference
+    XTS::Tick mergedTick;
+    bool useLegacyCache = PreferencesManager::instance().getUseLegacyPriceCache();
     
-    // Update New Zero-Copy Price Cache (Central Store)
-    PriceCacheTypes::PriceCacheZeroCopy::getInstance().update(mergedTick);
+    if (useLegacyCache) {
+        // Use legacy PriceCache with proven merge logic
+        mergedTick = PriceCache::instance().updatePrice(exchangeSegment, token, tick);
+    } else {
+        // Use new zero-copy cache
+        PriceCacheTypes::PriceCacheZeroCopy::getInstance().update(tick);
+        mergedTick = tick;  // Pass through for publishing
+    }
     
     // Debug logging for BSE tokens
     if (exchangeSegment == 12 || exchangeSegment == 11) {
@@ -163,43 +171,53 @@ void FeedHandler::onUdpTickReceived(const UDP::MarketTick& tick) {
         }
     }
 
-    // 2. Update Global Price Cache AND get merged tick
-    XTS::Tick mergedXts = PriceCache::instance().updatePrice(exchangeSegment, token, xtsTick);
+    // 2. Update ONLY the selected cache based on user preference
+    bool useLegacyCache = PreferencesManager::instance().getUseLegacyPriceCache();
+    XTS::Tick mergedXts;
+    
+    if (useLegacyCache) {
+        // Use legacy PriceCache with proven merge logic
+        mergedXts = PriceCache::instance().updatePrice(exchangeSegment, token, xtsTick);
+    } else {
+        // Use new zero-copy cache (direct UDP tick update)
+        PriceCacheTypes::PriceCacheZeroCopy::getInstance().update(tick);
+        mergedXts = xtsTick;  // Pass through for publishing
+    }
 
-    // 2.1 Update New Zero-Copy Price Cache (Central Store)
-    PriceCacheTypes::PriceCacheZeroCopy::getInstance().update(mergedXts);
-
-    // 3. Back-propagate Merged Data to UDP Tick for publishing
-    // This ensures UI receives the full picture even if UDP packet was partial
+    // 3. Back-propagate data to UDP Tick for publishing (only if using legacy cache)
     UDP::MarketTick trackedTick = tick;
     
-    trackedTick.ltp = mergedXts.lastTradedPrice;
-    trackedTick.ltq = mergedXts.lastTradedQuantity;
-    trackedTick.volume = mergedXts.volume;
-    trackedTick.open = mergedXts.open;
-    trackedTick.high = mergedXts.high;
-    trackedTick.low = mergedXts.low;
-    trackedTick.prevClose = mergedXts.close;
-    
-    // Restore Bids/Asks from Cache
-    if (mergedXts.bidPrice > 0) {
-        trackedTick.bids[0].price = mergedXts.bidPrice;
-        trackedTick.bids[0].quantity = mergedXts.bidQuantity;
-        for(int i=0; i<5; ++i) {
-            trackedTick.bids[i].price = mergedXts.bidDepth[i].price;
-            trackedTick.bids[i].quantity = mergedXts.bidDepth[i].quantity;
-            trackedTick.bids[i].orders = mergedXts.bidDepth[i].orders;
+    if (useLegacyCache) {
+        // Back-propagate merged data from legacy cache
+        trackedTick.ltp = mergedXts.lastTradedPrice;
+        trackedTick.ltq = mergedXts.lastTradedQuantity;
+        trackedTick.volume = mergedXts.volume;
+        trackedTick.open = mergedXts.open;
+        trackedTick.high = mergedXts.high;
+        trackedTick.low = mergedXts.low;
+        trackedTick.prevClose = mergedXts.close;
+        
+        // Restore Bids/Asks from Cache
+        if (mergedXts.bidPrice > 0) {
+            trackedTick.bids[0].price = mergedXts.bidPrice;
+            trackedTick.bids[0].quantity = mergedXts.bidQuantity;
+            for(int i=0; i<5; ++i) {
+                trackedTick.bids[i].price = mergedXts.bidDepth[i].price;
+                trackedTick.bids[i].quantity = mergedXts.bidDepth[i].quantity;
+                trackedTick.bids[i].orders = mergedXts.bidDepth[i].orders;
+            }
+        }
+        if (mergedXts.askPrice > 0) {
+            trackedTick.asks[0].price = mergedXts.askPrice;
+            trackedTick.asks[0].quantity = mergedXts.askQuantity;
+            for(int i=0; i<5; ++i) {
+                trackedTick.asks[i].price = mergedXts.askDepth[i].price;
+                trackedTick.asks[i].quantity = mergedXts.askDepth[i].quantity;
+                trackedTick.asks[i].orders = mergedXts.askDepth[i].orders;
+            }
         }
     }
-    if (mergedXts.askPrice > 0) {
-        trackedTick.asks[0].price = mergedXts.askPrice;
-        trackedTick.asks[0].quantity = mergedXts.askQuantity;
-        for(int i=0; i<5; ++i) {
-            trackedTick.asks[i].price = mergedXts.askDepth[i].price;
-            trackedTick.asks[i].quantity = mergedXts.askDepth[i].quantity;
-            trackedTick.asks[i].orders = mergedXts.askDepth[i].orders;
-        }
-    }
+    // If using zero-copy, tick is already complete (no back-propagation needed)
     
     // Debug logging for BSE tokens
     if (exchangeSegment == 12 || exchangeSegment == 11) {

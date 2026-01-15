@@ -128,6 +128,43 @@ void BaseOrderWindow::loadBasePreferences() {
     }
 }
 
+void BaseOrderWindow::applyDefaultFocus() {
+    PreferencesManager &prefs = PreferencesManager::instance();
+    PreferencesManager::FocusField focusField = prefs.getOrderWindowFocusField();
+    
+    QWidget* targetWidget = nullptr;
+    
+    switch (focusField) {
+        case PreferencesManager::FocusField::Price:
+            if (m_leRate && m_leRate->isEnabled()) {
+                targetWidget = m_leRate;
+            } else if (m_leQty) {
+                targetWidget = m_leQty;  // Fallback if price is disabled
+            }
+            break;
+        case PreferencesManager::FocusField::Scrip:
+            if (m_leSymbol) {
+                targetWidget = m_leSymbol;
+            } else if (m_leQty) {
+                targetWidget = m_leQty;  // Fallback
+            }
+            break;
+        case PreferencesManager::FocusField::Quantity:
+        default:
+            if (m_leQty) {
+                targetWidget = m_leQty;
+            }
+            break;
+    }
+    
+    if (targetWidget) {
+        targetWidget->setFocus();
+        // Select all text if it's a line edit for easier replacement
+        QLineEdit* le = qobject_cast<QLineEdit*>(targetWidget);
+        if (le) le->selectAll();
+    }
+}
+
 void BaseOrderWindow::onClearClicked() {
     QList<QLineEdit*> edits = findChildren<QLineEdit*>();
     for (auto e : edits) e->clear();
@@ -183,9 +220,10 @@ void BaseOrderWindow::loadFromContext(const WindowContext &context) {
     if (m_leQty) {
         int qty = context.lotSize > 0 ? context.lotSize : 1;
         m_leQty->setText(QString::number(qty));
-        m_leQty->setFocus();
-        m_leQty->selectAll();
     }
+    
+    // Set focus based on user preference
+    applyDefaultFocus();
     if (m_cbExp) {
         m_cbExp->clear();
         if (!context.expiry.isEmpty()) {
@@ -243,9 +281,10 @@ void BaseOrderWindow::loadFromOrder(const XTS::Order &order) {
     // Quantity - show leaves quantity (remaining)
     if (m_leQty) {
         m_leQty->setText(QString::number(order.orderQuantity));
-        m_leQty->setFocus();
-        m_leQty->selectAll();
     }
+    
+    // Set focus based on user preference
+    applyDefaultFocus();
     
     // Disclosed quantity
     if (m_leDiscloseQty) {

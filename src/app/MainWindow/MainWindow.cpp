@@ -69,9 +69,9 @@ MainWindow::MainWindow(QWidget *parent)
     if (m_statusBar) m_statusBar->setVisible(statusVisible);
     if (m_statusBarAction) m_statusBarAction->setChecked(statusVisible);
 
-    bool indicesVisible = s.value("mainwindow/indices_visible", true).toBool();
-    if (m_indicesDock) m_indicesDock->setVisible(indicesVisible);
-    if (m_indicesViewAction) m_indicesViewAction->setChecked(indicesVisible);
+    // ✅ IndicesView is NOT created here - it will be created after successful login
+    // in setConfigLoader() to ensure market data windows only appear after authentication.
+    // This improves startup time and ensures proper initialization order.
 }
 
 MainWindow::~MainWindow()
@@ -100,13 +100,22 @@ void MainWindow::setTradingDataService(TradingDataService *service) {
 void MainWindow::setConfigLoader(ConfigLoader *loader) {
     m_configLoader = loader;
     
-    // Once config is loaded, we can start the UDP broadcast receivers
-    // if auto-start is enabled.
+    // ✅ DO NOT create IndicesView here!
+    // IndicesView will be created in main.cpp continue button callback
+    // AFTER mainWindow->show() completes rendering
+    // This prevents the race condition where IndicesView appears during login
+    
+    // Start UDP broadcast receivers AFTER main window is fully shown
+    // Using QTimer to ensure window is rendered and responsive first
     setupNetwork();
 }
 
 void MainWindow::refreshScripBar() {
     if (m_scripBar) m_scripBar->refreshSymbols();
+}
+
+bool MainWindow::hasIndicesView() const {
+    return m_indicesView != nullptr;
 }
 
 void MainWindow::closeEvent(QCloseEvent *event) {

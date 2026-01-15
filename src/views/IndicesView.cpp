@@ -3,15 +3,113 @@
 #include <QHeaderView>
 #include <QDebug>
 
+// ========== IndicesModel Implementation ==========
+
+QVariant IndicesModel::data(const QModelIndex &index, int role) const
+{
+    if (!index.isValid() || index.row() >= m_indices.size())
+        return QVariant();
+
+    const IndexData& data = m_indices[index.row()];
+
+    if (role == Qt::DisplayRole) {
+        switch (index.column()) {
+            case COL_NAME:
+                return data.name;
+            case COL_LTP: {
+                QString chgPrefix = (data.change >= 0) ? "+" : "";
+                return QString("%1 (%2%3)")
+                    .arg(data.ltp, 0, 'f', 2)
+                    .arg(chgPrefix)
+                    .arg(data.change, 0, 'f', 2);
+            }
+            case COL_PERCENT:
+                return (data.percentChange >= 0) ? QString("▲") : QString("▼");
+        }
+    }
+    else if (role == Qt::ForegroundRole) {
+        if (index.column() == COL_NAME) {
+            return QColor("#000000");
+        }
+        else if (index.column() == COL_LTP || index.column() == COL_PERCENT) {
+            return (data.percentChange >= 0) ? QColor("#00aa00") : QColor("#ff0000");
+        }
+    }
+    else if (role == Qt::TextAlignmentRole) {
+        switch (index.column()) {
+            case COL_NAME:
+                return int(Qt::AlignLeft | Qt::AlignVCenter);
+            case COL_LTP:
+                return int(Qt::AlignRight | Qt::AlignVCenter);
+            case COL_PERCENT:
+                return int(Qt::AlignCenter | Qt::AlignVCenter);
+        }
+    }
+
+    return QVariant();
+}
+
+QVariant IndicesModel::headerData(int section, Qt::Orientation orientation, int role) const
+{
+    if (role == Qt::DisplayRole && orientation == Qt::Horizontal) {
+        switch (section) {
+            case COL_NAME: return "Index";
+            case COL_LTP: return "LTP";
+            case COL_CHANGE: return "Chg";
+            case COL_PERCENT: return "%";
+        }
+    }
+    return QVariant();
+}
+
+void IndicesModel::updateIndex(const QString& name, double ltp, double change, double percentChange)
+{
+    // Find existing row or add new one
+    int row = -1;
+    if (m_nameToRow.contains(name)) {
+        row = m_nameToRow[name];
+        // Update existing data
+        m_indices[row] = IndexData(name, ltp, change, percentChange);
+        // ✅ PERFORMANCE: Only emit dataChanged for this row
+        emit dataChanged(index(row, 0), index(row, COL_COUNT - 1));
+    } else {
+        // Add new row
+        row = m_indices.size();
+        beginInsertRows(QModelIndex(), row, row);
+        m_indices.append(IndexData(name, ltp, change, percentChange));
+        m_nameToRow[name] = row;
+        endInsertRows();
+    }
+}
+
+void IndicesModel::clear()
+{
+    beginResetModel();
+    m_indices.clear();
+    m_nameToRow.clear();
+    endResetModel();
+}
+
+// ========== IndicesView Implementation ==========
+
 IndicesView::IndicesView(QWidget *parent)
     : QWidget(parent)
+    , m_view(new QTableView(this))
+    , m_model(new IndicesModel(this))
+    , m_updateTimer(new QTimer(this))
 {
     setupUI();
     
-    // detailed dummy data for testing UI
-    // detailed dummy data for testing UI
-    updateIndex(26000, "NIFTY 50", 22500.00, 111.94, 0.50);
-    updateIndex(26001, "BANKNIFTY", 48000.00, -120.30, -0.25);
+    // Setup throttling timer - max 10 updates per second (100ms interval)
+    m_updateTimer->setInterval(100);
+    m_updateTimer->setSingleShot(false);
+    connect(m_updateTimer, &QTimer::timeout, this, &IndicesView::processPendingUpdates);
+    m_updateTimer->start();
+    
+    // Add initial test data
+    updateIndex("NIFTY 50", 22500.00, 111.94, 0.50);
+    updateIndex("BANKNIFTY", 48000.00, -120.30, -0.25);
+    updateIndex("SENSEX", 74000.00, 200.00, 0.27);
 }
 
 IndicesView::~IndicesView()
@@ -24,155 +122,98 @@ void IndicesView::setupUI()
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
 
-    m_table = new QTableWidget(this);
-    m_table->setColumnCount(COL_COUNT);
-    m_table->setHorizontalHeaderLabels({"Index", "LTP", "Chg", "%"});
+    // Set model to view
+    m_view->setModel(m_model);
     
     // Hide vertical header
-    m_table->verticalHeader()->setVisible(false);
+    m_view->verticalHeader()->setVisible(false);
+    
+    // Hide horizontal header
+    m_view->horizontalHeader()->setVisible(false);
     
     // Style
-    m_table->setShowGrid(false);
-    m_table->setAlternatingRowColors(true);
-    m_table->setSelectionBehavior(QAbstractItemView::SelectRows);
-    m_table->setSelectionMode(QAbstractItemView::SingleSelection);
-    m_table->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    m_view->setShowGrid(false);
+    m_view->setAlternatingRowColors(true);
+    m_view->setSelectionBehavior(QAbstractItemView::SelectRows);
+    m_view->setSelectionMode(QAbstractItemView::SingleSelection);
+    m_view->setEditTriggers(QAbstractItemView::NoEditTriggers);
     
     // Column sizing
-    QHeaderView *header = m_table->horizontalHeader();
-    header->setSectionResizeMode(COL_NAME, QHeaderView::Stretch);
-    header->setSectionResizeMode(COL_LTP, QHeaderView::ResizeToContents);
-    header->setSectionResizeMode(COL_CHANGE, QHeaderView::ResizeToContents);
-    header->setSectionResizeMode(COL_PERCENT, QHeaderView::ResizeToContents);
-    header->setVisible(false); // Hide header as per reference
+    QHeaderView *header = m_view->horizontalHeader();
+    header->setSectionResizeMode(IndicesModel::COL_NAME, QHeaderView::Stretch);
+    header->setSectionResizeMode(IndicesModel::COL_LTP, QHeaderView::ResizeToContents);
+    header->setSectionResizeMode(IndicesModel::COL_CHANGE, QHeaderView::ResizeToContents);
+    header->setSectionResizeMode(IndicesModel::COL_PERCENT, QHeaderView::ResizeToContents);
     
-    // Header styling (even if hidden, good to have)
-    m_table->setStyleSheet(
-        "QTableWidget { background-color: #ffffff; color: #000000; border: none; font-weight: bold; font-family: 'Segoe UI', sans-serif; }"
-        "QTableWidget::item { padding: 4px; border-bottom: 1px solid #eeeeee; }"
-        "QTableWidget::item:selected { background-color: #e5f3ff; color: #000000; }"
+    // View styling
+    m_view->setStyleSheet(
+        "QTableView { background-color: #ffffff; color: #000000; border: none; font-weight: bold; font-family: 'Segoe UI', sans-serif; }"
+        "QTableView::item { padding: 4px; border-bottom: 1px solid #eeeeee; }"
+        "QTableView::item:selected { background-color: #e5f3ff; color: #000000; }"
     );
 
-    layout->addWidget(m_table);
+    layout->addWidget(m_view);
 }
 
-void IndicesView::updateIndex(int64_t token, const QString& symbol, double ltp, double change, double percentChange)
+void IndicesView::updateIndex(const QString& name, double ltp, double change, double percentChange)
 {
-    int row = getRowForToken(token);
+    // ✅ PERFORMANCE FIX: Queue update instead of immediate model update
+    IndexData data;
+    data.name = name;
+    data.ltp = ltp;
+    data.change = change;
+    data.percentChange = percentChange;
     
-    // Name
-    QTableWidgetItem *nameItem = m_table->item(row, COL_NAME);
-    if (!nameItem) {
-        nameItem = new QTableWidgetItem(symbol);
-        nameItem->setTextAlignment(Qt::AlignLeft | Qt::AlignVCenter);
-        // Make name bold/black
-        nameItem->setForeground(QBrush(QColor("#000000")));
-        m_table->setItem(row, COL_NAME, nameItem);
-    }
-    
-    // Calculate Change
-    // double prev = ltp / (1.0 + (percentChange / 100.0));
-    double absChg = change; // Use passed change value
-    
-    // Color coding based on change
-    QColor textColor = (percentChange >= 0) ? QColor("#00aa00") : QColor("#ff0000"); // Green : Red
-    
-    // LTP Column: "LTP (Change)" format or just LTP?
-    // Reference shows "32214.45 (-168.85)" in one line with arrow.
-    // We have separate columns. Let's format LTP to include change if we want exact match, 
-    // OR keep strict columns but color them.
-    // Let's try to match reference: Name | Value (Change) | Arrow
-    // But our columns are set up as 4. Let's use them effectively.
-    
-    // LTP
-    QTableWidgetItem *ltpItem = m_table->item(row, COL_LTP);
-    if (!ltpItem) {
-        ltpItem = new QTableWidgetItem();
-        ltpItem->setTextAlignment(Qt::AlignRight | Qt::AlignVCenter);
-        m_table->setItem(row, COL_LTP, ltpItem);
-    }
-    
-    // Format: "24701.00 (-221.40)"
-    QString chgPrefix = (absChg > 0) ? "+" : "";
-    QString text = QString("%1 (%2%3)")
-                       .arg(ltp, 0, 'f', 2)
-                       .arg(chgPrefix)
-                       .arg(absChg, 0, 'f', 2);
-    
-    ltpItem->setText(text);
-    ltpItem->setForeground(textColor);
-    
-    // Percent (hidden or separate?) Reference doesn't clearly show %. Use arrow column instead of percent column?
-    // Let's keep percent column but formatted nicely.
-    QTableWidgetItem *pctItem = m_table->item(row, COL_PERCENT);
-    if (!pctItem) {
-        pctItem = new QTableWidgetItem();
-        pctItem->setTextAlignment(Qt::AlignCenter | Qt::AlignVCenter);
-        m_table->setItem(row, COL_PERCENT, pctItem);
-    }
-    
-    // Use arrow character
-    QString arrow = (percentChange >= 0) ? "▲" : "▼";
-    pctItem->setText(arrow);
-    pctItem->setForeground(textColor);
-    
-    // Clear unused columns if we merging
-    // Actually, let's just validte data.
-    
+    m_pendingUpdates[name] = data;  // Overwrites previous pending update
 }
 
-int IndicesView::getRowForToken(int64_t token)
+void IndicesView::processPendingUpdates()
 {
-    if (m_tokenToRow.contains(token)) {
-        return m_tokenToRow[token];
+    if (m_pendingUpdates.isEmpty()) {
+        return;
     }
     
-    int row = m_table->rowCount();
-    m_table->insertRow(row);
-    m_tokenToRow.insert(token, row);
-    return row;
+    // ✅ PERFORMANCE: Batch all model updates together
+    // Model/View architecture handles efficient repainting automatically
+    for (auto it = m_pendingUpdates.begin(); it != m_pendingUpdates.end(); ++it) {
+        const IndexData& data = it.value();
+        m_model->updateIndex(data.name, data.ltp, data.change, data.percentChange);
+    }
+    
+    m_pendingUpdates.clear();
 }
 
 void IndicesView::onIndexReceived(const UDP::IndexTick& tick)
 {
-    // Log Stage 4: UI Reception
-    qDebug() << "[IndicesView] Received tick for:" << tick.name << "Token:" << tick.token << "Value:" << tick.value;
-
-    // Filter/Map Logic
-    // Needs optimization for real usage (e.g. hash map of tracked tokens)
-    
-    // NSECM Nifty 50 (Token usually 0 or specific depending on feed, Name "Nifty 50")
-    // BSE Sensex (Token 1, Name "SENSEX")
-    
     QString name = QString::fromLatin1(tick.name).trimmed();
     
     // For BSE, name might be empty, so map from token
     if (tick.exchangeSegment == UDP::ExchangeSegment::BSECM || tick.exchangeSegment == UDP::ExchangeSegment::BSEFO) {
         if (tick.token == 1) name = "SENSEX";
-        else if (tick.token == 2) name = "BSE 100"; // Example
-        else return; // Ignore other BSE indices for now
+        else if (tick.token == 2) name = "BSE 100"; 
+        else return;
     }
     
-    // For NSE, name comes from broadcast but we might want to standardize
-    if (name.compare("Nifty 50", Qt::CaseInsensitive) == 0 || name == "NIFTY") {
+    // For NSE, standardize names (case-insensitive matching)
+    QString upperName = name.toUpper();
+    if (upperName.contains("NIFTY 50") || upperName == "NIFTY" || upperName.contains("NIFTY50")) {
         name = "NIFTY 50";
-    } else if (name.compare("Nifty Bank", Qt::CaseInsensitive) == 0 || name == "BANKNIFTY") {
+    } else if (upperName.contains("NIFTY BANK") || upperName.contains("BANKNIFTY") || upperName.contains("BANK NIFTY")) {
         name = "BANKNIFTY";
+    } else if (upperName.contains("SENSEX")) {
+        name = "SENSEX";
     }
     
-    // Only update if it's one of the watched indices
-    if (m_tokenToRow.contains(tick.token)) { // Using m_tokenToRow for consistency with existing updateIndex
-        updateIndex(tick.token, name, tick.value, tick.change, tick.changePercent);
-    } else {
-        // Or add it if we want dynamic list
-        if (name == "NIFTY 50" || name == "BANKNIFTY" || name == "SENSEX") {
-            updateIndex(tick.token, name, tick.value, tick.change, tick.changePercent);
-        }
+    // Update (will be queued and batched)
+    if (tick.exchangeSegment == UDP::ExchangeSegment::NSECM) {
+        updateIndex(name, tick.value, tick.change, tick.changePercent);
+    } else if (name == "NIFTY 50" || name == "BANKNIFTY" || name == "SENSEX") {
+        updateIndex(name, tick.value, tick.change, tick.changePercent);
     }
 }
 
 void IndicesView::clear()
 {
-    m_table->setRowCount(0); // Changed from m_tableWidget to m_table
-    m_tokenToRow.clear(); // Changed from m_rowMap to m_tokenToRow
+    m_model->clear();
+    m_pendingUpdates.clear();
 }

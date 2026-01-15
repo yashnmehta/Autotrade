@@ -452,7 +452,10 @@ void UdpBroadcastService::setupNseCmCallbacks() {
             tick.numDeclines = data.downMoves;
             
             // Log Stage 3: Emission
-            qDebug() << "[UDP] Emitting NSECM Index For:" << tick.name << "Val:" << tick.value;
+            // Log Stage 3: Emission
+            if (tick.name  == "NIFTY50") {
+                std::cout << "[UDP] Emitting NSECM Index For: " << tick.name << " Val: " << tick.value << std::endl;
+            }
             emit udpIndexReceived(tick);
         }
     });

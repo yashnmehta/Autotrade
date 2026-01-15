@@ -1,7 +1,7 @@
 /********************************************************************************
 ** Form generated from reading UI file 'PreferencesWindowTab.ui'
 **
-** Created by: Qt User Interface Compiler version 5.14.2
+** Created by: Qt User Interface Compiler version 5.15.2
 **
 ** WARNING! All changes made in this file will be lost when recompiling UI file!
 ********************************************************************************/
@@ -29,10 +29,6 @@ public:
     QVBoxLayout *verticalLayout_general;
     QWidget *tabOrder;
     QVBoxLayout *verticalLayout_order;
-    QWidget *tabPortfolio;
-    QVBoxLayout *verticalLayout_portfolio;
-    QWidget *tabWorkSpace;
-    QVBoxLayout *verticalLayout_workspace;
     QWidget *tabDerivatives;
     QVBoxLayout *verticalLayout_derivatives;
     QWidget *tabAlertsMsg;
@@ -70,20 +66,6 @@ public:
         verticalLayout_order->setObjectName(QString::fromUtf8("verticalLayout_order"));
         verticalLayout_order->setContentsMargins(0, 0, 0, 0);
         tabWidget->addTab(tabOrder, QString());
-        tabPortfolio = new QWidget();
-        tabPortfolio->setObjectName(QString::fromUtf8("tabPortfolio"));
-        verticalLayout_portfolio = new QVBoxLayout(tabPortfolio);
-        verticalLayout_portfolio->setSpacing(0);
-        verticalLayout_portfolio->setObjectName(QString::fromUtf8("verticalLayout_portfolio"));
-        verticalLayout_portfolio->setContentsMargins(0, 0, 0, 0);
-        tabWidget->addTab(tabPortfolio, QString());
-        tabWorkSpace = new QWidget();
-        tabWorkSpace->setObjectName(QString::fromUtf8("tabWorkSpace"));
-        verticalLayout_workspace = new QVBoxLayout(tabWorkSpace);
-        verticalLayout_workspace->setSpacing(0);
-        verticalLayout_workspace->setObjectName(QString::fromUtf8("verticalLayout_workspace"));
-        verticalLayout_workspace->setContentsMargins(0, 0, 0, 0);
-        tabWidget->addTab(tabWorkSpace, QString());
         tabDerivatives = new QWidget();
         tabDerivatives->setObjectName(QString::fromUtf8("tabDerivatives"));
         verticalLayout_derivatives = new QVBoxLayout(tabDerivatives);
@@ -150,8 +132,6 @@ public:
         PreferencesWindowTab->setWindowTitle(QCoreApplication::translate("PreferencesWindowTab", "Preferences", nullptr));
         tabWidget->setTabText(tabWidget->indexOf(tabGeneral), QCoreApplication::translate("PreferencesWindowTab", "General", nullptr));
         tabWidget->setTabText(tabWidget->indexOf(tabOrder), QCoreApplication::translate("PreferencesWindowTab", "Order", nullptr));
-        tabWidget->setTabText(tabWidget->indexOf(tabPortfolio), QCoreApplication::translate("PreferencesWindowTab", "Portfolio", nullptr));
-        tabWidget->setTabText(tabWidget->indexOf(tabWorkSpace), QCoreApplication::translate("PreferencesWindowTab", "Work-Space", nullptr));
         tabWidget->setTabText(tabWidget->indexOf(tabDerivatives), QCoreApplication::translate("PreferencesWindowTab", "Derivatives", nullptr));
         tabWidget->setTabText(tabWidget->indexOf(tabAlertsMsg), QCoreApplication::translate("PreferencesWindowTab", "Alerts Msg", nullptr));
         tabWidget->setTabText(tabWidget->indexOf(tabMarginPlusOrder), QCoreApplication::translate("PreferencesWindowTab", "Bracket/Margin Plus Order", nullptr));

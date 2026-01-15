@@ -51,6 +51,10 @@ public:
     
     // ScripBar refresh
     void refreshScripBar();
+    
+    // IndicesView management
+    bool hasIndicesView() const;  // Check if IndicesView exists
+    void createIndicesView();     // Create IndicesView (called from main.cpp)
 
     // Order operations
     void placeOrder(const XTS::OrderParams &params);
@@ -121,7 +125,7 @@ private:
     void createConnectionBar();
     void createStatusBar();
     void createInfoBar();
-    void createIndicesView(); // New function
+    // createIndicesView() is now public (see above)
     
     // Window signal connection helper
     void connectWindowSignals(class CustomMDISubWindow *window);

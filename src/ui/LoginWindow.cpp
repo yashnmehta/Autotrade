@@ -198,5 +198,6 @@ void LoginWindow::showCentered()
     raise();
     activateWindow();
     
-    QApplication::processEvents();
+    // ✅ Removed QApplication::processEvents() - let Qt event loop handle naturally
+    // processEvents() creates nested event loops causing race conditions
 }

@@ -399,6 +399,29 @@
            </item>
           </layout>
          </item>
+         <item row="8" column="0">
+          <widget class="QLabel" name="label_defaultWorkspace">
+           <property name="text"><string>Default Workspace on Login :</string></property>
+          </widget>
+         </item>
+         <item row="8" column="1">
+          <widget class="QLineEdit" name="lineEdit_defaultWorkspace">
+           <property name="text"><string>Default</string></property>
+           <property name="maximumWidth"><number>200</number></property>
+          </widget>
+         </item>
+         <item row="9" column="0">
+          <widget class="QLabel" name="label_defaultPositionView">
+           <property name="text"><string>Position Book Default View :</string></property>
+          </widget>
+         </item>
+         <item row="9" column="1">
+          <widget class="QComboBox" name="comboBox_defaultPositionView">
+           <property name="sizePolicy"><sizepolicy hsizetype="Preferred" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property>
+           <item><property name="text"><string>Net</string></property></item>
+           <item><property name="text"><string>DayWise</string></property></item>
+          </widget>
+         </item>
         </layout>
        </widget>
       </item>

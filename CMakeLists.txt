@@ -20,7 +20,7 @@ find_package(Qt5 COMPONENTS Widgets Network WebSockets UiTools REQUIRED)
 find_package(Boost 1.70 REQUIRED)
 
 # Use OpenSSL from C:/Program Files/OpenSSL-Win64 (native Windows build)
-if(WIN32 AND EXISTS "C:/Program Files/OpenSSL-Win64")
+if(FALSE) # Disabled manual config due to missing lib files
     message(STATUS "Detected native Windows OpenSSL installation")
     set(OPENSSL_ROOT_DIR "C:/Program Files/OpenSSL-Win64" CACHE PATH "OpenSSL root directory" FORCE)
     set(OPENSSL_INCLUDE_DIR "C:/Program Files/OpenSSL-Win64/include" CACHE PATH "OpenSSL include directory" FORCE)
@@ -214,7 +214,7 @@ set(CORE_WIDGET_HEADERS
 # ========================================
 
 set(APP_SOURCES
-    src/main_work.cpp
+    src/main.cpp
     src/app/MainWindow/MainWindow.cpp
     src/app/MainWindow/UI.cpp
     src/app/MainWindow/Windows.cpp
@@ -268,6 +268,7 @@ set(VIEW_SOURCES
     src/views/GenericProfileDialog.cpp
     src/views/PreferenceDialog/PreferenceDialog.cpp
     src/views/PreferenceDialog/PreferencesGeneralTab.cpp
+    src/views/PreferenceDialog/PreferencesOrderTab.cpp
     src/views/CustomizeDialog.cpp
     src/views/IndicesView.cpp
 )
@@ -287,6 +288,7 @@ set(VIEW_HEADERS
     include/views/GenericProfileDialog.h
     include/views/PreferenceDialog.h
     include/views/PreferencesGeneralTab.h
+    include/views/PreferencesOrderTab.h
     include/views/CustomizeDialog.h
     include/views/IndicesView.h
 )
@@ -486,8 +488,6 @@ set(FORMS
     resources/forms/PreferencesWindowTab.ui
     resources/forms/PreferencesGeneralTab.ui
     resources/forms/PreferencesOrderTab.ui
-    resources/forms/PreferencesPortfolioTab.ui
-    resources/forms/PreferencesWorkSpaceTab.ui
     resources/forms/PreferencesDerivativeTab.ui
     resources/forms/PreferencesAlertMessageTab.ui
     resources/forms/PreferencesMarginPlusOrderTab.ui

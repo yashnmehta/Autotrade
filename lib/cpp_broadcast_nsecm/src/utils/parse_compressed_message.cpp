@@ -52,6 +52,12 @@ void parse_compressed_message(const char* data, int16_t length, UDPStats& stats)
     // Extract Transaction Code from offset 10 of the BCAST_HEADER
     uint16_t txCode = be16toh_func(*((uint16_t*)(message_data + CommonConfig::BCAST_HEADER_TXCODE_OFFSET)));
 
+
+
+    // if (txCode == 7207) {
+    // std::cout << "Transaction Code: " << txCode << std::endl;
+    // }
+
     // UPDATE STATISTICS: Track this message by transaction code
     stats.update(txCode, length, output.size(), false);
     
@@ -108,15 +114,26 @@ void parse_compressed_message(const char* data, int16_t length, UDPStats& stats)
             }
             break;
             
-        case TxCodes::BCAST_SECURITY_STATUS_CHG_PREOPEN:
-            if (message_size >= sizeof(MS_BCAST_CALL_AUCTION_ORD_CXL)) {
-                parse_call_auction_order_cxl(reinterpret_cast<const MS_BCAST_CALL_AUCTION_ORD_CXL*>(message_data));
-            } else {
-                std::cerr << "[7210] Message too small: " << message_size 
-                          << " (expected " << sizeof(MS_BCAST_CALL_AUCTION_ORD_CXL) << ")" 
-                          << std::endl;
+        case TxCodes::BCAST_SECURITY_STATUS_CHG_PREOPEN: {
+            // 7210: Variable-length message (1-8 records)
+            // Minimum: 40 (header) + 2 (NoOfRecords) = 42 bytes
+            // Each record: 56 bytes, max 8 records = 448 bytes
+            constexpr size_t MIN_7210_SIZE = 42; // header + noOfRecords
+            constexpr size_t RECORD_SIZE = 56;   // sizeof(INTERACTIVE_ORD_CXL_DETAILS)
+            
+            if (message_size >= MIN_7210_SIZE) {
+                // Parse header to get record count and validate
+                auto* msg = reinterpret_cast<const MS_BCAST_CALL_AUCTION_ORD_CXL*>(message_data);
+                uint16_t numRecords = be16toh_func(msg->noOfRecords);
+                size_t expectedSize = MIN_7210_SIZE + (numRecords * RECORD_SIZE);
+                
+                if (numRecords <= 8 && message_size >= expectedSize) {
+                    parse_call_auction_order_cxl(msg);
+                }
+                // Silently ignore malformed messages
             }
             break;
+        }
             
         default:
             break;

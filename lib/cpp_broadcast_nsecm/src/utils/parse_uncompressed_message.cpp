@@ -20,8 +20,15 @@ void parse_uncompressed_message(const char* data, int16_t length) {
     uint16_t txCode = be16toh_func(*((uint16_t*)(data + 10)));
     // std::cout << "    [TxCode] " << txCode << " (" << getTxCodeName(txCode) << ")" << std::endl;
     
+
+
     // Cast to appropriate structure and parse
     switch (txCode) {
+        case TxCodes::BCAST_INDICES:
+             if (length >= sizeof(MS_BCAST_INDICES)) {
+                 parse_message_7207(reinterpret_cast<const MS_BCAST_INDICES*>(data));
+             }
+             break;
         case TxCodes::CTRL_MSG_TO_TRADER:
             if (length >= sizeof(MS_TRADER_INT_MSG)) {
                 parse_message_5295(reinterpret_cast<const MS_TRADER_INT_MSG*>(data));

@@ -87,56 +87,6 @@
       </layout>
      </widget>
      
-     <!-- Portfolio Tab -->
-     <widget class="QWidget" name="tabPortfolio">
-      <attribute name="title">
-       <string>Portfolio</string>
-      </attribute>
-      <layout class="QVBoxLayout" name="verticalLayout_portfolio">
-       <property name="spacing">
-        <number>0</number>
-       </property>
-       <property name="leftMargin">
-        <number>0</number>
-       </property>
-       <property name="topMargin">
-        <number>0</number>
-       </property>
-       <property name="rightMargin">
-        <number>0</number>
-       </property>
-       <property name="bottomMargin">
-        <number>0</number>
-       </property>
-       <!-- Content will be loaded from PreferencesPortfolioTab.ui -->
-      </layout>
-     </widget>
-     
-     <!-- Work-Space Tab -->
-     <widget class="QWidget" name="tabWorkSpace">
-      <attribute name="title">
-       <string>Work-Space</string>
-      </attribute>
-      <layout class="QVBoxLayout" name="verticalLayout_workspace">
-       <property name="spacing">
-        <number>0</number>
-       </property>
-       <property name="leftMargin">
-        <number>0</number>
-       </property>
-       <property name="topMargin">
-        <number>0</number>
-       </property>
-       <property name="rightMargin">
-        <number>0</number>
-       </property>
-       <property name="bottomMargin">
-        <number>0</number>
-       </property>
-       <!-- Content will be loaded from PreferencesWorkSpaceTab.ui -->
-      </layout>
-     </widget>
-     
      <!-- Derivatives Tab -->
      <widget class="QWidget" name="tabDerivatives">
       <attribute name="title">

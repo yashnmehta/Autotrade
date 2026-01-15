@@ -3,39 +3,40 @@
 
 #include "nse_common.h"
 
-// Ensure 1-byte alignment for all structures
-#pragma pack(push, 1)
+// NSE Protocol requires 2-byte alignment per protocol doc:
+// "All structures are pragma pack 2. Structures of odd size should be padded to an even number of bytes."
+#pragma pack(push, 2)
 
 // ============================================================================
 // INDEX BROADCAST MESSAGES
 // ============================================================================
 
-// MS_INDICES - 71 bytes
+// MS_INDICES - 72 bytes (71 bytes + 1 byte padding for word alignment)
 // Individual index information (Same in FO and CM)
 struct MS_INDICES {
-    char indexName[21];                    // Offset 0
-    int32_t indexValue;                    // Offset 21
-    int32_t highIndexValue;                // Offset 25
-    int32_t lowIndexValue;                 // Offset 29
-    int32_t openingIndex;                  // Offset 33
-    int32_t closingIndex;                  // Offset 37
-    int32_t percentChange;                 // Offset 41
-    int32_t yearlyHigh;                    // Offset 45
-    int32_t yearlyLow;                     // Offset 49
-    int32_t noOfUpmoves;                   // Offset 53
-    int32_t noOfDownmoves;                 // Offset 57
-    double marketCapitalisation;           // Offset 61
-    char netChangeIndicator;               // Offset 69
-    char filler;                           // Offset 70
-};
+    char indexName[21];                    // Offset 0 (21 bytes)
+    char pad1;                             // Offset 21 (1 byte padding for alignment)
+    int32_t indexValue;                    // Offset 22 (4 bytes)
+    int32_t highIndexValue;                // Offset 26
+    int32_t lowIndexValue;                 // Offset 30
+    int32_t openingIndex;                  // Offset 34
+    int32_t closingIndex;                  // Offset 38
+    int32_t percentChange;                 // Offset 42
+    int32_t yearlyHigh;                    // Offset 46
+    int32_t yearlyLow;                     // Offset 50
+    int32_t noOfUpmoves;                   // Offset 54
+    int32_t noOfDownmoves;                 // Offset 58
+    double marketCapitalisation;           // Offset 62 (8 bytes)
+    char netChangeIndicator;               // Offset 70
+    char filler;                           // Offset 71
+};  // Total: 72 bytes
 
-// MS_BCAST_INDICES - 474 bytes (468 used + 6 padding)
+// MS_BCAST_INDICES - 474 bytes
 // Transaction Code: 7207
 struct MS_BCAST_INDICES {
     BCAST_HEADER header;                   // Offset 0 (40 bytes)
     uint16_t numberOfRecords;              // Offset 40
-    MS_INDICES indices[6];                 // Offset 42 (426 bytes)
-    uint8_t reserved[6];                   // Pad to 474 bytes as per PDF
+    MS_INDICES indices[6];                 // Offset 42 (432 bytes = 72 * 6)
 };
 
 // ============================================================================

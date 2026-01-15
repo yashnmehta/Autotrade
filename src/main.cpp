@@ -6,6 +6,7 @@
 #include "utils/ConfigLoader.h"
 #include "utils/FileLogger.h"  // File logging
 #include "api/XTSTypes.h"  // For XTS::Tick
+#include "udp/UDPTypes.h"   // For UDP::MarketTick, UDP::IndexTick
 #include <QApplication>
 #include <QThread>
 #include <QTimer>
@@ -63,7 +64,6 @@ int main(int argc, char *argv[])
     // OPTIMIZATION: Load config DURING splash screen (not after)
     splash->setStatus("Loading configuration...");
     splash->setProgress(5);
-    QApplication::processEvents();
     
     ConfigLoader *config = new ConfigLoader();
     QString appDir = QCoreApplication::applicationDirPath();
@@ -113,7 +113,6 @@ int main(int argc, char *argv[])
         splash->setStatus("Using default configuration");
     }
     splash->setProgress(10);
-    QApplication::processEvents();
     
     // Preload masters during splash (event-driven, non-blocking)
     splash->setStatus("Initializing...");
@@ -257,6 +256,16 @@ int main(int argc, char *argv[])
                             mainWindow->show();
                             mainWindow->raise();
                             mainWindow->activateWindow();
+                            
+                            // ✅ CRITICAL FIX: Create IndicesView AFTER main window is shown and rendered
+                            // Wait 300ms to ensure window is fully rendered and responsive
+                            // This prevents IndicesView from appearing during login or initial rendering
+                            QTimer::singleShot(300, mainWindow, [mainWindow]() {
+                                qDebug() << "[Main] Creating IndicesView after main window render...";
+                                if (!mainWindow->hasIndicesView()) {
+                                    mainWindow->createIndicesView();
+                                }
+                            });
                         } else {
                             qCritical() << "ERROR: MainWindow pointer is NULL!";
                         }

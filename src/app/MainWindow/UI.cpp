@@ -118,8 +118,8 @@ void MainWindow::setupContent()
     // Create info bar (using DockWidget approach as requested)
     createInfoBar();
 
-    // Create indices view
-    createIndicesView();
+    // ✅ DO NOT create IndicesView here - it will be created after login completes
+    // and main window is shown (see setConfigLoader in MainWindow.cpp)
 
     // Create status bar at the bottom
     createStatusBar();
@@ -482,33 +482,50 @@ void MainWindow::manageWorkspaces() {
 
 void MainWindow::createIndicesView()
 {
+    // ✅ DEFERRED CREATION: This is now called ONLY after login completes
     // Create standalone tool window (subwindow to main app)
-    // Parented to this so it closes with app, but Qt::Tool makes it float on top
+    // Parented to this so it closes with app, Qt::Tool makes it a lightweight floating window
     m_indicesView = new IndicesView(this);
     m_indicesView->setWindowTitle("Indices");
-    m_indicesView->setWindowFlags(Qt::Tool | Qt::WindowStaysOnTopHint); 
+    // ✅ FIX: Removed WindowStaysOnTopHint - now only stays with parent app, not over other apps
+    m_indicesView->setWindowFlags(Qt::Tool | Qt::WindowCloseButtonHint); 
     
     // Set initial size
     m_indicesView->resize(400, 120);
     
-    // Connect Data Source
+    // ✅ Thread-Safe: Use QueuedConnection since UDP callbacks are on background threads
     connect(&UdpBroadcastService::instance(), &UdpBroadcastService::udpIndexReceived, 
-            m_indicesView, &IndicesView::onIndexReceived);
+            m_indicesView, &IndicesView::onIndexReceived, Qt::QueuedConnection);
     
-    // Restore Position if saved (TODO: Add position saving)
-    // For now, center relative to main window or top-right
+    // Restore position if saved
+    // For now, position relative to main window
     // m_indicesView->move(this->x() + this->width() - 410, this->y() + 50);
 
-    m_indicesView = new IndicesView(this);
-    m_indicesView->setFixedHeight(120); // Initial height
-    m_indicesDock->setWidget(m_indicesView);
+    // Check user preference for visibility
+    bool indicesVisible = QSettings("TradingCompany", "TradingTerminal").value("mainwindow/indices_visible", true).toBool();
     
-    addDockWidget(Qt::TopDockWidgetArea, m_indicesDock);
+    // Update action state
+    if (m_indicesViewAction) {
+        m_indicesViewAction->setChecked(indicesVisible);
+        
+        // Connect action to view visibility
+        connect(m_indicesViewAction, &QAction::toggled, this, [this](bool visible) {
+            if (visible) {
+                m_indicesView->show();
+                m_indicesView->raise();
+                m_indicesView->activateWindow();
+            } else {
+                m_indicesView->hide();
+            }
+            // Save preference
+            QSettings s("TradingCompany", "TradingTerminal");
+            s.setValue("mainwindow/indices_visible", visible); 
+        });
+    }
     
-    // Visibility handling
-    connect(m_indicesDock, &QDockWidget::visibilityChanged, this, [this](bool visible) {
-        if (m_indicesViewAction) m_indicesViewAction->setChecked(visible);
-        QSettings s("TradingCompany", "TradingTerminal");
-        s.setValue("mainwindow/indices_visible", visible); 
-    });
+    // Show if user preference was enabled
+    if (indicesVisible) {
+        m_indicesView->show();
+        m_indicesView->raise();
+    }
 }

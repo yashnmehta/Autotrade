@@ -71,14 +71,39 @@ bool MarketWatchWindow::addScrip(const QString &symbol, const QString &exchange,
     // Also subscribe to legacy XTS::Tick (using segment-specific overload)
     FeedHandler::instance().subscribe(static_cast<int>(segment), token, this, &MarketWatchWindow::onTickUpdate);
     
-    // Initial Load from Cache
-    // Initial Load from Cache
-    if (auto cached = PriceCache::instance().getPrice(static_cast<int>(segment), token)) {
-        onTickUpdate(*cached);
+    // Initial Load from Cache (respect flag!)
+    if (m_useZeroCopyPriceCache) {
+        // Use zero-copy cache for initial load
+        PriceCacheTypes::MarketSegment cacheSegment = static_cast<PriceCacheTypes::MarketSegment>(segment);
+        auto data = PriceCacheTypes::PriceCacheZeroCopy::getInstance().getLatestData(token, cacheSegment);
+        if (data.lastTradedPrice > 0) {  // Check if has valid data
+            // Convert to XTS::Tick for compatibility with existing onTickUpdate
+            XTS::Tick tick;
+            tick.exchangeSegment = static_cast<int>(segment);
+            tick.exchangeInstrumentID = token;
+            tick.lastTradedPrice = data.lastTradedPrice / 100.0;  // Convert paise to rupees
+            tick.lastTradedQuantity = data.lastTradeQuantity;
+            tick.volume = data.volumeTradedToday;
+            tick.open = data.openPrice / 100.0;
+            tick.high = data.highPrice / 100.0;
+            tick.low = data.lowPrice / 100.0;
+            tick.close = data.closePrice / 100.0;
+            onTickUpdate(tick);
+        }
+    } else {
+        // Use legacy cache for initial load
+        if (auto cached = PriceCache::instance().getPrice(static_cast<int>(segment), token)) {
+            onTickUpdate(*cached);
+        }
     }
     
     m_tokenAddressBook->addCompositeToken(exchange, "", token, newRow);
     m_tokenAddressBook->addIntKeyToken(static_cast<int>(segment), token, newRow);
+    
+    // Request Zero-Copy Subscription if enabled
+    if (m_useZeroCopyPriceCache) {
+        emit requestTokenSubscription(QUuid::createUuid().toString(), token, static_cast<uint16_t>(segment));
+    }
     
     emit scripAdded(scrip.symbol, exchange, token);
     return true;
@@ -119,13 +144,39 @@ bool MarketWatchWindow::addScripFromContract(const ScripData &contractData)
     // Also subscribe to legacy XTS::Tick (using segment-specific overload to avoid cross-talk)
     FeedHandler::instance().subscribe(static_cast<int>(segment), scrip.token, this, &MarketWatchWindow::onTickUpdate);
     
-    // Initial Load from Cache
-    if (auto cached = PriceCache::instance().getPrice(static_cast<int>(segment), scrip.token)) {
-        onTickUpdate(*cached);
+    // Initial Load from Cache (respect flag!)
+    if (m_useZeroCopyPriceCache) {
+        // Use zero-copy cache for initial load
+        PriceCacheTypes::MarketSegment cacheSegment = static_cast<PriceCacheTypes::MarketSegment>(segment);
+        auto data = PriceCacheTypes::PriceCacheZeroCopy::getInstance().getLatestData(scrip.token, cacheSegment);
+        if (data.lastTradedPrice > 0) {  // Check if has valid data
+            // Convert to XTS::Tick for compatibility with existing onTickUpdate
+            XTS::Tick tick;
+            tick.exchangeSegment = static_cast<int>(segment);
+            tick.exchangeInstrumentID = scrip.token;
+            tick.lastTradedPrice = data.lastTradedPrice / 100.0;  // Convert paise to rupees
+            tick.lastTradedQuantity = data.lastTradeQuantity;
+            tick.volume = data.volumeTradedToday;
+            tick.open = data.openPrice / 100.0;
+            tick.high = data.highPrice / 100.0;
+            tick.low = data.lowPrice / 100.0;
+            tick.close = data.closePrice / 100.0;
+            onTickUpdate(tick);
+        }
+    } else {
+        // Use legacy cache for initial load
+        if (auto cached = PriceCache::instance().getPrice(static_cast<int>(segment), scrip.token)) {
+            onTickUpdate(*cached);
+        }
     }
     
     m_tokenAddressBook->addCompositeToken(scrip.exchange, "", scrip.token, newRow);
     m_tokenAddressBook->addIntKeyToken(static_cast<int>(segment), scrip.token, newRow);
+    
+    // Request Zero-Copy Subscription if enabled
+    if (m_useZeroCopyPriceCache) {
+        emit requestTokenSubscription(QUuid::createUuid().toString(), scrip.token, static_cast<uint16_t>(segment));
+    }
     
     emit scripAdded(scrip.symbol, scrip.exchange, scrip.token);
     return true;

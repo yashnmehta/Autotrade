@@ -19,7 +19,9 @@ void parse_uncompressed_message(const char* data, int16_t length) {
     // TransCode is at offset 10 of BCAST_HEADER
     uint16_t txCode = be16toh_func(*((uint16_t*)(data + 10)));
     // std::cout << "    [TxCode] " << txCode << " (" << getTxCodeName(txCode) << ")" << std::endl;
-    
+    if (txCode == 7207) {
+    std::cout << "Transaction Code: " << txCode << std::endl;
+    }
     // Cast to appropriate structure and parse
     switch (txCode) {
         case TxCodes::BC_OPEN_MSG:

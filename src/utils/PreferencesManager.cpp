@@ -177,6 +177,84 @@ void PreferencesManager::setUseLegacyPriceCache(bool useLegacy)
 }
 
 // ============================================================================
+// Order Window Focus Field Preferences
+// ============================================================================
+
+PreferencesManager::FocusField PreferencesManager::getOrderWindowFocusField() const
+{
+    QString fieldStr = m_settings.value("order/focus_field", "Quantity").toString();
+    return stringToFocusField(fieldStr);
+}
+
+void PreferencesManager::setOrderWindowFocusField(FocusField field)
+{
+    m_settings.setValue("order/focus_field", focusFieldToString(field));
+    emit preferencesChanged("order/focus_field");
+}
+
+QString PreferencesManager::focusFieldToString(FocusField field) const
+{
+    switch (field) {
+        case FocusField::Quantity: return "Quantity";
+        case FocusField::Price: return "Price";
+        case FocusField::Scrip: return "Scrip";
+        default: return "Quantity";
+    }
+}
+
+PreferencesManager::FocusField PreferencesManager::stringToFocusField(const QString& str) const
+{
+    if (str == "Price") return FocusField::Price;
+    if (str == "Scrip") return FocusField::Scrip;
+    return FocusField::Quantity;  // Default
+}
+
+// ============================================================================
+// Default Workspace Preferences
+// ============================================================================
+
+QString PreferencesManager::getDefaultWorkspace() const
+{
+    return m_settings.value("workspace/default", "Default").toString();
+}
+
+void PreferencesManager::setDefaultWorkspace(const QString& workspaceName)
+{
+    m_settings.setValue("workspace/default", workspaceName);
+    emit preferencesChanged("workspace/default");
+}
+
+// ============================================================================
+// Order Book Default Filter Preferences
+// ============================================================================
+
+QString PreferencesManager::getOrderBookDefaultFilter() const
+{
+    return m_settings.value("orderbook/default_filter", "Pending").toString();
+}
+
+void PreferencesManager::setOrderBookDefaultFilter(const QString& filter)
+{
+    m_settings.setValue("orderbook/default_filter", filter);
+    emit preferencesChanged("orderbook/default_filter");
+}
+
+// ============================================================================
+// Position Book Default View Preferences
+// ============================================================================
+
+QString PreferencesManager::getPositionBookDefaultView() const
+{
+    return m_settings.value("positionbook/default_view", "Net").toString();
+}
+
+void PreferencesManager::setPositionBookDefaultView(const QString& view)
+{
+    m_settings.setValue("positionbook/default_view", view);
+    emit preferencesChanged("positionbook/default_view");
+}
+
+// ============================================================================
 // Window-specific Preferences
 // ============================================================================
 

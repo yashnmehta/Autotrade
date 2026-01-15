@@ -33,6 +33,8 @@ PreferencesGeneralTab::PreferencesGeneralTab(QWidget *tabWidget, PreferencesMana
     , m_tickDataRowsSpinBox(nullptr)
     , m_autoScrollTickDataCheckBox(nullptr)
     , m_showTimeStampCheckBox(nullptr)
+    , m_defaultWorkspaceLineEdit(nullptr)
+    , m_defaultPositionViewComboBox(nullptr)
 {
     findWidgets();
     setupConnections();
@@ -63,6 +65,10 @@ void PreferencesGeneralTab::findWidgets()
     m_tickDataRowsSpinBox = m_tabWidget->findChild<QSpinBox*>("spinBox_tickDataRows");
     m_autoScrollTickDataCheckBox = m_tabWidget->findChild<QCheckBox*>("checkBox_autoScrollTickData");
     m_showTimeStampCheckBox = m_tabWidget->findChild<QCheckBox*>("checkBox_showTimestamp");
+    
+    // New Settings
+    m_defaultWorkspaceLineEdit = m_tabWidget->findChild<QLineEdit*>("lineEdit_defaultWorkspace");
+    m_defaultPositionViewComboBox = m_tabWidget->findChild<QComboBox*>("comboBox_defaultPositionView");
 }
 
 void PreferencesGeneralTab::setupConnections()
@@ -147,6 +153,24 @@ void PreferencesGeneralTab::loadPreferences()
         m_showTimeStampCheckBox->setChecked(showTimestamp);
     }
     
+    // Load Default Workspace
+    if (m_defaultWorkspaceLineEdit) {
+        m_defaultWorkspaceLineEdit->setText(m_prefsManager->getDefaultWorkspace());
+    }
+    
+    // Load Position Book View
+    if (m_defaultPositionViewComboBox) {
+        QString view = m_prefsManager->getPositionBookDefaultView();
+        // UI has "Net" and "DayWise"
+        QString searchText = view;
+        if (view == "NetWise") searchText = "Net";
+        
+        int index = m_defaultPositionViewComboBox->findText(searchText);
+        if (index >= 0) {
+            m_defaultPositionViewComboBox->setCurrentIndex(index);
+        }
+    }
+    
     // Load event preferences for the currently selected event
     if (m_eventComboBox && m_eventComboBox->count() > 0) {
         loadEventPreferences(m_eventComboBox->currentText());
@@ -182,6 +206,20 @@ void PreferencesGeneralTab::savePreferences()
         m_prefsManager->setValue(KEY_SHOW_TIMESTAMP, m_showTimeStampCheckBox->isChecked());
     }
     
+    // Save Default Workspace
+    if (m_defaultWorkspaceLineEdit) {
+        m_prefsManager->setDefaultWorkspace(m_defaultWorkspaceLineEdit->text());
+    }
+    
+    // Save Position Book View
+    if (m_defaultPositionViewComboBox) {
+        QString currentText = m_defaultPositionViewComboBox->currentText();
+        QString value = currentText;
+        if (currentText == "Net") value = "NetWise";
+        
+        m_prefsManager->setPositionBookDefaultView(value);
+    }
+    
     // Save event preferences for the currently selected event
     if (m_eventComboBox && m_eventComboBox->count() > 0) {
         saveEventPreferences(m_eventComboBox->currentText());
@@ -205,6 +243,17 @@ void PreferencesGeneralTab::restoreDefaults()
     
     if (m_showTimeStampCheckBox) {
         m_showTimeStampCheckBox->setChecked(true);
+    }
+    
+    // Default Workspace
+    if (m_defaultWorkspaceLineEdit) {
+        m_defaultWorkspaceLineEdit->setText("Default");
+    }
+    
+    // Default Position View "Net"
+    if (m_defaultPositionViewComboBox) {
+        int index = m_defaultPositionViewComboBox->findText("Net");
+        if (index >= 0) m_defaultPositionViewComboBox->setCurrentIndex(index);
     }
     
     // Restore default event settings (all disabled)

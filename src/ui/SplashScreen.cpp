@@ -65,13 +65,13 @@ SplashScreen::~SplashScreen()
 void SplashScreen::setProgress(int value)
 {
     ui->progressBar->setValue(value);
-    QApplication::processEvents(); // Force UI update
+    // Qt will update UI automatically on next event loop iteration
 }
 
 void SplashScreen::setStatus(const QString &status)
 {
     ui->labelStatus->setText(status);
-    QApplication::processEvents(); // Force UI update
+    // Qt will update UI automatically on next event loop iteration
 }
 
 void SplashScreen::showCentered()
@@ -87,7 +87,7 @@ void SplashScreen::showCentered()
         move(x, y);
     }
     
-    QApplication::processEvents();
+    // Qt will update UI automatically
 }
 
 void SplashScreen::preloadMasters()
@@ -190,9 +190,8 @@ void SplashScreen::onMasterLoadingComplete(int contractCount)
         qDebug() << "[SplashScreen] Initializing Zero-Copy PriceCache...";
         qDebug() << "[SplashScreen] ========================================";
         
-        setStatus("Initializing zero-copy price cache...");
+        setStatus(QString("Initializing zero-copy price cache..."));
         setProgress(90);
-        QApplication::processEvents();
         
         // Build token maps from repository
         RepositoryManager* repo = RepositoryManager::getInstance();
@@ -332,7 +331,5 @@ void SplashScreen::loadPreferences()
     
     setStatus("Preferences loaded");
     setProgress(20);
-    
-    QApplication::processEvents();
 }
 

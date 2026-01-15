@@ -1,6 +1,7 @@
 #include "services/LoginFlowService.h"
 #include "services/TradingDataService.h"
 #include "services/MasterDataState.h"
+#include "services/PriceCacheZeroCopy.h"
 #include "repository/RepositoryManager.h"
 #include <QDebug>
 #include <QCoreApplication>
@@ -183,8 +184,18 @@ void LoginFlowService::executeLogin(
     });
 }
 
+#include <QThread> // Added for thread safety check
+
 void LoginFlowService::updateStatus(const QString &phase, const QString &message, int progress)
 {
+    // ERROR FIX: Ensure UI updates happen on the main thread
+    if (QThread::currentThread() != this->thread()) {
+        QMetaObject::invokeMethod(this, [this, phase, message, progress]() {
+            updateStatus(phase, message, progress);
+        }, Qt::QueuedConnection);
+        return;
+    }
+
     qDebug() << "[" << phase << "]" << message << "(" << progress << "%)";
     
     emit statusUpdate(phase, message, progress);
@@ -196,6 +207,14 @@ void LoginFlowService::updateStatus(const QString &phase, const QString &message
 
 void LoginFlowService::notifyError(const QString &phase, const QString &error)
 {
+    // ERROR FIX: Ensure error notifications happen on the main thread
+    if (QThread::currentThread() != this->thread()) {
+        QMetaObject::invokeMethod(this, [this, phase, error]() {
+            notifyError(phase, error);
+        }, Qt::QueuedConnection);
+        return;
+    }
+
     qWarning() << "[ERROR:" << phase << "]" << error;
     
     emit errorOccurred(phase, error);
@@ -205,6 +224,7 @@ void LoginFlowService::notifyError(const QString &phase, const QString &error)
     }
 }
 
+
 void LoginFlowService::handleMasterLoadingComplete(int contractCount)
 {
     qDebug() << "[LoginFlow] Master loading completed with" << contractCount << "contracts";
@@ -213,6 +233,64 @@ void LoginFlowService::handleMasterLoadingComplete(int contractCount)
     // Update shared state
     MasterDataState* state = MasterDataState::getInstance();
     state->setMastersLoaded(contractCount);
+    
+    // ========== RE-INITIALIZE PRICECACHE WITH FRESH MASTERS ==========
+    // Users may download updated master data in login flow with new tokens,
+    // delisted scrips, or lot size changes. Re-initialize zero-copy cache
+    // to use the fresh token mappings.
+    qDebug() << "[LoginFlow] Re-initializing PriceCacheZeroCopy with fresh master data...";
+    
+    RepositoryManager* repo = RepositoryManager::getInstance();
+    
+    // Build token maps for each segment (same logic as SplashScreen)
+    std::unordered_map<uint32_t, uint32_t> nseCmTokens;
+    const auto& nseCmContracts = repo->getContractsBySegment("NSE", "CM");
+    uint32_t nseCmIndex = 0;
+    for (const auto& contract : nseCmContracts) {
+        nseCmTokens[contract.exchangeInstrumentID] = nseCmIndex++;
+    }
+    
+    std::unordered_map<uint32_t, uint32_t> nseFoTokens;
+    const auto& nseFoContracts = repo->getContractsBySegment("NSE", "FO");
+    uint32_t nseFoIndex = 0;
+    for (const auto& contract : nseFoContracts) {
+        nseFoTokens[contract.exchangeInstrumentID] = nseFoIndex++;
+    }
+    
+    std::unordered_map<uint32_t, uint32_t> bseCmTokens;
+    const auto& bseCmContracts = repo->getContractsBySegment("BSE", "CM");
+    uint32_t bseCmIndex = 0;
+    for (const auto& contract : bseCmContracts) {
+        bseCmTokens[contract.exchangeInstrumentID] = bseCmIndex++;
+    }
+    
+    std::unordered_map<uint32_t, uint32_t> bseFoTokens;
+    const auto& bseFoContracts = repo->getContractsBySegment("BSE", "FO");
+    uint32_t bseFoIndex = 0;
+    for (const auto& contract : bseFoContracts) {
+        bseFoTokens[contract.exchangeInstrumentID] = bseFoIndex++;
+    }
+    
+    // Re-initialize with fresh token maps
+    bool reinitSuccess = PriceCacheTypes::PriceCacheZeroCopy::getInstance().initialize(
+        nseCmTokens,
+        nseFoTokens,
+        bseCmTokens,
+        bseFoTokens
+    );
+    
+    if (reinitSuccess) {
+        auto stats = PriceCacheTypes::PriceCacheZeroCopy::getInstance().getStats();
+        qDebug() << "[LoginFlow] ✓ PriceCacheZeroCopy re-initialized successfully";
+        qDebug() << "    NSE CM:" << stats.nseCmTokenCount << "tokens";
+        qDebug() << "    NSE FO:" << stats.nseFoTokenCount << "tokens";
+        qDebug() << "    BSE CM:" << stats.bseCmTokenCount << "tokens";
+        qDebug() << "    BSE FO:" << stats.bseFoTokenCount << "tokens";
+        qDebug() << "    Total Memory:" << (stats.totalMemoryBytes / 1024 / 1024) << "MB";
+    } else {
+        qWarning() << "[LoginFlow] ⚠ Failed to re-initialize PriceCacheZeroCopy";
+    }
+    // ==================================================================
     
     // Emit signal for UI
     emit mastersLoaded();
@@ -330,24 +408,28 @@ void LoginFlowService::continueLoginAfterMasters()
                 // Fetch trades
                 updateStatus("data", "Loading trades...", 98);
                 m_iaClient->getTrades([this](bool success, const QVector<XTS::Trade> &trades, const QString &message) {
-                    if (success) {
-                        qDebug() << "[LoginFlowService] Loaded" << trades.size() << "trades";
-                        
-                        // Store in TradingDataService
-                        if (m_tradingDataService) {
-                            m_tradingDataService->setTrades(trades);
-                        }
-                    } else {
-                        qWarning() << "[LoginFlowService] Failed to load trades: success=" << success << "message=" << message;
-                    }
-
-                    // Complete!
-                    updateStatus("complete", "Login successful!", 100);
-                    emit loginComplete();
                     
-                    if (m_completeCallback) {
-                        m_completeCallback();
-                    }
+                    // ERROR FIX: Ensure final completion runs on main thread !!
+                    QMetaObject::invokeMethod(this, [this, success, trades, message]() {
+                        if (success) {
+                            qDebug() << "[LoginFlowService] Loaded" << trades.size() << "trades";
+                            
+                            // Store in TradingDataService
+                            if (m_tradingDataService) {
+                                m_tradingDataService->setTrades(trades);
+                            }
+                        } else {
+                            qWarning() << "[LoginFlowService] Failed to load trades: success=" << success << "message=" << message;
+                        }
+
+                        // Complete!
+                        updateStatus("complete", "Login successful!", 100);
+                        emit loginComplete();
+                        
+                        if (m_completeCallback) {
+                            m_completeCallback();
+                        }
+                    }, Qt::QueuedConnection);
                 });
             });
         });

@@ -10,6 +10,7 @@ class PreferencesWindowTab;
 
 class PreferencesManager;
 class PreferencesGeneralTab;
+class PreferencesOrderTab;
 
 class PreferenceDialog : public QDialog
 {
@@ -20,24 +21,25 @@ public:
     ~PreferenceDialog();
 
 private slots:
-    void onApplyClicked();
     void onOkClicked();
+    void onCancelClicked();
+    void onApplyClicked();
     void onRestoreDefaultsClicked();
     void onBrowseClicked();
 
 private:
+    void loadTabContent(const QString &tabName, const QString &uiFilePath);
+    void setupConnections();
     void loadPreferences();
     void savePreferences();
-    void setupConnections();
     void applyPreferences();
-    void loadTabContent(const QString &tabName, const QString &uiFilePath);
 
     Ui::PreferencesWindowTab *ui;
     PreferencesManager *m_prefsManager;
-    QShortcut* m_escShortcut;
     
     // Tab handlers
     PreferencesGeneralTab *m_generalTab;
+    PreferencesOrderTab *m_orderTab;
 };
 
 #endif // PREFERENCEDIALOG_H
