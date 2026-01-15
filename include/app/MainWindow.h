@@ -18,7 +18,9 @@ class ScripBar;
 class QLabel;
 class InfoBar;
 class QDockWidget;
+class QAction;
 class XTSInteractiveClient;
+class IndicesView; // Forward declaration
 struct InstrumentData;
 
 /**
@@ -111,6 +113,7 @@ private:
     void createConnectionBar();
     void createStatusBar();
     void createInfoBar();
+    void createIndicesView(); // New function
     
     // Window signal connection helper
     void connectWindowSignals(class CustomMDISubWindow *window);
@@ -129,8 +132,14 @@ private:
     QStatusBar *m_statusBar;
     InfoBar *m_infoBar;
     QDockWidget *m_infoDock; // Added dock widget
+    
+    // Indices View
+    QDockWidget *m_indicesDock;
+    IndicesView *m_indicesView;
+
     QAction *m_statusBarAction;
     QAction *m_infoBarAction;
+    QAction *m_indicesViewAction; // New actionBar;
     ScripBar *m_scripBar;
     QToolBar *m_scripToolBar;
     

@@ -215,6 +215,7 @@ set(VIEW_SOURCES
     src/views/PreferenceDialog/PreferenceDialog.cpp
     src/views/PreferenceDialog/PreferencesGeneralTab.cpp
     src/views/CustomizeDialog.cpp
+    src/views/IndicesView.cpp
 )
 
 set(VIEW_HEADERS
@@ -233,6 +234,7 @@ set(VIEW_HEADERS
     include/views/PreferenceDialog.h
     include/views/PreferencesGeneralTab.h
     include/views/CustomizeDialog.h
+    include/views/IndicesView.h
 )
 
 # ========================================
