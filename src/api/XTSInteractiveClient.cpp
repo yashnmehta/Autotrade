@@ -6,6 +6,7 @@
 #include <QUrlQuery>
 #include <QDebug>
 #include <iostream>
+#include <thread>
 
 XTSInteractiveClient::XTSInteractiveClient(const QString &baseURL,
                                              const QString &apiKey,
@@ -29,63 +30,66 @@ XTSInteractiveClient::~XTSInteractiveClient()
     disconnectWebSocket();
 }
 
-void XTSInteractiveClient::login(std::function<void(bool, const QString&)> callback)
+void XTSInteractiveClient::login()
 {
-    std::string url = (m_baseURL + "/interactive/user/session").toStdString();
-    
-    QJsonObject loginData;
-    loginData["appKey"] = m_apiKey;
-    loginData["secretKey"] = m_secretKey;
-    loginData["source"] = m_source;
-    
-    QJsonDocument doc(loginData);
-    std::string body = doc.toJson().toStdString();
-    
-    std::map<std::string, std::string> headers;
-    headers["Content-Type"] = "application/json";
-    
-    auto response = m_httpClient->post(url, body, headers);
-    
-    // DEBUG: Print raw response
-    qDebug() << "[XTS IA] Login Response Code:" << response.statusCode;
-    qDebug() << "[XTS IA] Login Response Body:" << QString::fromStdString(response.body);
-
-
-    if (!response.success) {
-        QString error = QString("Interactive login failed. Code: %1 Error: %2 Body: %3")
-                            .arg(response.statusCode)
-                            .arg(QString::fromStdString(response.error))
-                            .arg(QString::fromStdString(response.body));
-        qWarning() << error;
-        if (callback) callback(false, error);
-        return;
-    }
-    
-    QJsonDocument responseDoc = QJsonDocument::fromJson(QByteArray::fromStdString(response.body));
-    QJsonObject obj = responseDoc.object();
-    
-    QString type = obj["type"].toString();
-    if (type == "success") {
-        QJsonObject result = obj["result"].toObject();
-        m_token = result["token"].toString();
-        m_userID = result["userID"].toString();
+    // Run login in separate thread
+    std::thread([this]() {
+        std::string url = (m_baseURL + "/interactive/user/session").toStdString();
         
-        QJsonArray clientCodes = result["clientCodes"].toArray();
-        if (clientCodes.size() > 0) {
-            m_clientID = clientCodes[0].toString();
-            qDebug() << "✅ Interactive API login successful. UserID:" << m_userID << "Default ClientID:" << m_clientID;
-        } else {
-            qDebug() << "✅ Interactive API login successful. UserID:" << m_userID << "(No client codes found)";
+        QJsonObject loginData;
+        loginData["appKey"] = m_apiKey;
+        loginData["secretKey"] = m_secretKey;
+        loginData["source"] = m_source;
+        
+        QJsonDocument doc(loginData);
+        std::string body = doc.toJson().toStdString();
+        
+        std::map<std::string, std::string> headers;
+        headers["Content-Type"] = "application/json";
+        
+        auto response = m_httpClient->post(url, body, headers);
+        
+        // DEBUG: Print raw response
+        qDebug() << "[XTS IA] Login Response Code:" << response.statusCode;
+        qDebug() << "[XTS IA] Login Response Body:" << QString::fromStdString(response.body);
+
+
+        if (!response.success) {
+            QString error = QString("Interactive login failed. Code: %1 Error: %2 Body: %3")
+                                .arg(response.statusCode)
+                                .arg(QString::fromStdString(response.error))
+                                .arg(QString::fromStdString(response.body));
+            qWarning() << error;
+            emit loginCompleted(false, error);
+            return;
         }
         
-        if (callback) callback(true, "Login successful");
-    } else {
-        QString error = QString("Interactive login failed: %1 - %2")
-                            .arg(obj["code"].toString())
-                            .arg(obj["description"].toString());
-        qWarning() << error;
-        if (callback) callback(false, error);
-    }
+        QJsonDocument responseDoc = QJsonDocument::fromJson(QByteArray::fromStdString(response.body));
+        QJsonObject obj = responseDoc.object();
+        
+        QString type = obj["type"].toString();
+        if (type == "success") {
+            QJsonObject result = obj["result"].toObject();
+            m_token = result["token"].toString();
+            m_userID = result["userID"].toString();
+            
+            QJsonArray clientCodes = result["clientCodes"].toArray();
+            if (clientCodes.size() > 0) {
+                m_clientID = clientCodes[0].toString();
+                qDebug() << "✅ Interactive API login successful. UserID:" << m_userID << "Default ClientID:" << m_clientID;
+            } else {
+                qDebug() << "✅ Interactive API login successful. UserID:" << m_userID << "(No client codes found)";
+            }
+            
+            emit loginCompleted(true, "Login successful");
+        } else {
+            QString error = QString("Interactive login failed: %1 - %2")
+                                .arg(obj["code"].toString())
+                                .arg(obj["description"].toString());
+            qWarning() << error;
+            emit loginCompleted(false, error);
+        }
+    }).detach();
 }
 
 void XTSInteractiveClient::getPositions(const QString &dayOrNet,

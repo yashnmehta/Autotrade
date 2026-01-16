@@ -17,6 +17,17 @@ namespace nsecm {
 // Touchline data (from 7200, 7208)
 struct TouchlineData {
     uint32_t token;
+    
+    // === CONTRACT MASTER DATA (Static - initialized once) ===
+    char symbol[32] = {0};          // Symbol name (e.g., RELIANCE, TCS)
+    char displayName[64] = {0};     // Full display name
+    char series[16] = {0};          // EQUITY, BE, BZ, etc.
+    int32_t lotSize = 0;
+    double tickSize = 0.0;
+    double priceBandHigh = 0.0;     // Upper circuit
+    double priceBandLow = 0.0;      // Lower circuit
+    
+    // === DYNAMIC MARKET DATA (Updated by UDP) ===
     double ltp;                 // Last Traded Price
     double open;
     double high;

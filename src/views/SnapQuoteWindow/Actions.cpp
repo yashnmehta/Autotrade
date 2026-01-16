@@ -21,7 +21,8 @@ void SnapQuoteWindow::fetchQuote()
     // Simplified segment mapping for demo
     int segment = (m_exchange.contains("FO")) ? 2 : 1;
     
-    m_xtsClient->getQuote(m_token, segment, [this](bool success, const QJsonObject &quote, const QString &error) {
+    // Connect to quote signal (use UniqueConnection to avoid duplicates)
+    connect(m_xtsClient, &XTSMarketDataClient::quoteReceived, this, [this](bool success, const QJsonObject &quote, const QString &error) {
         if (!success) return;
         
         QJsonObject touchline = quote.value("Touchline").toObject();
@@ -37,7 +38,10 @@ void SnapQuoteWindow::fetchQuote()
             setChangeColor(percentChange);
         }
         setLTPIndicator(ltp >= close);
-    });
+    }, Qt::UniqueConnection);
+    
+    // Trigger the actual quote request
+    m_xtsClient->getQuote(m_token, segment);
 }
 
 void SnapQuoteWindow::onScripSelected(const InstrumentData &data)

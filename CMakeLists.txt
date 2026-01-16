@@ -269,6 +269,8 @@ set(VIEW_SOURCES
     src/views/PreferenceDialog/PreferenceDialog.cpp
     src/views/PreferenceDialog/PreferencesGeneralTab.cpp
     src/views/PreferenceDialog/PreferencesOrderTab.cpp
+    src/views/PreferenceDialog/PreferencesWorkSpaceTab.cpp
+    src/views/PreferenceDialog/PreferencesPortfolioTab.cpp
     src/views/CustomizeDialog.cpp
     src/views/IndicesView.cpp
 )
@@ -289,6 +291,8 @@ set(VIEW_HEADERS
     include/views/PreferenceDialog.h
     include/views/PreferencesGeneralTab.h
     include/views/PreferencesOrderTab.h
+    include/views/PreferencesWorkSpaceTab.h
+    include/views/PreferencesPortfolioTab.h
     include/views/CustomizeDialog.h
     include/views/IndicesView.h
 )
@@ -491,6 +495,8 @@ set(FORMS
     resources/forms/PreferencesDerivativeTab.ui
     resources/forms/PreferencesAlertMessageTab.ui
     resources/forms/PreferencesMarginPlusOrderTab.ui
+    resources/forms/PreferencesWorkSpaceTab.ui
+    resources/forms/PreferencesPortfolioTab.ui
 )
 
 # Resource files

@@ -251,40 +251,46 @@ int main(int argc, char *argv[])
                     loginWindow->setOnContinueClicked([loginWindow, mainWindow]() {
                         qDebug() << "Continue button clicked - showing main window";
                         
-                        // First show the main window
                         if (mainWindow != nullptr) {
-                            qDebug() << "MainWindow pointer is valid, showing window...";
+                            // ✅ CRITICAL FIX: Show main window FIRST to prevent Qt auto-quit
+                            // Qt quits if no windows visible after last window closes
+                            qDebug() << "Showing main window immediately...";
                             mainWindow->show();
-                            
-                            // Load Default Workspace
-                            QString defaultWorkspace = PreferencesManager::instance().getDefaultWorkspace();
-                            if (!defaultWorkspace.isEmpty() && defaultWorkspace != "Default") {
-                                if (mainWindow->loadWorkspaceByName(defaultWorkspace)) {
-                                    qDebug() << "Loaded default workspace:" << defaultWorkspace;
-                                } else {
-                                    qWarning() << "Default workspace not found or failed to load:" << defaultWorkspace;
-                                }
-                            }
-                            
                             mainWindow->raise();
                             mainWindow->activateWindow();
                             
-                            // ✅ CRITICAL FIX: Create IndicesView AFTER main window is shown and rendered
-                            // Wait 300ms to ensure window is fully rendered and responsive
-                            // This prevents IndicesView from appearing during login or initial rendering
-                            QTimer::singleShot(300, mainWindow, [mainWindow]() {
-                                qDebug() << "[Main] Creating IndicesView after main window render...";
-                                if (!mainWindow->hasIndicesView()) {
-                                    mainWindow->createIndicesView();
+                            // ✅ Close dialog AFTER main window is visible
+                            loginWindow->accept();
+                            
+                            // ✅ Defer workspace loading to prevent blocking during dialog close
+                            // This runs after modal event loop has fully exited
+                            QTimer::singleShot(100, mainWindow, [mainWindow]() {
+                                qDebug() << "Loading workspace after dialog fully closed...";
+                                
+                                // Load Default Workspace
+                                QString defaultWorkspace = PreferencesManager::instance().getDefaultWorkspace();
+                                if (!defaultWorkspace.isEmpty() && defaultWorkspace != "Default") {
+                                    if (mainWindow->loadWorkspaceByName(defaultWorkspace)) {
+                                        qDebug() << "Loaded default workspace:" << defaultWorkspace;
+                                    } else {
+                                        qWarning() << "Default workspace not found or failed to load:" << defaultWorkspace;
+                                    }
                                 }
+                                
+                                // Create IndicesView after workspace is loaded
+                                QTimer::singleShot(300, mainWindow, [mainWindow]() {
+                                    qDebug() << "[Main] Creating IndicesView after workspace loaded...";
+                                    if (!mainWindow->hasIndicesView()) {
+                                        mainWindow->createIndicesView();
+                                    }
+                                });
                             });
+                            
+                            // Cleanup login window
+                            loginWindow->deleteLater();
                         } else {
                             qCritical() << "ERROR: MainWindow pointer is NULL!";
                         }
-                        
-                        // Then close and delete login window
-                        loginWindow->accept();
-                        loginWindow->deleteLater(); // Use deleteLater instead of delete for safer cleanup
                     });
                     
                     // Show login window centered

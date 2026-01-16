@@ -123,9 +123,7 @@ private:
     QCheckBox *m_showExchangeCheckBox;
     QComboBox *m_defaultExchangeComboBox;
     
-    // New Settings
-    QLineEdit *m_defaultWorkspaceLineEdit;
-    QComboBox *m_defaultPositionViewComboBox;
+
     
     // Store current sound file path
     QString m_currentSoundPath;

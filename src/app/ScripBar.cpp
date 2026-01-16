@@ -1078,8 +1078,8 @@ void ScripBar::searchInstrumentsAsync(const QString &searchText)
     
     int exchangeSegment = getCurrentExchangeSegmentCode();
     
-    // Call XTS search API
-    m_xtsClient->searchInstruments(searchText, exchangeSegment,
+    // Connect to instruments received signal
+    connect(m_xtsClient, &XTSMarketDataClient::instrumentsReceived, this, 
         [this](bool success, const QVector<XTS::Instrument> &instruments, const QString &error) {
             if (success) {
                 // Convert XTS instruments to our InstrumentData format
@@ -1098,8 +1098,11 @@ void ScripBar::searchInstrumentsAsync(const QString &searchText)
             } else {
                 qWarning() << "Instrument search failed:" << error;
             }
-        }
+        }, Qt::UniqueConnection
     );
+    
+    // Trigger the actual search
+    m_xtsClient->searchInstruments(searchText, exchangeSegment);
 }
 
 void ScripBar::onInstrumentsReceived(const QVector<InstrumentData> &instruments)

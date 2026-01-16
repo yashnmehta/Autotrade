@@ -2,6 +2,9 @@
 #include <QDebug>
 #include <QFile>
 #include <QTextStream>
+#include <QReadWriteLock>
+#include <QWriteLocker>
+#include <QReadLocker>
 #include <chrono>
 #include <cstring>
 #include <new>  // for std::align_val_t
@@ -33,7 +36,7 @@ PriceCacheZeroCopy::PriceCacheZeroCopy()
     , m_bsFoCount(0)
     , m_totalSubscriptions(0)
 {
-    qDebug() << "[PriceCacheZeroCopy] Constructor called";
+    qDebug() << "[PriceCache] Constructor - using lock-based synchronization";
 }
 
 PriceCacheZeroCopy::~PriceCacheZeroCopy() {
@@ -155,44 +158,17 @@ ConsolidatedMarketData* PriceCacheZeroCopy::allocateSegmentArray(uint32_t tokenC
         return nullptr;
     }
     
-    // Allocate cache-aligned memory (64-byte alignment)
-    // Each structure is 512 bytes (8 cache lines)
-    size_t totalSize = tokenCount * sizeof(ConsolidatedMarketData);
-    
-    // Use aligned allocation for better CPU cache performance
-    // Note: MinGW doesn't support std::aligned_alloc, use _aligned_malloc instead
-    #ifdef _WIN32
-    void* memory = _aligned_malloc(totalSize, 64);
-    #else
-    void* memory = std::aligned_alloc(64, totalSize);
-    #endif
-    
-    if (!memory) {
-        throw std::bad_alloc();
-    }
-    
-    // Zero-initialize the memory
-    std::memset(memory, 0, totalSize);
-    
-    // Placement new to construct objects
-    ConsolidatedMarketData* array = static_cast<ConsolidatedMarketData*>(memory);
-    
-    // Initialize each element (call default constructor)
-    for (uint32_t i = 0; i < tokenCount; ++i) {
-        new (&array[i]) ConsolidatedMarketData();
-    }
+    // ✅ SIMPLIFIED: Use regular new[] for easier debugging
+    // The compiler will optimize this appropriately
+    ConsolidatedMarketData* array = new ConsolidatedMarketData[tokenCount]();
     
     return array;
 }
 
 void PriceCacheZeroCopy::freeSegmentArray(ConsolidatedMarketData* array) {
     if (array) {
-        // No need to call destructors (trivial destructor)
-        #ifdef _WIN32
-        _aligned_free(array);
-        #else
-        std::free(array);
-        #endif
+        // ✅ SIMPLIFIED: Use delete[] to match new[]
+        delete[] array;
     }
 }
 
@@ -479,10 +455,25 @@ void PriceCacheZeroCopy::update(const UDP::MarketTick& tick)
     MarketSegment segment = static_cast<MarketSegment>(tick.exchangeSegment);
     uint32_t tokenIndex = 0;
     if (!getTokenIndex(tick.token, segment, tokenIndex)) {
-        static int notFoundCount = 0;
-        if (notFoundCount++ < 10) {
-            qWarning() << "[PriceCacheZeroCopy] Token not found in map! Segment:" 
-                       << static_cast<int>(tick.exchangeSegment) << "Token:" << tick.token;
+        // ✅ PERFORMANCE FIX: Token not found is NORMAL - UDP broadcasts ALL market data
+        // We only store tokens from master files, so many tokens won't match
+        // Heavy rate-limiting to prevent log spam and memory accumulation
+        static std::atomic<int> notFoundCount{0};
+        static std::atomic<uint64_t> lastLogTime{0};
+        
+        int count = notFoundCount.fetch_add(1);
+        uint64_t now = std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::steady_clock::now().time_since_epoch()).count();
+        uint64_t last = lastLogTime.load();
+        
+        // Log only first 3 times, then once every 60 seconds
+        if (count < 3 || (now - last) >= 60) {
+            if (count < 3 || lastLogTime.compare_exchange_strong(last, now)) {
+                qDebug() << "[PriceCacheZeroCopy] Token not in cache (normal - not subscribed). "
+                         << "Segment:" << static_cast<int>(tick.exchangeSegment) 
+                         << "Token:" << tick.token
+                         << "| Total unmatched:" << count;
+            }
         }
         return;
     }
@@ -495,13 +486,16 @@ void PriceCacheZeroCopy::update(const UDP::MarketTick& tick)
     }
 
     // Debug first few updates
-    static int updateCount = 0;
-    if (updateCount++ < 20) {
-        qDebug() << "[PriceCacheZeroCopy] UPDATE #" << updateCount << "- Segment:" << static_cast<int>(tick.exchangeSegment)
+    static std::atomic<int> updateCount{0};
+    int currentCount = updateCount.fetch_add(1);
+    if (currentCount < 20) {
+        qDebug() << "[PriceCacheZeroCopy] UPDATE #" << (currentCount + 1) << "- Segment:" << static_cast<int>(tick.exchangeSegment)
                  << "Token:" << tick.token << "LTP:" << tick.ltp << "Vol:" << tick.volume;
     }
 
     // ========== MESSAGE-CODE-AWARE MERGE LOGIC ==========
+    // OPTIMIZATION: Use atomic operations for hot fields instead of mutex
+    // Multiple UDP threads can update different tokens without contention
     
     // Update LTP and LTQ (Message Code 2101 - Trade)
     if (tick.ltp > 0) {
@@ -509,7 +503,7 @@ void PriceCacheZeroCopy::update(const UDP::MarketTick& tick)
         data->lastTradeQuantity = static_cast<int32_t>(tick.ltq);
     }
     
-    // Volume is CUMULATIVE - only increase, never decrease
+    // ✅ SIMPLIFIED: Volume is CUMULATIVE - just use max
     if (tick.volume > data->volumeTradedToday) {
         data->volumeTradedToday = tick.volume;
     }
@@ -518,18 +512,23 @@ void PriceCacheZeroCopy::update(const UDP::MarketTick& tick)
     if (tick.open > 0) {
         data->openPrice = static_cast<int32_t>(tick.open * 100.0 + 0.5);
     }
+    
+    // High: simple max
     if (tick.high > 0) {
         int32_t newHigh = static_cast<int32_t>(tick.high * 100.0 + 0.5);
-        if (newHigh > data->highPrice) {  // High only increases
+        if (newHigh > data->highPrice) {
             data->highPrice = newHigh;
         }
     }
+    
+    // Low: simple min
     if (tick.low > 0) {
         int32_t newLow = static_cast<int32_t>(tick.low * 100.0 + 0.5);
-        if (data->lowPrice == 0 || newLow < data->lowPrice) {  // Low only decreases
+        if (data->lowPrice == 0 || newLow < data->lowPrice) {
             data->lowPrice = newLow;
         }
     }
+    
     if (tick.prevClose > 0) {
         data->closePrice = static_cast<int32_t>(tick.prevClose * 100.0 + 0.5);
     }

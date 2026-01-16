@@ -94,6 +94,20 @@ struct DecodedRecord {
     uint32_t token;
     uint64_t packetTimestamp; // System time of receipt
     
+    // === CONTRACT MASTER DATA (Static - initialized once) ===
+    char symbol[32] = {0};          // Symbol name
+    char displayName[64] = {0};     // Full name
+    char scripCode[16] = {0};       // BSE scrip code
+    int32_t lotSize = 0;
+    double strikePrice = 0.0;
+    char optionType[3] = {0};       // CE/PE/XX
+    char expiryDate[16] = {0};      // DDMMMYYYY
+    int64_t assetToken = 0;
+    int32_t instrumentType = 0;     // 1=Future, 2=Option
+    double tickSize = 0.0;
+    char series[16] = {0};          // EQUITY, OPTSTK, etc.
+    
+    // === DYNAMIC MARKET DATA (Updated by UDP) ===
     // V5.0 Protocol Fields
     uint32_t noOfTrades;   // V5.0: Unsigned Long
     uint64_t volume;       // V5.0: Long Long

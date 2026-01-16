@@ -1,7 +1,11 @@
 #include "services/UdpBroadcastService.h"
 #include "nsefo_callback.h"
 #include "nsecm_callback.h"
+#include "nsefo_price_store.h"
+#include "nsecm_price_store.h"
+#include "bse_price_store.h"
 #include "services/FeedHandler.h"
+#include "services/PriceCache.h"
 #include "utils/LatencyTracker.h"
 #include <QMetaObject>
 #include <QDebug>
@@ -317,45 +321,104 @@ UdpBroadcastService::~UdpBroadcastService() {
     stop();
 }
 
+// ========== SUBSCRIPTION MANAGEMENT ==========
+
+void UdpBroadcastService::subscribeToken(uint32_t token, int exchangeSegment) {
+    std::unique_lock lock(m_subscriptionMutex);
+    m_subscribedTokens.insert(token);
+    qDebug() << "[UdpBroadcast] Subscribed to token:" << token 
+             << "Segment:" << exchangeSegment
+             << "Total subscriptions:" << m_subscribedTokens.size();
+}
+
+void UdpBroadcastService::unsubscribeToken(uint32_t token, int exchangeSegment) {
+    std::unique_lock lock(m_subscriptionMutex);
+    m_subscribedTokens.erase(token);
+    qDebug() << "[UdpBroadcast] Unsubscribed from token:" << token
+             << "Segment:" << exchangeSegment
+             << "Remaining subscriptions:" << m_subscribedTokens.size();
+}
+
+void UdpBroadcastService::clearSubscriptions() {
+    std::unique_lock lock(m_subscriptionMutex);
+    m_subscribedTokens.clear();
+    qDebug() << "[UdpBroadcast] Cleared all subscriptions";
+}
+
+void UdpBroadcastService::setSubscriptionFilterEnabled(bool enabled) {
+    m_filteringEnabled = enabled;
+    qDebug() << "[UdpBroadcast] Subscription filtering:" << (enabled ? "ENABLED" : "DISABLED");
+    if (!enabled) {
+        qWarning() << "[UdpBroadcast] Warning: Filtering disabled - will emit signals for ALL ticks (high CPU usage)";
+    }
+}
+
+// ========== CALLBACK SETUP ==========
+
 void UdpBroadcastService::setupNseFoCallbacks() {
     nsefo::MarketDataCallbackRegistry::instance().registerTouchlineCallback([this](const nsefo::TouchlineData& data) {
-        // Emit new UDP::MarketTick
-        UDP::MarketTick udpTick = convertNseFoTouchline(data);
-        emit udpTickReceived(udpTick);
+        // ZERO-COPY DISTRIBUTED CACHE ARCHITECTURE:
+        // 1. Store in local cache (NSE FO thread, no lock, ~30ns)
+        const nsefo::TouchlineData* stored = nsefo::g_nseFoPriceStore.updateTouchline(data);
         
-        // Emit legacy XTS::Tick for backward compatibility
+        // 2. Convert from stored pointer (zero-copy reference)
+        UDP::MarketTick udpTick = convertNseFoTouchline(*stored);
         XTS::Tick legacyTick = convertToLegacy(udpTick);
         m_totalTicks++;
-        emit tickReceived(legacyTick);
+        
+        // 3. Update centralized cache for multi-reader access
+        PriceCache::instance().updatePrice(2, stored->token, legacyTick);
+        
+        // 4. Direct FeedHandler distribution
+        FeedHandler::instance().distribute(2, stored->token, legacyTick);
+        
+        // 5. Optional UI signals (throttled)
+        if (shouldEmitSignal(stored->token)) {
+            emit udpTickReceived(udpTick);
+            emit tickReceived(legacyTick);
+        }
     });
 
     nsefo::MarketDataCallbackRegistry::instance().registerMarketDepthCallback([this](const nsefo::MarketDepthData& data) {
-        // Emit new UDP::MarketTick
-        UDP::MarketTick udpTick = convertNseFoDepth(data);
-        emit udpTickReceived(udpTick);
+        // PERFORMANCE CRITICAL PATH: Direct updates, no Qt signals
         
-        // Emit legacy XTS::Tick for backward compatibility
+        UDP::MarketTick udpTick = convertNseFoDepth(data);
         XTS::Tick legacyTick = convertToLegacy(udpTick);
         m_totalTicks++;
-        emit tickReceived(legacyTick);
+        
+        // Direct cache + distribution (ultra-fast)
+        PriceCache::instance().updatePrice(2, data.token, legacyTick);
+        FeedHandler::instance().distribute(2, data.token, legacyTick);
+        
+        // Optional UI signals (throttled)
+        if (shouldEmitSignal(data.token)) {
+            emit udpTickReceived(udpTick);
+            emit tickReceived(legacyTick);
+        }
     });
 
     nsefo::MarketDataCallbackRegistry::instance().registerTickerCallback([this](const nsefo::TickerData& data) {
         if (data.fillVolume > 0) {
-            // Create UDP::MarketTick for ticker (partial update)
             UDP::MarketTick udpTick(UDP::ExchangeSegment::NSEFO, data.token);
             udpTick.volume = data.fillVolume;
             udpTick.refNo = data.refNo;
             udpTick.timestampUdpRecv = data.timestampRecv;
             udpTick.timestampParsed = data.timestampParsed;
             udpTick.timestampEmitted = LatencyTracker::now();
-            udpTick.messageType = 7202;  // BCAST_TICKER_AND_MKT_INDEX
-            emit udpTickReceived(udpTick);
+            udpTick.messageType = 7202;
             
-            // Legacy XTS::Tick
             XTS::Tick legacyTick = convertToLegacy(udpTick);
             m_totalTicks++;
-            emit tickReceived(legacyTick);
+            
+            // Direct updates (no signals)
+            PriceCache::instance().updatePrice(2, data.token, legacyTick);
+            FeedHandler::instance().distribute(2, data.token, legacyTick);
+            
+            // Optional UI signals
+            if (shouldEmitSignal(data.token)) {
+                emit udpTickReceived(udpTick);
+                emit tickReceived(legacyTick);
+            }
         }
     });
     
@@ -384,26 +447,33 @@ void UdpBroadcastService::setupNseFoCallbacks() {
 void UdpBroadcastService::setupNseCmCallbacks() {
     // Touchline updates (7200, 7208)
     nsecm::MarketDataCallbackRegistry::instance().registerTouchlineCallback([this](const nsecm::TouchlineData& data) {
-        // Emit new UDP::MarketTick
+        // Direct cache updates (NSECM = segment 1)
         UDP::MarketTick udpTick = convertNseCmTouchline(data);
-        emit udpTickReceived(udpTick);
-        
-        // Emit legacy XTS::Tick for backward compatibility
         XTS::Tick legacyTick = convertToLegacy(udpTick);
         m_totalTicks++;
-        emit tickReceived(legacyTick);
+        
+        PriceCache::instance().updatePrice(1, data.token, legacyTick);
+        FeedHandler::instance().distribute(1, data.token, legacyTick);
+        
+        if (shouldEmitSignal(data.token)) {
+            emit udpTickReceived(udpTick);
+            emit tickReceived(legacyTick);
+        }
     });
 
     // Market depth updates (7200, 7208)
     nsecm::MarketDataCallbackRegistry::instance().registerMarketDepthCallback([this](const nsecm::MarketDepthData& data) {
-        // Emit new UDP::MarketTick
         UDP::MarketTick udpTick = convertNseCmDepth(data);
-        emit udpTickReceived(udpTick);
-        
-        // Emit legacy XTS::Tick for backward compatibility
         XTS::Tick legacyTick = convertToLegacy(udpTick);
         m_totalTicks++;
-        emit tickReceived(legacyTick);
+        
+        PriceCache::instance().updatePrice(1, data.token, legacyTick);
+        FeedHandler::instance().distribute(1, data.token, legacyTick);
+        
+        if (shouldEmitSignal(data.token)) {
+            emit udpTickReceived(udpTick);
+            emit tickReceived(legacyTick);
+        }
     });
 
     // Ticker updates (18703)
@@ -632,18 +702,27 @@ void UdpBroadcastService::start(const Config& config) {
     try {
         bool anyEnabled = false;
 
-        // 1. NSE FO Setup
+        // CRITICAL FIX: Stagger receiver startup to prevent thread storm
+        // Starting all 4 receivers simultaneously causes:
+        // 1. CPU thread scheduler thrashing
+        // 2. PriceCacheZeroCopy concurrent write contention
+        // 3. GUI event loop starvation
+        // Solution: Start receivers with 100ms delays
+
+        // 1. NSE FO Setup (highest priority - derivatives)
         if (config.enableNSEFO && !config.nseFoIp.empty() && config.nseFoPort > 0) {
             if (startReceiver(ExchangeReceiver::NSEFO, config.nseFoIp, config.nseFoPort)) {
                 anyEnabled = true;
             }
+            if (anyEnabled) std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
 
-        // 2. NSE CM Setup
+        // 2. NSE CM Setup (second priority - cash market)
         if (config.enableNSECM && !config.nseCmIp.empty() && config.nseCmPort > 0) {
             if (startReceiver(ExchangeReceiver::NSECM, config.nseCmIp, config.nseCmPort)) {
                 anyEnabled = true;
             }
+            if (anyEnabled) std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
 
         // 3. BSE FO Setup
@@ -651,6 +730,7 @@ void UdpBroadcastService::start(const Config& config) {
             if (startReceiver(ExchangeReceiver::BSEFO, config.bseFoIp, config.bseFoPort)) {
                 anyEnabled = true;
             }
+            if (anyEnabled) std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
 
         // 4. BSE CM Setup

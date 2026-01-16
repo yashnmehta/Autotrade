@@ -10,6 +10,11 @@
 #include <iostream>
 #include <string>
 
+// Include distributed price stores
+#include "nsefo_price_store.h"
+#include "nsecm_price_store.h"
+#include "bse_price_store.h"
+
 // Initialize singleton
 RepositoryManager* RepositoryManager::s_instance = nullptr;
 
@@ -145,6 +150,9 @@ bool RepositoryManager::loadAll(const QString& mastersPath) {
         if (nsefoLoaded && nsecmLoaded) {
             m_loaded = true;
             
+            // Initialize distributed price stores
+            initializeDistributedStores();
+            
             // Log summary
             SegmentStats stats = getSegmentStats();
             qDebug() << "[RepositoryManager] CSV loading complete (FAST PATH):";
@@ -167,6 +175,9 @@ bool RepositoryManager::loadAll(const QString& mastersPath) {
         if (loadCombinedMasterFile(combinedFile)) {
             anyLoaded = true;
             m_loaded = true;
+            
+            // Initialize distributed price stores
+            initializeDistributedStores();
             
             // Save processed CSVs for fast loading next time
             saveProcessedCSVs(mastersPath);
@@ -207,6 +218,9 @@ bool RepositoryManager::loadAll(const QString& mastersPath) {
     
     if (anyLoaded) {
         m_loaded = true;
+        
+        // Initialize distributed price stores
+        initializeDistributedStores();
         
         // Log summary
         SegmentStats stats = getSegmentStats();
@@ -913,3 +927,123 @@ bool RepositoryManager::saveProcessedCSVs(const QString& mastersPath) {
     
     return anySaved;
 }
+
+void RepositoryManager::initializeDistributedStores() {
+    qDebug() << "[RepositoryManager] Initializing distributed price stores with contract master...";
+    
+    // NSE FO: Pre-populate array with contract master data
+    if (m_nsefo && m_nsefo->isLoaded()) {
+        const auto& contracts = m_nsefo->getAllContracts();
+        std::vector<uint32_t> tokens;
+        tokens.reserve(contracts.size());
+        
+        for (const auto& contract : contracts) {
+            uint32_t token = static_cast<uint32_t>(contract.exchangeInstrumentID);
+            tokens.push_back(token);
+            
+            // Initialize token with contract master metadata
+            nsefo::g_nseFoPriceStore.initializeToken(
+                token,
+                contract.name.toUtf8().constData(),
+                contract.displayName.toUtf8().constData(),
+                contract.lotSize,
+                contract.strikePrice,
+                contract.optionType.toUtf8().constData(),
+                contract.expiryDate.toUtf8().constData(),
+                contract.assetToken,
+                contract.instrumentType,
+                contract.tickSize
+            );
+        }
+        
+        // Mark valid tokens in store
+        nsefo::g_nseFoPriceStore.initializeFromMaster(tokens);
+        qDebug() << \"  NSE FO:\" << tokens.size() << \"contracts pre-populated\";\n    }
+    
+    // NSE CM: Pre-populate hash map with contract master data
+    if (m_nsecm && m_nsecm->isLoaded()) {
+        const auto& contracts = m_nsecm->getAllContracts();
+        std::vector<uint32_t> tokens;
+        tokens.reserve(contracts.size());
+        
+        for (const auto& contract : contracts) {
+            uint32_t token = static_cast<uint32_t>(contract.exchangeInstrumentID);
+            tokens.push_back(token);
+            
+            // Initialize token with contract master metadata
+            nsecm::g_nseCmPriceStore.initializeToken(
+                token,
+                contract.name.toUtf8().constData(),
+                contract.displayName.toUtf8().constData(),
+                contract.series.toUtf8().constData(),
+                contract.lotSize,
+                contract.tickSize,
+                contract.priceBandHigh,
+                contract.priceBandLow
+            );
+        }
+        
+        nsecm::g_nseCmPriceStore.initializeFromMaster(tokens);
+        qDebug() << \"  NSE CM:\" << tokens.size() << \"contracts pre-populated\";\n    }
+    
+    // BSE FO: Pre-populate hash map with contract master data
+    if (m_bsefo && m_bsefo->isLoaded()) {
+        const auto& contracts = m_bsefo->getAllContracts();
+        std::vector<uint32_t> tokens;
+        tokens.reserve(contracts.size());
+        
+        for (const auto& contract : contracts) {
+            uint32_t token = static_cast<uint32_t>(contract.exchangeInstrumentID);
+            tokens.push_back(token);
+            
+            // Initialize token with contract master metadata
+            bse::g_bseFoPriceStore.initializeToken(
+                token,
+                contract.name.toUtf8().constData(),
+                contract.displayName.toUtf8().constData(),
+                contract.scripCode.toUtf8().constData(),
+                contract.series.toUtf8().constData(),
+                contract.lotSize,
+                contract.strikePrice,
+                contract.optionType.toUtf8().constData(),
+                contract.expiryDate.toUtf8().constData(),
+                contract.assetToken,
+                contract.instrumentType,
+                contract.tickSize
+            );
+        }
+        
+        bse::g_bseFoPriceStore.initializeFromMaster(tokens);
+        qDebug() << \"  BSE FO:\" << tokens.size() << \"contracts pre-populated\";\n    }
+    
+    // BSE CM: Pre-populate hash map with contract master data
+    if (m_bsecm && m_bsecm->isLoaded()) {
+        const auto& contracts = m_bsecm->getAllContracts();
+        std::vector<uint32_t> tokens;
+        tokens.reserve(contracts.size());
+        
+        for (const auto& contract : contracts) {
+            uint32_t token = static_cast<uint32_t>(contract.exchangeInstrumentID);
+            tokens.push_back(token);
+            
+            // Initialize token with contract master metadata
+            bse::g_bseCmPriceStore.initializeToken(
+                token,
+                contract.name.toUtf8().constData(),
+                contract.displayName.toUtf8().constData(),
+                contract.scripCode.toUtf8().constData(),
+                contract.series.toUtf8().constData(),
+                contract.lotSize,
+                contract.strikePrice,
+                contract.optionType.toUtf8().constData(),
+                contract.expiryDate.toUtf8().constData(),
+                contract.assetToken,
+                contract.instrumentType,
+                contract.tickSize
+            );
+        }
+        
+        bse::g_bseCmPriceStore.initializeFromMaster(tokens);
+        qDebug() << \"  BSE CM:\" << tokens.size() << \"contracts pre-populated\";\n    }
+    
+    qDebug() << \"[RepositoryManager] Distributed stores initialized with contract master data\";\n}

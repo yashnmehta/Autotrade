@@ -11,6 +11,8 @@ class PreferencesWindowTab;
 class PreferencesManager;
 class PreferencesGeneralTab;
 class PreferencesOrderTab;
+class PreferencesWorkSpaceTab;
+class PreferencesPortfolioTab;
 
 class PreferenceDialog : public QDialog
 {
@@ -40,6 +42,8 @@ private:
     // Tab handlers
     PreferencesGeneralTab *m_generalTab;
     PreferencesOrderTab *m_orderTab;
+    PreferencesWorkSpaceTab *m_workSpaceTab;
+    PreferencesPortfolioTab *m_portfolioTab;
 };
 
 #endif // PREFERENCEDIALOG_H

@@ -20,7 +20,7 @@ public:
     ~XTSInteractiveClient();
 
     // Authentication
-    void login(std::function<void(bool, const QString&)> callback);
+    void login();
     QString getToken() const { return m_token; }
     QString getUserID() const { return m_userID; }
     QString getClientID() const { return m_clientID; }
@@ -54,6 +54,7 @@ public:
                      std::function<void(bool, const QString&)> callback);
 
 signals:
+    void loginCompleted(bool success, const QString &error);
     void errorOccurred(const QString &error);
     void connectionStatusChanged(bool connected);
     void orderEvent(const XTS::Order &order);

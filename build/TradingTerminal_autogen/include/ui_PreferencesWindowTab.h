@@ -35,6 +35,10 @@ public:
     QVBoxLayout *verticalLayout_alertsmsg;
     QWidget *tabMarginPlusOrder;
     QVBoxLayout *verticalLayout_marginplus;
+    QWidget *tabWorkSpace;
+    QVBoxLayout *verticalLayout_workspace;
+    QWidget *tabPortfolio;
+    QVBoxLayout *verticalLayout_portfolio;
     QHBoxLayout *horizontalLayout_buttons;
     QSpacerItem *horizontalSpacer;
     QPushButton *pushButton_ok;
@@ -87,6 +91,20 @@ public:
         verticalLayout_marginplus->setObjectName(QString::fromUtf8("verticalLayout_marginplus"));
         verticalLayout_marginplus->setContentsMargins(0, 0, 0, 0);
         tabWidget->addTab(tabMarginPlusOrder, QString());
+        tabWorkSpace = new QWidget();
+        tabWorkSpace->setObjectName(QString::fromUtf8("tabWorkSpace"));
+        verticalLayout_workspace = new QVBoxLayout(tabWorkSpace);
+        verticalLayout_workspace->setSpacing(0);
+        verticalLayout_workspace->setObjectName(QString::fromUtf8("verticalLayout_workspace"));
+        verticalLayout_workspace->setContentsMargins(0, 0, 0, 0);
+        tabWidget->addTab(tabWorkSpace, QString());
+        tabPortfolio = new QWidget();
+        tabPortfolio->setObjectName(QString::fromUtf8("tabPortfolio"));
+        verticalLayout_portfolio = new QVBoxLayout(tabPortfolio);
+        verticalLayout_portfolio->setSpacing(0);
+        verticalLayout_portfolio->setObjectName(QString::fromUtf8("verticalLayout_portfolio"));
+        verticalLayout_portfolio->setContentsMargins(0, 0, 0, 0);
+        tabWidget->addTab(tabPortfolio, QString());
 
         verticalLayout_main->addWidget(tabWidget);
 
@@ -135,6 +153,8 @@ public:
         tabWidget->setTabText(tabWidget->indexOf(tabDerivatives), QCoreApplication::translate("PreferencesWindowTab", "Derivatives", nullptr));
         tabWidget->setTabText(tabWidget->indexOf(tabAlertsMsg), QCoreApplication::translate("PreferencesWindowTab", "Alerts Msg", nullptr));
         tabWidget->setTabText(tabWidget->indexOf(tabMarginPlusOrder), QCoreApplication::translate("PreferencesWindowTab", "Bracket/Margin Plus Order", nullptr));
+        tabWidget->setTabText(tabWidget->indexOf(tabWorkSpace), QCoreApplication::translate("PreferencesWindowTab", "Work-Space", nullptr));
+        tabWidget->setTabText(tabWidget->indexOf(tabPortfolio), QCoreApplication::translate("PreferencesWindowTab", "Portfolio", nullptr));
         pushButton_ok->setText(QCoreApplication::translate("PreferencesWindowTab", "OK", nullptr));
         pushButton_cancel->setText(QCoreApplication::translate("PreferencesWindowTab", "Cancel", nullptr));
         pushButton_apply->setText(QCoreApplication::translate("PreferencesWindowTab", "Apply", nullptr));

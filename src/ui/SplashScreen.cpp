@@ -180,7 +180,7 @@ void SplashScreen::onMasterLoadingComplete(int contractCount)
     // Initialize new PriceCache (zero-copy) if enabled
     // ===================================================================
     PreferencesManager& prefs = PreferencesManager::instance();
-    bool useLegacy = false; // FORCED FALSE FOR MEASUREMENT
+    bool useLegacy = true; // FORCED FALSE FOR MEASUREMENT
     
     // Log baseline RAM usage
     MemoryProfiler::logSnapshot("Baseline (Masters Loaded)");

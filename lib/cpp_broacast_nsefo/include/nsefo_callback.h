@@ -14,6 +14,19 @@ namespace nsefo {
 // Touchline data (from 7200, 7208)
 struct TouchlineData {
     uint32_t token;
+    
+    // === CONTRACT MASTER DATA (Static - initialized once) ===
+    char symbol[32] = {0};          // Symbol name (e.g., NIFTY, BANKNIFTY)
+    char displayName[64] = {0};     // Full name (e.g., NIFTY 30JAN2026 CE 24000)
+    int32_t lotSize = 0;
+    double strikePrice = 0.0;
+    char optionType[3] = {0};       // CE/PE/XX
+    char expiryDate[16] = {0};      // DDMMMYYYY
+    int64_t assetToken = 0;
+    int32_t instrumentType = 0;     // 1=Future, 2=Option
+    double tickSize = 0.0;
+    
+    // === DYNAMIC MARKET DATA (Updated by UDP) ===
     double ltp;                 // Last Traded Price
     double open;
     double high;

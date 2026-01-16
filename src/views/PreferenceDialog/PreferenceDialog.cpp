@@ -1,6 +1,8 @@
 #include "views/PreferenceDialog.h"
 #include "views/PreferencesGeneralTab.h"
 #include "views/PreferencesOrderTab.h"
+#include "views/PreferencesWorkSpaceTab.h"
+#include "views/PreferencesPortfolioTab.h"
 #include "ui_PreferencesWindowTab.h"
 #include "utils/PreferencesManager.h"
 #include <QUiLoader>
@@ -37,6 +39,8 @@ PreferenceDialog::PreferenceDialog(QWidget *parent)
     loadTabContent("tabDerivatives", ":/forms/PreferencesDerivativeTab.ui");
     loadTabContent("tabAlertsMsg", ":/forms/PreferencesAlertMessageTab.ui");
     loadTabContent("tabMarginPlusOrder", ":/forms/PreferencesMarginPlusOrderTab.ui");
+    loadTabContent("tabWorkSpace", ":/forms/PreferencesWorkSpaceTab.ui");
+    loadTabContent("tabPortfolio", ":/forms/PreferencesPortfolioTab.ui");
     
     // Initialize tab handlers after loading tab content
     QWidget *generalTabWidget = findChild<QWidget*>("tabGeneral");
@@ -47,6 +51,16 @@ PreferenceDialog::PreferenceDialog(QWidget *parent)
     QWidget *orderTabWidget = findChild<QWidget*>("tabOrder");
     if (orderTabWidget) {
         m_orderTab = new PreferencesOrderTab(orderTabWidget, m_prefsManager, this);
+    }
+    
+    QWidget *workSpaceTabWidget = findChild<QWidget*>("tabWorkSpace");
+    if (workSpaceTabWidget) {
+        m_workSpaceTab = new PreferencesWorkSpaceTab(workSpaceTabWidget, m_prefsManager, this);
+    }
+
+    QWidget *portfolioTabWidget = findChild<QWidget*>("tabPortfolio");
+    if (portfolioTabWidget) {
+        m_portfolioTab = new PreferencesPortfolioTab(portfolioTabWidget, m_prefsManager, this);
     }
     
     setupConnections();
@@ -123,6 +137,8 @@ void PreferenceDialog::loadPreferences()
     
     // Load other tab preferences when their handlers are created
     if (m_orderTab) m_orderTab->loadPreferences();
+    if (m_workSpaceTab) m_workSpaceTab->loadPreferences();
+    if (m_portfolioTab) m_portfolioTab->loadPreferences();
     
     qDebug() << "PreferenceDialog: All preferences loaded";
 }
@@ -136,6 +152,8 @@ void PreferenceDialog::savePreferences()
     
     // Save other tab preferences when their handlers are created
     if (m_orderTab) m_orderTab->savePreferences();
+    if (m_workSpaceTab) m_workSpaceTab->savePreferences();
+    if (m_portfolioTab) m_portfolioTab->savePreferences();
     
     qDebug() << "PreferenceDialog: All preferences saved";
 }

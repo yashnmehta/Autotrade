@@ -97,7 +97,8 @@ void LoginFlowService::executeLogin(
     // Phase 1: Market Data API Login
     updateStatus("md_login", "Connecting to Market Data API...", 10);
     
-    m_mdClient->login([this, downloadMasters](bool success, const QString &message) {
+    // Connect to loginCompleted signal
+    connect(m_mdClient, &XTSMarketDataClient::loginCompleted, this, [this, downloadMasters](bool success, const QString &message) {
         if (!success) {
             notifyError("md_login", message);
             return;
@@ -108,7 +109,8 @@ void LoginFlowService::executeLogin(
         // Phase 2: Interactive API Login
         updateStatus("ia_login", "Connecting to Interactive API...", 40);
         
-        m_iaClient->login([this, downloadMasters](bool success, const QString &message) {
+        // Connect to IA login signal
+        connect(m_iaClient, &XTSInteractiveClient::loginCompleted, this, [this, downloadMasters](bool success, const QString &message) {
             if (!success) {
                 notifyError("ia_login", message);
                 return;
@@ -181,16 +183,21 @@ void LoginFlowService::executeLogin(
                 
                 // Note: Continuation happens in handleMasterLoadingComplete()
             }
-        });
-    });
+        }, Qt::UniqueConnection);
+    }, Qt::UniqueConnection);
+    
+    // Trigger the actual login
+    m_mdClient->login();
+    m_iaClient->login();
 }
 
 #include <QThread> // Added for thread safety check
 
 void LoginFlowService::updateStatus(const QString &phase, const QString &message, int progress)
 {
-    // ERROR FIX: Ensure UI updates happen on the main thread
-    if (QThread::currentThread() != this->thread()) {
+    // CRITICAL FIX: Ensure UI updates happen on the main thread
+    // Network callbacks execute on worker threads and MUST NOT call GUI code directly
+    if (QThread::currentThread() != QCoreApplication::instance()->thread()) {
         QMetaObject::invokeMethod(this, [this, phase, message, progress]() {
             updateStatus(phase, message, progress);
         }, Qt::QueuedConnection);
@@ -208,8 +215,9 @@ void LoginFlowService::updateStatus(const QString &phase, const QString &message
 
 void LoginFlowService::notifyError(const QString &phase, const QString &error)
 {
-    // ERROR FIX: Ensure error notifications happen on the main thread
-    if (QThread::currentThread() != this->thread()) {
+    // CRITICAL FIX: Ensure error notifications happen on the main thread
+    // Network callbacks execute on worker threads and MUST NOT call GUI code directly
+    if (QThread::currentThread() != QCoreApplication::instance()->thread()) {
         QMetaObject::invokeMethod(this, [this, phase, error]() {
             notifyError(phase, error);
         }, Qt::QueuedConnection);
@@ -319,7 +327,9 @@ void LoginFlowService::startMasterDownload(const QString& mastersDir)
     qDebug() << "[LoginFlow] Starting master download...";
     
     QStringList segments = {"NSEFO", "NSECM", "BSEFO", "BSECM"};
-    m_mdClient->downloadMasterContracts(segments, [this, mastersDir](bool success, const QString &csvData, const QString &error) {
+    
+    // Connect to download completed signal
+    connect(m_mdClient, &XTSMarketDataClient::masterContractsDownloaded, this, [this, mastersDir](bool success, const QString &csvData, const QString &error) {
         if (success) {
             qDebug() << "[LoginFlow] ✓ Master download successful (size:" << csvData.size() << "bytes)";
             qDebug() << "[LoginFlow] Loading directly from memory - SKIPPING FILE I/O";
@@ -348,7 +358,10 @@ void LoginFlowService::startMasterDownload(const QString& mastersDir)
             // (user can download later from settings)
             continueLoginAfterMasters();
         }
-    });
+    }, Qt::UniqueConnection);
+    
+    // Trigger the actual download
+    m_mdClient->downloadMasterContracts(segments);
 }
 
 void LoginFlowService::continueLoginAfterMasters()
@@ -356,7 +369,8 @@ void LoginFlowService::continueLoginAfterMasters()
     // Phase 4: Connect WebSocket
     updateStatus("websocket", "Establishing real-time connection...", 85);
     
-    m_mdClient->connectWebSocket([this](bool success, const QString &message) {
+    // Connect to WebSocket status signal
+    connect(m_mdClient, &XTSMarketDataClient::wsConnectionStatusChanged, this, [this](bool success, const QString &message) {
         if (!success) {
             // Non-fatal: log warning but continue
             qWarning() << "[LoginFlow] WebSocket connection failed:" << message;
@@ -420,8 +434,9 @@ void LoginFlowService::continueLoginAfterMasters()
                 updateStatus("data", "Loading trades...", 98);
                 m_iaClient->getTrades([this](bool success, const QVector<XTS::Trade> &trades, const QString &message) {
                     
-                    // ERROR FIX: Ensure final completion runs on main thread !!
-                    QMetaObject::invokeMethod(this, [this, success, trades, message]() {
+                    // CRITICAL FIX: Network callbacks run on worker threads!
+                    // Must marshal ALL GUI operations back to main thread
+                    QMetaObject::invokeMethod(QCoreApplication::instance(), [this, success, trades, message]() {
                         if (success) {
                             qDebug() << "[LoginFlowService] Loaded" << trades.size() << "trades";
                             
@@ -433,7 +448,7 @@ void LoginFlowService::continueLoginAfterMasters()
                             qWarning() << "[LoginFlowService] Failed to load trades: success=" << success << "message=" << message;
                         }
 
-                        // Complete!
+                        // Complete! - This calls updateStatus which has its own thread check
                         updateStatus("complete", "Login successful!", 100);
                         emit loginComplete();
                         
@@ -444,5 +459,8 @@ void LoginFlowService::continueLoginAfterMasters()
                 });
             });
         });
-    });
+    }, Qt::UniqueConnection);
+    
+    // Trigger the actual WebSocket connection
+    m_mdClient->connectWebSocket();
 }

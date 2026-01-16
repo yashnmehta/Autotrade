@@ -21,36 +21,25 @@ public:
                         QObject *parent = nullptr);
     ~XTSMarketDataClient();
     
-    // Login
-    void login(std::function<void(bool, const QString&)> callback);
-    
-    // WebSocket connection
-    void connectWebSocket(std::function<void(bool, const QString&)> callback);
+    // Async operations (use signals for results)
+    void login();
+    void connectWebSocket();
     void disconnectWebSocket();
 
     // Market data subscription
-    void subscribe(const QVector<int64_t> &instrumentIDs, int exchangeSegment, 
-                   std::function<void(bool, const QString&)> callback = nullptr);
-    void unsubscribe(const QVector<int64_t> &instrumentIDs,
-                     std::function<void(bool, const QString&)> callback = nullptr);
-    
-    void setTickHandler(std::function<void(const XTS::Tick&)> handler);
+    void subscribe(const QVector<int64_t> &instrumentIDs, int exchangeSegment);
+    void unsubscribe(const QVector<int64_t> &instrumentIDs, int exchangeSegment);
 
     // Instrument search/fetch
-    void getInstruments(int exchangeSegment, 
-                        std::function<void(bool, const QVector<XTS::Instrument>&, const QString&)> callback);
-    void searchInstruments(const QString &searchString, int exchangeSegment,
-                            std::function<void(bool, const QVector<XTS::Instrument>&, const QString&)> callback);
+    void getInstruments(int exchangeSegment);
+    void searchInstruments(const QString &searchString, int exchangeSegment);
 
     // Master contract download
-    void downloadMasterContracts(const QStringList &exchangeSegments, 
-                                  std::function<void(bool, const QString&, const QString&)> callback);
+    void downloadMasterContracts(const QStringList &exchangeSegments);
 
     // Initial snapshot
-    void getQuote(int64_t exchangeInstrumentID, int exchangeSegment,
-                   std::function<void(bool, const QJsonObject&, const QString&)> callback);
-    void getQuote(const QVector<int64_t> &instrumentIDs, int exchangeSegment,
-                   std::function<void(bool, const QVector<QJsonObject>&, const QString&)> callback);
+    void getQuote(int64_t exchangeInstrumentID, int exchangeSegment);
+    void getQuoteBatch(const QVector<int64_t> &instrumentIDs, int exchangeSegment);
 
     QString token() const { return m_token; }
     QString getToken() const { return m_token; }
@@ -59,8 +48,20 @@ public:
     bool isConnected() const { return m_wsConnected; }
 
 signals:
+    // Async operation results
+    void loginCompleted(bool success, const QString& error);
+    void wsConnectionStatusChanged(bool connected, const QString& error);
+    void subscriptionCompleted(bool success, const QString& error);
+    void unsubscriptionCompleted(bool success, const QString& error);
+    void instrumentsReceived(bool success, const QVector<XTS::Instrument>& instruments, const QString& error);
+    void masterContractsDownloaded(bool success, const QString& filePath, const QString& error);
+    void quoteReceived(bool success, const QJsonObject& quote, const QString& error);
+    void quoteBatchReceived(bool success, const QVector<QJsonObject>& quotes, const QString& error);
+    
+    // Real-time data
     void tickReceived(const XTS::Tick &tick);
-    void connectionStatusChanged(bool connected);
+    
+    // General errors
     void errorOccurred(const QString &error);
 
 private slots:
@@ -87,9 +88,6 @@ private:
     // Native WebSocket (no Qt overhead)
     std::unique_ptr<NativeWebSocketClient> m_nativeWS;
     bool m_wsConnected;
-
-    std::function<void(const XTS::Tick&)> m_tickHandler;
-    std::function<void(bool, const QString&)> m_wsConnectCallback;
 };
 
 #endif // XTSMARKETDATACLIENT_H

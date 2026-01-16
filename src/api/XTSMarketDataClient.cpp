@@ -22,8 +22,6 @@ XTSMarketDataClient::XTSMarketDataClient(const QString &baseURL,
     , m_httpClient(std::make_unique<NativeHTTPClient>())
     , m_nativeWS(std::make_unique<NativeWebSocketClient>())
     , m_wsConnected(false)
-    , m_tickHandler(nullptr)
-    , m_wsConnectCallback(nullptr)
 {
     std::cout << "[XTS] Using native WebSocket (698x faster than Qt)" << std::endl;
 }
@@ -34,63 +32,63 @@ XTSMarketDataClient::~XTSMarketDataClient()
     // m_nativeWS is automatically destroyed by unique_ptr
 }
 
-void XTSMarketDataClient::login(std::function<void(bool, const QString&)> callback)
+void XTSMarketDataClient::login()
 {
-    // Native HTTP - no threading issues, synchronous call
-    std::string url = (m_baseURL + "/auth/login").toStdString();
-    
-    QJsonObject loginData;
-    loginData["appKey"] = m_apiKey;
-    loginData["secretKey"] = m_secretKey;
-    loginData["source"] = m_source;
-    
-    QJsonDocument doc(loginData);
-    std::string body = doc.toJson().toStdString();
-    
-    std::map<std::string, std::string> headers;
-    headers["Content-Type"] = "application/json";
-    
-    auto response = m_httpClient->post(url, body, headers);
-    
-    if (!response.success) {
-        QString error = QString("Login failed: %1").arg(QString::fromStdString(response.error));
-        qWarning() << error;
-        if (callback) callback(false, error);
-        return;
-    }
-    
-    QJsonDocument responseDoc = QJsonDocument::fromJson(QByteArray::fromStdString(response.body));
-    QJsonObject obj = responseDoc.object();
-    
-    QString type = obj["type"].toString();
-    if (type == "success") {
-        QJsonObject result = obj["result"].toObject();
-        m_token = result["token"].toString();
-        m_userID = result["userID"].toString();
+    // Run in separate thread to not block UI
+    std::thread([this]() {
+        std::string url = (m_baseURL + "/auth/login").toStdString();
         
-        qDebug() << "✅ Market Data login successful. Token:" << m_token.left(20) + "...";
-        if (callback) callback(true, "Login successful");
-    } else {
-        QString error = QString("Login failed: %1 - %2")
-                            .arg(obj["code"].toString())
-                            .arg(obj["description"].toString());
-        qWarning() << error;
-        if (callback) callback(false, error);
-    }
+        QJsonObject loginData;
+        loginData["appKey"] = m_apiKey;
+        loginData["secretKey"] = m_secretKey;
+        loginData["source"] = m_source;
+        
+        QJsonDocument doc(loginData);
+        std::string body = doc.toJson().toStdString();
+        
+        std::map<std::string, std::string> headers;
+        headers["Content-Type"] = "application/json";
+        
+        auto response = m_httpClient->post(url, body, headers);
+        
+        if (!response.success) {
+            QString error = QString("Login failed: %1").arg(QString::fromStdString(response.error));
+            qWarning() << error;
+            emit loginCompleted(false, error);
+            return;
+        }
+        
+        QJsonDocument responseDoc = QJsonDocument::fromJson(QByteArray::fromStdString(response.body));
+        QJsonObject obj = responseDoc.object();
+        
+        QString type = obj["type"].toString();
+        if (type == "success") {
+            QJsonObject result = obj["result"].toObject();
+            m_token = result["token"].toString();
+            m_userID = result["userID"].toString();
+            
+            qDebug() << "✅ Market Data login successful. Token:" << m_token.left(20) + "...";
+            emit loginCompleted(true, "Login successful");
+        } else {
+            QString error = QString("Login failed: %1 - %2")
+                                .arg(obj["code"].toString())
+                                .arg(obj["description"].toString());
+            qWarning() << error;
+            emit loginCompleted(false, error);
+        }
+    }).detach();
 }
 
-void XTSMarketDataClient::connectWebSocket(std::function<void(bool, const QString&)> callback)
+void XTSMarketDataClient::connectWebSocket()
 {
     if (m_token.isEmpty()) {
         qWarning() << "Cannot connect WebSocket: Not logged in";
-        if (callback) callback(false, "Not logged in");
+        emit wsConnectionStatusChanged(false, "Not logged in");
         return;
     }
 
     // XTS uses Socket.IO protocol with specific path: /apimarketdata/socket.io
     // Full URL: ws://host:port/apimarketdata/socket.io/?EIO=3&transport=websocket&token=xxx&userID=xxx&publishFormat=JSON&broadcastMode=Partial
-    
-    m_wsConnectCallback = callback;
 
     // Extract base URL (protocol + host + port)
     QString wsUrl = m_baseURL;
@@ -137,49 +135,49 @@ void XTSMarketDataClient::disconnectWebSocket()
     }
 }
 
-void XTSMarketDataClient::subscribe(const QVector<int64_t> &instrumentIDs, int exchangeSegment,
-                                     std::function<void(bool, const QString&)> callback)
+void XTSMarketDataClient::subscribe(const QVector<int64_t> &instrumentIDs, int exchangeSegment)
 {
-    // Native HTTP - synchronous, no threading issues
     if (m_token.isEmpty()) {
-        if (callback) callback(false, "Not logged in");
-        return;
-    }
-
-    std::string url = (m_baseURL + "/instruments/subscription").toStdString();
-    
-    QJsonObject reqObj;
-    QJsonArray instruments;
-    for (int64_t id : instrumentIDs) {
-        QJsonObject inst;
-        inst["exchangeSegment"] = exchangeSegment;
-        inst["exchangeInstrumentID"] = (qint64)id;
-        instruments.append(inst);
-    }
-    reqObj["instruments"] = instruments;
-    reqObj["xtsMessageCode"] = 1502;
-    
-    QJsonDocument doc(reqObj);
-    std::string body = doc.toJson().toStdString();
-    
-    std::map<std::string, std::string> headers;
-    headers["Content-Type"] = "application/json";
-    headers["Authorization"] = m_token.toStdString();
-    
-    auto response = m_httpClient->post(url, body, headers);
-    int httpStatus = response.statusCode;
-    
-    qDebug() << "Subscription response (HTTP" << httpStatus << "):" << QString::fromStdString(response.body);
-    
-    if (!response.success) {
-        if (callback) callback(false, QString::fromStdString(response.error));
+        emit subscriptionCompleted(false, "Not logged in");
         return;
     }
     
-    QJsonDocument responseDoc = QJsonDocument::fromJson(QByteArray::fromStdString(response.body));
-    
-    if (!responseDoc.isNull() && responseDoc.isObject()) {
-        QJsonObject obj = responseDoc.object();
+    // Run in separate thread
+    std::thread([this, instrumentIDs, exchangeSegment]() {
+        std::string url = (m_baseURL + "/instruments/subscription").toStdString();
+        
+        QJsonObject reqObj;
+        QJsonArray instruments;
+        for (int64_t id : instrumentIDs) {
+            QJsonObject inst;
+            inst["exchangeSegment"] = exchangeSegment;
+            inst["exchangeInstrumentID"] = (qint64)id;
+            instruments.append(inst);
+        }
+        reqObj["instruments"] = instruments;
+        reqObj["xtsMessageCode"] = 1502;
+        
+        QJsonDocument doc(reqObj);
+        std::string body = doc.toJson().toStdString();
+        
+        std::map<std::string, std::string> headers;
+        headers["Content-Type"] = "application/json";
+        headers["Authorization"] = m_token.toStdString();
+        
+        auto response = m_httpClient->post(url, body, headers);
+        int httpStatus = response.statusCode;
+        
+        qDebug() << "Subscription response (HTTP" << httpStatus << "):" << QString::fromStdString(response.body);
+        
+        if (!response.success) {
+            emit subscriptionCompleted(false, QString::fromStdString(response.error));
+            return;
+        }
+        
+        QJsonDocument responseDoc = QJsonDocument::fromJson(QByteArray::fromStdString(response.body));
+        
+        if (!responseDoc.isNull() && responseDoc.isObject()) {
+            QJsonObject obj = responseDoc.object();
             
             // Handle "Already Subscribed" error (e-session-0002)
             if (httpStatus == 400 && obj["code"].toString() == "e-session-0002") {
@@ -187,18 +185,11 @@ void XTSMarketDataClient::subscribe(const QVector<int64_t> &instrumentIDs, int e
                 
                 // Fallback: Use getQuote to get initial snapshot
                 for (int64_t instrumentID : instrumentIDs) {
-                    getQuote(instrumentID, exchangeSegment, [this](bool success, const QJsonObject &quoteData, const QString &error) {
-                        if (success) {
-                            qDebug() << "✅ Got snapshot via getQuote for already-subscribed instrument";
-                            processTickData(quoteData);
-                        } else {
-                            qWarning() << "❌ getQuote fallback failed:" << error;
-                        }
-                    });
+                    getQuote(instrumentID, exchangeSegment);
                 }
                 
                 // Still report success since instrument is subscribed (just not by us)
-                if (callback) callback(true, "Already subscribed (snapshot fetched)");
+                emit subscriptionCompleted(true, "Already subscribed (snapshot fetched)");
                 return;
             }
             
@@ -223,19 +214,19 @@ void XTSMarketDataClient::subscribe(const QVector<int64_t> &instrumentIDs, int e
                     }
                 }
                 
-                if (callback) callback(true, "Subscription successful");
+                emit subscriptionCompleted(true, "Subscription successful");
                 return;
             }
         }
-    
-    if (callback) callback(false, "Subscription failed");
+        
+        emit subscriptionCompleted(false, "Subscription failed");
+    }).detach();
 }
 
-void XTSMarketDataClient::unsubscribe(const QVector<int64_t> &instrumentIDs,
-                                       std::function<void(bool, const QString&)> callback)
+void XTSMarketDataClient::unsubscribe(const QVector<int64_t> &instrumentIDs, int exchangeSegment)
 {
     if (!m_wsConnected) {
-        if (callback) callback(false, "WebSocket not connected");
+        emit unsubscriptionCompleted(false, "WebSocket not connected");
         return;
     }
 
@@ -245,6 +236,7 @@ void XTSMarketDataClient::unsubscribe(const QVector<int64_t> &instrumentIDs,
     QJsonArray instruments;
     for (int64_t id : instrumentIDs) {
         QJsonObject inst;
+        inst["exchangeSegment"] = exchangeSegment;
         inst["exchangeInstrumentID"] = (qint64)id;
         instruments.append(inst);
     }
@@ -254,36 +246,34 @@ void XTSMarketDataClient::unsubscribe(const QVector<int64_t> &instrumentIDs,
     std::string jsonMsg = doc.toJson(QJsonDocument::Compact).toStdString();
     m_nativeWS->sendText(jsonMsg);
 
-    if (callback) callback(true, "Unsubscription request sent");
+    emit unsubscriptionCompleted(true, "Unsubscription request sent");
 }
 
-void XTSMarketDataClient::setTickHandler(std::function<void(const XTS::Tick&)> handler)
-{
-    m_tickHandler = handler;
-}
 
-void XTSMarketDataClient::getInstruments(int exchangeSegment,
-                                          std::function<void(bool, const QVector<XTS::Instrument>&, const QString&)> callback)
+
+void XTSMarketDataClient::getInstruments(int exchangeSegment)
 {
     if (m_token.isEmpty()) {
-        if (callback) callback(false, QVector<XTS::Instrument>(), "Not logged in");
+        emit instrumentsReceived(false, QVector<XTS::Instrument>(), "Not logged in");
         return;
     }
 
-    std::string url = (m_baseURL + "/marketdata/instruments/master?exchangeSegment=" + QString::number(exchangeSegment)).toStdString();
-    
-    std::map<std::string, std::string> headers;
-    headers["Authorization"] = m_token.toStdString();
-    
-    auto response = m_httpClient->get(url, headers);
-    
-    if (!response.success) {
-        if (callback) callback(false, QVector<XTS::Instrument>(), QString::fromStdString(response.error));
-        return;
-    }
-    
-    QJsonDocument doc = QJsonDocument::fromJson(QByteArray::fromStdString(response.body));
-    QJsonObject obj = doc.object();
+    // Run in separate thread
+    std::thread([this, exchangeSegment]() {
+        std::string url = (m_baseURL + "/marketdata/instruments/master?exchangeSegment=" + QString::number(exchangeSegment)).toStdString();
+        
+        std::map<std::string, std::string> headers;
+        headers["Authorization"] = m_token.toStdString();
+        
+        auto response = m_httpClient->get(url, headers);
+        
+        if (!response.success) {
+            emit instrumentsReceived(false, QVector<XTS::Instrument>(), QString::fromStdString(response.error));
+            return;
+        }
+        
+        QJsonDocument doc = QJsonDocument::fromJson(QByteArray::fromStdString(response.body));
+        QJsonObject obj = doc.object();
 
         if (obj["type"].toString() == "success") {
             QJsonArray instruments = obj["result"].toArray();
@@ -300,42 +290,44 @@ void XTSMarketDataClient::getInstruments(int exchangeSegment,
                 result.append(instrument);
             }
 
-            if (callback) callback(true, result, "Success");
+            emit instrumentsReceived(true, result, "Success");
         } else {
-            if (callback) callback(false, QVector<XTS::Instrument>(), obj["description"].toString());
+            emit instrumentsReceived(false, QVector<XTS::Instrument>(), obj["description"].toString());
         }
+    }).detach();
 }
 
-void XTSMarketDataClient::searchInstruments(const QString &searchString, int exchangeSegment,
-                                             std::function<void(bool, const QVector<XTS::Instrument>&, const QString&)> callback)
+void XTSMarketDataClient::searchInstruments(const QString &searchString, int exchangeSegment)
 {
     if (m_token.isEmpty()) {
-        if (callback) callback(false, QVector<XTS::Instrument>(), "Not logged in");
+        emit instrumentsReceived(false, QVector<XTS::Instrument>(), "Not logged in");
         return;
     }
 
-    std::string url = (m_baseURL + "/marketdata/search/instrumentsbystring").toStdString();
-    
-    QJsonObject searchData;
-    searchData["searchString"] = searchString;
-    searchData["exchangeSegment"] = exchangeSegment;
-    
-    QJsonDocument doc(searchData);
-    std::string body = doc.toJson().toStdString();
-    
-    std::map<std::string, std::string> headers;
-    headers["Content-Type"] = "application/json";
-    headers["Authorization"] = m_token.toStdString();
-    
-    auto response = m_httpClient->post(url, body, headers);
-    
-    if (!response.success) {
-        if (callback) callback(false, QVector<XTS::Instrument>(), QString::fromStdString(response.error));
-        return;
-    }
-    
-    QJsonDocument responseDoc = QJsonDocument::fromJson(QByteArray::fromStdString(response.body));
-    QJsonObject obj = responseDoc.object();
+    // Run in separate thread
+    std::thread([this, searchString, exchangeSegment]() {
+        std::string url = (m_baseURL + "/marketdata/search/instrumentsbystring").toStdString();
+        
+        QJsonObject searchData;
+        searchData["searchString"] = searchString;
+        searchData["exchangeSegment"] = exchangeSegment;
+        
+        QJsonDocument doc(searchData);
+        std::string body = doc.toJson().toStdString();
+        
+        std::map<std::string, std::string> headers;
+        headers["Content-Type"] = "application/json";
+        headers["Authorization"] = m_token.toStdString();
+        
+        auto response = m_httpClient->post(url, body, headers);
+        
+        if (!response.success) {
+            emit instrumentsReceived(false, QVector<XTS::Instrument>(), QString::fromStdString(response.error));
+            return;
+        }
+        
+        QJsonDocument responseDoc = QJsonDocument::fromJson(QByteArray::fromStdString(response.body));
+        QJsonObject obj = responseDoc.object();
 
         if (obj["type"].toString() == "success") {
             QJsonArray instruments = obj["result"].toArray();
@@ -351,59 +343,61 @@ void XTSMarketDataClient::searchInstruments(const QString &searchString, int exc
                 result.append(instrument);
             }
 
-            if (callback) callback(true, result, "Success");
+            emit instrumentsReceived(true, result, "Success");
         } else {
-            if (callback) callback(false, QVector<XTS::Instrument>(), obj["description"].toString());
+            emit instrumentsReceived(false, QVector<XTS::Instrument>(), obj["description"].toString());
         }
+    }).detach();
 }
 
-void XTSMarketDataClient::getQuote(int64_t exchangeInstrumentID, int exchangeSegment,
-                                   std::function<void(bool, const QJsonObject&, const QString&)> callback)
+void XTSMarketDataClient::getQuote(int64_t exchangeInstrumentID, int exchangeSegment)
 {
     if (m_token.isEmpty()) {
-        if (callback) callback(false, QJsonObject(), "Not logged in");
+        emit quoteReceived(false, QJsonObject(), "Not logged in");
         return;
     }
 
-    std::string url = (m_baseURL + "/instruments/quotes").toStdString();
-    
-    QJsonObject reqObj;
-    QJsonArray instruments;
-    QJsonObject inst;
-    inst["exchangeSegment"] = exchangeSegment;
-    inst["exchangeInstrumentID"] = (qint64)exchangeInstrumentID;
-    instruments.append(inst);
-    reqObj["instruments"] = instruments;
-    reqObj["xtsMessageCode"] = 1502;
-    reqObj["publishFormat"] = "JSON";
-    
-    QJsonDocument doc(reqObj);
-    std::string body = doc.toJson().toStdString();
-    
-    qDebug() << "[XTSMarketDataClient] getQuote POST URL:" << QString::fromStdString(url);
-    qDebug() << "[XTSMarketDataClient] getQuote Request Body:" << doc.toJson(QJsonDocument::Compact);
-    qDebug() << "[XTSMarketDataClient] getQuote Authorization:" << m_token.left(20) + "...";
-    
-    std::map<std::string, std::string> headers;
-    headers["Content-Type"] = "application/json";
-    headers["Authorization"] = m_token.toStdString();
-    
-    auto response = m_httpClient->post(url, body, headers);
-    
-    if (!response.success) {
-        if (callback) callback(false, QJsonObject(), QString::fromStdString(response.error));
-        return;
-    }
-    
-    qDebug() << "[XTSMarketDataClient] getQuote Response:" << QString::fromStdString(response.body);
-    
-    QJsonDocument responseDoc = QJsonDocument::fromJson(QByteArray::fromStdString(response.body));
-    if (responseDoc.isNull() || !responseDoc.isObject()) {
-        if (callback) callback(false, QJsonObject(), "Invalid JSON response");
-        return;
-    }
-    
-    QJsonObject obj = responseDoc.object();
+    // Run in separate thread
+    std::thread([this, exchangeInstrumentID, exchangeSegment]() {
+        std::string url = (m_baseURL + "/instruments/quotes").toStdString();
+        
+        QJsonObject reqObj;
+        QJsonArray instruments;
+        QJsonObject inst;
+        inst["exchangeSegment"] = exchangeSegment;
+        inst["exchangeInstrumentID"] = (qint64)exchangeInstrumentID;
+        instruments.append(inst);
+        reqObj["instruments"] = instruments;
+        reqObj["xtsMessageCode"] = 1502;
+        reqObj["publishFormat"] = "JSON";
+        
+        QJsonDocument doc(reqObj);
+        std::string body = doc.toJson().toStdString();
+        
+        qDebug() << "[XTSMarketDataClient] getQuote POST URL:" << QString::fromStdString(url);
+        qDebug() << "[XTSMarketDataClient] getQuote Request Body:" << doc.toJson(QJsonDocument::Compact);
+        qDebug() << "[XTSMarketDataClient] getQuote Authorization:" << m_token.left(20) + "...";
+        
+        std::map<std::string, std::string> headers;
+        headers["Content-Type"] = "application/json";
+        headers["Authorization"] = m_token.toStdString();
+        
+        auto response = m_httpClient->post(url, body, headers);
+        
+        if (!response.success) {
+            emit quoteReceived(false, QJsonObject(), QString::fromStdString(response.error));
+            return;
+        }
+        
+        qDebug() << "[XTSMarketDataClient] getQuote Response:" << QString::fromStdString(response.body);
+        
+        QJsonDocument responseDoc = QJsonDocument::fromJson(QByteArray::fromStdString(response.body));
+        if (responseDoc.isNull() || !responseDoc.isObject()) {
+            emit quoteReceived(false, QJsonObject(), "Invalid JSON response");
+            return;
+        }
+        
+        QJsonObject obj = responseDoc.object();
         if (obj["type"].toString() == "success") {
             QJsonObject result = obj["result"].toObject();
             
@@ -414,66 +408,68 @@ void XTSMarketDataClient::getQuote(int64_t exchangeInstrumentID, int exchangeSeg
                 QJsonDocument quoteDoc = QJsonDocument::fromJson(quoteStr.toUtf8());
                 if (!quoteDoc.isNull() && quoteDoc.isObject()) {
                     QJsonObject quoteData = quoteDoc.object();
-                    if (callback) callback(true, quoteData, "Success");
+                    emit quoteReceived(true, quoteData, "Success");
                     return;
                 }
             }
             
             // Fallback to result if no listQuotes
-            if (callback) callback(true, result, "Success");
+            emit quoteReceived(true, result, "Success");
         } else {
-            if (callback) callback(false, QJsonObject(), obj["description"].toString());
+            emit quoteReceived(false, QJsonObject(), obj["description"].toString());
         }
+    }).detach();
 }
 
-void XTSMarketDataClient::getQuote(const QVector<int64_t> &instrumentIDs, int exchangeSegment,
-                                   std::function<void(bool, const QVector<QJsonObject>&, const QString&)> callback)
+void XTSMarketDataClient::getQuoteBatch(const QVector<int64_t> &instrumentIDs, int exchangeSegment)
 {
     if (m_token.isEmpty()) {
-        if (callback) callback(false, QVector<QJsonObject>(), "Not logged in");
+        emit quoteBatchReceived(false, QVector<QJsonObject>(), "Not logged in");
         return;
     }
 
-    std::string url = (m_baseURL + "/instruments/quotes").toStdString();
-    
-    QJsonObject reqObj;
-    QJsonArray instruments;
-    for (int64_t id : instrumentIDs) {
-        QJsonObject inst;
-        inst["exchangeSegment"] = exchangeSegment;
-        inst["exchangeInstrumentID"] = (qint64)id;
-        instruments.append(inst);
-    }
-    reqObj["instruments"] = instruments;
-    reqObj["xtsMessageCode"] = 1502;
-    reqObj["publishFormat"] = "JSON";
-    
-    QJsonDocument doc(reqObj);
-    std::string body = doc.toJson().toStdString();
-    
-    qDebug() << "[XTSMarketDataClient] getQuote (multiple) POST URL:" << QString::fromStdString(url);
-    qDebug() << "[XTSMarketDataClient] getQuote Request Body:" << doc.toJson(QJsonDocument::Compact);
-    
-    std::map<std::string, std::string> headers;
-    headers["Content-Type"] = "application/json";
-    headers["Authorization"] = m_token.toStdString();
-    
-    auto response = m_httpClient->post(url, body, headers);
-    
-    if (!response.success) {
-        if (callback) callback(false, QVector<QJsonObject>(), QString::fromStdString(response.error));
-        return;
-    }
-    
-    qDebug() << "[XTSMarketDataClient] getQuote (multiple) Response:" << QString::fromStdString(response.body);
-    
-    QJsonDocument responseDoc = QJsonDocument::fromJson(QByteArray::fromStdString(response.body));
-    if (responseDoc.isNull() || !responseDoc.isObject()) {
-        if (callback) callback(false, QVector<QJsonObject>(), "Invalid JSON response");
-        return;
-    }
-    
-    QJsonObject obj = responseDoc.object();
+    // Run in separate thread
+    std::thread([this, instrumentIDs, exchangeSegment]() {
+        std::string url = (m_baseURL + "/instruments/quotes").toStdString();
+        
+        QJsonObject reqObj;
+        QJsonArray instruments;
+        for (int64_t id : instrumentIDs) {
+            QJsonObject inst;
+            inst["exchangeSegment"] = exchangeSegment;
+            inst["exchangeInstrumentID"] = (qint64)id;
+            instruments.append(inst);
+        }
+        reqObj["instruments"] = instruments;
+        reqObj["xtsMessageCode"] = 1502;
+        reqObj["publishFormat"] = "JSON";
+        
+        QJsonDocument doc(reqObj);
+        std::string body = doc.toJson().toStdString();
+        
+        qDebug() << "[XTSMarketDataClient] getQuoteBatch POST URL:" << QString::fromStdString(url);
+        qDebug() << "[XTSMarketDataClient] getQuoteBatch Request Body:" << doc.toJson(QJsonDocument::Compact);
+        
+        std::map<std::string, std::string> headers;
+        headers["Content-Type"] = "application/json";
+        headers["Authorization"] = m_token.toStdString();
+        
+        auto response = m_httpClient->post(url, body, headers);
+        
+        if (!response.success) {
+            emit quoteBatchReceived(false, QVector<QJsonObject>(), QString::fromStdString(response.error));
+            return;
+        }
+        
+        qDebug() << "[XTSMarketDataClient] getQuoteBatch Response:" << QString::fromStdString(response.body);
+        
+        QJsonDocument responseDoc = QJsonDocument::fromJson(QByteArray::fromStdString(response.body));
+        if (responseDoc.isNull() || !responseDoc.isObject()) {
+            emit quoteBatchReceived(false, QVector<QJsonObject>(), "Invalid JSON response");
+            return;
+        }
+        
+        QJsonObject obj = responseDoc.object();
         if (obj["type"].toString() == "success") {
             QJsonObject result = obj["result"].toObject();
             QJsonArray listQuotes = result["listQuotes"].toArray();
@@ -487,32 +483,29 @@ void XTSMarketDataClient::getQuote(const QVector<int64_t> &instrumentIDs, int ex
                 }
             }
             
-            if (callback) callback(true, quotes, "Success");
+            emit quoteBatchReceived(true, quotes, "Success");
         } else {
-            if (callback) callback(false, QVector<QJsonObject>(), obj["description"].toString());
+            emit quoteBatchReceived(false, QVector<QJsonObject>(), obj["description"].toString());
         }
+    }).detach();
 }
 
 void XTSMarketDataClient::onWSConnected()
 {
     m_wsConnected = true;
     qDebug() << "✅ Native WebSocket connected";
-    emit connectionStatusChanged(true);
+    emit wsConnectionStatusChanged(true, "Connected");
     
     // Socket.IO connect (40/) is already sent by NativeWebSocketClient::connect()
     // No need to send it again here to avoid duplicate connections
-    
-    if (m_wsConnectCallback) {
-        m_wsConnectCallback(true, "Connected");
-        m_wsConnectCallback = nullptr;
-    }
 }
 
 void XTSMarketDataClient::onWSDisconnected(const std::string& reason)
 {
     m_wsConnected = false;
-    qDebug() << "❌ Native WebSocket disconnected:" << QString::fromStdString(reason);
-    emit connectionStatusChanged(false);
+    QString reasonStr = QString::fromStdString(reason);
+    qDebug() << "❌ Native WebSocket disconnected:" << reasonStr;
+    emit wsConnectionStatusChanged(false, reasonStr);
     // Note: Native client handles reconnection internally with exponential backoff
 }
 
@@ -520,12 +513,8 @@ void XTSMarketDataClient::onWSError(const std::string& error)
 {
     QString errorStr = QString::fromStdString(error);
     qWarning() << "Native WebSocket error:" << errorStr;
+    emit wsConnectionStatusChanged(false, errorStr);
     emit errorOccurred(errorStr);
-    
-    if (m_wsConnectCallback) {
-        m_wsConnectCallback(false, errorStr);
-        m_wsConnectCallback = nullptr;
-    }
 }
 
 void XTSMarketDataClient::onWSMessage(const std::string& message)
@@ -776,18 +765,14 @@ void XTSMarketDataClient::processTickData(const QJsonObject &json)
     
     // Call handler if set
 
-    if (m_tickHandler) {
-        m_tickHandler(tick);
-    }
-
+    // Always emit signal for subscribers
     emit tickReceived(tick);
 }
 
-void XTSMarketDataClient::downloadMasterContracts(const QStringList &exchangeSegments,
-                                                    std::function<void(bool, const QString&, const QString&)> callback)
+void XTSMarketDataClient::downloadMasterContracts(const QStringList &exchangeSegments)
 {
     if (m_token.isEmpty()) {
-        callback(false, QString(), "Not authenticated - please login first");
+        emit masterContractsDownloaded(false, QString(), "Not authenticated - please login first");
         return;
     }
 
@@ -807,7 +792,7 @@ void XTSMarketDataClient::downloadMasterContracts(const QStringList &exchangeSeg
     
     std::cout << "[XTS] Starting master download in background thread..." << std::endl;
     
-    std::thread([this, url, token, body, callback]() {
+    std::thread([this, url, token, body]() {
         std::map<std::string, std::string> headers;
         headers["Content-Type"] = "application/json";
         headers["Authorization"] = token;
@@ -815,18 +800,14 @@ void XTSMarketDataClient::downloadMasterContracts(const QStringList &exchangeSeg
         auto response = m_httpClient->post(url, body, headers);
         
         if (!response.success) {
-            QMetaObject::invokeMethod(this, [callback, error = response.error]() {
-                callback(false, QString(), "Network error: " + QString::fromStdString(error));
-            }, Qt::QueuedConnection);
+            emit masterContractsDownloaded(false, QString(), "Network error: " + QString::fromStdString(response.error));
             return;
         }
         
         QJsonDocument doc = QJsonDocument::fromJson(QByteArray::fromStdString(response.body));
         
         if (doc.isNull() || !doc.isObject()) {
-            QMetaObject::invokeMethod(this, [callback]() {
-                callback(false, QString(), "Invalid JSON response");
-            }, Qt::QueuedConnection);
+            emit masterContractsDownloaded(false, QString(), "Invalid JSON response");
             return;
         }
         
@@ -835,9 +816,7 @@ void XTSMarketDataClient::downloadMasterContracts(const QStringList &exchangeSeg
         
         if (type != "success") {
             QString error = obj["description"].toString();
-            QMetaObject::invokeMethod(this, [callback, error]() {
-                callback(false, QString(), "Download failed: " + error);
-            }, Qt::QueuedConnection);
+            emit masterContractsDownloaded(false, QString(), "Download failed: " + error);
             return;
         }
         
@@ -854,10 +833,8 @@ void XTSMarketDataClient::downloadMasterContracts(const QStringList &exchangeSeg
         
         std::cout << "[XTS] Master download complete (" << csvData.length() << " bytes)" << std::endl;
         
-        // Invoke callback on main thread
-        QMetaObject::invokeMethod(this, [callback, csvData]() {
-            callback(true, csvData, QString());
-        }, Qt::QueuedConnection);
+        // Emit signal with downloaded data
+        emit masterContractsDownloaded(true, csvData, QString());
         
     }).detach(); // Detach thread to run independently
 }

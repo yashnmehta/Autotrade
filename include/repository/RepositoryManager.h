@@ -11,6 +11,11 @@
 #include <QHash>
 #include <memory>
 
+// Forward declare price stores
+namespace nsefo { class PriceStore; class IndexStore; }
+namespace nsecm { class PriceStore; class IndexStore; }
+namespace bse { class PriceStore; class IndexStore; }
+
 /**
  * @brief Unified Repository Manager for all exchange segments
  * 
@@ -104,6 +109,16 @@ public:
      * @return true if at least one segment saved successfully
      */
     bool saveProcessedCSVs(const QString& mastersPath = "Masters");
+    
+    /**
+     * @brief Initialize distributed price stores with contract master tokens
+     * 
+     * Call this after loading contract masters to populate valid tokens
+     * in the UDP reader thread-local price stores. This enables:
+     * - NSE FO: Mark valid token slots in indexed array
+     * - Others: Pre-populate valid token sets for validation
+     */
+    void initializeDistributedStores();
     
     // ===== SEARCH METHODS (Array-Based, No API Calls) =====
     

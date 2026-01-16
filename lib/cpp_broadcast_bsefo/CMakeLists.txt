@@ -9,6 +9,7 @@ include_directories(include)
 set(SOURCES
     src/bse_receiver.cpp
     src/bse_parser.cpp
+    src/bse_price_store.cpp
 )
 
 # Define headers
@@ -17,6 +18,7 @@ set(HEADERS
     include/bse_parser.h
     include/bse_protocol.h
     include/bse_utils.h
+    include/bse_price_store.h
 )
 
 # Create library
