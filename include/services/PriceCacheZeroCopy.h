@@ -337,6 +337,20 @@ public:
      */
     void update(const UDP::MarketTick& tick);
 
+    /**
+     * @brief Export cache state to log file for debugging
+     * @param filePath Path to output file
+     * @param maxTokens Maximum tokens to export (0 = all)
+     */
+    void exportCacheToFile(const QString& filePath, uint32_t maxTokens = 100);
+
+    /**
+     * @brief Get count of tokens with non-zero LTP in a segment
+     * @param segment Market segment to check
+     * @return Count of tokens with lastTradedPrice > 0
+     */
+    uint32_t getActiveTokenCount(MarketSegment segment) const;
+
 signals:
     /**
      * @brief Emitted when subscription is ready (ASYNC)

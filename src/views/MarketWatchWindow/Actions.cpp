@@ -2,6 +2,7 @@
 #include "models/TokenAddressBook.h"
 #include "services/TokenSubscriptionManager.h"
 #include "services/PriceCache.h"
+#include "services/PriceCacheZeroCopy.h"
 #include "utils/ClipboardHelpers.h"
 #include "utils/SelectionHelpers.h"
 #include "views/helpers/MarketWatchHelpers.h"
@@ -458,6 +459,47 @@ void MarketWatchWindow::onLoadPortfolio()
     }
 
     QMessageBox::information(this, tr("Success"), tr("Portfolio loaded successfully."));
+}
+
+void MarketWatchWindow::exportPriceCacheDebug()
+{
+    QString fileName = QFileDialog::getSaveFileName(
+        this,
+        tr("Export Price Cache Debug"),
+        "price_cache_export.txt",
+        tr("Text Files (*.txt);;All Files (*)")
+    );
+    
+    if (fileName.isEmpty()) {
+        return;
+    }
+    
+    qDebug() << "[MarketWatch] Exporting price cache to:" << fileName;
+    
+    // Export zero-copy cache
+    PriceCacheTypes::PriceCacheZeroCopy::getInstance().exportCacheToFile(fileName, 200);
+    
+    // Show active token counts
+    uint32_t nseCmActive = PriceCacheTypes::PriceCacheZeroCopy::getInstance()
+        .getActiveTokenCount(PriceCacheTypes::MarketSegment::NSE_CM);
+    uint32_t nseFoActive = PriceCacheTypes::PriceCacheZeroCopy::getInstance()
+        .getActiveTokenCount(PriceCacheTypes::MarketSegment::NSE_FO);
+    uint32_t bseCmActive = PriceCacheTypes::PriceCacheZeroCopy::getInstance()
+        .getActiveTokenCount(PriceCacheTypes::MarketSegment::BSE_CM);
+    uint32_t bseFoActive = PriceCacheTypes::PriceCacheZeroCopy::getInstance()
+        .getActiveTokenCount(PriceCacheTypes::MarketSegment::BSE_FO);
+    
+    QString message = QString(
+        "Price cache exported to:\n%1\n\n"
+        "Active tokens (with LTP > 0):\n"
+        "NSE CM: %2\n"
+        "NSE FO: %3\n"
+        "BSE CM: %4\n"
+        "BSE FO: %5\n\n"
+        "Check console for update logs."
+    ).arg(fileName).arg(nseCmActive).arg(nseFoActive).arg(bseCmActive).arg(bseFoActive);
+    
+    QMessageBox::information(this, tr("Cache Export Complete"), message);
 }
 
 void MarketWatchWindow::saveState(QSettings &settings)

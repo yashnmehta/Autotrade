@@ -246,6 +246,11 @@ public slots:
     void restoreState(QSettings &settings);
 
     /**
+     * @brief Export price cache state for debugging
+     */
+    void exportPriceCacheDebug();
+
+    /**
      * @brief Copy selected rows to clipboard
      */
     void copyToClipboard();

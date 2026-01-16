@@ -140,6 +140,10 @@ void MarketWatchWindow::showContextMenu(const QPoint &pos)
     menu.addAction("Save Portfolio...", this, &MarketWatchWindow::onSavePortfolio);
     menu.addAction("Load Portfolio...", this, &MarketWatchWindow::onLoadPortfolio);
     
+    // Debug Tools
+    menu.addSeparator();
+    menu.addAction("Export Cache Debug (Ctrl+Shift+E)", this, &MarketWatchWindow::exportPriceCacheDebug);
+    
     menu.exec(this->viewport()->mapToGlobal(pos));
 }
 
@@ -154,4 +158,13 @@ void MarketWatchWindow::showColumnProfileDialog()
         
         qDebug() << "[MarketWatchWindow] Column profile updated to:" << newProfile.name();
     }
+}
+
+void MarketWatchWindow::setupKeyboardShortcuts()
+{
+    // Ctrl+Shift+E - Export price cache for debugging
+    QShortcut *exportShortcut = new QShortcut(QKeySequence("Ctrl+Shift+E"), this);
+    connect(exportShortcut, &QShortcut::activated, this, &MarketWatchWindow::exportPriceCacheDebug);
+    
+    qDebug() << "[MarketWatch] Keyboard shortcuts registered: Ctrl+Shift+E = Export Cache";
 }

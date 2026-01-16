@@ -1,5 +1,7 @@
 #include "services/PriceCacheZeroCopy.h"
 #include <QDebug>
+#include <QFile>
+#include <QTextStream>
 #include <chrono>
 #include <cstring>
 #include <new>  // for std::align_val_t
@@ -465,16 +467,39 @@ void PriceCacheZeroCopy::update(const XTS::Tick& tick)
 
 void PriceCacheZeroCopy::update(const UDP::MarketTick& tick)
 {
-    if (!m_initialized.load()) return;
+    if (!m_initialized.load()) {
+        static int warningCount = 0;
+        if (warningCount++ < 5) {
+            qWarning() << "[PriceCacheZeroCopy] update() called but cache NOT INITIALIZED! Segment:" 
+                       << tick.exchangeSegment << "Token:" << tick.token;
+        }
+        return;
+    }
 
     MarketSegment segment = static_cast<MarketSegment>(tick.exchangeSegment);
     uint32_t tokenIndex = 0;
     if (!getTokenIndex(tick.token, segment, tokenIndex)) {
+        static int notFoundCount = 0;
+        if (notFoundCount++ < 10) {
+            qWarning() << "[PriceCacheZeroCopy] Token not found in map! Segment:" 
+                       << tick.exchangeSegment << "Token:" << tick.token;
+        }
         return;
     }
 
     ConsolidatedMarketData* data = calculatePointer(tokenIndex, segment);
-    if (!data) return;
+    if (!data) {
+        qWarning() << "[PriceCacheZeroCopy] calculatePointer returned nullptr! Segment:" 
+                   << tick.exchangeSegment << "Token:" << tick.token << "Index:" << tokenIndex;
+        return;
+    }
+
+    // Debug first few updates
+    static int updateCount = 0;
+    if (updateCount++ < 20) {
+        qDebug() << "[PriceCacheZeroCopy] UPDATE #" << updateCount << "- Segment:" << tick.exchangeSegment 
+                 << "Token:" << tick.token << "LTP:" << tick.ltp << "Vol:" << tick.volume;
+    }
 
     // ========== MESSAGE-CODE-AWARE MERGE LOGIC ==========
     
@@ -542,6 +567,129 @@ void PriceCacheZeroCopy::update(const UDP::MarketTick& tick)
     
     // Update timestamp for staleness tracking
     data->lastUpdateTime = tick.timestampEmitted;
+}
+
+// ============================================================================
+// Debug / Export Functions
+// ============================================================================
+
+void PriceCacheZeroCopy::exportCacheToFile(const QString& filePath, uint32_t maxTokens)
+{
+    if (!m_initialized.load()) {
+        qWarning() << "[PriceCacheZeroCopy] Cannot export - cache not initialized";
+        return;
+    }
+
+    QFile file(filePath);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        qWarning() << "[PriceCacheZeroCopy] Failed to open file for export:" << filePath;
+        return;
+    }
+
+    QTextStream out(&file);
+    out << "========================================\n";
+    out << "PriceCacheZeroCopy Export\n";
+    out << "========================================\n\n";
+    
+    auto exportSegment = [&](const QString& segmentName, MarketSegment segment, 
+                             ConsolidatedMarketData* array, uint32_t count,
+                             const std::unordered_map<uint32_t, uint32_t>& tokenMap) {
+        out << "\n" << segmentName << " (Total: " << count << " tokens)\n";
+        out << "-----------------------------------\n";
+        
+        uint32_t exported = 0;
+        uint32_t activeCount = 0;
+        
+        for (const auto& pair : tokenMap) {
+            uint32_t token = pair.first;
+            uint32_t index = pair.second;
+            
+            if (maxTokens > 0 && exported >= maxTokens) break;
+            
+            ConsolidatedMarketData* data = &array[index];
+            if (data->lastTradedPrice > 0) {
+                activeCount++;
+                out << QString("Token %1 (Index %2): LTP=₹%3 Vol=%4 O=%5 H=%6 L=%7 C=%8 Time=%9\n")
+                    .arg(token)
+                    .arg(index)
+                    .arg(data->lastTradedPrice / 100.0, 0, 'f', 2)
+                    .arg(data->volumeTradedToday)
+                    .arg(data->openPrice / 100.0, 0, 'f', 2)
+                    .arg(data->highPrice / 100.0, 0, 'f', 2)
+                    .arg(data->lowPrice / 100.0, 0, 'f', 2)
+                    .arg(data->closePrice / 100.0, 0, 'f', 2)
+                    .arg(data->lastUpdateTime);
+                exported++;
+            }
+        }
+        
+        out << QString("\nActive tokens in %1: %2 / %3 (%4%)\n")
+            .arg(segmentName)
+            .arg(activeCount)
+            .arg(count)
+            .arg(count > 0 ? (activeCount * 100.0 / count) : 0.0, 0, 'f', 1);
+    };
+    
+    // Export each segment
+    if (m_nseCmCount > 0) {
+        exportSegment("NSE CM", MarketSegment::NSE_CM, m_nseCmArray, m_nseCmCount, m_nseCmTokenMap);
+    }
+    if (m_nseFoCount > 0) {
+        exportSegment("NSE FO", MarketSegment::NSE_FO, m_nseFoArray, m_nseFoCount, m_nseFoTokenMap);
+    }
+    if (m_bseCmCount > 0) {
+        exportSegment("BSE CM", MarketSegment::BSE_CM, m_bseCmArray, m_bseCmCount, m_bseCmTokenMap);
+    }
+    if (m_bsFoCount > 0) {
+        exportSegment("BSE FO", MarketSegment::BSE_FO, m_bseFoArray, m_bsFoCount, m_bseFoTokenMap);
+    }
+    
+    out << "\n========================================\n";
+    out << "Export Complete\n";
+    out << "========================================\n";
+    
+    file.close();
+    qDebug() << "[PriceCacheZeroCopy] Cache exported to:" << filePath;
+}
+
+uint32_t PriceCacheZeroCopy::getActiveTokenCount(MarketSegment segment) const
+{
+    if (!m_initialized.load()) return 0;
+
+    uint32_t activeCount = 0;
+    ConsolidatedMarketData* array = nullptr;
+    uint32_t count = 0;
+
+    switch (segment) {
+        case MarketSegment::NSE_CM:
+            array = m_nseCmArray;
+            count = m_nseCmCount;
+            break;
+        case MarketSegment::NSE_FO:
+            array = m_nseFoArray;
+            count = m_nseFoCount;
+            break;
+        case MarketSegment::BSE_CM:
+            array = m_bseCmArray;
+            count = m_bseCmCount;
+            break;
+        case MarketSegment::BSE_FO:
+            array = m_bseFoArray;
+            count = m_bsFoCount;
+            break;
+        default:
+            return 0;
+    }
+
+    if (!array) return 0;
+
+    for (uint32_t i = 0; i < count; ++i) {
+        if (array[i].lastTradedPrice > 0) {
+            activeCount++;
+        }
+    }
+
+    return activeCount;
 }
 
 } // namespace PriceCacheTypes
