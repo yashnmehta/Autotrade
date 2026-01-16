@@ -160,11 +160,4 @@ void MarketWatchWindow::showColumnProfileDialog()
     }
 }
 
-void MarketWatchWindow::setupKeyboardShortcuts()
-{
-    // Ctrl+Shift+E - Export price cache for debugging
-    QShortcut *exportShortcut = new QShortcut(QKeySequence("Ctrl+Shift+E"), this);
-    connect(exportShortcut, &QShortcut::activated, this, &MarketWatchWindow::exportPriceCacheDebug);
-    
-    qDebug() << "[MarketWatch] Keyboard shortcuts registered: Ctrl+Shift+E = Export Cache";
-}
+

@@ -471,7 +471,7 @@ void PriceCacheZeroCopy::update(const UDP::MarketTick& tick)
         static int warningCount = 0;
         if (warningCount++ < 5) {
             qWarning() << "[PriceCacheZeroCopy] update() called but cache NOT INITIALIZED! Segment:" 
-                       << tick.exchangeSegment << "Token:" << tick.token;
+                       << static_cast<int>(tick.exchangeSegment) << "Token:" << tick.token;
         }
         return;
     }
@@ -482,7 +482,7 @@ void PriceCacheZeroCopy::update(const UDP::MarketTick& tick)
         static int notFoundCount = 0;
         if (notFoundCount++ < 10) {
             qWarning() << "[PriceCacheZeroCopy] Token not found in map! Segment:" 
-                       << tick.exchangeSegment << "Token:" << tick.token;
+                       << static_cast<int>(tick.exchangeSegment) << "Token:" << tick.token;
         }
         return;
     }
@@ -490,14 +490,14 @@ void PriceCacheZeroCopy::update(const UDP::MarketTick& tick)
     ConsolidatedMarketData* data = calculatePointer(tokenIndex, segment);
     if (!data) {
         qWarning() << "[PriceCacheZeroCopy] calculatePointer returned nullptr! Segment:" 
-                   << tick.exchangeSegment << "Token:" << tick.token << "Index:" << tokenIndex;
+                   << static_cast<int>(tick.exchangeSegment) << "Token:" << tick.token << "Index:" << tokenIndex;
         return;
     }
 
     // Debug first few updates
     static int updateCount = 0;
     if (updateCount++ < 20) {
-        qDebug() << "[PriceCacheZeroCopy] UPDATE #" << updateCount << "- Segment:" << tick.exchangeSegment 
+        qDebug() << "[PriceCacheZeroCopy] UPDATE #" << updateCount << "- Segment:" << static_cast<int>(tick.exchangeSegment)
                  << "Token:" << tick.token << "LTP:" << tick.ltp << "Vol:" << tick.volume;
     }
 

@@ -96,6 +96,9 @@ void setupMarketWatchShortcuts(MarketWatchWindow* window) {
     QObject::connect(new QShortcut(QKeySequence::Cut, window), &QShortcut::activated, window, &MarketWatchWindow::cutToClipboard);
     QObject::connect(new QShortcut(QKeySequence::Paste, window), &QShortcut::activated, window, &MarketWatchWindow::pasteFromClipboard);
     QObject::connect(new QShortcut(QKeySequence::SelectAll, window), &QShortcut::activated, window, (void (QTableView::*)())&QTableView::selectAll);
+    
+    // Ctrl+Shift+E - Export price cache for debugging
+    QObject::connect(new QShortcut(QKeySequence("Ctrl+Shift+E"), window), &QShortcut::activated, window, &MarketWatchWindow::exportPriceCacheDebug);
 }
 
 // --- SNAP QUOTE SHORTCUTS ---

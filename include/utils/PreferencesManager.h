@@ -71,6 +71,7 @@ public:
     // ============================================================================
     enum class FocusField { Quantity, Price, Scrip };
     FocusField getOrderWindowFocusField() const;
+    
     void setOrderWindowFocusField(FocusField field);
     QString focusFieldToString(FocusField field) const;
     FocusField stringToFocusField(const QString& str) const;
