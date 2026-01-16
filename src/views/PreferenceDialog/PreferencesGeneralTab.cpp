@@ -130,7 +130,7 @@ void PreferencesGeneralTab::loadPreferences()
     
     // Load Order Book default status
     if (m_orderBookStatusComboBox) {
-        QString status = m_prefsManager->value(KEY_ORDERBOOK_STATUS, "All").toString();
+        QString status = m_prefsManager->getOrderBookDefaultFilter();
         int index = m_orderBookStatusComboBox->findText(status);
         if (index >= 0) {
             m_orderBookStatusComboBox->setCurrentIndex(index);
@@ -190,7 +190,7 @@ void PreferencesGeneralTab::savePreferences()
     
     // Save Order Book default status
     if (m_orderBookStatusComboBox) {
-        m_prefsManager->setValue(KEY_ORDERBOOK_STATUS, m_orderBookStatusComboBox->currentText());
+        m_prefsManager->setOrderBookDefaultFilter(m_orderBookStatusComboBox->currentText());
     }
     
     // Save tick data settings

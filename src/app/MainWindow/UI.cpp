@@ -445,6 +445,8 @@ void MainWindow::saveCurrentWorkspace() {
     settings.endGroup();
 }
 
+
+
 void MainWindow::loadWorkspace() {
     if (!m_mdiArea) return;
     QStringList workspaces = m_mdiArea->availableWorkspaces();
@@ -452,6 +454,17 @@ void MainWindow::loadWorkspace() {
     bool ok;
     QString name = QInputDialog::getItem(this, "Load Workspace", "Select workspace:", workspaces, 0, false, &ok);
     if (!ok || name.isEmpty()) return;
+    
+    loadWorkspaceByName(name);
+}
+
+bool MainWindow::loadWorkspaceByName(const QString& name) {
+    if (!m_mdiArea || name.isEmpty()) return false;
+    
+    // Check if workspace exists
+    if (!m_mdiArea->availableWorkspaces().contains(name)) {
+        return false;
+    }
 
     // 1. Restore Global Profiles (so newly created windows pick them up)
     QSettings settings("TradingCompany", "TradingTerminal");
@@ -474,6 +487,7 @@ void MainWindow::loadWorkspace() {
 
     // 2. Load Layout (this triggers onRestoreWindowRequested for each window)
     m_mdiArea->loadWorkspace(name);
+    return true;
 }
 
 void MainWindow::manageWorkspaces() {

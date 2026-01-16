@@ -57,6 +57,7 @@ public:
     void createIndicesView();     // Create IndicesView (called from main.cpp)
 
     // Order operations
+    bool loadWorkspaceByName(const QString& name);
     void placeOrder(const XTS::OrderParams &params);
     void modifyOrder(const XTS::ModifyOrderParams &params);
     void cancelOrder(int64_t appOrderID);
@@ -93,6 +94,7 @@ private slots:
     // Workspace management
     void saveCurrentWorkspace();
     void loadWorkspace();
+
     void manageWorkspaces();
     void onRestoreWindowRequested(const QString &type, const QString &title, const QRect &geometry, bool isMinimized, bool isMaximized, bool isPinned, const QString &workspaceName, int index);
     void showPreferences();

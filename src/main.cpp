@@ -5,6 +5,7 @@
 #include "services/TradingDataService.h"
 #include "utils/ConfigLoader.h"
 #include "utils/FileLogger.h"  // File logging
+#include "utils/PreferencesManager.h" // Preferences
 #include "api/XTSTypes.h"  // For XTS::Tick
 #include "udp/UDPTypes.h"   // For UDP::MarketTick, UDP::IndexTick
 #include <QApplication>
@@ -254,6 +255,17 @@ int main(int argc, char *argv[])
                         if (mainWindow != nullptr) {
                             qDebug() << "MainWindow pointer is valid, showing window...";
                             mainWindow->show();
+                            
+                            // Load Default Workspace
+                            QString defaultWorkspace = PreferencesManager::instance().getDefaultWorkspace();
+                            if (!defaultWorkspace.isEmpty() && defaultWorkspace != "Default") {
+                                if (mainWindow->loadWorkspaceByName(defaultWorkspace)) {
+                                    qDebug() << "Loaded default workspace:" << defaultWorkspace;
+                                } else {
+                                    qWarning() << "Default workspace not found or failed to load:" << defaultWorkspace;
+                                }
+                            }
+                            
                             mainWindow->raise();
                             mainWindow->activateWindow();
                             

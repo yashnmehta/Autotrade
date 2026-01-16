@@ -3,6 +3,7 @@
 #include "services/MasterDataState.h"
 #include "services/PriceCacheZeroCopy.h"
 #include "repository/RepositoryManager.h"
+#include "utils/PreferencesManager.h"
 #include <QDebug>
 #include <QCoreApplication>
 #include <QDir>
@@ -366,10 +367,16 @@ void LoginFlowService::continueLoginAfterMasters()
         // Phase 5: Fetch initial data
         updateStatus("data", "Loading account data...", 92);
         
-        // Fetch positions (NetWise includes carry forward and today's positions)
-        m_iaClient->getPositions("NetWise", [this](bool success, const QVector<XTS::Position> &positions, const QString &message) {
+        // Fetch positions based on user preference
+        QString preferredView = PreferencesManager::instance().getPositionBookDefaultView();
+        // Map "Net" -> "NetWise" to match API expected string
+        if (preferredView == "Net") preferredView = "NetWise";
+        
+        qDebug() << "[LoginFlowService] Fetching positions with preference:" << preferredView;
+
+        m_iaClient->getPositions(preferredView, [this, preferredView](bool success, const QVector<XTS::Position> &positions, const QString &message) {
             if (success) {
-                qDebug() << "[LoginFlowService] Loaded" << positions.size() << "NetWise positions";
+                qDebug() << "[LoginFlowService] Loaded" << positions.size() << preferredView << "positions";
                 
                 // Store in TradingDataService
                 if (m_tradingDataService) {
@@ -377,13 +384,17 @@ void LoginFlowService::continueLoginAfterMasters()
                 }
             } else {
                 qWarning() << "[LoginFlowService] Failed to load positions:" << message;
-                // Fallback to DayWise if NetWise fails (though usually both should work)
-                m_iaClient->getPositions("DayWise", [this](bool success, const QVector<XTS::Position> &positions, const QString &message) {
+                
+                // Fallback logic: Toggle between NetWise and DayWise
+                QString fallbackView = (preferredView == "NetWise") ? "DayWise" : "NetWise";
+                qWarning() << "[LoginFlowService] Attempting fallback to:" << fallbackView;
+                
+                m_iaClient->getPositions(fallbackView, [this, fallbackView](bool success, const QVector<XTS::Position> &positions, const QString &message) {
                      if (success && m_tradingDataService) {
-                         qDebug() << "[LoginFlowService] Loaded" << positions.size() << "DayWise positions (fallback)";
+                         qDebug() << "[LoginFlowService] Loaded" << positions.size() << fallbackView << "positions (fallback)";
                          m_tradingDataService->setPositions(positions);
                      } else {
-                         qWarning() << "[LoginFlowService] Failed to load DayWise positions during fallback:" << message;
+                         qWarning() << "[LoginFlowService] Failed to load positions during fallback:" << message;
                      }
                 });
             }
