@@ -83,6 +83,15 @@ BSEReceiver::BSEReceiver(const std::string& ip, int port, const std::string& seg
     }
 
     std::cout << "[" << segment_ << "] Connected to " << ip_ << ":" << port_ << std::endl;
+
+    // Set parser market segment for PriceCache writes
+    // Maps to PriceCacheTypes::MarketSegment enum:
+    // NSE_CM=1, NSE_FO=2, BSE_CM=11, BSE_FO=12
+    int segParams = -1;
+    if (segment_ == "BSE_CM") segParams = 11;  // BSE_CM enum value
+    else if (segment_ == "BSE_FO") segParams = 12;  // BSE_FO enum value
+    
+    parser_.setMarketSegment(segParams);
 }
 
 BSEReceiver::~BSEReceiver() {

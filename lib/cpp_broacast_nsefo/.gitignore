@@ -6,7 +6,7 @@ check_offsets
 *.o
 *.d
 gmon.out
-build/
+/build/
 
 # IDE files
 .vscode/

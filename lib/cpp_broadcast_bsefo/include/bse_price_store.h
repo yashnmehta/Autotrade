@@ -5,49 +5,53 @@
 #include <unordered_set>
 #include <vector>
 #include <cstdint>
+#include <shared_mutex>
 #include <QDebug>
 #include "bse_protocol.h"
 
 namespace bse {
 
 /**
- * @brief Distributed price store for BSE (hash map)
+ * @brief Distributed price store for BSE (hash map with thread safety)
  * 
  * BSE uses HASH MAP for both FO and CM:
  * - Sparse token distribution
  * - Hash map for flexibility
+ * - Thread-safe: UDP thread writes, Qt thread reads
  */
 class PriceStore {
 public:
-    PriceStore() = default;  // Hash maps initialize empty automatically
+    PriceStore() = default;
     
     inline const DecodedRecord* updateRecord(const DecodedRecord& data) {
+        std::unique_lock lock(mutex_);
         records[data.token] = data;
         return &records[data.token];
     }
     
     inline const DecodedOpenInterest* updateOI(const DecodedOpenInterest& data) {
+        std::unique_lock lock(mutex_);
         openInterests[data.token] = data;
         return &openInterests[data.token];
     }
     
     inline const DecodedRecord* getRecord(uint32_t token) const {
+        std::shared_lock lock(mutex_);
         auto it = records.find(token);
         return (it != records.end()) ? &it->second : nullptr;
     }
     
     inline const DecodedOpenInterest* getOI(uint32_t token) const {
+        std::shared_lock lock(mutex_);
         auto it = openInterests.find(token);
         return (it != openInterests.end()) ? &it->second : nullptr;
     }
     
     /**
      * @brief Initialize valid tokens from contract master
-     * @param tokens Vector of valid tokens
-     * 
-     * Pre-populate valid token set. Called once after loading contract master.
      */
     void initializeFromMaster(const std::vector<uint32_t>& tokens) {
+        std::unique_lock lock(mutex_);
         validTokens.clear();
         validTokens.reserve(tokens.size());
         for (uint32_t token : tokens) {
@@ -63,6 +67,7 @@ public:
                         const char* scripCode, const char* series, int32_t lotSize,
                         double strikePrice, const char* optionType, const char* expiryDate,
                         int64_t assetToken, int32_t instrumentType, double tickSize) {
+        std::unique_lock lock(mutex_);
         // Pre-create entry with static fields
         DecodedRecord& rec = records[token];
         rec.token = token;
@@ -80,14 +85,27 @@ public:
     }
     
     bool isValidToken(uint32_t token) const {
+        std::shared_lock lock(mutex_);
         return validTokens.find(token) != validTokens.end();
     }
     
-    size_t recordCount() const { return records.size(); }
-    size_t oiCount() const { return openInterests.size(); }
-    size_t getValidTokenCount() const { return validTokens.size(); }
+    size_t recordCount() const {
+        std::shared_lock lock(mutex_);
+        return records.size();
+    }
+    
+    size_t oiCount() const {
+        std::shared_lock lock(mutex_);
+        return openInterests.size();
+    }
+    
+    size_t getValidTokenCount() const {
+        std::shared_lock lock(mutex_);
+        return validTokens.size();
+    }
     
     void clear() {
+        std::unique_lock lock(mutex_);
         records.clear();
         openInterests.clear();
         validTokens.clear();
@@ -96,31 +114,42 @@ public:
 private:
     std::unordered_map<uint32_t, DecodedRecord> records;
     std::unordered_map<uint32_t, DecodedOpenInterest> openInterests;
-    std::unordered_set<uint32_t> validTokens;  // Valid tokens from master
+    std::unordered_set<uint32_t> validTokens;
+    mutable std::shared_mutex mutex_;  // Thread-safe: UDP writes, Qt reads
 };
 
 /**
- * @brief Index data store for BSE (hash map)
+ * @brief Index data store for BSE (hash map with thread safety)
  */
 class IndexStore {
 public:
-    IndexStore() = default;  // Hash map initializes empty automatically
+    IndexStore() = default;
     
     inline const DecodedRecord* updateIndex(const DecodedRecord& data) {
+        std::unique_lock lock(mutex_);
         indices[data.token] = data;
         return &indices[data.token];
     }
     
     inline const DecodedRecord* getIndex(uint32_t token) const {
+        std::shared_lock lock(mutex_);
         auto it = indices.find(token);
         return (it != indices.end()) ? &it->second : nullptr;
     }
     
-    size_t indexCount() const { return indices.size(); }
-    void clear() { indices.clear(); }
+    size_t indexCount() const {
+        std::shared_lock lock(mutex_);
+        return indices.size();
+    }
+    
+    void clear() {
+        std::unique_lock lock(mutex_);
+        indices.clear();
+    }
 
 private:
     std::unordered_map<uint32_t, DecodedRecord> indices;
+    mutable std::shared_mutex mutex_;  // Thread-safe: UDP writes, Qt reads
 };
 
 // Global instances

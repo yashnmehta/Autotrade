@@ -16,6 +16,7 @@ constexpr uint16_t MSG_TYPE_INDEX = 2012;                 // 0x07DC
 constexpr uint16_t MSG_TYPE_CLOSE_PRICE = 2014;           // Close price broadcast
 constexpr uint16_t MSG_TYPE_OPEN_INTEREST = 2015;         // OI for derivatives
 constexpr uint16_t MSG_TYPE_IMPLIED_VOLATILITY = 2028;    // IV for options
+constexpr uint16_t MSG_TYPE_RBI_REFERENCE_RATE = 2022;    // RBI Reference Rate
 
 constexpr size_t HEADER_SIZE = 36;
 constexpr size_t RECORD_SLOT_SIZE = 264;
@@ -164,7 +165,13 @@ struct DecodedImpliedVolatility {
     uint64_t packetTimestamp;    // System time of receipt
 };
 
-
+// Decoded RBI Reference Rate (Message Type 2022)
+struct DecodedRBIReferenceRate {
+    uint32_t underlyingAssetId;
+    int32_t rbiRate;             // Rate in bps (divide by 10000)
+    char date[12];               // DD-MM-YYYY (11 chars + null)
+    uint64_t packetTimestamp;
+};
 
 } // namespace bse
 

@@ -1,7 +1,11 @@
 #include "bse_parser.h"
 #include "bse_utils.h"
+#include "bse_price_store.h"
 #include <iostream>
 #include <chrono>
+#include <unordered_map>
+#include "services/PriceCacheZeroCopy.h"
+#include "utils/PreferencesManager.h"
 
 namespace bse {
 
@@ -47,6 +51,10 @@ void BSEParser::parsePacket(const uint8_t* buffer, size_t length, ParserStats& s
             stats.packets2028++;
             decodeImpliedVolatility(buffer, length, stats);
             break;
+        case MSG_TYPE_RBI_REFERENCE_RATE:
+            stats.packets2022++;
+            decodeRBIReferenceRate(buffer, length, stats);
+            break;
         default:
             // Unknown or unsupported message type
             // std::cout << "Unknown MsgType: " << msgType << std::endl;
@@ -63,101 +71,163 @@ void BSEParser::decodeMarketPicture(const uint8_t* buffer, size_t length, uint16
     
     auto now = std::chrono::duration_cast<std::chrono::microseconds>(
         std::chrono::system_clock::now().time_since_epoch()).count();
+        
+    // =========================================================================
+    // CONFIG-DRIVEN EITHER/OR PATH
+    // =========================================================================
+    bool useLegacy = PreferencesManager::instance().getUseLegacyPriceCache();
+    
+    // For New Path: Static cache for WriteHandles
+    static std::unordered_map<uint32_t, PriceCacheTypes::PriceCacheZeroCopy::WriteHandle> s_handleCache;
 
     for (size_t i = 0; i < numRecords; i++) {
         size_t recordOffset = HEADER_SIZE + (i * recordSlotSize);
         if (recordOffset + recordSlotSize > length) break;
         
         const uint8_t* record = buffer + recordOffset;
+        uint32_t token = le32toh_func(*(uint32_t*)(record + 0));
+        if (token == 0) continue;
         
-        DecodedRecord decRec;
-        decRec.packetTimestamp = now;
-        
-        // Token (0-3)
-        decRec.token = le32toh_func(*(uint32_t*)(record + 0));
-        if (decRec.token == 0) continue;
-        
-        decRec.open = le32toh_func(*(uint32_t*)(record + 4));
-        int32_t prevClose = le32toh_func(*(uint32_t*)(record + 8));
-        decRec.high = le32toh_func(*(uint32_t*)(record + 12));
-        decRec.low = le32toh_func(*(uint32_t*)(record + 16));
-        decRec.volume = le32toh_func(*(uint32_t*)(record + 24)); // NOTE: Code uses 4 bytes, Manual V5 says 8. Sticking to code for 2020/2021.
-        decRec.turnover = le32toh_func(*(uint32_t*)(record + 28));
-        decRec.ltp = le32toh_func(*(uint32_t*)(record + 36));
-        
-        // Read unknown fields for analysis (48-83)
-        // Read unknown fields for analysis (48-83)
-        uint32_t field_48 = le32toh_func(*(uint32_t*)(record + 48));
-        uint32_t field_52 = le32toh_func(*(uint32_t*)(record + 52));
-        uint32_t field_56 = le32toh_func(*(uint32_t*)(record + 56));
-        uint32_t field_60 = le32toh_func(*(uint32_t*)(record + 60));
-        
-        // Empirically Verified Fields
-        decRec.totalBuyQty = le32toh_func(*(uint32_t*)(record + 64));  // [64-67]
-        decRec.totalSellQty = le32toh_func(*(uint32_t*)(record + 68)); // [68-71]
-        
-        uint32_t field_72 = le32toh_func(*(uint32_t*)(record + 72));
-        
-        decRec.lowerCircuit = le32toh_func(*(uint32_t*)(record + 76)); // [76-79]
-        decRec.upperCircuit = le32toh_func(*(uint32_t*)(record + 80)); // [80-83]
-        
-        decRec.weightedAvgPrice = le32toh_func(*(uint32_t*)(record + 84));
-        
-        // Read unknown fields (88-103)
-        uint32_t field_88 = le32toh_func(*(uint32_t*)(record + 88));
-        uint32_t field_92 = le32toh_func(*(uint32_t*)(record + 92));
-        uint32_t field_96 = le32toh_func(*(uint32_t*)(record + 96));
-        uint32_t field_100 = le32toh_func(*(uint32_t*)(record + 100));
-        
-        // Debug print for specific tokens we want to analyze
-        if (decRec.token == 11632641 ) {
-            std::cout << "\n=== BSE Record Debug (Token: " << decRec.token << ") ===" << std::endl;
-            std::cout << "Known Fields:" << std::endl;
-            std::cout << "  LTP: " << decRec.ltp << " (paise), Volume: " << decRec.volume 
-                      << ", Open: " << decRec.open << ", High: " << decRec.high << ", Low: " << decRec.low << std::endl;
-            std::cout << "  Turnover: " << decRec.turnover << ", ATP: " << decRec.weightedAvgPrice << std::endl;
-            std::cout << "Verified New Fields:" << std::endl;
-            std::cout << "  Total Buy Qty [64-67]: " << decRec.totalBuyQty << std::endl;
-            std::cout << "  Total Sell Qty [68-71]: " << decRec.totalSellQty << std::endl;
-            std::cout << "  Lower Circuit [76-79]: " << decRec.lowerCircuit << std::endl;
-            std::cout << "  Upper Circuit [80-83]: " << decRec.upperCircuit << std::endl;
+        if (useLegacy) {
+            // =================================================================
+            // LEGACY PATH: Callbacks with Distributed Store (use_legacy_priceCache = true)
+            // =================================================================
             
-            std::cout << "Remaining Unknowns:" << std::endl;
-            std::cout << "  [48-51]: " << field_48 << std::endl;
-            std::cout << "  [52-55]: " << field_52 << std::endl;
-            std::cout << "  [56-59]: " << field_56 << std::endl;
-            std::cout << "  [60-63]: " << field_60 << std::endl;
-            std::cout << "  [72-75]: " << field_72 << std::endl;
-            std::cout << "  [88-103]: " << field_88 << ", " << field_92 << ", " << field_96 << ", " << field_100 << std::endl;
-        }
-        
-        // Depth
-        for (int level = 0; level < 5; level++) {
-            int bidOffset = 104 + (level * 32);
-            int askOffset = bidOffset + 16;
+            DecodedRecord decRec;
+            decRec.packetTimestamp = now;
+            decRec.token = token;
             
-            if (recordOffset + askOffset + 8 <= length) {
-                DecodedDepthLevel bid, ask;
-                // Empirical: 16 byte struct: Price(4), Qty(4), Flag(4), Unk(4)
-                bid.price = le32toh_func(*(uint32_t*)(record + bidOffset));
-                bid.quantity = le32toh_func(*(uint32_t*)(record + bidOffset + 4));
+            decRec.open = le32toh_func(*(uint32_t*)(record + 4));
+            int32_t prevClose = le32toh_func(*(uint32_t*)(record + 8));
+            decRec.high = le32toh_func(*(uint32_t*)(record + 12));
+            decRec.low = le32toh_func(*(uint32_t*)(record + 16));
+            decRec.volume = le32toh_func(*(uint32_t*)(record + 24)); 
+            decRec.turnover = le32toh_func(*(uint32_t*)(record + 28));
+            decRec.ltp = le32toh_func(*(uint32_t*)(record + 36));
+            
+            // Empirically Verified Fields
+            decRec.totalBuyQty = le32toh_func(*(uint32_t*)(record + 64));
+            decRec.totalSellQty = le32toh_func(*(uint32_t*)(record + 68));
+            
+            decRec.lowerCircuit = le32toh_func(*(uint32_t*)(record + 76));
+            decRec.upperCircuit = le32toh_func(*(uint32_t*)(record + 80));
+            
+            decRec.weightedAvgPrice = le32toh_func(*(uint32_t*)(record + 84));
+            
+            // Depth
+            for (int level = 0; level < 5; level++) {
+                int bidOffset = 104 + (level * 32);
+                int askOffset = bidOffset + 16;
                 
-                ask.price = le32toh_func(*(uint32_t*)(record + askOffset));
-                ask.quantity = le32toh_func(*(uint32_t*)(record + askOffset + 4));
-                
-                decRec.bids.push_back(bid);
-                decRec.asks.push_back(ask);
+                if (recordOffset + askOffset + 8 <= length) {
+                    DecodedDepthLevel bid = {0}, ask = {0}; // Zero init
+                    
+                    bid.price = le32toh_func(*(uint32_t*)(record + bidOffset));
+                    bid.quantity = le32toh_func(*(uint32_t*)(record + bidOffset + 4));
+                    
+                    ask.price = le32toh_func(*(uint32_t*)(record + askOffset));
+                    ask.quantity = le32toh_func(*(uint32_t*)(record + askOffset + 4));
+                    
+                    decRec.bids.push_back(bid);
+                    decRec.asks.push_back(ask);
+                }
             }
+            
+            decRec.close = prevClose;
+            
+            // Defaults
+            decRec.noOfTrades = 0;
+            decRec.ltq = 0;
+            
+            // STORE IN DISTRIBUTED CACHE FIRST (keeps contract master metadata)
+            const DecodedRecord* stored = nullptr;
+            if (msgType == MSG_TYPE_MARKET_PICTURE || msgType == MSG_TYPE_MARKET_PICTURE_COMPLEX) {
+                // Determine segment: BSE FO (segment 12) or BSE CM (segment 11)
+                // Use marketSegment_ if set, otherwise infer from message structure
+                if (marketSegment_ == 12 || marketSegment_ == 3) {
+                    stored = g_bseFoPriceStore.updateRecord(decRec);
+                } else if (marketSegment_ == 11 || marketSegment_ == 2) {
+                    stored = g_bseCmPriceStore.updateRecord(decRec);
+                }
+            }
+            
+            stats.packetsDecoded++;
+            
+            // Dispatch callback with stored pointer if available, else original
+            if (recordCallback_) {
+                recordCallback_(stored ? *stored : decRec);
+            }
+            
+        } else {
+            // =================================================================
+            // NEW PATH: PriceCache Direct Write (use_legacy_priceCache = false)
+            // =================================================================
+            
+            // Check if segment is set using member variable
+            if (marketSegment_ == -1) continue;
+            
+            // Get or create WriteHandle
+            auto it = s_handleCache.find(token);
+            if (it == s_handleCache.end()) {
+                // Determine segment enum from stored integer
+                auto segmentEnum = static_cast<PriceCacheTypes::MarketSegment>(marketSegment_);
+                
+                auto handle = PriceCacheTypes::PriceCacheZeroCopy::getInstance()
+                    .getWriteHandle(token, segmentEnum);
+                
+                if (!handle.valid) {
+                    // Token not in PriceCache
+                    continue;
+                }
+                
+                it = s_handleCache.emplace(token, handle).first;
+            }
+            
+            auto& h = it->second;
+            
+            // Atomic write
+            uint64_t seq = h.sequencePtr->fetch_add(1, std::memory_order_relaxed);
+            
+            // Core Data
+            h.dataPtr->lastTradedPrice = le32toh_func(*(uint32_t*)(record + 36)); // Paise
+            h.dataPtr->openPrice = le32toh_func(*(uint32_t*)(record + 4));
+            h.dataPtr->highPrice = le32toh_func(*(uint32_t*)(record + 12));
+            h.dataPtr->lowPrice = le32toh_func(*(uint32_t*)(record + 16));
+            h.dataPtr->closePrice = le32toh_func(*(uint32_t*)(record + 8)); // prevClose
+            
+            h.dataPtr->volumeTradedToday = le32toh_func(*(uint32_t*)(record + 24));
+            // h.dataPtr->turnover = le32toh_func(*(uint32_t*)(record + 28)); // No turnover field in ConsolidatedMarketData?
+            // Checking PriceCacheZeroCopy.h: It has `valueTraded` or similar? 
+            // It has `averageTradePrice`. 
+            // Let's check struct.
+            
+            h.dataPtr->averageTradePrice = le32toh_func(*(uint32_t*)(record + 84));
+            
+            h.dataPtr->totalBuyQuantity = le32toh_func(*(uint32_t*)(record + 64));
+            h.dataPtr->totalSellQuantity = le32toh_func(*(uint32_t*)(record + 68));
+            
+            h.dataPtr->lowerCircuit = le32toh_func(*(uint32_t*)(record + 76));
+            h.dataPtr->upperCircuit = le32toh_func(*(uint32_t*)(record + 80));
+            
+            // Depth
+            for (int level = 0; level < 5; level++) {
+                int bidOffset = 104 + (level * 32);
+                int askOffset = bidOffset + 16;
+                
+                h.dataPtr->bidPrice[level] = le32toh_func(*(uint32_t*)(record + bidOffset));
+                h.dataPtr->bidQuantity[level] = le64toh_func(*(uint32_t*)(record + bidOffset + 4)); // Cast 32->64
+                h.dataPtr->bidOrders[level] = 0; // Not parsed currently
+                
+                h.dataPtr->askPrice[level] = le32toh_func(*(uint32_t*)(record + askOffset));
+                h.dataPtr->askQuantity[level] = le64toh_func(*(uint32_t*)(record + askOffset + 4));
+                h.dataPtr->askOrders[level] = 0;
+            }
+            
+            // Complete update
+            h.sequencePtr->store(seq + 1, std::memory_order_release);
+            
+            stats.packetsDecoded++;
         }
-        
-        decRec.close = prevClose;
-        
-        // Defaults
-        decRec.noOfTrades = 0;
-        decRec.ltq = 0;
-        
-        stats.packetsDecoded++;
-        if (recordCallback_) recordCallback_(decRec);
     }
 }
 
@@ -304,6 +374,63 @@ void BSEParser::decodeImpliedVolatility(const uint8_t* buffer, size_t length, Pa
         
         stats.packetsDecoded++;
         if (ivCallback_) ivCallback_(iv);
+    }
+}
+
+
+
+void BSEParser::decodeRBIReferenceRate(const uint8_t* buffer, size_t length, ParserStats& stats) {
+    if (length < 34) return; // Header + NoOfRecords check
+
+    uint16_t numRecords = le16toh_func(*(uint16_t*)(buffer + 32));
+    size_t recordSize = 18; // From manual: Asset(4)+Rate(4)+Res(2)+Res(2)+Date(11)+Filler(1) does not sum to 18?
+    // Manual: 
+    // Underlying Asset Id (Long) = 4
+    // RBI Rate (Long) = 4
+    // Reserved 6 (Short) = 2
+    // Reserved 7 (Short) = 2
+    // Date (Char 11) = 11
+    // Filler (Char 1) = 1
+    // Total = 4+4+2+2+11+1 = 24 bytes?
+    // Let's check manual again. 4.18 RBI Reference Rate.
+    // "No. Of Records" (Short) at field 5? 
+    // Header is 36 bytes. NoOfRecords is usually in header or after.
+    // Manual says: "No. Of Records" is after "Reserved Field 5".
+    // 2022 Header: 36 bytes.
+    // "No. Of Records" (Short, 2 bytes) -> Total 38 bytes before records.
+    // Loop repeats NoOfRecords times.
+    // Record Structure:
+    // AssetId (4)
+    // Rate (4)
+    // Res6 (2)
+    // Res7 (2)
+    // Date (11)
+    // Filler (1)
+    // Total = 4+4+2+2+11+1 = 24 bytes.
+    
+    // Safety check on offset
+    size_t recordStart = 38; 
+    
+    auto now = std::chrono::duration_cast<std::chrono::microseconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+
+    for (uint16_t i = 0; i < numRecords; i++) {
+        size_t offset = recordStart + (i * 24);
+        if (offset + 24 > length) break;
+
+        const uint8_t* record = buffer + offset;
+        DecodedRBIReferenceRate rbi;
+        rbi.packetTimestamp = now;
+        
+        rbi.underlyingAssetId = le32toh_func(*(uint32_t*)(record + 0));
+        rbi.rbiRate = le32toh_func(*(int32_t*)(record + 4));
+        
+        // Date (11 bytes)
+        memcpy(rbi.date, record + 12, 11);
+        rbi.date[11] = '\0'; // Null terminate
+        
+        stats.packetsDecoded++;
+        if (rbiCallback_) rbiCallback_(rbi);
     }
 }
 

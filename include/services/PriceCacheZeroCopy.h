@@ -192,8 +192,12 @@ struct ConsolidatedMarketData {
     bool isSubscribed;              // Subscription status
     char padding5[14];              // Alignment to 32 bytes
     
-    // I. Final Padding - Complete 512-byte alignment
-    char padding_final[57];         // Complete 512-byte alignment
+    // J. Circuit Limits (8 bytes) - Offset 440-447
+    int32_t lowerCircuit;           // Lower circuit limit (paise)
+    int32_t upperCircuit;           // Upper circuit limit (paise)
+
+    // K. Final Padding - Complete 512-byte alignment
+    char padding_final[49];         // Complete 512-byte alignment (57 - 8 = 49)
     
     // Default constructor - initialize to zero
     ConsolidatedMarketData() {
@@ -313,6 +317,63 @@ public:
     bool getTokenIndex(uint32_t token, MarketSegment segment, uint32_t& outIndex);
     
     /**
+     * @brief Write handle for lock-free direct updates (UDP receivers only)
+     * 
+     * Provides direct access to data + sequence counter for atomic updates.
+     * UDP receivers obtain this once per token and cache it for performance.
+     * 
+     * Performance: Supports 15K+ updates/sec per thread with zero locks.
+     */
+    struct WriteHandle {
+        ConsolidatedMarketData* dataPtr;       // Direct pointer to data
+        std::atomic<uint64_t>* sequencePtr;    // Sequence counter for torn-read prevention
+        uint32_t tokenIndex;                   // Index in array
+        bool valid;                            // Handle validity
+        
+        WriteHandle() 
+            : dataPtr(nullptr)
+            , sequencePtr(nullptr)
+            , tokenIndex(0)
+            , valid(false) {}
+    };
+    
+    /**
+     * @brief Get write handle for direct atomic updates (UDP receivers only)
+     * 
+     * Thread-safe for reads of token maps (read-only after initialization).
+     * UDP receivers should cache this handle per token for maximum performance.
+     * 
+     * Write Pattern:
+     * @code
+     *   uint64_t seq = handle.sequencePtr->fetch_add(1, std::memory_order_relaxed);
+     *   handle.dataPtr->lastTradedPrice = newLTP;  // Direct writes
+     *   handle.dataPtr->bidPrice[0] = newBid;
+     *   // ... update all fields ...
+     *   handle.sequencePtr->store(seq + 1, std::memory_order_release);  // Publish
+     * @endcode
+     * 
+     * @param token Token identifier
+     * @param segment Market segment  
+     * @return WriteHandle with dataPtr and sequencePtr (check .valid)
+     */
+    WriteHandle getWriteHandle(uint32_t token, MarketSegment segment);
+    
+    /**
+     * @brief Thread-safe read with sequence check (for torn-read prevention)
+     * 
+     * Readers use this to safely read data while writers update concurrently.
+     * Retries if sequence changed during read (indicates concurrent write).
+     * 
+     * @param dataPtr Pointer to data element
+     * @param seqPtr Pointer to corresponding sequence counter
+     * @return Consistent snapshot
+     */
+    static ConsolidatedMarketData safeRead(
+        const ConsolidatedMarketData* dataPtr,
+        const std::atomic<uint64_t>* seqPtr
+    );
+    
+    /**
      * @brief Get statistics
      */
     struct CacheStats {
@@ -412,6 +473,16 @@ private:
      */
     ConsolidatedMarketData* calculatePointer(uint32_t tokenIndex, MarketSegment segment);
     
+    /**
+     * @brief Allocate sequence array for segment (parallel to data array)
+     */
+    std::atomic<uint64_t>* allocateSequenceArray(uint32_t tokenCount);
+    
+    /**
+     * @brief Free sequence array
+     */
+    void freeSequenceArray(std::atomic<uint64_t>* array);
+    
     // ========================================================================
     // Member Variables
     // ========================================================================
@@ -436,6 +507,13 @@ private:
     uint32_t m_nseFoCount;
     uint32_t m_bseCmCount;
     uint32_t m_bsFoCount;
+    
+    // Sequence arrays for lock-free writes (one per segment, parallel to data arrays)
+    // Each sequence counter increments on write, readers check for consistency
+    std::atomic<uint64_t>* m_nseCmSequences;
+    std::atomic<uint64_t>* m_nseFoSequences;
+    std::atomic<uint64_t>* m_bseCmSequences;
+    std::atomic<uint64_t>* m_bseFoSequences;
     
     // Subscription tracking (for statistics)
     mutable std::shared_mutex m_subscriptionMutex;

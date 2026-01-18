@@ -16,6 +16,7 @@ struct ParserStats {
     uint64_t packets2012 = 0; // INDEX
     uint64_t packets2014 = 0; // CLOSE_PRICE
     uint64_t packets2028 = 0; // IMPLIED_VOLATILITY
+    uint64_t packets2022 = 0; // RBI_REFERENCE_RATE
     uint64_t packetsDecoded = 0;
     uint64_t packetsInvalid = 0;
 };
@@ -34,7 +35,8 @@ public:
     using SessionStateCallback = std::function<void(const DecodedSessionState&)>;
     using ClosePriceCallback = std::function<void(const DecodedClosePrice&)>;
     // New callback for Implied Volatility
-    using ImpliedVolatilityCallback = std::function<void(const DecodedImpliedVolatility&)>; // Need to define this struct
+    using ImpliedVolatilityCallback = std::function<void(const DecodedImpliedVolatility&)>; 
+    using RBICallback = std::function<void(const DecodedRBIReferenceRate&)>;
 
     void setRecordCallback(RecordCallback callback) { recordCallback_ = callback; }
     void setOpenInterestCallback(OpenInterestCallback callback) { oiCallback_ = callback; }
@@ -42,6 +44,10 @@ public:
     void setClosePriceCallback(ClosePriceCallback callback) { closePriceCallback_ = callback; }
     void setIndexCallback(RecordCallback callback) { indexCallback_ = callback; }
     void setImpliedVolatilityCallback(ImpliedVolatilityCallback callback) { ivCallback_ = callback; }
+    void setRBICallback(RBICallback callback) { rbiCallback_ = callback; }
+
+    // Set Market Segment for PriceCache writes (e.g. BSE_CM = 2, BSE_FO = 3)
+    void setMarketSegment(int segment) { marketSegment_ = segment; }
 
 private:
     // Internal decoding methods
@@ -50,6 +56,7 @@ private:
     void decodeSessionState(const uint8_t* buffer, size_t length, ParserStats& stats);
     void decodeClosePrice(const uint8_t* buffer, size_t length, ParserStats& stats);
     void decodeImpliedVolatility(const uint8_t* buffer, size_t length, ParserStats& stats);
+    void decodeRBIReferenceRate(const uint8_t* buffer, size_t length, ParserStats& stats);
     void decodeIndex(const uint8_t* buffer, size_t length, ParserStats& stats);
 
     RecordCallback recordCallback_;
@@ -57,7 +64,10 @@ private:
     SessionStateCallback sessionStateCallback_;
     ClosePriceCallback closePriceCallback_;
     ImpliedVolatilityCallback ivCallback_;
-    RecordCallback indexCallback_; // Reuse record callback for Index? Or new one? 
+    RBICallback rbiCallback_;
+    RecordCallback indexCallback_; 
+    
+    int marketSegment_ = -1; // -1 = Unknown/Not Set // Reuse record callback for Index? Or new one? 
                                    // For now, let's assume Index might use DecodedRecord or similar. 
                                    // existing code reused DecodedRecord for Index.
 };
