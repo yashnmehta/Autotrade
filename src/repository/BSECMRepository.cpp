@@ -331,3 +331,67 @@ void BSECMRepository::updateLiveData(int64_t token, double ltp, double open, dou
     m_prevClose[idx] = prevClose;
     m_volume[idx] = volume;
 }
+
+void BSECMRepository::prepareForLoad() {
+  QWriteLocker locker(&m_mutex);
+  m_contractCount = 0;
+  m_tokenToIndex.clear();
+
+  m_token.clear();
+  m_name.clear();
+  m_displayName.clear();
+  m_description.clear();
+  m_series.clear();
+
+  m_lotSize.clear();
+  m_tickSize.clear();
+
+  m_priceBandHigh.clear();
+  m_priceBandLow.clear();
+
+  m_ltp.clear();
+  m_open.clear();
+  m_high.clear();
+  m_low.clear();
+  m_close.clear();
+  m_prevClose.clear();
+  m_volume.clear();
+
+  m_loaded = false;
+}
+
+void BSECMRepository::addContract(
+    const MasterContract &contract,
+    std::function<QString(const QString &)> internFunc) {
+
+  QWriteLocker locker(&m_mutex);
+
+  // Use supplied interner or identity if null
+  auto intern = internFunc ? internFunc : [](const QString &s) { return s; };
+
+  int32_t idx = m_contractCount;
+  m_tokenToIndex.insert(contract.exchangeInstrumentID, idx);
+
+  m_token.append(contract.exchangeInstrumentID);
+  m_name.append(intern(contract.name));
+  m_displayName.append(contract.displayName);
+  m_description.append(contract.description);
+  m_series.append(intern(contract.series));
+
+  m_lotSize.append(contract.lotSize);
+  m_tickSize.append(contract.tickSize);
+
+  m_priceBandHigh.append(contract.priceBandHigh);
+  m_priceBandLow.append(contract.priceBandLow);
+
+  // Initialize dynamic fields
+  m_ltp.append(0.0);
+  m_open.append(0.0);
+  m_high.append(0.0);
+  m_low.append(0.0);
+  m_close.append(0.0);
+  m_prevClose.append(0.0);
+  m_volume.append(0);
+
+  m_contractCount++;
+}

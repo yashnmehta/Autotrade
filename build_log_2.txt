@@ -1,0 +1,66 @@
+[  0%] Built target cpp_broadcast_bsefo_autogen_timestamp_deps
+[  0%] Built target cpp_broadcast_bsefo_autogen
+[  3%] Built target cpp_broadcast_bsefo
+[  3%] Built target lzo_static_lib_autogen_timestamp_deps
+[  4%] Built target lzo_static_lib_autogen
+[ 31%] Built target lzo_static_lib
+[ 31%] Built target TradingTerminal_autogen_timestamp_deps
+[ 31%] Automatic MOC and UIC for target TradingTerminal
+[ 31%] Built target TradingTerminal_autogen
+[ 31%] Building CXX object CMakeFiles/TradingTerminal.dir/src/repository/BSEFORepository.cpp.obj
+[ 31%] Linking CXX executable TradingTerminal.exe
+Running windeployqt to copy Qt DLLs...
+C:\Users\admin\Desktop\trading_terminal_cpp\build\TradingTerminal.exe 64 bit, release executable
+Adding Qt5Svg for qsvgicon.dll
+Direct dependencies: Qt5Core Qt5Gui Qt5Widgets
+All dependencies   : Qt5Core Qt5Gui Qt5Widgets
+To be deployed     : Qt5Core Qt5Gui Qt5Svg Qt5Widgets
+Qt5Core.dll is up to date.
+Qt5Gui.dll is up to date.
+Qt5Svg.dll is up to date.
+Qt5Widgets.dll is up to date.
+libGLESv2.dll is up to date.
+libEGL.dll is up to date.
+libgcc_s_seh-1.dll is up to date.
+libstdc++-6.dll is up to date.
+libwinpthread-1.dll is up to date.
+qsvgicon.dll is up to date.
+qgif.dll is up to date.
+qicns.dll is up to date.
+qico.dll is up to date.
+qjpeg.dll is up to date.
+qsvg.dll is up to date.
+qtga.dll is up to date.
+qtiff.dll is up to date.
+qwbmp.dll is up to date.
+qwebp.dll is up to date.
+qwindows.dll is up to date.
+qwindowsvistastyle.dll is up to date.
+Copying Qt Network and WebSockets DLLs...
+Copying vcpkg DLLs...
+Copying MinGW runtime DLLs...
+[ 84%] Built target TradingTerminal
+[ 84%] Built target lzotest_autogen_timestamp_deps
+[ 84%] Built target lzotest_autogen
+[ 86%] Built target lzotest
+[ 86%] Built target dict_autogen_timestamp_deps
+[ 86%] Built target dict_autogen
+[ 88%] Built target dict
+[ 88%] Built target lzopack_autogen_timestamp_deps
+[ 88%] Built target lzopack_autogen
+[ 89%] Built target lzopack
+[ 89%] Built target overlap_autogen_timestamp_deps
+[ 89%] Built target overlap_autogen
+[ 91%] Built target overlap
+[ 91%] Built target precomp_autogen_timestamp_deps
+[ 91%] Built target precomp_autogen
+[ 93%] Built target precomp
+[ 93%] Built target precomp2_autogen_timestamp_deps
+[ 94%] Built target precomp2_autogen
+[ 95%] Built target precomp2
+[ 95%] Built target simple_autogen_timestamp_deps
+[ 95%] Built target simple_autogen
+[ 97%] Built target simple
+[ 97%] Built target testmini_autogen_timestamp_deps
+[ 98%] Built target testmini_autogen
+[100%] Built target testmini
