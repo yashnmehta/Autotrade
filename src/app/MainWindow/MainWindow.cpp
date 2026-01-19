@@ -6,7 +6,7 @@
 #include "core/widgets/CustomMDISubWindow.h"
 #include "app/ScripBar.h"
 #include "core/widgets/InfoBar.h"
-#include "services/PriceCache.h"
+
 #include "services/FeedHandler.h"
 #include "services/TradingDataService.h"
 #include "utils/ConfigLoader.h"

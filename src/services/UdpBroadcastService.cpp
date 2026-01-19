@@ -5,7 +5,6 @@
 #include "nsecm_price_store.h"
 #include "bse_price_store.h"
 #include "services/FeedHandler.h"
-#include "services/PriceCache.h"
 #include "utils/LatencyTracker.h"
 #include "data/PriceStoreGateway.h"
 #include <QMetaObject>
@@ -298,49 +297,9 @@ UDP::CircuitLimitTick convertNseFoCircuitLimit(const nsefo::CircuitLimitData& da
     return tick;
 }
 
-// Backward compatibility: Convert UDP::MarketTick to legacy XTS::Tick
-XTS::Tick convertToLegacy(const UDP::MarketTick& udp) {
-    XTS::Tick tick;
-    tick.exchangeSegment = static_cast<int>(udp.exchangeSegment);
-    tick.exchangeInstrumentID = udp.token;
-    tick.lastTradedPrice = udp.ltp;
-    tick.lastTradedQuantity = (int)udp.ltq;
-    tick.volume = udp.volume;
-    tick.open = udp.open;
-    tick.high = udp.high;
-    tick.low = udp.low;
-    tick.close = udp.prevClose;  // Map prevClose → close (legacy field name)
-    tick.averagePrice = udp.atp;
-    tick.openInterest = udp.openInterest;
-    
-    // 5-level depth
-    for (int i = 0; i < 5; i++) {
-        tick.bidDepth[i].price = udp.bids[i].price;
-        tick.bidDepth[i].quantity = udp.bids[i].quantity;
-        tick.bidDepth[i].orders = (int)udp.bids[i].orders;
-        tick.askDepth[i].price = udp.asks[i].price;
-        tick.askDepth[i].quantity = udp.asks[i].quantity;
-        tick.askDepth[i].orders = (int)udp.asks[i].orders;
-    }
-    
-    // Best bid/ask
-    tick.bidPrice = udp.bestBid();
-    tick.bidQuantity = (int)udp.bids[0].quantity;
-    tick.askPrice = udp.bestAsk();
-    tick.askQuantity = (int)udp.asks[0].quantity;
-    tick.totalBuyQuantity = (int)udp.totalBidQty;
-    tick.totalSellQuantity = (int)udp.totalAskQty;
-    
-    // Latency tracking
-    tick.refNo = udp.refNo;
-    tick.timestampUdpRecv = udp.timestampUdpRecv;
-    tick.timestampParsed = udp.timestampParsed;
-    tick.timestampQueued = udp.timestampEmitted;
-    
-    return tick;
-}
 
 } // anonymous namespace
+
 
 // ========== SERVICE IMPLEMENTATION ==========
 
@@ -409,13 +368,9 @@ void UdpBroadcastService::setupNseFoCallbacks() {
         const auto* data = nsefo::g_nseFoPriceStore.getUnifiedState(token);
         if (!data) return;
 
-        // 2. Convert to Legacy Tick
+        // 2. Convert to UDP::MarketTick
         UDP::MarketTick udpTick = convertNseFoUnified(*data);
-        XTS::Tick legacyTick = convertToLegacy(udpTick);
         m_totalTicks++;
-
-        // 3. Update centralized cache (Legacy)
-        PriceCache::instance().updatePrice(2, token, legacyTick);
 
         // 4. FeedHandler Distribution
         FeedHandler::instance().onUdpTickReceived(udpTick);
@@ -466,13 +421,9 @@ void UdpBroadcastService::setupNseCmCallbacks() {
         const auto* data = nsecm::g_nseCmPriceStore.getUnifiedState(token);
         if (!data) return;
 
-        // 2. Convert to Legacy Tick
+        // 2. Convert to UDP::MarketTick
         UDP::MarketTick udpTick = convertNseCmUnified(*data);
-        XTS::Tick legacyTick = convertToLegacy(udpTick);
         m_totalTicks++;
-
-        // 3. Update centralized cache
-        PriceCache::instance().updatePrice(1, token, legacyTick); // 1 = NSECM
         
         // 4. FeedHandler
         FeedHandler::instance().onUdpTickReceived(udpTick);
@@ -614,10 +565,6 @@ void UdpBroadcastService::setupBseFoCallbacks() {
         UDP::MarketTick udpTick = convertBseUnified(*data, UDP::ExchangeSegment::BSEFO);
         m_totalTicks++;
         
-        // Update Legacy Cache
-        XTS::Tick legacyTick = convertToLegacy(udpTick);
-        PriceCache::instance().updatePrice(4, token, legacyTick); // 4 = BSEFO
-        
         FeedHandler::instance().onUdpTickReceived(udpTick);
 
         if (shouldEmitSignal(token)) {
@@ -655,10 +602,7 @@ void UdpBroadcastService::setupBseCmCallbacks() {
 
         UDP::MarketTick udpTick = convertBseUnified(*data, UDP::ExchangeSegment::BSECM);
         m_totalTicks++;
-        
-        XTS::Tick legacyTick = convertToLegacy(udpTick);
-        PriceCache::instance().updatePrice(3, token, legacyTick); // 3 = BSECM
-        
+
         FeedHandler::instance().onUdpTickReceived(udpTick);
 
         if (shouldEmitSignal(token)) {
