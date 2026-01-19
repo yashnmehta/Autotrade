@@ -44,7 +44,7 @@ void FeedHandler::unsubscribe(int exchangeSegment, int token, QObject* receiver)
     std::lock_guard<std::mutex> lock(m_mutex);
     auto it = m_publishers.find(key);
     if (it != m_publishers.end()) {
-        disconnect(it->second, &TokenPublisher::tickUpdated, receiver, nullptr);
+        disconnect(it->second, &TokenPublisher::udpTickUpdated, receiver, nullptr);
     }
 }
 
@@ -59,7 +59,7 @@ void FeedHandler::unsubscribe(int token, QObject* receiver) {
         int64_t key = makeKey(seg, token);
         auto it = m_publishers.find(key);
         if (it != m_publishers.end()) {
-            disconnect(it->second, &TokenPublisher::tickUpdated, receiver, nullptr);
+            disconnect(it->second, &TokenPublisher::udpTickUpdated, receiver, nullptr);
         }
     }
 }

@@ -418,12 +418,11 @@ void UdpBroadcastService::setupNseFoCallbacks() {
         PriceCache::instance().updatePrice(2, token, legacyTick);
 
         // 4. FeedHandler Distribution
-        FeedHandler::instance().onTickReceived(legacyTick);
+        FeedHandler::instance().onUdpTickReceived(udpTick);
 
         // 5. UI Signals (Throttled)
         if (shouldEmitSignal(token)) {
             emit udpTickReceived(udpTick);
-            emit tickReceived(legacyTick);
         }
     };
 
@@ -476,12 +475,11 @@ void UdpBroadcastService::setupNseCmCallbacks() {
         PriceCache::instance().updatePrice(1, token, legacyTick); // 1 = NSECM
         
         // 4. FeedHandler
-        FeedHandler::instance().onTickReceived(legacyTick);
+        FeedHandler::instance().onUdpTickReceived(udpTick);
 
         // 5. Signals
         if (shouldEmitSignal(token)) {
             emit udpTickReceived(udpTick);
-            emit tickReceived(legacyTick);
         }
     };
 
@@ -620,11 +618,10 @@ void UdpBroadcastService::setupBseFoCallbacks() {
         XTS::Tick legacyTick = convertToLegacy(udpTick);
         PriceCache::instance().updatePrice(4, token, legacyTick); // 4 = BSEFO
         
-        FeedHandler::instance().onTickReceived(legacyTick);
+        FeedHandler::instance().onUdpTickReceived(udpTick);
 
         if (shouldEmitSignal(token)) {
              emit udpTickReceived(udpTick);
-             emit tickReceived(legacyTick);
              
              // Check Circuit Limits from Unified Data
              if (data->upperCircuit > 0 || data->lowerCircuit > 0) {
@@ -662,11 +659,10 @@ void UdpBroadcastService::setupBseCmCallbacks() {
         XTS::Tick legacyTick = convertToLegacy(udpTick);
         PriceCache::instance().updatePrice(3, token, legacyTick); // 3 = BSECM
         
-        FeedHandler::instance().onTickReceived(legacyTick);
+        FeedHandler::instance().onUdpTickReceived(udpTick);
 
         if (shouldEmitSignal(token)) {
              emit udpTickReceived(udpTick);
-             emit tickReceived(legacyTick);
              
              if (data->upperCircuit > 0 || data->lowerCircuit > 0) {
                  UDP::CircuitLimitTick limitTick;

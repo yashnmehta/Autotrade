@@ -12,6 +12,7 @@
 #include <QShortcut>
 #include "models/WindowContext.h"
 #include "api/XTSTypes.h"
+#include "udp/UDPTypes.h"
 #include "app/ScripBar.h"
 
 class XTSMarketDataClient;

@@ -70,9 +70,6 @@ bool MarketWatchWindow::addScrip(const QString &symbol, const QString &exchange,
     else if (exchange == "BSECM") segment = UDP::ExchangeSegment::BSECM;
     FeedHandler::instance().subscribeUDP(segment, token, this, &MarketWatchWindow::onUdpTickUpdate);
     
-    // Also subscribe to legacy XTS::Tick (using segment-specific overload)
-    FeedHandler::instance().subscribe(static_cast<int>(segment), token, this, &MarketWatchWindow::onTickUpdate);
-    
     // Initial Load from Distributed Store
     if (m_useZeroCopyPriceCache) {
         if (auto data = MarketData::PriceStoreGateway::instance().getUnifiedState(static_cast<int>(segment), token)) {
@@ -145,9 +142,6 @@ bool MarketWatchWindow::addScripFromContract(const ScripData &contractData)
     else if (scrip.exchange == "BSEFO") segment = UDP::ExchangeSegment::BSEFO;
     else if (scrip.exchange == "BSECM") segment = UDP::ExchangeSegment::BSECM;
     FeedHandler::instance().subscribeUDP(segment, scrip.token, this, &MarketWatchWindow::onUdpTickUpdate);
-    
-    // Also subscribe to legacy XTS::Tick (using segment-specific overload to avoid cross-talk)
-    FeedHandler::instance().subscribe(static_cast<int>(segment), scrip.token, this, &MarketWatchWindow::onTickUpdate);
     
     // Initial Load from Distributed Store
     if (m_useZeroCopyPriceCache) {
@@ -302,9 +296,7 @@ void MarketWatchWindow::pasteFromClipboard()
             else if (scrip.exchange == "BSEFO") segment = UDP::ExchangeSegment::BSEFO;
             else if (scrip.exchange == "BSECM") segment = UDP::ExchangeSegment::BSECM;
             FeedHandler::instance().subscribeUDP(segment, scrip.token, this, &MarketWatchWindow::onUdpTickUpdate);
-            
-            // Also subscribe to legacy XTS::Tick for backward compatibility
-            FeedHandler::instance().subscribe(static_cast<int>(segment), scrip.token, this, &MarketWatchWindow::onTickUpdate);
+
             m_tokenAddressBook->addCompositeToken(scrip.exchange, "", scrip.token, currentInsertPos);
             m_tokenAddressBook->addIntKeyToken(static_cast<int>(segment), scrip.token, currentInsertPos);
             emit scripAdded(scrip.symbol, scrip.exchange, scrip.token);

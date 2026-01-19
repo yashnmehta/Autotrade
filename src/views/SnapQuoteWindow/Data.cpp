@@ -39,8 +39,8 @@ void SnapQuoteWindow::onTickUpdate(const UDP::MarketTick& tick)
     }
     
     // Update ATP
-    if (tick.avgPrice > 0 && m_lbATP) {
-        m_lbATP->setText(QString::number(tick.avgPrice, 'f', 2));
+    if (tick.atp > 0 && m_lbATP) {
+        m_lbATP->setText(QString::number(tick.atp, 'f', 2));
     }
     
     // Update percent change
@@ -56,8 +56,8 @@ void SnapQuoteWindow::onTickUpdate(const UDP::MarketTick& tick)
     }
     
     // Update totals
-    if (m_lbTotalBuyers) m_lbTotalBuyers->setText(QLocale().toString((int64_t)tick.totalBuyQty));
-    if (m_lbTotalSellers) m_lbTotalSellers->setText(QLocale().toString((int64_t)tick.totalSellQty));
+    if (m_lbTotalBuyers) m_lbTotalBuyers->setText(QLocale().toString((int64_t)tick.totalBidQty));
+    if (m_lbTotalSellers) m_lbTotalSellers->setText(QLocale().toString((int64_t)tick.totalAskQty));
     
     // Update 5-level depth
     for (int i = 0; i < 5; i++) {
