@@ -63,7 +63,7 @@ public:
 
 public slots:
     void onRefreshClicked();
-    void onTickUpdate(const XTS::Tick& tick);
+    void onTickUpdate(const UDP::MarketTick& tick);
 
 private slots:
     void onScripSelected(const InstrumentData &data);

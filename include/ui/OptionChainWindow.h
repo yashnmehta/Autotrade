@@ -14,6 +14,7 @@
 #include <QStyledItemDelegate>
 #include <QMap>
 #include "api/XTSTypes.h"
+#include "udp/UDPTypes.h"
 #include "repository/ContractData.h"
 #include "models/WindowContext.h"
 
@@ -126,7 +127,7 @@ private slots:
     void onPutTableClicked(const QModelIndex &index);
     void onStrikeTableClicked(const QModelIndex &index);
     void synchronizeScrollBars(int value);
-    void onTickUpdate(const XTS::Tick &tick);
+    void onTickUpdate(const UDP::MarketTick &tick);
 
 protected:
     bool eventFilter(QObject *obj, QEvent *event) override;

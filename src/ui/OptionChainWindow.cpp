@@ -14,7 +14,7 @@
 #include <QTimer>
 #include "repository/RepositoryManager.h"
 #include "services/FeedHandler.h"
-#include "services/PriceCache.h"
+#include "data/PriceStoreGateway.h"
 #include "services/TokenSubscriptionManager.h"
 
 // ============================================================================
@@ -776,18 +776,17 @@ void OptionChainWindow::refreshData()
             
             m_tokenToStrike[data.callToken] = strike;
             
-            if (auto cached = PriceCache::instance().getPrice(exchangeSegment, data.callToken)) {
-                const auto& tick = *cached;
-                if (tick.lastTradedPrice > 0) {
-                    data.callLTP = tick.lastTradedPrice;
-                    if (tick.close > 0) data.callChng = tick.lastTradedPrice - tick.close;
+            if (auto unifiedState = MarketData::PriceStoreGateway::instance().getUnifiedState(exchangeSegment, data.callToken)) {
+                if (unifiedState->ltp > 0) {
+                    data.callLTP = unifiedState->ltp;
+                    if (unifiedState->close > 0) data.callChng = unifiedState->ltp - unifiedState->close;
                 }
-                if (tick.bidPrice > 0) data.callBid = tick.bidPrice;
-                if (tick.askPrice > 0) data.callAsk = tick.askPrice;
-                if (tick.bidQuantity > 0) data.callBidQty = tick.bidQuantity;
-                if (tick.askQuantity > 0) data.callAskQty = tick.askQuantity;
-                if (tick.volume > 0) data.callVolume = tick.volume;
-                if (tick.openInterest > 0) data.callOI = tick.openInterest;
+                if (unifiedState->bids[0].price > 0) data.callBid = unifiedState->bids[0].price;
+                if (unifiedState->asks[0].price > 0) data.callAsk = unifiedState->asks[0].price;
+                if (unifiedState->bids[0].quantity > 0) data.callBidQty = unifiedState->bids[0].quantity;
+                if (unifiedState->asks[0].quantity > 0) data.callAskQty = unifiedState->asks[0].quantity;
+                if (unifiedState->volume > 0) data.callVolume = unifiedState->volume;
+                if (unifiedState->openInterest > 0) data.callOI = (int)unifiedState->openInterest;
             }
         }
         
@@ -798,18 +797,17 @@ void OptionChainWindow::refreshData()
             
             m_tokenToStrike[data.putToken] = strike;
             
-            if (auto cached = PriceCache::instance().getPrice(exchangeSegment, data.putToken)) {
-                const auto& tick = *cached;
-                if (tick.lastTradedPrice > 0) {
-                    data.putLTP = tick.lastTradedPrice;
-                    if (tick.close > 0) data.putChng = tick.lastTradedPrice - tick.close;
+            if (auto unifiedState = MarketData::PriceStoreGateway::instance().getUnifiedState(exchangeSegment, data.putToken)) {
+                if (unifiedState->ltp > 0) {
+                    data.putLTP = unifiedState->ltp;
+                    if (unifiedState->close > 0) data.putChng = unifiedState->ltp - unifiedState->close;
                 }
-                if (tick.bidPrice > 0) data.putBid = tick.bidPrice;
-                if (tick.askPrice > 0) data.putAsk = tick.askPrice;
-                if (tick.bidQuantity > 0) data.putBidQty = tick.bidQuantity;
-                if (tick.askQuantity > 0) data.putAskQty = tick.askQuantity;
-                if (tick.volume > 0) data.putVolume = tick.volume;
-                if (tick.openInterest > 0) data.putOI = tick.openInterest;
+                if (unifiedState->bids[0].price > 0) data.putBid = unifiedState->bids[0].price;
+                if (unifiedState->asks[0].price > 0) data.putAsk = unifiedState->asks[0].price;
+                if (unifiedState->bids[0].quantity > 0) data.putBidQty = (int)unifiedState->bids[0].quantity;
+                if (unifiedState->asks[0].quantity > 0) data.putAskQty = (int)unifiedState->asks[0].quantity;
+                if (unifiedState->volume > 0) data.putVolume = (int)unifiedState->volume;
+                if (unifiedState->openInterest > 0) data.putOI = (int)unifiedState->openInterest;
             }
         }
         
@@ -990,53 +988,51 @@ WindowContext OptionChainWindow::getSelectedContext() const
     return context;
 }
 
-void OptionChainWindow::onTickUpdate(const XTS::Tick &tick)
+void OptionChainWindow::onTickUpdate(const UDP::MarketTick &tick)
 {
-    if (!m_tokenToStrike.contains(tick.exchangeInstrumentID)) return;
+    if (!m_tokenToStrike.contains(tick.token)) return;
     
-    double strike = m_tokenToStrike[tick.exchangeInstrumentID];
+    double strike = m_tokenToStrike[tick.token];
     OptionStrikeData& data = m_strikeData[strike];
     
     // Determine if Call or Put
-    bool isCall = (tick.exchangeInstrumentID == data.callToken);
-    // bool isPut = (tick.exchangeInstrumentID == data.putToken); // Implicit
+    bool isCall = (tick.token == (uint32_t)data.callToken);
     
     // Update fields
-    // Update fields
     if (isCall) {
-        if (tick.lastTradedPrice > 0) {
-            data.callLTP = tick.lastTradedPrice;
+        if (tick.ltp > 0) {
+            data.callLTP = tick.ltp;
             // Only update Change if we have a valid LTP and Close
-            if (tick.close > 0) {
-                 data.callChng = tick.lastTradedPrice - tick.close;
+            if (tick.prevClose > 0) {
+                 data.callChng = tick.ltp - tick.prevClose;
             }
         }
         
         // Depth / Quote Updates
-        if (tick.bidPrice > 0) data.callBid = tick.bidPrice;
-        if (tick.askPrice > 0) data.callAsk = tick.askPrice;
-        if (tick.bidQuantity > 0) data.callBidQty = tick.bidQuantity;
-        if (tick.askQuantity > 0) data.callAskQty = tick.askQuantity;
+        if (tick.bids[0].price > 0) data.callBid = tick.bids[0].price;
+        if (tick.asks[0].price > 0) data.callAsk = tick.asks[0].price;
+        if (tick.bids[0].quantity > 0) data.callBidQty = (int)tick.bids[0].quantity;
+        if (tick.asks[0].quantity > 0) data.callAskQty = (int)tick.asks[0].quantity;
         
         // Statistics Updates
-        if (tick.volume > 0) data.callVolume = tick.volume;
-        if (tick.openInterest > 0) data.callOI = tick.openInterest;
+        if (tick.volume > 0) data.callVolume = (int)tick.volume;
+        if (tick.openInterest > 0) data.callOI = (int)tick.openInterest;
         
     } else {
-        if (tick.lastTradedPrice > 0) {
-            data.putLTP = tick.lastTradedPrice;
-             if (tick.close > 0) {
-                 data.putChng = tick.lastTradedPrice - tick.close;
+        if (tick.ltp > 0) {
+            data.putLTP = tick.ltp;
+             if (tick.prevClose > 0) {
+                 data.putChng = tick.ltp - tick.prevClose;
             }
         }
         
-        if (tick.bidPrice > 0) data.putBid = tick.bidPrice;
-        if (tick.askPrice > 0) data.putAsk = tick.askPrice;
-        if (tick.bidQuantity > 0) data.putBidQty = tick.bidQuantity;
-        if (tick.askQuantity > 0) data.putAskQty = tick.askQuantity;
+        if (tick.bids[0].price > 0) data.putBid = tick.bids[0].price;
+        if (tick.asks[0].price > 0) data.putAsk = tick.asks[0].price;
+        if (tick.bids[0].quantity > 0) data.putBidQty = (int)tick.bids[0].quantity;
+        if (tick.asks[0].quantity > 0) data.putAskQty = (int)tick.asks[0].quantity;
         
-        if (tick.volume > 0) data.putVolume = tick.volume;
-        if (tick.openInterest > 0) data.putOI = tick.openInterest;
+        if (tick.volume > 0) data.putVolume = (int)tick.volume;
+        if (tick.openInterest > 0) data.putOI = (int)tick.openInterest;
     }
     
     // Trigger visual update

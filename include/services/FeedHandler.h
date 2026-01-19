@@ -18,12 +18,10 @@ class TokenPublisher : public QObject {
 public:
     explicit TokenPublisher(int64_t compositeKey, QObject* parent = nullptr) 
         : QObject(parent), m_compositeKey(compositeKey) {}
-    void publish(const XTS::Tick& tick) { emit tickUpdated(tick); }
     void publish(const UDP::MarketTick& tick) { emit udpTickUpdated(tick); }
     int64_t compositeKey() const { return m_compositeKey; }
 
 signals:
-    void tickUpdated(const XTS::Tick& tick);  // Legacy
     void udpTickUpdated(const UDP::MarketTick& tick);  // New UDP-specific
 
 private:
@@ -79,61 +77,24 @@ public:
      * @param receiver The QObject that will receive the tick
      * @param slot The slot signature or member function pointer to call
      */
+    /**
+     * @brief Subscribe to UDP::MarketTick with exchange segment
+     */
     template<typename Receiver, typename Slot>
     void subscribe(int exchangeSegment, int token, Receiver* receiver, Slot slot) {
         int64_t key = makeKey(exchangeSegment, token);
         std::lock_guard<std::mutex> lock(m_mutex);
         TokenPublisher* pub = getOrCreatePublisher(key);
-        connect(pub, &TokenPublisher::tickUpdated, receiver, slot);
-        
-        // Notify UDP service to enable filtering for this token (via helper to avoid header cycle)
-        registerTokenWithUdpService(token, exchangeSegment);
-
-        emit subscriptionCountChanged(token, 1);
-    }
-    
-    /**
-     * @brief Subscribe to UDP::MarketTick with exchange segment (NEW)
-     * @param exchangeSegment Exchange segment (UDP::ExchangeSegment)
-     * @param token Exchange instrument token
-     * @param receiver The QObject that will receive the tick
-     * @param slot The slot signature for UDP::MarketTick
-     */
-    template<typename Receiver, typename Slot>
-    void subscribeUDP(UDP::ExchangeSegment exchangeSegment, uint32_t token, Receiver* receiver, Slot slot) {
-        int64_t key = makeKey(static_cast<int>(exchangeSegment), token);
-        std::lock_guard<std::mutex> lock(m_mutex);
-        TokenPublisher* pub = getOrCreatePublisher(key);
         connect(pub, &TokenPublisher::udpTickUpdated, receiver, slot);
         
         // Notify UDP service to enable filtering for this token
-        registerTokenWithUdpService(token, static_cast<int>(exchangeSegment));
-
-        qDebug() << "[FeedHandler] Connected UDP slot for segment:" << static_cast<int>(exchangeSegment)
-                 << "token:" << token << "(key:" << key << ")";
+        registerTokenWithUdpService(token, exchangeSegment);
         emit subscriptionCountChanged(token, 1);
     }
-
-    /**
-     * @brief Legacy subscribe (token-only, defaults to common lookup)
-     * Subscribes to ALL segments for this token for backward compatibility.
-     * @deprecated Use subscribe(exchangeSegment, token, ...) instead
-     */
+    
     template<typename Receiver, typename Slot>
-    void subscribe(int token, Receiver* receiver, Slot slot) {
-        // Subscribe to common segments (NSECM=1, NSEFO=2, BSECM=11, BSEFO=12)
-        // This ensures backward compatibility while supporting multi-exchange
-        static const int segments[] = {1, 2, 11, 12};
-        std::lock_guard<std::mutex> lock(m_mutex);
-        
-        for (int seg : segments) {
-            int64_t key = makeKey(seg, token);
-            TokenPublisher* pub = getOrCreatePublisher(key);
-            connect(pub, &TokenPublisher::tickUpdated, receiver, slot);
-        }
-        
-        qDebug() << "[FeedHandler] Connected slot for token" << token << "(all segments)";
-        emit subscriptionCountChanged(token, 1);
+    void subscribeUDP(UDP::ExchangeSegment exchangeSegment, uint32_t token, Receiver* receiver, Slot slot) {
+        subscribe(static_cast<int>(exchangeSegment), (int)token, receiver, slot);
     }
 
     /**
@@ -151,10 +112,6 @@ public:
      */
     void unsubscribeAll(QObject* receiver);
 
-    /**
-     * @brief Publish tick (called by MainWindow/UDP thread)
-     */
-    void onTickReceived(const XTS::Tick& tick);
     
     /**
      * @brief Publish UDP tick (called by UdpBroadcastService)

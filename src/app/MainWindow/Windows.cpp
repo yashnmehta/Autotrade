@@ -11,8 +11,8 @@
 #include "ui/OptionChainWindow.h"
 #include "views/CustomizeDialog.h"
 #include "app/ScripBar.h"
-#include "services/PriceCache.h"
 #include "services/UdpBroadcastService.h"
+#include "data/PriceStoreGateway.h"
 #include "repository/RepositoryManager.h"
 #include <QDebug>
 #include <QStatusBar>
@@ -291,7 +291,7 @@ void MainWindow::createSnapQuoteWindow()
     }
     
     // Connect to UDP broadcast service for real-time tick updates
-    connect(&UdpBroadcastService::instance(), &UdpBroadcastService::tickReceived,
+    connect(&UdpBroadcastService::instance(), &UdpBroadcastService::udpTickReceived,
             snapWindow, &SnapQuoteWindow::onTickUpdate);
     
     window->setContentWidget(snapWindow);
@@ -412,10 +412,11 @@ void MainWindow::onAddToWatchRequested(const InstrumentData &instrument)
                              (int)instrument.exchangeInstrumentID);
 
         
-        // Apply cached price if available
-        auto cached = PriceCache::instance().getPrice(instrument.exchangeInstrumentID);
-        if (cached.has_value()) {
-            double closePrice = cached->close;
+        // Apply cached price if available from Distributed PriceStore
+        auto unifiedState = MarketData::PriceStoreGateway::instance().getUnifiedState(instrument.exchangeSegment, instrument.exchangeInstrumentID);
+        if (unifiedState) {
+            double lastTradedPrice = unifiedState->ltp;
+            double closePrice = unifiedState->close;
             if (closePrice <= 0) {
                 const ContractData* contract = RepositoryManager::getInstance()->getContractByToken(
                     RepositoryManager::getExchangeSegmentName(instrument.exchangeSegment), 
@@ -424,12 +425,11 @@ void MainWindow::onAddToWatchRequested(const InstrumentData &instrument)
             }
 
             if (closePrice > 0) {
-                double change = cached->lastTradedPrice - closePrice;
+                double change = lastTradedPrice - closePrice;
                 double pct = (change / closePrice) * 100;
-                marketWatch->updatePrice(instrument.exchangeInstrumentID, cached->lastTradedPrice, change, pct);
+                marketWatch->updatePrice(instrument.exchangeInstrumentID, lastTradedPrice, change, pct);
             } else {
-                marketWatch->updatePrice(instrument.exchangeInstrumentID, cached->lastTradedPrice, 0, 0);
-
+                marketWatch->updatePrice(instrument.exchangeInstrumentID, lastTradedPrice, 0, 0);
             }
         }
     }

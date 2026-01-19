@@ -41,10 +41,6 @@ MainWindow::MainWindow(QWidget *parent)
     // Setup keyboard shortcuts
     setupShortcuts();
 
-    // Connect centralized UDP broadcast service (legacy XTS::Tick)
-    connect(&UdpBroadcastService::instance(), &UdpBroadcastService::tickReceived,
-            this, &MainWindow::onTickReceived);
-    
     // Connect new UDP::MarketTick signal directly to FeedHandler
     connect(&UdpBroadcastService::instance(), &UdpBroadcastService::udpTickReceived,
             &FeedHandler::instance(), &FeedHandler::onUdpTickReceived);
@@ -156,20 +152,37 @@ MarketWatchWindow* MainWindow::getActiveMarketWatch() const {
     return nullptr;
 }
 
+
 void MainWindow::onTickReceived(const XTS::Tick &tick)
 {
-    // Debug logging for BSE tokens
-    if (tick.exchangeSegment == 12 || tick.exchangeSegment == 11) {
-        static int mainWindowBseCount = 0;
-        if (mainWindowBseCount++ < 10) {
-            // qDebug() << "[MainWindow] BSE Tick received - Segment:" << tick.exchangeSegment 
-            //          << "Token:" << tick.exchangeInstrumentID << "LTP:" << tick.lastTradedPrice;
-        }
+    // Convert XTS::Tick to UDP::MarketTick to funnel through the new architecture
+    UDP::MarketTick udpTick;
+    udpTick.exchangeSegment = static_cast<UDP::ExchangeSegment>(tick.exchangeSegment);
+    udpTick.token = static_cast<uint32_t>(tick.exchangeInstrumentID);
+    udpTick.ltp = tick.lastTradedPrice;
+    udpTick.ltq = tick.lastTradedQuantity;
+    udpTick.volume = tick.volume;
+    udpTick.open = tick.open;
+    udpTick.high = tick.high;
+    udpTick.low = tick.low;
+    udpTick.prevClose = tick.close;
+    udpTick.atp = tick.averagePrice;
+    udpTick.openInterest = tick.openInterest;
+    
+    // Simplistic depth conversion for compatibility
+    if (tick.bidPrice > 0) {
+        udpTick.bids[0].price = tick.bidPrice;
+        udpTick.bids[0].quantity = tick.bidQuantity;
+    }
+    if (tick.askPrice > 0) {
+        udpTick.asks[0].price = tick.askPrice;
+        udpTick.asks[0].quantity = tick.askQuantity;
     }
     
-    // Direct callback architecture
-    FeedHandler::instance().onTickReceived(tick);
+    // Publish through new FeedHandler
+    FeedHandler::instance().onUdpTickReceived(udpTick);
 }
+
 
 void MainWindow::onPriceSubscriptionRequest(QString requesterId, uint32_t token, uint16_t segment)
 {
@@ -216,12 +229,6 @@ void MainWindow::stopBroadcastReceiver() {
     if (m_statusBar) m_statusBar->showMessage("Market Data Receivers: STOPPED");
 }
 
-void MainWindow::onUdpTickReceived(const XTS::Tick& tick) {
-    // This is now redundant as tickReceived is connected to onTickReceived
-    // but we keep it for now if any specialized logic is needed.
-    // Actually, let's just forward it.
-    onTickReceived(tick);
-}
 
 #include "views/PreferenceDialog.h"
 

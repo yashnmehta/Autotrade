@@ -4,26 +4,26 @@
 #include <QDateTime>
 
 // Handle UDP tick updates
-void SnapQuoteWindow::onTickUpdate(const XTS::Tick& tick)
+void SnapQuoteWindow::onTickUpdate(const UDP::MarketTick& tick)
 {
     // Only process ticks for our token
-    if (static_cast<int>(tick.exchangeInstrumentID) != m_token) return;
+    if (static_cast<int>(tick.token) != m_token) return;
     
     // Update LTP
-    if (tick.lastTradedPrice > 0 && m_lbLTPPrice) {
+    if (tick.ltp > 0 && m_lbLTPPrice) {
         double prevLtp = m_lbLTPPrice->text().toDouble();
-        m_lbLTPPrice->setText(QString::number(tick.lastTradedPrice, 'f', 2));
-        setLTPIndicator(tick.lastTradedPrice >= prevLtp);
+        m_lbLTPPrice->setText(QString::number(tick.ltp, 'f', 2));
+        setLTPIndicator(tick.ltp >= prevLtp);
     }
     
     // Update LTP quantity
-    if (tick.lastTradedQuantity > 0 && m_lbLTPQty) {
-        m_lbLTPQty->setText(QLocale().toString(tick.lastTradedQuantity));
+    if (tick.ltq > 0 && m_lbLTPQty) {
+        m_lbLTPQty->setText(QLocale().toString((int)tick.ltq));
     }
     
     // Update timestamp
-    if (tick.lastUpdateTime > 0 && m_lbLTPTime) {
-        QDateTime dt = QDateTime::fromSecsSinceEpoch(tick.lastUpdateTime);
+    if (tick.timestampEmitted > 0 && m_lbLTPTime) {
+        QDateTime dt = QDateTime::fromSecsSinceEpoch(tick.timestampEmitted);
         m_lbLTPTime->setText(dt.toString("HH:mm:ss"));
     }
     
@@ -31,7 +31,7 @@ void SnapQuoteWindow::onTickUpdate(const XTS::Tick& tick)
     if (tick.open > 0 && m_lbOpen) m_lbOpen->setText(QString::number(tick.open, 'f', 2));
     if (tick.high > 0 && m_lbHigh) m_lbHigh->setText(QString::number(tick.high, 'f', 2));
     if (tick.low > 0 && m_lbLow) m_lbLow->setText(QString::number(tick.low, 'f', 2));
-    if (tick.close > 0 && m_lbClose) m_lbClose->setText(QString::number(tick.close, 'f', 2));
+    if (tick.prevClose > 0 && m_lbClose) m_lbClose->setText(QString::number(tick.prevClose, 'f', 2));
     
     // Update volume 
     if (tick.volume > 0 && m_lbVolume) {
@@ -39,13 +39,13 @@ void SnapQuoteWindow::onTickUpdate(const XTS::Tick& tick)
     }
     
     // Update ATP
-    if (tick.averagePrice > 0 && m_lbATP) {
-        m_lbATP->setText(QString::number(tick.averagePrice, 'f', 2));
+    if (tick.avgPrice > 0 && m_lbATP) {
+        m_lbATP->setText(QString::number(tick.avgPrice, 'f', 2));
     }
     
     // Update percent change
-    if (tick.close > 0 && tick.lastTradedPrice > 0 && m_lbPercentChange) {
-        double pct = ((tick.lastTradedPrice - tick.close) / tick.close) * 100.0;
+    if (tick.prevClose > 0 && tick.ltp > 0 && m_lbPercentChange) {
+        double pct = ((tick.ltp - tick.prevClose) / tick.prevClose) * 100.0;
         m_lbPercentChange->setText(QString::number(pct, 'f', 2) + "%");
         setChangeColor(pct);
     }
@@ -56,19 +56,19 @@ void SnapQuoteWindow::onTickUpdate(const XTS::Tick& tick)
     }
     
     // Update totals
-    if (m_lbTotalBuyers) m_lbTotalBuyers->setText(QLocale().toString(tick.totalBuyQuantity));
-    if (m_lbTotalSellers) m_lbTotalSellers->setText(QLocale().toString(tick.totalSellQuantity));
+    if (m_lbTotalBuyers) m_lbTotalBuyers->setText(QLocale().toString((int64_t)tick.totalBuyQty));
+    if (m_lbTotalSellers) m_lbTotalSellers->setText(QLocale().toString((int64_t)tick.totalSellQty));
     
     // Update 5-level depth
     for (int i = 0; i < 5; i++) {
         updateBidDepth(i + 1, 
-                       static_cast<int>(tick.bidDepth[i].quantity),
-                       tick.bidDepth[i].price,
-                       tick.bidDepth[i].orders);
+                       static_cast<int>(tick.bids[i].quantity),
+                       tick.bids[i].price,
+                       tick.bids[i].orders);
         updateAskDepth(i + 1,
-                       tick.askDepth[i].price,
-                       static_cast<int>(tick.askDepth[i].quantity),
-                       tick.askDepth[i].orders);
+                       tick.asks[i].price,
+                       static_cast<int>(tick.asks[i].quantity),
+                       tick.asks[i].orders);
     }
 }
 

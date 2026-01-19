@@ -103,8 +103,6 @@ private slots:
     void cycleWindowsForward();
     void cycleWindowsBackward();
     
-    // Broadcast receiver slots
-    void onUdpTickReceived(const XTS::Tick& tick);
     void startBroadcastReceiver();
     void stopBroadcastReceiver();
     /**

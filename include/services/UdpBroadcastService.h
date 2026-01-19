@@ -142,7 +142,6 @@ public:
     Stats getStats() const;
 
 signals:
-    void tickReceived(const XTS::Tick& tick);  // Legacy - for backward compatibility
     void udpTickReceived(const UDP::MarketTick& tick);  // New - UDP-specific
     void udpIndexReceived(const UDP::IndexTick& index);  // Index updates
     void udpSessionStateReceived(const UDP::SessionStateTick& state);  // Session state
