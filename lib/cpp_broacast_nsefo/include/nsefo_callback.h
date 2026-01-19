@@ -146,13 +146,13 @@ struct CircuitLimitData {
 // ============================================================================
 
 // Callback for touchline updates (7200, 7208)
-using TouchlineCallback = std::function<void(const TouchlineData&)>;
+using TouchlineCallback = std::function<void(int32_t)>;
 
 // Callback for market depth updates (7200, 7208)
-using MarketDepthCallback = std::function<void(const MarketDepthData&)>;
+using MarketDepthCallback = std::function<void(int32_t)>;
 
 // Callback for ticker updates (7202, 17202)
-using TickerCallback = std::function<void(const TickerData&)>;
+using TickerCallback = std::function<void(int32_t)>;
 
 // Callback for market watch updates (7201, 17201)
 using MarketWatchCallback = std::function<void(const MarketWatchData&)>;
@@ -164,7 +164,7 @@ using IndexCallback = std::function<void(const IndexData&)>;
 using IndustryIndexCallback = std::function<void(const IndustryIndexData&)>;
 
 // Callback for circuit limit updates (7220)
-using CircuitLimitCallback = std::function<void(const CircuitLimitData&)>;
+using CircuitLimitCallback = std::function<void(int32_t)>;
 
 // ============================================================================
 // CALLBACK REGISTRY
@@ -208,21 +208,21 @@ public:
     }
     
     // Dispatch callbacks (called by parsers)
-    void dispatchTouchline(const TouchlineData& data) {
+    void dispatchTouchline(int32_t token) {
         if (touchlineCallback) {
-            touchlineCallback(data);
+            touchlineCallback(token);
         }
     }
     
-    void dispatchMarketDepth(const MarketDepthData& data) {
+    void dispatchMarketDepth(int32_t token) {
         if (marketDepthCallback) {
-            marketDepthCallback(data);
+            marketDepthCallback(token);
         }
     }
     
-    void dispatchTicker(const TickerData& data) {
+    void dispatchTicker(int32_t token) {
         if (tickerCallback) {
-            tickerCallback(data);
+            tickerCallback(token);
         }
     }
     
@@ -244,9 +244,9 @@ public:
         }
     }
     
-    void dispatchCircuitLimit(const CircuitLimitData& data) {
+    void dispatchCircuitLimit(int32_t token) {
         if (circuitLimitCallback) {
-            circuitLimitCallback(data);
+            circuitLimitCallback(token);
         }
     }
     

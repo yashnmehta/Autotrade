@@ -511,9 +511,10 @@ set(RESOURCES
 
 # NSE FO Broadcast Library
 set(NSEFO_BROADCAST_SOURCES
+    ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/nsefo_price_store.cpp
     ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/multicast_receiver.cpp
     ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/udp_receiver.cpp
-    ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/nse_parsers.cpp
+    # ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/nse_parsers.cpp  # REPLACED by individual parser files
     ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/config.cpp
     ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/logger.cpp
     ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/utils/parse_compressed_message.cpp
@@ -529,9 +530,11 @@ set(NSEFO_BROADCAST_SOURCES
     ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/parser/parse_message_7220.cpp
     ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/parser/parse_message_17201.cpp
     ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/parser/parse_message_17202.cpp
+    ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/src/parser/parse_message_rest.cpp
 )
 # NSE CM Broadcast Library
 set(NSECM_BROADCAST_SOURCES
+    ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_nsecm/src/nsecm_price_store.cpp
     ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_nsecm/src/multicast_receiver.cpp
     ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_nsecm/src/udp_receiver.cpp
     ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_nsecm/src/nse_parsers.cpp
@@ -572,6 +575,7 @@ set(COMMON_LZO_SOURCES
 # BSE FO Broadcast Library
 add_subdirectory(lib/cpp_broadcast_bsefo)
 set(BSEFO_BROADCAST_SOURCES
+    ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_bsefo/src/bse_price_store.cpp
     ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_bsefo/src/bse_receiver.cpp
 )
 

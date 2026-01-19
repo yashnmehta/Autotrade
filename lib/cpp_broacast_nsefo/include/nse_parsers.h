@@ -59,6 +59,16 @@ void parse_circuit_check(const MS_BC_CIRCUIT_CHECK* msg);
 void parse_market_open(const MS_BC_OPEN_MSG* msg);
 void parse_market_close(const MS_BC_CLOSE_MSG* msg);
 
+// Additional Parsers
+void parse_message_7206(const MS_SYSTEM_INFO_DATA* msg);
+void parse_message_7305(const MS_SECURITY_UPDATE_INFO* msg);
+void parse_message_7340(const MS_SECURITY_UPDATE_INFO* msg);
+void parse_message_7324(const MS_INSTRUMENT_UPDATE_INFO* msg);
+void parse_message_7320(const MS_SECURITY_STATUS_UPDATE_INFO* msg);
+void parse_message_7210(const MS_SECURITY_STATUS_UPDATE_INFO* msg);
+void parse_message_9010(const MS_BCAST_TURNOVER_EXCEEDED* msg);
+void parse_message_9011(const MS_BROADCAST_BROKER_REACTIVATED* msg);
+
 } // namespace nsefo
 
 #endif // NSE_PARSERS_H

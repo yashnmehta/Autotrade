@@ -91,14 +91,14 @@ private:
     MarketDataAggregator& operator=(const MarketDataAggregator&) = delete;
     
     // STATIC CALLBACKS (FO)
-    static void onTouchlineCallbackFO(const nsefo::TouchlineData& data);
-    static void onDepthCallbackFO(const nsefo::MarketDepthData& data);
-    static void onTickerCallbackFO(const nsefo::TickerData& data);
+    static void onTouchlineCallbackFO(int32_t token);
+    static void onDepthCallbackFO(int32_t token);
+    static void onTickerCallbackFO(int32_t token);
     
     // STATIC CALLBACKS (CM)
-    static void onTouchlineCallbackCM(const nsecm::TouchlineData& data);
-    static void onDepthCallbackCM(const nsecm::MarketDepthData& data);
-    static void onTickerCallbackCM(const nsecm::TickerData& data);
+    static void onTouchlineCallbackCM(int32_t token);
+    static void onDepthCallbackCM(int32_t token);
+    static void onTickerCallbackCM(int32_t token);
     
     // CACHE UPDATE METHODS
     void updateTouchlineCacheFO(const nsefo::TouchlineData& data);

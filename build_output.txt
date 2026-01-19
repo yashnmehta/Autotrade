@@ -1,0 +1,32 @@
+mingw32-make: Entering directory 'C:/Users/admin/Desktop/trading_terminal_cpp/build'
+[  0%] Built target cpp_broadcast_bsefo_autogen_timestamp_deps
+[  0%] Built target cpp_broadcast_bsefo_autogen
+[  2%] Built target cpp_broadcast_bsefo
+[  2%] Built target lzo_static_lib_autogen_timestamp_deps
+[  3%] Built target lzo_static_lib_autogen
+[ 35%] Built target lzo_static_lib
+[ 35%] Built target TradingTerminal_autogen_timestamp_deps
+[ 36%] Built target TradingTerminal_autogen
+[ 38%] Building CXX object CMakeFiles/TradingTerminal.dir/src/repository/RepositoryManager.cpp.obj
+C:\Users\admin\Desktop\trading_terminal_cpp\src\repository\RepositoryManager.cpp: In member function 'void RepositoryManager::initializeDistributedStores()':
+C:\Users\admin\Desktop\trading_terminal_cpp\src\repository\RepositoryManager.cpp:1016:13: error: no matching function for call to 'bse::PriceStore::initializeToken(uint32_t&, const char*, const char*, const char*, const char*, const int32_t&, const double&, const char*, const char*, const int64_t&, const int32_t&, const double&)'
+             );
+             ^
+In file included from C:\Users\admin\Desktop\trading_terminal_cpp\src\repository\RepositoryManager.cpp:17:
+C:/Users/admin/Desktop/trading_terminal_cpp/lib/cpp_broadcast_bsefo/include/bse_price_store.h:123:10: note: candidate: 'void bse::PriceStore::initializeToken(uint32_t, const char*, const char*, const char*, const char*, int32_t, double, const char*, const char*, int32_t, double)'
+     void initializeToken(uint32_t token, const char* symbol, const char* name, const char* scripCode,
+          ^~~~~~~~~~~~~~~
+C:/Users/admin/Desktop/trading_terminal_cpp/lib/cpp_broadcast_bsefo/include/bse_price_store.h:123:10: note:   candidate expects 11 arguments, 12 provided
+C:\Users\admin\Desktop\trading_terminal_cpp\src\repository\RepositoryManager.cpp:1047:13: error: no matching function for call to 'bse::PriceStore::initializeToken(uint32_t&, const char*, const char*, const char*, const char*, const int32_t&, const double&, const char*, const char*, const int64_t&, const int32_t&, const double&)'
+             );
+             ^
+In file included from C:\Users\admin\Desktop\trading_terminal_cpp\src\repository\RepositoryManager.cpp:17:
+C:/Users/admin/Desktop/trading_terminal_cpp/lib/cpp_broadcast_bsefo/include/bse_price_store.h:123:10: note: candidate: 'void bse::PriceStore::initializeToken(uint32_t, const char*, const char*, const char*, const char*, int32_t, double, const char*, const char*, int32_t, double)'
+     void initializeToken(uint32_t token, const char* symbol, const char* name, const char* scripCode,
+          ^~~~~~~~~~~~~~~
+C:/Users/admin/Desktop/trading_terminal_cpp/lib/cpp_broadcast_bsefo/include/bse_price_store.h:123:10: note:   candidate expects 11 arguments, 12 provided
+mingw32-make[3]: *** [CMakeFiles\TradingTerminal.dir\build.make:1227: CMakeFiles/TradingTerminal.dir/src/repository/RepositoryManager.cpp.obj] Error 1
+mingw32-make[2]: *** [CMakeFiles\Makefile2:208: CMakeFiles/TradingTerminal.dir/all] Error 2
+mingw32-make[1]: *** [CMakeFiles\Makefile2:215: CMakeFiles/TradingTerminal.dir/rule] Error 2
+mingw32-make: *** [makefile:168: TradingTerminal] Error 2
+mingw32-make: Leaving directory 'C:/Users/admin/Desktop/trading_terminal_cpp/build'

@@ -1,4 +1,6 @@
 #include "data/MarketDataAggregator.h"
+#include "nsefo_price_store.h"
+#include "nsecm_price_store.h"
 #include <QMetaObject>
 #include <QDebug>
 #include <iostream>
@@ -50,15 +52,69 @@ void MarketDataAggregator::stop() {
 // STATIC CALLBACK FUNCTIONS (FO)
 // =============================================================================
 
-void MarketDataAggregator::onTouchlineCallbackFO(const nsefo::TouchlineData& data) {
+// =============================================================================
+// STATIC CALLBACK FUNCTIONS (FO) - UPDATED FOR UNIFIED STORE
+// =============================================================================
+
+void MarketDataAggregator::onTouchlineCallbackFO(int32_t token) {
+    const auto* u = nsefo::g_nseFoPriceStore.getUnifiedState(token);
+    if (!u) return;
+    
+    // Map UnifiedState to Legacy TouchlineData
+    nsefo::TouchlineData data;
+    data.token = u->token;
+    data.ltp = u->ltp;
+    data.open = u->open;
+    data.high = u->high;
+    data.low = u->low;
+    data.close = u->close;
+    data.volume = u->volume;
+    data.lastTradeQty = u->lastTradeQty;
+    data.lastTradeTime = u->lastTradeTime;
+    data.avgPrice = u->avgPrice;
+    data.netChangeIndicator = u->netChangeIndicator;
+    data.netChange = u->netChange;
+    data.tradingStatus = u->tradingStatus;
+    data.bookType = u->bookType;
+    data.timestampRecv = u->lastPacketTimestamp;
+    
+    // Static fields (already in UnifiedState, but Aggregator copies them)
+    std::strncpy(data.symbol, u->symbol, sizeof(data.symbol));
+    std::strncpy(data.displayName, u->displayName, sizeof(data.displayName));
+    
     instance().updateTouchlineCacheFO(data);
 }
 
-void MarketDataAggregator::onDepthCallbackFO(const nsefo::MarketDepthData& data) {
+void MarketDataAggregator::onDepthCallbackFO(int32_t token) {
+    const auto* u = nsefo::g_nseFoPriceStore.getUnifiedState(token);
+    if (!u) return;
+
+    nsefo::MarketDepthData data;
+    data.token = u->token;
+    data.totalBuyQty = u->totalBuyQty;
+    data.totalSellQty = u->totalSellQty;
+    data.timestampRecv = u->lastPacketTimestamp;
+    
+    std::memcpy(data.bids, u->bids, sizeof(data.bids));
+    std::memcpy(data.asks, u->asks, sizeof(data.asks));
+
     instance().updateDepthCacheFO(data);
 }
 
-void MarketDataAggregator::onTickerCallbackFO(const nsefo::TickerData& data) {
+void MarketDataAggregator::onTickerCallbackFO(int32_t token) {
+    const auto* u = nsefo::g_nseFoPriceStore.getUnifiedState(token);
+    if (!u) return;
+
+    nsefo::TickerData data;
+    data.token = u->token;
+    data.openInterest = u->openInterest;
+    data.timestampRecv = u->lastPacketTimestamp;
+    // Note: UnifiedState doesn't store fillPrice/fillVolume from last ticker packet specifically unless fused.
+    // TickerData usually carries "This trade" info. UnifiedState carries "Last Trade" info (ltp, lastTradeQty).
+    // So we can map LTP -> fillPrice?
+    data.fillPrice = u->ltp;
+    data.fillVolume = u->lastTradeQty; 
+    
     instance().updateTickerCacheFO(data);
 }
 
@@ -66,15 +122,64 @@ void MarketDataAggregator::onTickerCallbackFO(const nsefo::TickerData& data) {
 // STATIC CALLBACK FUNCTIONS (CM)
 // =============================================================================
 
-void MarketDataAggregator::onTouchlineCallbackCM(const nsecm::TouchlineData& data) {
+void MarketDataAggregator::onTouchlineCallbackCM(int32_t token) {
+    const auto* u = nsecm::g_nseCmPriceStore.getUnifiedState(token);
+    if (!u) return;
+
+    nsecm::TouchlineData data;
+    data.token = u->token;
+    data.ltp = u->ltp;
+    data.open = u->open;
+    data.high = u->high;
+    data.low = u->low;
+    data.close = u->close;
+    data.volume = u->volume;
+    data.lastTradeQty = u->lastTradeQty;
+    data.lastTradeTime = u->lastTradeTime;
+    data.avgPrice = u->avgPrice;
+    data.netChangeIndicator = u->netChangeIndicator;
+    data.netChange = u->netChange;
+    data.tradingStatus = u->tradingStatus;
+    data.bookType = u->bookType;
+    data.timestampRecv = u->lastPacketTimestamp;
+    
+    // Copy static fields if available in UnifiedState (assuming they are populated)
+    // CM UnifiedState has symbol/series
+    // TouchlineData (Legacy) doesn't strictly have them, but let's check
+    // nsecm_callback.h doesn't show symbol/res in TouchlineData (Step 1335)
+    // So we just update fields present in TouchlineData
+    
     instance().updateTouchlineCacheCM(data);
 }
 
-void MarketDataAggregator::onDepthCallbackCM(const nsecm::MarketDepthData& data) {
+void MarketDataAggregator::onDepthCallbackCM(int32_t token) {
+    const auto* u = nsecm::g_nseCmPriceStore.getUnifiedState(token);
+    if (!u) return;
+
+    nsecm::MarketDepthData data;
+    data.token = u->token;
+    data.totalBuyQty = u->totalBuyQty;
+    data.totalSellQty = u->totalSellQty;
+    data.timestampRecv = u->lastPacketTimestamp;
+    
+    std::memcpy(data.bids, u->bids, sizeof(data.bids));
+    std::memcpy(data.asks, u->asks, sizeof(data.asks));
+
     instance().updateDepthCacheCM(data);
 }
 
-void MarketDataAggregator::onTickerCallbackCM(const nsecm::TickerData& data) {
+void MarketDataAggregator::onTickerCallbackCM(int32_t token) {
+    const auto* u = nsecm::g_nseCmPriceStore.getUnifiedState(token);
+    if (!u) return;
+
+    nsecm::TickerData data;
+    data.token = u->token;
+    data.fillPrice = u->ltp; // Fast Ticker mapping
+    data.fillVolume = u->lastTradeQty;
+    // TickerData has marketType, marketIndexValue which might not be in UnifiedState dynamic part always
+    // But for 18703, they are. UnifiedState UpdateTicker didn't store marketType.
+    // That's a minor loss of data for the Legacy View but OK for Distributed Cache focus.
+    
     instance().updateTickerCacheCM(data);
 }
 

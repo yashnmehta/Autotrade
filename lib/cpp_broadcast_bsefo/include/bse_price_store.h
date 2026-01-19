@@ -1,162 +1,171 @@
 #ifndef BSE_PRICE_STORE_H
 #define BSE_PRICE_STORE_H
 
-#include <unordered_map>
-#include <unordered_set>
+
 #include <vector>
+#include <unordered_map>
+#include <array>
 #include <cstdint>
 #include <shared_mutex>
-#include <QDebug>
+#include <cstring>
+#include <atomic>
+#include <mutex>
 #include "bse_protocol.h"
 
 namespace bse {
 
-/**
- * @brief Distributed price store for BSE (hash map with thread safety)
- * 
- * BSE uses HASH MAP for both FO and CM:
- * - Sparse token distribution
- * - Hash map for flexibility
- * - Thread-safe: UDP thread writes, Qt thread reads
- */
-class PriceStore {
-public:
-    PriceStore() = default;
-    
-    inline const DecodedRecord* updateRecord(const DecodedRecord& data) {
-        std::unique_lock lock(mutex_);
-        records[data.token] = data;
-        return &records[data.token];
-    }
-    
-    inline const DecodedOpenInterest* updateOI(const DecodedOpenInterest& data) {
-        std::unique_lock lock(mutex_);
-        openInterests[data.token] = data;
-        return &openInterests[data.token];
-    }
-    
-    inline const DecodedRecord* getRecord(uint32_t token) const {
-        std::shared_lock lock(mutex_);
-        auto it = records.find(token);
-        return (it != records.end()) ? &it->second : nullptr;
-    }
-    
-    inline const DecodedOpenInterest* getOI(uint32_t token) const {
-        std::shared_lock lock(mutex_);
-        auto it = openInterests.find(token);
-        return (it != openInterests.end()) ? &it->second : nullptr;
-    }
-    
-    /**
-     * @brief Initialize valid tokens from contract master
-     */
-    void initializeFromMaster(const std::vector<uint32_t>& tokens) {
-        std::unique_lock lock(mutex_);
-        validTokens.clear();
-        validTokens.reserve(tokens.size());
-        for (uint32_t token : tokens) {
-            validTokens.insert(token);
-        }
-        qDebug() << "[BSE Store] Initialized" << validTokens.size() << "valid tokens";
-    }
-    
-    /**
-     * @brief Initialize single token with contract master data
-     */
-    void initializeToken(uint32_t token, const char* symbol, const char* displayName,
-                        const char* scripCode, const char* series, int32_t lotSize,
-                        double strikePrice, const char* optionType, const char* expiryDate,
-                        int64_t assetToken, int32_t instrumentType, double tickSize) {
-        std::unique_lock lock(mutex_);
-        // Pre-create entry with static fields
-        DecodedRecord& rec = records[token];
-        rec.token = token;
-        strncpy(rec.symbol, symbol, 31);
-        strncpy(rec.displayName, displayName, 63);
-        strncpy(rec.scripCode, scripCode, 15);
-        strncpy(rec.series, series, 15);
-        rec.lotSize = lotSize;
-        rec.strikePrice = strikePrice;
-        strncpy(rec.optionType, optionType, 2);
-        strncpy(rec.expiryDate, expiryDate, 15);
-        rec.assetToken = assetToken;
-        rec.instrumentType = instrumentType;
-        rec.tickSize = tickSize;
-    }
-    
-    bool isValidToken(uint32_t token) const {
-        std::shared_lock lock(mutex_);
-        return validTokens.find(token) != validTokens.end();
-    }
-    
-    size_t recordCount() const {
-        std::shared_lock lock(mutex_);
-        return records.size();
-    }
-    
-    size_t oiCount() const {
-        std::shared_lock lock(mutex_);
-        return openInterests.size();
-    }
-    
-    size_t getValidTokenCount() const {
-        std::shared_lock lock(mutex_);
-        return validTokens.size();
-    }
-    
-    void clear() {
-        std::unique_lock lock(mutex_);
-        records.clear();
-        openInterests.clear();
-        validTokens.clear();
-    }
+// Maximum tokens for BSE (Scrip codes go up to ~6 digits, e.g., 500325, 9xxxxx for new)
+// 1 Million covers standard equity. FO tokens might be different.
+// Safe upper bound 1,200,000 for vector.
+constexpr size_t MAX_BSE_TOKENS = 1200000; // verify this figure from actual data (master data export)
 
-private:
-    std::unordered_map<uint32_t, DecodedRecord> records;
-    std::unordered_map<uint32_t, DecodedOpenInterest> openInterests;
-    std::unordered_set<uint32_t> validTokens;
-    mutable std::shared_mutex mutex_;  // Thread-safe: UDP writes, Qt reads
+/**
+ * @brief Consolidated state for a single BSE token
+ * Aligned for cache line performance.
+ */
+struct UnifiedTokenState {
+    uint32_t token = 0;
+
+    // === STATIC MASTER DATA ===
+    char symbol[32] = {0};
+    char displayName[64] = {0};
+    char scripCode[16] = {0};
+    char series[16] = {0};
+    char optionType[3] = {0};
+    char expiryDate[16] = {0};
+    int32_t lotSize = 0;
+    double strikePrice = 0.0;
+    double tickSize = 0.0;
+    int32_t instrumentType = 0;
+    int32_t assetToken = 0;
+    double lowerCircuit = 0.0;
+    double upperCircuit = 0.0;
+
+    // === DYNAMIC MARKET DATA ===
+    double ltp = 0.0;
+    double open = 0.0;
+    double high = 0.0;
+    double low = 0.0;
+    double close = 0.0; // Previous Close
+    uint64_t volume = 0;
+    uint64_t turnover = 0; // Traded Value
+    uint64_t ltq = 0; // Last Traded Qty
+    double weightedAvgPrice = 0.0;
+    
+    uint64_t totalBuyQty = 0;
+    uint64_t totalSellQty = 0;
+
+    // Depth (Zero-Copy Array)
+    struct DepthLevel {
+        double price = 0.0;
+        uint64_t quantity = 0;
+        uint32_t orders = 0;
+    };
+    DepthLevel bids[5];
+    DepthLevel asks[5];
+
+    // Derivatives Specific
+    int64_t openInterest = 0;
+    int32_t openInterestChange = 0;
+    int64_t impliedVolatility = 0;
+
+    // Latency Tracking
+    uint64_t lastPacketTimestamp = 0;
+    bool isUpdated = false;
 };
 
 /**
- * @brief Index data store for BSE (hash map with thread safety)
+ * @brief High-Performance Distributed Price Store for BSE
+ * Uses pre-allocated vector for O(1) lock-free(ish) access.
+ * Shared Mutex protects concurrent writes/reads.
+ */
+class PriceStore {
+public:
+    PriceStore();
+    ~PriceStore() = default;
+
+    // Delete copy/move
+    PriceStore(const PriceStore&) = delete;
+    PriceStore& operator=(const PriceStore&) = delete;
+
+    /**
+     * @brief Get unified state for reading (Thread-Safe Shared Lock)
+     */
+    const UnifiedTokenState* getUnifiedState(uint32_t token) const;
+
+    /**
+     * @brief Update Market Picture (Msg 2020/2021)
+     */
+    void updateMarketPicture(uint32_t token, double ltp, double open, double high, double low, double close,
+                             uint64_t volume, uint64_t turnover, uint64_t ltq, double atp,
+                             uint64_t totalBuy, uint64_t totalSell, double lowerCir, double upperCir,
+                             const bse::DecodedDepthLevel* bids, const bse::DecodedDepthLevel* asks,
+                             uint64_t timestamp);
+
+    /**
+     * @brief Update Open Interest (Msg 2015)
+     */
+    void updateOpenInterest(uint32_t token, int64_t oi, int32_t oiChange, uint64_t timestamp);
+
+    /**
+     * @brief Update Close Price (Msg 2014)
+     */
+    void updateClosePrice(uint32_t token, double closePrice, uint64_t timestamp);
+
+    /**
+     * @brief Update Implied Volatility (Msg 2028)
+     */
+    void updateImpliedVolatility(uint32_t token, int64_t iv, uint64_t timestamp);
+
+    /**
+     * @brief Initialize Token from Master (Thread-Safe)
+     */
+    void initializeToken(uint32_t token, const char* symbol, const char* name, const char* scripCode,
+                        const char* series, int32_t lot, double strike, const char* optType, const char* expiry,
+                        int32_t assetToken, int32_t instType, double tick);
+
+    /**
+     * @brief Clear all data
+     */
+    void clear();
+
+    /**
+     * @brief Initialize from master (List of tokens)
+     */
+    void initializeFromMaster(const std::vector<uint32_t>& tokens);
+
+    /**
+     * @brief Check if token is valid
+     */
+    bool isValidToken(uint32_t token) const;
+
+private:
+    std::vector<UnifiedTokenState> tokenStates; // Fixed size vector
+    mutable std::shared_mutex mutex;            // Shared mutex for thread safety
+};
+
+/**
+ * @brief Index Store (Kept separate for Indices)
  */
 class IndexStore {
 public:
     IndexStore() = default;
-    
-    inline const DecodedRecord* updateIndex(const DecodedRecord& data) {
-        std::unique_lock lock(mutex_);
-        indices[data.token] = data;
-        return &indices[data.token];
-    }
-    
-    inline const DecodedRecord* getIndex(uint32_t token) const {
-        std::shared_lock lock(mutex_);
-        auto it = indices.find(token);
-        return (it != indices.end()) ? &it->second : nullptr;
-    }
-    
-    size_t indexCount() const {
-        std::shared_lock lock(mutex_);
-        return indices.size();
-    }
-    
-    void clear() {
-        std::unique_lock lock(mutex_);
-        indices.clear();
-    }
+
+    void updateIndex(uint32_t token, const char* name, double value, double open, double high, double low, double close, double changePerc, uint64_t timestamp);
+    const DecodedRecord* getIndex(uint32_t token) const; // Keep DecodedRecord for now or simplify?
+                                                         // Let's rely on DecodedRecord for indices as defined in bse_protocol.h
+    void clear();
 
 private:
     std::unordered_map<uint32_t, DecodedRecord> indices;
-    mutable std::shared_mutex mutex_;  // Thread-safe: UDP writes, Qt reads
+    mutable std::shared_mutex mutex;
 };
 
 // Global instances
-extern PriceStore g_bseFoPriceStore;      // Hash map for BSE FO instruments
-extern PriceStore g_bseCmPriceStore;      // Hash map for BSE CM instruments
-extern IndexStore g_bseFoIndexStore;      // Hash map for BSE FO indices
-extern IndexStore g_bseCmIndexStore;      // Hash map for BSE CM indices
+extern PriceStore g_bseFoPriceStore;
+extern PriceStore g_bseCmPriceStore;
+extern IndexStore g_bseFoIndexStore;
+extern IndexStore g_bseCmIndexStore;
 
 } // namespace bse
 

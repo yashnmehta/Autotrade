@@ -20,7 +20,7 @@ void messageHandler(QtMsgType type, const QMessageLogContext &context, const QSt
         case QtDebugMsg:
             // Info Mode: Skip debug logs
             // Change false to true to enable debug logs
-            if (true) return; 
+            if (false) return; 
             level = "DEBUG"; 
             break;
         case QtInfoMsg:     level = "INFO "; break;

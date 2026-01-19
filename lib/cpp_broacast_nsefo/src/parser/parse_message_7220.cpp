@@ -1,6 +1,7 @@
 #include "nse_parsers.h"
 #include "nse_market_data.h"
 #include "nsefo_callback.h"
+#include "nsefo_price_store.h"
 #include "protocol.h"
 #include <chrono>
 #include <iostream>
@@ -28,21 +29,24 @@ void parse_limit_price_protection(const MS_BCAST_LIMIT_PRICE_PROTECTION_RANGE* m
         
         if (token == 0) continue;  // Skip empty slots
         
-        CircuitLimitData data;
-        data.token = token;
+        UnifiedTokenState state;
+        std::memset(&state, 0, sizeof(state));
+        state.token = token;
         
         // Convert circuit limit prices (already in price units, divide by 100 for decimals)
         uint32_t high = be32toh_func(detail.highExecBand);
         uint32_t low = be32toh_func(detail.lowExecBand);
-        data.upperLimit = high / 100.0;
-        data.lowerLimit = low / 100.0;
+        state.lppHigh = high / 100.0;
+        state.lppLow = low / 100.0;
         
         // Latency tracking
-        data.timestampRecv = 0;  // Would need to be passed from receiver
-        data.timestampParsed = timestampParsed;
+        state.lastPacketTimestamp = timestampParsed;
+        
+        // Update Store
+        g_nseFoPriceStore.updateLPP(state);
         
         // Dispatch to callback
-        registry.dispatchCircuitLimit(data);
+        registry.dispatchCircuitLimit(token);
     }
 }
 

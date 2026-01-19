@@ -66,19 +66,21 @@ void BSEParser::parsePacket(const uint8_t* buffer, size_t length, ParserStats& s
 void BSEParser::decodeMarketPicture(const uint8_t* buffer, size_t length, uint16_t msgType, ParserStats& stats) {
     if (length < HEADER_SIZE) return;
 
-    size_t recordSlotSize = 264; // Fixed slot size per empirical evidence
+    size_t recordSlotSize = 264; // Fixed slot size
     size_t numRecords = (length - HEADER_SIZE) / recordSlotSize;
     
     auto now = std::chrono::duration_cast<std::chrono::microseconds>(
         std::chrono::system_clock::now().time_since_epoch()).count();
         
-    // =========================================================================
-    // CONFIG-DRIVEN EITHER/OR PATH
-    // =========================================================================
-    bool useLegacy = PreferencesManager::instance().getUseLegacyPriceCache();
-    
-    // For New Path: Static cache for WriteHandles
-    static std::unordered_map<uint32_t, PriceCacheTypes::PriceCacheZeroCopy::WriteHandle> s_handleCache;
+    // Determine target store
+    PriceStore* store = nullptr;
+    if (marketSegment_ == 12 || marketSegment_ == 3) {
+        store = &g_bseFoPriceStore;
+    } else if (marketSegment_ == 11 || marketSegment_ == 2) {
+        store = &g_bseCmPriceStore;
+    }
+
+    if (!store) return; // Should not happen if configured correctly
 
     for (size_t i = 0; i < numRecords; i++) {
         size_t recordOffset = HEADER_SIZE + (i * recordSlotSize);
@@ -88,145 +90,48 @@ void BSEParser::decodeMarketPicture(const uint8_t* buffer, size_t length, uint16
         uint32_t token = le32toh_func(*(uint32_t*)(record + 0));
         if (token == 0) continue;
         
-        if (useLegacy) {
-            // =================================================================
-            // LEGACY PATH: Callbacks with Distributed Store (use_legacy_priceCache = true)
-            // =================================================================
-            
-            DecodedRecord decRec;
-            decRec.packetTimestamp = now;
-            decRec.token = token;
-            
-            decRec.open = le32toh_func(*(uint32_t*)(record + 4));
-            int32_t prevClose = le32toh_func(*(uint32_t*)(record + 8));
-            decRec.high = le32toh_func(*(uint32_t*)(record + 12));
-            decRec.low = le32toh_func(*(uint32_t*)(record + 16));
-            decRec.volume = le32toh_func(*(uint32_t*)(record + 24)); 
-            decRec.turnover = le32toh_func(*(uint32_t*)(record + 28));
-            decRec.ltp = le32toh_func(*(uint32_t*)(record + 36));
-            
-            // Empirically Verified Fields
-            decRec.totalBuyQty = le32toh_func(*(uint32_t*)(record + 64));
-            decRec.totalSellQty = le32toh_func(*(uint32_t*)(record + 68));
-            
-            decRec.lowerCircuit = le32toh_func(*(uint32_t*)(record + 76));
-            decRec.upperCircuit = le32toh_func(*(uint32_t*)(record + 80));
-            
-            decRec.weightedAvgPrice = le32toh_func(*(uint32_t*)(record + 84));
-            
-            // Depth
-            for (int level = 0; level < 5; level++) {
-                int bidOffset = 104 + (level * 32);
-                int askOffset = bidOffset + 16;
-                
-                if (recordOffset + askOffset + 8 <= length) {
-                    DecodedDepthLevel bid = {0}, ask = {0}; // Zero init
-                    
-                    bid.price = le32toh_func(*(uint32_t*)(record + bidOffset));
-                    bid.quantity = le32toh_func(*(uint32_t*)(record + bidOffset + 4));
-                    
-                    ask.price = le32toh_func(*(uint32_t*)(record + askOffset));
-                    ask.quantity = le32toh_func(*(uint32_t*)(record + askOffset + 4));
-                    
-                    decRec.bids.push_back(bid);
-                    decRec.asks.push_back(ask);
-                }
-            }
-            
-            decRec.close = prevClose;
-            
-            // Defaults
-            decRec.noOfTrades = 0;
-            decRec.ltq = 0;
-            
-            // STORE IN DISTRIBUTED CACHE FIRST (keeps contract master metadata)
-            const DecodedRecord* stored = nullptr;
-            if (msgType == MSG_TYPE_MARKET_PICTURE || msgType == MSG_TYPE_MARKET_PICTURE_COMPLEX) {
-                // Determine segment: BSE FO (segment 12) or BSE CM (segment 11)
-                // Use marketSegment_ if set, otherwise infer from message structure
-                if (marketSegment_ == 12 || marketSegment_ == 3) {
-                    stored = g_bseFoPriceStore.updateRecord(decRec);
-                } else if (marketSegment_ == 11 || marketSegment_ == 2) {
-                    stored = g_bseCmPriceStore.updateRecord(decRec);
-                }
-            }
-            
-            stats.packetsDecoded++;
-            
-            // Dispatch callback with stored pointer if available, else original
-            if (recordCallback_) {
-                recordCallback_(stored ? *stored : decRec);
-            }
-            
-        } else {
-            // =================================================================
-            // NEW PATH: PriceCache Direct Write (use_legacy_priceCache = false)
-            // =================================================================
-            
-            // Check if segment is set using member variable
-            if (marketSegment_ == -1) continue;
-            
-            // Get or create WriteHandle
-            auto it = s_handleCache.find(token);
-            if (it == s_handleCache.end()) {
-                // Determine segment enum from stored integer
-                auto segmentEnum = static_cast<PriceCacheTypes::MarketSegment>(marketSegment_);
-                
-                auto handle = PriceCacheTypes::PriceCacheZeroCopy::getInstance()
-                    .getWriteHandle(token, segmentEnum);
-                
-                if (!handle.valid) {
-                    // Token not in PriceCache
-                    continue;
-                }
-                
-                it = s_handleCache.emplace(token, handle).first;
-            }
-            
-            auto& h = it->second;
-            
-            // Atomic write
-            uint64_t seq = h.sequencePtr->fetch_add(1, std::memory_order_relaxed);
-            
-            // Core Data
-            h.dataPtr->lastTradedPrice = le32toh_func(*(uint32_t*)(record + 36)); // Paise
-            h.dataPtr->openPrice = le32toh_func(*(uint32_t*)(record + 4));
-            h.dataPtr->highPrice = le32toh_func(*(uint32_t*)(record + 12));
-            h.dataPtr->lowPrice = le32toh_func(*(uint32_t*)(record + 16));
-            h.dataPtr->closePrice = le32toh_func(*(uint32_t*)(record + 8)); // prevClose
-            
-            h.dataPtr->volumeTradedToday = le32toh_func(*(uint32_t*)(record + 24));
-            // h.dataPtr->turnover = le32toh_func(*(uint32_t*)(record + 28)); // No turnover field in ConsolidatedMarketData?
-            // Checking PriceCacheZeroCopy.h: It has `valueTraded` or similar? 
-            // It has `averageTradePrice`. 
-            // Let's check struct.
-            
-            h.dataPtr->averageTradePrice = le32toh_func(*(uint32_t*)(record + 84));
-            
-            h.dataPtr->totalBuyQuantity = le32toh_func(*(uint32_t*)(record + 64));
-            h.dataPtr->totalSellQuantity = le32toh_func(*(uint32_t*)(record + 68));
-            
-            h.dataPtr->lowerCircuit = le32toh_func(*(uint32_t*)(record + 76));
-            h.dataPtr->upperCircuit = le32toh_func(*(uint32_t*)(record + 80));
-            
-            // Depth
-            for (int level = 0; level < 5; level++) {
-                int bidOffset = 104 + (level * 32);
-                int askOffset = bidOffset + 16;
-                
-                h.dataPtr->bidPrice[level] = le32toh_func(*(uint32_t*)(record + bidOffset));
-                h.dataPtr->bidQuantity[level] = le64toh_func(*(uint32_t*)(record + bidOffset + 4)); // Cast 32->64
-                h.dataPtr->bidOrders[level] = 0; // Not parsed currently
-                
-                h.dataPtr->askPrice[level] = le32toh_func(*(uint32_t*)(record + askOffset));
-                h.dataPtr->askQuantity[level] = le64toh_func(*(uint32_t*)(record + askOffset + 4));
-                h.dataPtr->askOrders[level] = 0;
-            }
-            
-            // Complete update
-            h.sequencePtr->store(seq + 1, std::memory_order_release);
-            
-            stats.packetsDecoded++;
+        // Extract Data
+        double open = le32toh_func(*(uint32_t*)(record + 4)) / 100.0;
+        double close = le32toh_func(*(uint32_t*)(record + 8)) / 100.0; // Pclose
+        double high = le32toh_func(*(uint32_t*)(record + 12)) / 100.0;
+        double low = le32toh_func(*(uint32_t*)(record + 16)) / 100.0;
+        uint64_t volume = le32toh_func(*(uint32_t*)(record + 24));
+        uint64_t turnover = le32toh_func(*(uint32_t*)(record + 28)); // Checking if turnover is 32 or 64. Manual says Long (4).
+        double ltp = le32toh_func(*(uint32_t*)(record + 36)) / 100.0;
+        
+        // Additional fields
+        uint64_t totalBuy = le32toh_func(*(uint32_t*)(record + 64));
+        uint64_t totalSell = le32toh_func(*(uint32_t*)(record + 68));
+        double lowerCir = le32toh_func(*(uint32_t*)(record + 76)) / 100.0;
+        double upperCir = le32toh_func(*(uint32_t*)(record + 80)) / 100.0;
+        double atp = le32toh_func(*(uint32_t*)(record + 84)) / 100.0;
+        
+        // Depth
+        DecodedDepthLevel bids[5];
+        DecodedDepthLevel asks[5];
+        
+        for (int level = 0; level < 5; level++) {
+             int bidOffset = 104 + (level * 32);
+             int askOffset = bidOffset + 16;
+             
+             bids[level].price = le32toh_func(*(uint32_t*)(record + bidOffset)) / 100.0;
+             bids[level].quantity = le32toh_func(*(uint32_t*)(record + bidOffset + 4));
+             bids[level].numOrders = 0; // Not in legacy parse
+             
+             asks[level].price = le32toh_func(*(uint32_t*)(record + askOffset)) / 100.0;
+             asks[level].quantity = le32toh_func(*(uint32_t*)(record + askOffset + 4));
+             asks[level].numOrders = 0;
+        }
+
+        // Update Store
+        store->updateMarketPicture(token, ltp, open, high, low, close, volume, turnover, 0, atp,
+                                  totalBuy, totalSell, lowerCir, upperCir, bids, asks, now);
+        
+        stats.packetsDecoded++;
+        
+        // Dispatch Callback (Token Only)
+        if (recordCallback_) {
+            recordCallback_(token);
         }
     }
 }
@@ -243,23 +148,33 @@ void BSEParser::decodeOpenInterest(const uint8_t* buffer, size_t length, ParserS
     auto now = std::chrono::duration_cast<std::chrono::microseconds>(
         std::chrono::system_clock::now().time_since_epoch()).count();
 
+    // Determine target store
+    PriceStore* store = nullptr;
+    if (marketSegment_ == 12 || marketSegment_ == 3) {
+        store = &g_bseFoPriceStore;
+    } else if (marketSegment_ == 11 || marketSegment_ == 2) {
+        store = &g_bseCmPriceStore;
+    }
+
     for (uint16_t i = 0; i < numRecords && i < 40; i++) { // Safety cap
         size_t offset = recordStart + (i * OI_RECORD_SIZE);
         if (offset + OI_RECORD_SIZE > length) break;
         
         const uint8_t* record = buffer + offset;
         
-        DecodedOpenInterest oiRec;
-        oiRec.packetTimestamp = now;
-        oiRec.token = le32toh_func(*(uint32_t*)(record + 0));
-        oiRec.openInterest = (int64_t)le64toh_func(*(uint64_t*)(record + 4));
-        oiRec.openInterestValue = (int64_t)le64toh_func(*(uint64_t*)(record + 12));
-        oiRec.openInterestChange = (int32_t)le32toh_func(*(uint32_t*)(record + 20));
+        uint32_t token = le32toh_func(*(uint32_t*)(record + 0));
+        int64_t openInterest = (int64_t)le64toh_func(*(uint64_t*)(record + 4));
+        int64_t openInterestValue = (int64_t)le64toh_func(*(uint64_t*)(record + 12));
+        int32_t openInterestChange = (int32_t)le32toh_func(*(uint32_t*)(record + 20));
         
-        if (oiRec.token == 0) continue;
+        if (token == 0) continue;
+        
+        if (store) {
+            store->updateOpenInterest(token, openInterest, openInterestChange, now);
+        }
         
         stats.packetsDecoded++;
-        if (oiCallback_) oiCallback_(oiRec);
+        if (oiCallback_) oiCallback_(token);
     }
 }
 
@@ -295,20 +210,30 @@ void BSEParser::decodeClosePrice(const uint8_t* buffer, size_t length, ParserSta
     auto now = std::chrono::duration_cast<std::chrono::microseconds>(
         std::chrono::system_clock::now().time_since_epoch()).count();
 
+    // Determine target store
+    PriceStore* store = nullptr;
+    if (marketSegment_ == 12 || marketSegment_ == 3) {
+        store = &g_bseFoPriceStore;
+    } else if (marketSegment_ == 11 || marketSegment_ == 2) {
+        store = &g_bseCmPriceStore;
+    }
+
     for (size_t i = 0; i < numRecords; i++) {
         size_t offset = HEADER_SIZE + (i * recordSlotSize);
         if (offset + 8 > length) break;
         
         const uint8_t* record = buffer + offset;
-        DecodedClosePrice cp;
-        cp.packetTimestamp = now;
-        cp.token = le32toh_func(*(uint32_t*)(record + 0));
-        cp.closePrice = le32toh_func(*(uint32_t*)(record + 4));
+        uint32_t token = le32toh_func(*(uint32_t*)(record + 0));
+        double closePrice = le32toh_func(*(uint32_t*)(record + 4)) / 100.0;
         
-        if (cp.token == 0) continue;
+        if (token == 0) continue;
+        
+        if (store) {
+            store->updateClosePrice(token, closePrice, now);
+        }
         
         stats.packetsDecoded++;
-        if (closePriceCallback_) closePriceCallback_(cp);
+        if (closePriceCallback_) closePriceCallback_(token);
     }
 }
 
@@ -319,61 +244,74 @@ void BSEParser::decodeIndex(const uint8_t* buffer, size_t length, ParserStats& s
     auto now = std::chrono::duration_cast<std::chrono::microseconds>(
         std::chrono::system_clock::now().time_since_epoch()).count();
         
+    // Determine target index store
+    IndexStore* store = nullptr;
+    if (marketSegment_ == 12 || marketSegment_ == 3) {
+        store = &g_bseFoIndexStore;
+    } else if (marketSegment_ == 11 || marketSegment_ == 2) {
+        store = &g_bseCmIndexStore;
+    }
+
     for (size_t i=0; i<numRecords; i++) {
         size_t offset = HEADER_SIZE + (i * recordSlotSize);
-        if (offset + 28 > length) break; // Need up to LTP/Close
+        if (offset + 28 > length) break; 
         const uint8_t* record = buffer + offset;
         
-        DecodedRecord decRec; // Reuse DecodedRecord for Index
-        decRec.packetTimestamp = now;
-        decRec.token = le32toh_func(*(uint32_t*)(record + 0));
-        // Layout assumption: 12-15 Open, 16-19 High, 20-23 Low, 24-27 LTP, 28-31 Close
-        decRec.open = le32toh_func(*(uint32_t*)(record + 12));
-        decRec.high = le32toh_func(*(uint32_t*)(record + 16));
-        decRec.low = le32toh_func(*(uint32_t*)(record + 20));
-        decRec.ltp = le32toh_func(*(uint32_t*)(record + 24));
-        decRec.close = le32toh_func(*(uint32_t*)(record + 28));
+        uint32_t token = le32toh_func(*(uint32_t*)(record + 0));
+        double open = le32toh_func(*(uint32_t*)(record + 12)) / 100.0;
+        double high = le32toh_func(*(uint32_t*)(record + 16)) / 100.0;
+        double low = le32toh_func(*(uint32_t*)(record + 20)) / 100.0;
+        double ltp = le32toh_func(*(uint32_t*)(record + 24)) / 100.0;
+        double close = le32toh_func(*(uint32_t*)(record + 28)) / 100.0;
         
-        // Defaults
-        decRec.volume = 0;
-        decRec.turnover = 0;
+        double changePerc = 0.0;
+        if (close > 0) changePerc = ((ltp - close) / close) * 100.0;
+        
+        if (store) {
+            store->updateIndex(token, nullptr, ltp, open, high, low, close, changePerc, now);
+        }
         
         stats.packetsDecoded++;
-        stats.packetsDecoded++;
-        if (indexCallback_) indexCallback_(decRec);
-        else if (recordCallback_) recordCallback_(decRec); // Fallback
+        if (indexCallback_) indexCallback_(token);
+        else if (recordCallback_) recordCallback_(token); // Fallback
     }
 }
 
 void BSEParser::decodeImpliedVolatility(const uint8_t* buffer, size_t length, ParserStats& stats) {
-    // Message Type 2028 (Implied Volatility)
-    // Structure as per Manual V5.0:
-    // Header (32 bytes up to Reserveds) + NoOfRecords(2) at offset 32? (Assuming alignment with 2015)
-    // Record Size: 72 bytes (Calculated from Manual)
-    
-    if (length < 34) return; // Header + NoOfRecords
+    // Message Type 2028
+    if (length < 34) return;
     
     uint16_t numRecords = le16toh_func(*(uint16_t*)(buffer + 32));
     size_t recordSize = 72; 
-    size_t recordStart = HEADER_SIZE; // 36
+    size_t recordStart = HEADER_SIZE;
     
     auto now = std::chrono::duration_cast<std::chrono::microseconds>(
         std::chrono::system_clock::now().time_since_epoch()).count();
+        
+    // Determine target store
+    PriceStore* store = nullptr;
+    if (marketSegment_ == 12 || marketSegment_ == 3) {
+        store = &g_bseFoPriceStore;
+    } else if (marketSegment_ == 11 || marketSegment_ == 2) {
+        store = &g_bseCmPriceStore;
+    }
 
     for (uint16_t i=0; i<numRecords; i++) {
         size_t offset = recordStart + (i * recordSize);
-        if (offset + 12 > length) break; // Need Token(4) + IV(8)
+        if (offset + 12 > length) break;
         
         const uint8_t* record = buffer + offset;
-        DecodedImpliedVolatility iv;
-        iv.packetTimestamp = now;
-        iv.token = le32toh_func(*(uint32_t*)(record + 0));
-        iv.impliedVolatility = (int64_t)le64toh_func(*(uint64_t*)(record + 4));
+        uint32_t token = le32toh_func(*(uint32_t*)(record + 0));
+        int64_t impliedVolatility = (int64_t)le64toh_func(*(uint64_t*)(record + 4));
         
-        if (iv.token == 0) continue;
+        if (token == 0) continue;
+        
+        if (store) {
+            store->updateImpliedVolatility(token, impliedVolatility, now);
+        }
         
         stats.packetsDecoded++;
-        if (ivCallback_) ivCallback_(iv);
+        if (ivCallback_) ivCallback_(token);
     }
 }
 

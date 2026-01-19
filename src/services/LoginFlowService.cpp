@@ -64,6 +64,73 @@ void LoginFlowService::setCompleteCallback(std::function<void()> callback)
     m_completeCallback = callback;
 }
 
+void LoginFlowService::startMastersPhase()
+{
+    // Phase 3: Check shared state and handle masters accordingly
+    MasterDataState* masterState = MasterDataState::getInstance();
+    QString mastersDir = RepositoryManager::getMastersDirectory();
+    QDir().mkpath(mastersDir);
+    
+    // Check if masters were already loaded by splash screen
+    if (masterState->areMastersLoaded()) {
+        qDebug() << "[LoginFlow] Masters already loaded by splash screen ("
+                 << masterState->getContractCount() << "contracts), skipping load";
+        updateStatus("masters", QString("Using cached masters (%1 contracts)")
+                    .arg(masterState->getContractCount()), 80);
+        
+        // Emit signal for UI (even though already loaded)
+        emit mastersLoaded();
+        
+        // Continue directly to next phase
+        continueLoginAfterMasters();
+        return;
+    }
+    
+    // Check if splash screen is still loading masters
+    if (masterState->isLoading()) {
+        qDebug() << "[LoginFlow] Masters are being loaded by splash screen, waiting...";
+        updateStatus("masters", "Waiting for master loading...", 70);
+        
+        // Connect to state change signal to continue when loading completes
+        connect(masterState, &MasterDataState::mastersReady, 
+                this, [this](int contractCount) {
+            qDebug() << "[LoginFlow] Masters loading completed with" << contractCount << "contracts";
+            updateStatus("masters", QString("Masters ready (%1 contracts)").arg(contractCount), 80);
+            emit mastersLoaded();
+            continueLoginAfterMasters();
+        }, Qt::UniqueConnection);
+        
+        connect(masterState, &MasterDataState::loadingError,
+                this, [this](const QString& error) {
+            qWarning() << "[LoginFlow] Background loading failed:" << error;
+            
+            // If user requested download, proceed with download
+            if (m_downloadMasters) {
+                QString mastersDir = RepositoryManager::getMastersDirectory();
+                startMasterDownload(mastersDir);
+            } else {
+                // Otherwise skip and continue
+                updateStatus("masters", "No masters available (continuing)", 75);
+                continueLoginAfterMasters();
+            }
+        }, Qt::UniqueConnection);
+        
+        return;
+    }
+    
+    // Masters not loaded - proceed based on downloadMasters flag
+    if (m_downloadMasters) {
+        startMasterDownload(mastersDir);
+    } else {
+        // User doesn't want to download, but check if we should try loading from cache
+        updateStatus("masters", "Checking for cached masters...", 70);
+        qDebug() << "[LoginFlow] Attempting to load from cache...";
+        
+        masterState->setLoadingStarted();
+        m_masterLoader->loadFromCache(mastersDir);
+    }
+}
+
 void LoginFlowService::executeLogin(
     const QString &mdAppKey,
     const QString &mdSecretKey,
@@ -74,119 +141,76 @@ void LoginFlowService::executeLogin(
     const QString &baseURL,
     const QString &source)
 {
+    m_downloadMasters = downloadMasters;
+    m_mdLoggedIn = false;
+    m_iaLoggedIn = false;
+
     updateStatus("init", "Starting login process...", 0);
 
+    // Cleanup previous clients if any to avoid leaks and stale connections
+    if (m_mdClient) { 
+        m_mdClient->disconnectWebSocket();
+        delete m_mdClient; 
+        m_mdClient = nullptr; 
+    }
+    if (m_iaClient) { 
+        m_iaClient->disconnectWebSocket();
+        delete m_iaClient; 
+        m_iaClient = nullptr; 
+    }
+
     // Create API clients with correct base URLs
-    // Market Data API needs /apimarketdata suffix
     QString mdBaseURL = baseURL + "/apimarketdata";
-    // Interactive API uses base URL directly
     QString iaBaseURL = baseURL;
     
     m_mdClient = new XTSMarketDataClient(mdBaseURL, mdAppKey, mdSecretKey, source, this);
     m_iaClient = new XTSInteractiveClient(iaBaseURL, iaAppKey, iaSecretKey, source, this);
 
-    // Connect Interactive Events to TradingDataService (if available)
-    // We defer actual connection because m_tradingDataService might be null here? 
-    // Usually setTradingDataService is called before executeLogin.
+    // Connect Interactive Events to TradingDataService
     if (m_tradingDataService) {
          connect(m_iaClient, &XTSInteractiveClient::orderEvent, m_tradingDataService, &TradingDataService::onOrderEvent);
          connect(m_iaClient, &XTSInteractiveClient::tradeEvent, m_tradingDataService, &TradingDataService::onTradeEvent);
          connect(m_iaClient, &XTSInteractiveClient::positionEvent, m_tradingDataService, &TradingDataService::onPositionEvent);
     }
 
-    // Phase 1: Market Data API Login
-    updateStatus("md_login", "Connecting to Market Data API...", 10);
-    
-    // Connect to loginCompleted signal
-    connect(m_mdClient, &XTSMarketDataClient::loginCompleted, this, [this, downloadMasters](bool success, const QString &message) {
+    // Connect MD login signal
+    connect(m_mdClient, &XTSMarketDataClient::loginCompleted, this, [this](bool success, const QString &message) {
         if (!success) {
             notifyError("md_login", message);
             return;
         }
-
+        m_mdLoggedIn = true;
         updateStatus("md_login", "Market Data API connected", 30);
-
-        // Phase 2: Interactive API Login
-        updateStatus("ia_login", "Connecting to Interactive API...", 40);
         
-        // Connect to IA login signal
-        connect(m_iaClient, &XTSInteractiveClient::loginCompleted, this, [this, downloadMasters](bool success, const QString &message) {
-            if (!success) {
-                notifyError("ia_login", message);
-                return;
-            }
-
-            updateStatus("ia_login", "Interactive API connected", 60);
-
-            // Phase 3: Check shared state and handle masters accordingly
-            MasterDataState* masterState = MasterDataState::getInstance();
-            QString mastersDir = RepositoryManager::getMastersDirectory();
-            QDir().mkpath(mastersDir);
-            
-            // Check if masters were already loaded by splash screen
-            if (masterState->areMastersLoaded()) {
-                qDebug() << "[LoginFlow] Masters already loaded by splash screen ("
-                         << masterState->getContractCount() << "contracts), skipping load";
-                updateStatus("masters", QString("Using cached masters (%1 contracts)")
-                            .arg(masterState->getContractCount()), 80);
-                
-                // Emit signal for UI (even though already loaded)
-                emit mastersLoaded();
-                
-                // Continue directly to next phase
-                continueLoginAfterMasters();
-                return;
-            }
-            
-            // Check if splash screen is still loading masters
-            if (masterState->isLoading()) {
-                qDebug() << "[LoginFlow] Masters are being loaded by splash screen, waiting...";
-                updateStatus("masters", "Waiting for master loading...", 70);
-                
-                // Connect to state change signal to continue when loading completes
-                connect(masterState, &MasterDataState::mastersReady, 
-                        this, [this](int contractCount) {
-                    qDebug() << "[LoginFlow] Masters loading completed with" << contractCount << "contracts";
-                    updateStatus("masters", QString("Masters ready (%1 contracts)").arg(contractCount), 80);
-                    emit mastersLoaded();
-                    continueLoginAfterMasters();
-                }, Qt::UniqueConnection);
-                
-                connect(masterState, &MasterDataState::loadingError,
-                        this, [this, downloadMasters, mastersDir](const QString& error) {
-                    qWarning() << "[LoginFlow] Background loading failed:" << error;
-                    
-                    // If user requested download, proceed with download
-                    if (downloadMasters) {
-                        startMasterDownload(mastersDir);
-                    } else {
-                        // Otherwise skip and continue
-                        updateStatus("masters", "No masters available (continuing)", 75);
-                        continueLoginAfterMasters();
-                    }
-                }, Qt::UniqueConnection);
-                
-                return;
-            }
-            
-            // Masters not loaded - proceed based on downloadMasters flag
-            if (downloadMasters) {
-                startMasterDownload(mastersDir);
-            } else {
-                // User doesn't want to download, but check if we should try loading from cache
-                // (in case splash screen failed but files exist)
-                updateStatus("masters", "Checking for cached masters...", 70);
-                qDebug() << "[LoginFlow] Attempting to load from cache...";
-                
-                masterState->setLoadingStarted();
-                m_masterLoader->loadFromCache(mastersDir);
-                
-                // Note: Continuation happens in handleMasterLoadingComplete()
-            }
-        }, Qt::UniqueConnection);
+        if (m_iaLoggedIn) {
+            startMastersPhase();
+        } else {
+             // Still waiting for IA
+             updateStatus("ia_login", "Waiting for Interactive API...", 40);
+        }
     }, Qt::UniqueConnection);
-    
+
+    // Connect IA login signal
+    connect(m_iaClient, &XTSInteractiveClient::loginCompleted, this, [this](bool success, const QString &message) {
+        if (!success) {
+            notifyError("ia_login", message);
+            return;
+        }
+        m_iaLoggedIn = true;
+        updateStatus("ia_login", "Interactive API connected", 60);
+        
+        if (m_mdLoggedIn) {
+            startMastersPhase();
+        } else {
+            // Still waiting for MD
+            updateStatus("md_login", "Waiting for Market Data API...", 50);
+        }
+    }, Qt::UniqueConnection);
+
     // Trigger the actual login
+    updateStatus("md_login", "Connecting to Market Data API...", 10);
+    updateStatus("ia_login", "Connecting to Interactive API...", 20);
+    
     m_mdClient->login();
     m_iaClient->login();
 }

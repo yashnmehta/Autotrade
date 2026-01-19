@@ -1,7 +1,10 @@
 #include "nse_parsers.h"
 #include "protocol.h"
 #include "nsefo_callback.h"
+#include "nsefo_price_store.h"
 #include <iostream>
+#include <chrono>
+#include <cstring>
 
 namespace nsefo {
 
@@ -17,20 +20,30 @@ void parse_message_17202(const MS_ENHNCD_TICKER_TRADE_DATA* msg) {
         uint32_t token = be32toh_func(rec.token);
         
         if (token > 0) {
-            // Parse enhanced ticker data
-            TickerData ticker;
-            ticker.token = token;
-            ticker.fillPrice = be32toh_func(rec.fillPrice) / 100.0;
-            ticker.fillVolume = be32toh_func(rec.fillVolume);
-            ticker.openInterest = be64toh_func((uint64_t)rec.openInterest);
-            ticker.dayHiOI = be64toh_func((uint64_t)rec.dayHiOI);
-            ticker.dayLoOI = be64toh_func((uint64_t)rec.dayLoOI);
-            ticker.marketType = be16toh_func(rec.marketType);
+            // Unified Token State
+            UnifiedTokenState state;
+            std::memset(&state, 0, sizeof(state));
             
-            // Dispatch ticker callback
-            MarketDataCallbackRegistry::instance().dispatchTicker(ticker);
-            //add debug logging for token 49543
-            // std::cout << "[17202-ENHNCD-TICKER]  Open Interest: " << ticker.openInterest << std::endl;
+            state.token = token;
+            // No timestampRecv in current parser provided?? 
+            // 7200 capture "now". 17202 doesn't capture time?
+            // "auto now = ..." is MISSING in 17202 parser provided in view_file?
+            // Wait, view_file output had NO time capture logic.
+            // I should add it.
+            
+            auto now = std::chrono::duration_cast<std::chrono::microseconds>(
+                std::chrono::steady_clock::now().time_since_epoch()).count();
+            state.lastPacketTimestamp = now;
+
+            state.ltp = be32toh_func(rec.fillPrice) / 100.0;
+            state.lastTradeQty = be32toh_func(rec.fillVolume);
+            state.openInterest = be64toh_func((uint64_t)rec.openInterest); // 17202 has 64-bit OI
+            
+            // Update Store
+            g_nseFoPriceStore.updateTicker(state);
+            
+            // Dispatch ticker callback (Token only)
+            MarketDataCallbackRegistry::instance().dispatchTicker(token);
         }
     }
 }

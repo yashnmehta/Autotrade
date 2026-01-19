@@ -17,8 +17,8 @@
 
 namespace {
 
-// Convert NSE FO Touchline to UDP::MarketTick
-UDP::MarketTick convertNseFoTouchline(const nsefo::TouchlineData& data) {
+// Convert NSE FO Unified State to UDP::MarketTick
+UDP::MarketTick convertNseFoUnified(const nsefo::UnifiedTokenState& data) {
     UDP::MarketTick tick(UDP::ExchangeSegment::NSEFO, data.token);
     tick.ltp = data.ltp;
     tick.ltq = data.lastTradeQty;
@@ -26,12 +26,25 @@ UDP::MarketTick convertNseFoTouchline(const nsefo::TouchlineData& data) {
     tick.open = data.open;
     tick.high = data.high;
     tick.low = data.low;
-    tick.prevClose = data.close;  // NSE: "close" means previous close
-    tick.refNo = data.refNo;
-    tick.timestampUdpRecv = data.timestampRecv;
-    tick.timestampParsed = data.timestampParsed;
+    tick.prevClose = data.close;
+    tick.atp = data.avgPrice;
+    
+    // Depth
+    for (int i = 0; i < 5; i++) {
+        tick.bids[i] = UDP::DepthLevel(data.bids[i].price, data.bids[i].quantity, data.bids[i].orders);
+        tick.asks[i] = UDP::DepthLevel(data.asks[i].price, data.asks[i].quantity, data.asks[i].orders);
+    }
+    
+    tick.totalBidQty = data.totalBuyQty;
+    tick.totalAskQty = data.totalSellQty;
+    
+    tick.openInterest = data.openInterest;
+    
+    tick.refNo = 0; 
+    tick.timestampUdpRecv = data.lastPacketTimestamp;
+    tick.timestampParsed = data.lastPacketTimestamp;
     tick.timestampEmitted = LatencyTracker::now();
-    tick.messageType = 7200;  // BCAST_MBO_MBP_UPDATE
+    tick.messageType = 7200; 
     return tick;
 }
 
@@ -50,6 +63,35 @@ UDP::MarketTick convertNseFoDepth(const nsefo::MarketDepthData& data) {
     tick.refNo = data.refNo;
     tick.timestampUdpRecv = data.timestampRecv;
     tick.timestampParsed = data.timestampParsed;
+    tick.timestampEmitted = LatencyTracker::now();
+    tick.messageType = 7200;
+    return tick;
+}
+
+// Convert NSE CM Unified State to UDP::MarketTick
+UDP::MarketTick convertNseCmUnified(const nsecm::UnifiedTokenState& data) {
+    UDP::MarketTick tick(UDP::ExchangeSegment::NSECM, data.token);
+    tick.ltp = data.ltp;
+    tick.ltq = data.lastTradeQty;
+    tick.volume = data.volume;
+    tick.open = data.open;
+    tick.high = data.high;
+    tick.low = data.low;
+    tick.prevClose = data.close;
+    tick.atp = data.avgPrice;
+    
+    // Depth
+    for (int i = 0; i < 5; i++) {
+        tick.bids[i] = UDP::DepthLevel(data.bids[i].price, data.bids[i].quantity, data.bids[i].orders);
+        tick.asks[i] = UDP::DepthLevel(data.asks[i].price, data.asks[i].quantity, data.asks[i].orders);
+    }
+    
+    tick.totalBidQty = data.totalBuyQty;
+    tick.totalAskQty = data.totalSellQty;
+    
+    tick.refNo = 0;
+    tick.timestampUdpRecv = data.lastPacketTimestamp;
+    tick.timestampParsed = data.lastPacketTimestamp;
     tick.timestampEmitted = LatencyTracker::now();
     tick.messageType = 7200;
     return tick;
@@ -94,47 +136,37 @@ UDP::MarketTick convertNseCmDepth(const nsecm::MarketDepthData& data) {
     return tick;
 }
 
-// Convert BSE Record to UDP::MarketTick
-UDP::MarketTick convertBseRecord(const bse::DecodedRecord& record, UDP::ExchangeSegment segment) {
-    UDP::MarketTick tick(segment, record.token);
-    tick.ltp = record.ltp / 100.0;
-    tick.ltq = record.ltq;
-    tick.volume = record.volume;
-    tick.open = record.open / 100.0;
-    tick.high = record.high / 100.0;
-    tick.low = record.low / 100.0;
-    tick.prevClose = record.close / 100.0;  // BSE: close means previous close
-    tick.atp = record.weightedAvgPrice / 100.0;
+// Convert BSE Unified State to UDP::MarketTick
+UDP::MarketTick convertBseUnified(const bse::UnifiedTokenState& data, UDP::ExchangeSegment segment) {
+    UDP::MarketTick tick(segment, data.token);
+    tick.ltp = data.ltp;
+    tick.ltq = data.ltq;
+    tick.volume = data.volume;
+    tick.open = data.open;
+    tick.high = data.high;
+    tick.low = data.low;
+    tick.prevClose = data.close;
+    tick.atp = data.weightedAvgPrice;
     
-    // 5-level depth
-    for (size_t i = 0; i < 5 && i < record.bids.size(); i++) {
-        tick.bids[i].price = record.bids[i].price / 100.0;
-        tick.bids[i].quantity = record.bids[i].quantity;
-        tick.bids[i].orders = record.bids[i].numOrders;
-    }
-    for (size_t i = 0; i < 5 && i < record.asks.size(); i++) {
-        tick.asks[i].price = record.asks[i].price / 100.0;
-        tick.asks[i].quantity = record.asks[i].quantity;
-        tick.asks[i].orders = record.asks[i].numOrders;
+    // Depth
+    for (int i = 0; i < 5; i++) {
+        tick.bids[i] = UDP::DepthLevel(data.bids[i].price, data.bids[i].quantity, data.bids[i].orders);
+        tick.asks[i] = UDP::DepthLevel(data.asks[i].price, data.asks[i].quantity, data.asks[i].orders);
     }
     
-    tick.marketSeqNumber = 0;  // BSE doesn't provide this in 2020/2021
-    tick.timestampUdpRecv = record.packetTimestamp;
-    tick.timestampParsed = record.packetTimestamp;
-    tick.timestampEmitted = LatencyTracker::now();
-    tick.messageType = 2020;  // MARKET_PICTURE
-    return tick;
-}
+    tick.totalBidQty = data.totalBuyQty;
+    tick.totalAskQty = data.totalSellQty;
+    
+    tick.openInterest = data.openInterest;
+    tick.oiChange = data.openInterestChange;
 
-// Convert BSE Open Interest to UDP::MarketTick
-UDP::MarketTick convertBseOI(const bse::DecodedOpenInterest& oiData, UDP::ExchangeSegment segment) {
-    UDP::MarketTick tick(segment, oiData.token);
-    tick.openInterest = oiData.openInterest;
-    tick.oiChange = oiData.openInterestChange;
-    tick.timestampUdpRecv = oiData.packetTimestamp;
-    tick.timestampParsed = oiData.packetTimestamp;
+    // tick.upperLimit/lowerLimit not in MarketTick
+    
+    tick.refNo = 0;
+    tick.timestampUdpRecv = data.lastPacketTimestamp;
+    tick.timestampParsed = data.lastPacketTimestamp;
     tick.timestampEmitted = LatencyTracker::now();
-    tick.messageType = 2015;  // OPEN_INTEREST
+    tick.messageType = 2020; // Generic Market Picture logic
     return tick;
 }
 
@@ -356,71 +388,40 @@ void UdpBroadcastService::setSubscriptionFilterEnabled(bool enabled) {
 // ========== CALLBACK SETUP ==========
 
 void UdpBroadcastService::setupNseFoCallbacks() {
-    nsefo::MarketDataCallbackRegistry::instance().registerTouchlineCallback([this](const nsefo::TouchlineData& data) {
-        // ZERO-COPY DISTRIBUTED CACHE ARCHITECTURE:
-        // 1. Store in local cache (NSE FO thread, no lock, ~30ns)
-        const nsefo::TouchlineData* stored = nsefo::g_nseFoPriceStore.updateTouchline(data);
-        
-        // 2. Convert from stored pointer (zero-copy reference)
-        UDP::MarketTick udpTick = convertNseFoTouchline(*stored);
+    // Touchline + Depth (7200/7208) - Unified Callback
+    auto unifiedCallback = [this](int32_t token) {
+        // 1. Fetch from Global Store (Zero-Copy Read)
+        const auto* data = nsefo::g_nseFoPriceStore.getUnifiedState(token);
+        if (!data) return;
+
+        // 2. Convert to Legacy Tick
+        UDP::MarketTick udpTick = convertNseFoUnified(*data);
         XTS::Tick legacyTick = convertToLegacy(udpTick);
         m_totalTicks++;
-        
-        // 3. Update centralized cache for multi-reader access
-        PriceCache::instance().updatePrice(2, stored->token, legacyTick);
-        
-        // 4. Direct FeedHandler distribution
-        FeedHandler::instance().distribute(2, stored->token, legacyTick);
-        
-        // 5. Optional UI signals (throttled)
-        if (shouldEmitSignal(stored->token)) {
+
+        // 3. Update centralized cache (Legacy)
+        PriceCache::instance().updatePrice(2, token, legacyTick);
+
+        // 4. FeedHandler Distribution
+        FeedHandler::instance().onTickReceived(legacyTick);
+
+        // 5. UI Signals (Throttled)
+        if (shouldEmitSignal(token)) {
             emit udpTickReceived(udpTick);
             emit tickReceived(legacyTick);
         }
-    });
+    };
 
-    nsefo::MarketDataCallbackRegistry::instance().registerMarketDepthCallback([this](const nsefo::MarketDepthData& data) {
-        // PERFORMANCE CRITICAL PATH: Direct updates, no Qt signals
-        
-        UDP::MarketTick udpTick = convertNseFoDepth(data);
-        XTS::Tick legacyTick = convertToLegacy(udpTick);
-        m_totalTicks++;
-        
-        // Direct cache + distribution (ultra-fast)
-        PriceCache::instance().updatePrice(2, data.token, legacyTick);
-        FeedHandler::instance().distribute(2, data.token, legacyTick);
-        
-        // Optional UI signals (throttled)
-        if (shouldEmitSignal(data.token)) {
-            emit udpTickReceived(udpTick);
-            emit tickReceived(legacyTick);
-        }
-    });
-
-    nsefo::MarketDataCallbackRegistry::instance().registerTickerCallback([this](const nsefo::TickerData& data) {
-        if (data.fillVolume > 0) {
-            UDP::MarketTick udpTick(UDP::ExchangeSegment::NSEFO, data.token);
-            udpTick.volume = data.fillVolume;
-            udpTick.refNo = data.refNo;
-            udpTick.timestampUdpRecv = data.timestampRecv;
-            udpTick.timestampParsed = data.timestampParsed;
-            udpTick.timestampEmitted = LatencyTracker::now();
-            udpTick.messageType = 7202;
-            
-            XTS::Tick legacyTick = convertToLegacy(udpTick);
-            m_totalTicks++;
-            
-            // Direct updates (no signals)
-            PriceCache::instance().updatePrice(2, data.token, legacyTick);
-            FeedHandler::instance().distribute(2, data.token, legacyTick);
-            
-            // Optional UI signals
-            if (shouldEmitSignal(data.token)) {
-                emit udpTickReceived(udpTick);
-                emit tickReceived(legacyTick);
-            }
-        }
-    });
+    nsefo::MarketDataCallbackRegistry::instance().registerTouchlineCallback(unifiedCallback);
+    nsefo::MarketDataCallbackRegistry::instance().registerMarketDepthCallback(unifiedCallback);
+    
+    // Ticker (7202) -> Using same unified callback as Ticker updates UnifiedState too
+    nsefo::MarketDataCallbackRegistry::instance().registerTickerCallback(unifiedCallback);
+    
+    // Circuit Limit (7220) -> Also updates unified state? 
+    // Wait, UnifiedState doesn't have circuit limits yet (except LPP which I added). 
+    // If parsers update store, we can use the same callback.
+    nsefo::MarketDataCallbackRegistry::instance().registerCircuitLimitCallback(unifiedCallback);
     
     // Index callback for message 7207 (BCAST_INDICES)
     nsefo::MarketDataCallbackRegistry::instance().registerIndexCallback([this](const nsefo::IndexData& data) {
@@ -436,51 +437,42 @@ void UdpBroadcastService::setupNseFoCallbacks() {
         emit udpIndexReceived(indexTick);
     });
     
-    // Circuit limit callback for message 7220 (BCAST_LIMIT_PRICE_PROTECTION_RANGE)
-    nsefo::MarketDataCallbackRegistry::instance().registerCircuitLimitCallback([this](const nsefo::CircuitLimitData& data) {
-        // Emit new UDP::CircuitLimitTick
-        UDP::CircuitLimitTick limitTick = convertNseFoCircuitLimit(data);
-        emit udpCircuitLimitReceived(limitTick);
-    });
+
 }
 
 void UdpBroadcastService::setupNseCmCallbacks() {
-    // Touchline updates (7200, 7208)
-    nsecm::MarketDataCallbackRegistry::instance().registerTouchlineCallback([this](const nsecm::TouchlineData& data) {
-        // Direct cache updates (NSECM = segment 1)
-        UDP::MarketTick udpTick = convertNseCmTouchline(data);
+    // Unified CM Callback
+    auto unifiedCallback = [this](int32_t token) {
+        // 1. Fetch from Global CM Store
+        const auto* data = nsecm::g_nseCmPriceStore.getUnifiedState(token);
+        if (!data) return;
+
+        // 2. Convert to Legacy Tick
+        UDP::MarketTick udpTick = convertNseCmUnified(*data);
         XTS::Tick legacyTick = convertToLegacy(udpTick);
         m_totalTicks++;
+
+        // 3. Update centralized cache
+        PriceCache::instance().updatePrice(1, token, legacyTick); // 1 = NSECM
         
-        PriceCache::instance().updatePrice(1, data.token, legacyTick);
-        FeedHandler::instance().distribute(1, data.token, legacyTick);
-        
-        if (shouldEmitSignal(data.token)) {
+        // 4. FeedHandler
+        FeedHandler::instance().onTickReceived(legacyTick);
+
+        // 5. Signals
+        if (shouldEmitSignal(token)) {
             emit udpTickReceived(udpTick);
             emit tickReceived(legacyTick);
         }
-    });
+    };
+
+    // Touchline updates (7200, 7208)
+    nsecm::MarketDataCallbackRegistry::instance().registerTouchlineCallback(unifiedCallback);
 
     // Market depth updates (7200, 7208)
-    nsecm::MarketDataCallbackRegistry::instance().registerMarketDepthCallback([this](const nsecm::MarketDepthData& data) {
-        UDP::MarketTick udpTick = convertNseCmDepth(data);
-        XTS::Tick legacyTick = convertToLegacy(udpTick);
-        m_totalTicks++;
-        
-        PriceCache::instance().updatePrice(1, data.token, legacyTick);
-        FeedHandler::instance().distribute(1, data.token, legacyTick);
-        
-        if (shouldEmitSignal(data.token)) {
-            emit udpTickReceived(udpTick);
-            emit tickReceived(legacyTick);
-        }
-    });
+    nsecm::MarketDataCallbackRegistry::instance().registerMarketDepthCallback(unifiedCallback);
 
     // Ticker updates (18703)
-    nsecm::MarketDataCallbackRegistry::instance().registerTickerCallback([this](const nsecm::TickerData& data) {
-        // Log ticker data (can be removed in production)
-        // qDebug() << "NSE CM Ticker: Token=" << data.token << " Price=" << data.fillPrice << " Vol=" << data.fillVolume;
-    });
+    nsecm::MarketDataCallbackRegistry::instance().registerTickerCallback(unifiedCallback);
 
     // Market watch updates (7201)
     nsecm::MarketDataCallbackRegistry::instance().registerMarketWatchCallback([this](const nsecm::MarketWatchData& data) {
@@ -597,98 +589,88 @@ void UdpBroadcastService::setupNseCmCallbacks() {
 void UdpBroadcastService::setupBseFoCallbacks() {
     if (!m_bseFoReceiver) return;
     
-    m_bseFoReceiver->setRecordCallback([this](const bse::DecodedRecord& record) {
-        // Emit new UDP::MarketTick
-        UDP::MarketTick udpTick = convertBseRecord(record, UDP::ExchangeSegment::BSEFO);
-        emit udpTickReceived(udpTick);
-        
-        // Emit legacy XTS::Tick for backward compatibility
-        XTS::Tick legacyTick = convertToLegacy(udpTick);
+    auto unifiedCallback = [this](uint32_t token) {
+        const auto* data = bse::g_bseFoPriceStore.getUnifiedState(token);
+        if (!data) return;
+
+        UDP::MarketTick udpTick = convertBseUnified(*data, UDP::ExchangeSegment::BSEFO);
         m_totalTicks++;
-        emit tickReceived(legacyTick);
         
-        // Emit circuit limits if present
-        if (record.upperCircuit > 0 || record.lowerCircuit > 0) {
-            UDP::CircuitLimitTick limitTick = convertBseCircuitLimit(
-                record.token, record.upperCircuit, record.lowerCircuit, 
-                UDP::ExchangeSegment::BSEFO, record.packetTimestamp);
-            emit udpCircuitLimitReceived(limitTick);
+        // Update Legacy Cache
+        XTS::Tick legacyTick = convertToLegacy(udpTick);
+        PriceCache::instance().updatePrice(4, token, legacyTick); // 4 = BSEFO
+        
+        FeedHandler::instance().onTickReceived(legacyTick);
+
+        if (shouldEmitSignal(token)) {
+             emit udpTickReceived(udpTick);
+             emit tickReceived(legacyTick);
+             
+             // Check Circuit Limits from Unified Data
+             if (data->upperCircuit > 0 || data->lowerCircuit > 0) {
+                 UDP::CircuitLimitTick limitTick;
+                 limitTick.token = token;
+                 limitTick.upperLimit = data->upperCircuit;
+                 limitTick.lowerLimit = data->lowerCircuit;
+                 limitTick.exchangeSegment = UDP::ExchangeSegment::BSEFO;
+                 emit udpCircuitLimitReceived(limitTick);
+             }
         }
-    });
+    };
+
+    m_bseFoReceiver->setRecordCallback(unifiedCallback);
+    m_bseFoReceiver->setOpenInterestCallback(unifiedCallback);
+    m_bseFoReceiver->setClosePriceCallback(unifiedCallback);
+    m_bseFoReceiver->setImpliedVolatilityCallback(unifiedCallback);
     
-    // Open Interest callback for BSE FO derivatives
-    m_bseFoReceiver->setOpenInterestCallback([this](const bse::DecodedOpenInterest& oiData) {
-        // Emit new UDP::MarketTick
-        UDP::MarketTick udpTick = convertBseOI(oiData, UDP::ExchangeSegment::BSEFO);
-        emit udpTickReceived(udpTick);
-        
-        // Emit legacy XTS::Tick for backward compatibility
-        XTS::Tick legacyTick = convertToLegacy(udpTick);
-        m_totalTicks++;
-        emit tickReceived(legacyTick);
-    });
-    
-    // Session State callback for BSE FO
     m_bseFoReceiver->setSessionStateCallback([this](const bse::DecodedSessionState& state) {
         UDP::SessionStateTick sessTick = convertBseSessionState(state, UDP::ExchangeSegment::BSEFO);
         emit udpSessionStateReceived(sessTick);
-    });
-    
-    // Close Price callback for BSE FO
-    m_bseFoReceiver->setClosePriceCallback([this](const bse::DecodedClosePrice& cp) {
-        // Update prevClose field for the token
-        // Create a partial MarketTick update with just the close price
-        UDP::MarketTick udpTick(UDP::ExchangeSegment::BSEFO, cp.token);
-        udpTick.prevClose = cp.closePrice / 100.0;  // Convert paise to rupees
-        udpTick.timestampUdpRecv = cp.packetTimestamp;
-        udpTick.timestampEmitted = LatencyTracker::now();
-        udpTick.messageType = 2014;  // CLOSE_PRICE
-        emit udpTickReceived(udpTick);
     });
 }
 
 void UdpBroadcastService::setupBseCmCallbacks() {
     if (!m_bseCmReceiver) return;
     
-    m_bseCmReceiver->setRecordCallback([this](const bse::DecodedRecord& record) {
-        // Emit new UDP::MarketTick
-        UDP::MarketTick udpTick = convertBseRecord(record, UDP::ExchangeSegment::BSECM);
-        emit udpTickReceived(udpTick);
-        
-        // Emit legacy XTS::Tick for backward compatibility
-        XTS::Tick legacyTick = convertToLegacy(udpTick);
+    auto unifiedCallback = [this](uint32_t token) {
+        const auto* data = bse::g_bseCmPriceStore.getUnifiedState(token);
+        if (!data) return;
+
+        UDP::MarketTick udpTick = convertBseUnified(*data, UDP::ExchangeSegment::BSECM);
         m_totalTicks++;
-        emit tickReceived(legacyTick);
         
-        // Emit circuit limits if present
-        if (record.upperCircuit > 0 || record.lowerCircuit > 0) {
-            UDP::CircuitLimitTick limitTick = convertBseCircuitLimit(
-                record.token, record.upperCircuit, record.lowerCircuit, 
-                UDP::ExchangeSegment::BSECM, record.packetTimestamp);
-            emit udpCircuitLimitReceived(limitTick);
+        XTS::Tick legacyTick = convertToLegacy(udpTick);
+        PriceCache::instance().updatePrice(3, token, legacyTick); // 3 = BSECM
+        
+        FeedHandler::instance().onTickReceived(legacyTick);
+
+        if (shouldEmitSignal(token)) {
+             emit udpTickReceived(udpTick);
+             emit tickReceived(legacyTick);
+             
+             if (data->upperCircuit > 0 || data->lowerCircuit > 0) {
+                 UDP::CircuitLimitTick limitTick;
+                 limitTick.token = token;
+                 limitTick.upperLimit = data->upperCircuit;
+                 limitTick.lowerLimit = data->lowerCircuit;
+                 limitTick.exchangeSegment = UDP::ExchangeSegment::BSECM;
+                 emit udpCircuitLimitReceived(limitTick);
+             }
         }
-    });
+    };
+
+    m_bseCmReceiver->setRecordCallback(unifiedCallback);
+    m_bseCmReceiver->setClosePriceCallback(unifiedCallback);
     
-    // Session State callback for BSE CM
     m_bseCmReceiver->setSessionStateCallback([this](const bse::DecodedSessionState& state) {
         UDP::SessionStateTick sessTick = convertBseSessionState(state, UDP::ExchangeSegment::BSECM);
         emit udpSessionStateReceived(sessTick);
     });
     
-    // Close Price callback for BSE CM
-    m_bseCmReceiver->setClosePriceCallback([this](const bse::DecodedClosePrice& cp) {
-        // Update prevClose field for the token
-        UDP::MarketTick udpTick(UDP::ExchangeSegment::BSECM, cp.token);
-        udpTick.prevClose = cp.closePrice / 100.0;  // Convert paise to rupees
-        udpTick.timestampUdpRecv = cp.packetTimestamp;
-        udpTick.timestampEmitted = LatencyTracker::now();
-        udpTick.messageType = 2014;  // CLOSE_PRICE
-        emit udpTickReceived(udpTick);
-    });
-    
-    // Index Callback (2012)
-    m_bseCmReceiver->setIndexCallback([this](const bse::DecodedRecord& record) {
-        UDP::IndexTick indexTick = convertBseIndex(record, UDP::ExchangeSegment::BSECM);
+    m_bseCmReceiver->setIndexCallback([this](uint32_t token) {
+        const auto* record = bse::g_bseCmIndexStore.getIndex(token);
+        if(!record) return;
+        UDP::IndexTick indexTick = convertBseIndex(*record, UDP::ExchangeSegment::BSECM);
         emit udpIndexReceived(indexTick);
     });
 }

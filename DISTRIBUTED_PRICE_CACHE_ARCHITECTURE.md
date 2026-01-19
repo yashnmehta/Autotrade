@@ -22,7 +22,7 @@
 ### Purpose
 Replace centralized `PriceCache` with **distributed price stores** at UDP reader level to:
 - Pre-populate contract master metadata (symbol, expiry, strike, lotSize)
-- Provide immediate data on subscribe (critical for illiquid contracts)
+- Provide immediate data on subscribe (critical for illiquid contracts) -- this is use case of price cache 
 - Minimize data copying and latency
 - Enable segment-specific optimizations (array vs hash map)
 
@@ -44,6 +44,17 @@ Replace centralized `PriceCache` with **distributed price stores** at UDP reader
 | **PriceCache Fate** | Delete, use g_stores | XTS uses getQuote API instead |
 | **Parser Updates** | Update all parsers | Clean design, work on broadcast readers individually |
 | **Callback Signature** | Pass token ID only | Minimal overhead, lock-free callback emission |
+| **Subscription Model** | **Hybrid Notification** | Background Storage (Global) + Selective Notification (Local) |
+| **Callback Payload** | **Int32 Token Only** | Zero-copy architecture; UI fetches fresh state from store (Conflation). |
+| **Callback Type** | **Separate Callbacks** | Explicit Context (Price vs Depth vs Ticker) for targeted UI updates. |
+
+### Subscription Model Rationale (Background Updates + Selective Notification)
+
+| Layer | Responsibility | Mechanism | Why? |
+|-------|----------------|-----------|------|
+| **g_store** | **Global State** | Always Update | Background thread updates *every* token silently. Ensures data is never stale. |
+| **UDP Parser** | **Notification Filter** | `isTokenEnabled` Check | Only emits callbacks for active tokens. Prevents choking the Qt thread. |
+| **FeedHandler** | **Registry & Pull** | Map + Instant Read | Manages UI list and pulls fresh data from `g_store` the moment a user subscribes. |
 
 ### Data Structure Choice
 
@@ -58,15 +69,110 @@ Replace centralized `PriceCache` with **distributed price stores** at UDP reader
 
 ## 3. Distributed Store Structure
 
-### 3.1 NSE FO Store (Indexed Array)
+### 3.1 Unified State Record (Fused Struct)
+
+Instead of separate structs for different message codes, we use a **Unified State Record**. This struct is an accumulator of fields from multiple UDP streams (Touchline, Depth, OI, etc.).
+
+### 3.2 Message Categorization
+
+Messages are classified into two categories based on their destination and scope.
+
+| Category | Description | Examples | Handling |
+|----------|-------------|----------|----------|
+| **1. Token Specific** | Updates state of a single specific instrument. | **Price**: 7200, 7201, 17201<br>**Depth**: 7208<br>**OI**: 7202, 17202<br>**Misc**: 7211 (LPP), 7207 (VIX) | **Store Update** (Primary)<br>+<br>**Selective Notification** (Secondary) |
+| **2. General / System** | Global market status, Stream Headers, Indices | **System**: 6501, 6511 (Market Status)<br>**Utility**: 7220 (Spread), Indices | **Direct Signal Emission**<br>(No storage in PriceStore) |
+
+> **Note**: NSE FO does **NOT** have a separate Index Store. Indices (if any) are handled as General Messages or managed in the Cash Market (NSE CM) segment.
+
+```cpp
+struct UnifiedTokenState {
+    // 1. STATIC METADATA (From Contract Master)
+    // ... (Symbol, Expiry, LotSize) ...
+
+    // 2. DYNAMIC STATE (Fused from multiple UDP Message Codes)
+    
+    // from 7200/7201/17201 (Price)
+    double ltp, open, high, low, close;
+    uint32_t volume, lastTradeQty, lastTradeTime;
+    
+    // from 7208 (Depth)
+    DepthLevel bids[5], asks[5];
+    double totalBuyQty, totalSellQty;
+
+    // from 7202/17202 (OI)
+    int64_t openInterest;
+    
+    // from 7211 (LPP - Limit Price Protection)
+    double lppHigh, lppLow;
+    
+    // from 2002/Status
+    uint16_t tradingStatus;
+};
+```
+
+### 3.3 NSE FO Store (Indexed Array)
 
 **File**: `lib/cpp_broacast_nsefo/include/nsefo_price_store.h`
 
 ```cpp
+// 3.3 NSE FO Store (Indexed Array)
 namespace nsefo {
 
+class PriceStore {
+public:
+    static constexpr int TOKEN_OFFSET = 10000;
+    static constexpr int ARRAY_SIZE = 90000;
+
+    // Use Shared Mutex for Render/Write safety
+    mutable std::shared_mutex mutex_;
+    UnifiedTokenState store_[ARRAY_SIZE];
+
+    // Thread-safe Update (Partial)
+    void updateTouchline(const UnifiedTokenState& data) {
+		// ... implementation ...
+    }
+
+    // Thread-safe read
+    const UnifiedTokenState* getUnifiedState(uint32_t token) const {
+		// ... implementation ...
+    }
+};
+
+// Global instance (one per UDP thread)
+extern PriceStore g_nseFoPriceStore;
+// NOTE: No IndexStore for NSE FO
+
+} // namespace nsefo
+```
+
+### 3.4 NSE FO Store (Indexed Array)
+// ... existing code ...
+
+### 3.5 Design Decisions: Callback Architecture
+
+#### Why send only `int32_t token`?
+1.  **Performance (Zero-Copy)**: Passing a 500-byte `UnifiedTokenState` struct by value (or even reference) incurs unnecessary cache coherence traffic in a multi-threaded system. Passing a 4-byte integer is effectively free.
+2.  **Conflation**: The data in the callback payload is inherently a "snapshot of the past". By the time the UI thread processes the signal (e.g., 5-10ms later), the market may have moved. By passing only the ID, the UI is forced to call `getUnifiedState(token)`, ensuring it always reads the **latest live state**, automatically determining the most recent price.
+
+#### Why separate callbacks (Touchline vs Depth vs Ticker)?
+1.  **Explicit Context**: 
+    *   `onTouchlineCallback` -> Implies fundamental price change (LTP, Open, High, Low).
+    *   `onDepthCallback` -> Implies order book change.
+    *   `onTickerCallback` -> Implies a trade occurred.
+2.  **Targeted Updates**: A "Depth Ladder" widget only needs to listen to `onDepthCallback`, whereas a "Watchlist Row" primarily cares about `onTouchlineCallback`. Separation allows widgets to filter noise efficiently.
+3.  **Legacy Compatibility**: Fits seamlessly with the existing Qt Signal/Slot architecture.
+
+### 3.6 NSE CM / BSE Stores (Hash Map)
+
+**Files**: 
+- `lib/cpp_broadcast_nsecm/include/nsecm_price_store.h`
+- `lib/cpp_broadcast_bsefo/include/bse_price_store.h`
+
+```cpp
+namespace nsecm {  // or bse
+```cpp
 struct TouchlineData {
-    // Static fields (from contract master CSV)
+    // 1. STATIC METADATA (From CSV - Never changes after startup)
     char symbol[32];
     char displayName[64];
     int lotSize;
@@ -77,29 +183,103 @@ struct TouchlineData {
     char instrumentType[16];
     double tickSize;
     
-    // Dynamic fields (from UDP)
+    // 2. DYNAMIC STATE (Fused from multiple UDP Message Codes)
     int token;
-    long long packetTimestamp;
+    long long lastPacketTimestamp;
+    
+    // From Msg 7200/7201 (NSE Touchline)
     double ltp, open, high, low, close;
     long long volume, turnover;
-    int totalBuyQty, totalSellQty;
     double weightedAvgPrice;
+    int totalBuyQty, totalSellQty;
+
+    // From Msg 7208/7200 (Market Depth)
     DepthLevel bids[5], asks[5];
+
+    // From Msg 7202 (Open Interest)
+    long long openInterest;
+    long long openInterestChange;
+
+    // From Msg 2002 (Product State)
+    int tradingStatus;
 };
+```
+
+### 3.2 Selective Fusion (Partial Updates)
+
+The `PriceStore` does not overwrite the whole struct on every packet. Instead, it performs **Partial Updates**. Each parser updates only the "Columns" relevant to its message code.
+
+```cpp
+class PriceStore {
+public:
+    // Partial Update: Price Fields (Msg 7200)
+    void updatePrice(int token, double ltp, double open, ...) {
+        std::unique_lock lock(mutex_);
+        auto& row = store_[token];
+        row.ltp = ltp;
+        row.open = open;
+        // bids/asks are preserved!
+    }
+
+    // Partial Update: Depth Fields (Msg 7208)
+    void updateDepth(int token, const DepthLevel* bids, ...) {
+        std::unique_lock lock(mutex_);
+        auto& row = store_[token];
+        memcpy(row.bids, bids, sizeof(row.bids));
+        // ltp/open are preserved!
+    }
+};
+```
+
+### 3.3 NSE FO Store (Indexed Array)
+
+**File**: `lib/cpp_broacast_nsefo/include/nsefo_price_store.h`
+
+```cpp
+// 3.3 NSE FO Store (Indexed Array)
+namespace nsefo {
 
 class PriceStore {
 public:
-    // Thread-safe update (write lock ~1µs)
-    void updateTouchline(const TouchlineData& data) {
+    static constexpr int TOKEN_OFFSET = 10000;
+    static constexpr int ARRAY_SIZE = 90000;
+
+    // Use Shared Mutex for Render/Write safety
+    mutable std::shared_mutex mutex_;
+    UnifiedTokenState store_[ARRAY_SIZE];
+
+    // Thread-safe Update (Partial)
+    void updateTouchline(const UnifiedTokenState& data) {
         std::unique_lock lock(mutex_);
         int index = data.token - TOKEN_OFFSET;
         if (index >= 0 && index < ARRAY_SIZE) {
-            store_[index] = data;
+            // In reality, we copy FIELD-BY-FIELD here to preserve other columns
+            store_[index].ltp = data.ltp;
+            store_[index].volume = data.volume; 
+            // ... etc
         }
     }
+
     
     // Thread-safe read (read lock ~100ns, multiple readers OK)
-    const TouchlineData* getTouchline(int token) const {
+    const UnifiedTokenState* getTouchline(int token) const {
+        std::shared_lock lock(mutex_);
+        int index = token - TOKEN_OFFSET;
+        if (index >= 0 && index < ARRAY_SIZE) {
+            return &store_[index];
+        }
+        return nullptr;
+    }
+};
+
+### 3.4 Initialization Strategy (Static vs Dynamic)
+
+The `UnifiedTokenState` contains both static metadata (Symbol, Expiry) and dynamic data (LTP, OI). 
+
+*   **Static Data**: Initialized **ONCE** at startup by `RepositoryManager::initializeDistributedStores()`. It reads from the Contract Master/CSV and populates the store.
+*   **Dynamic Data**: Zero-initialized at startup. Updated continuously by UDP Parsers.
+*   **Safety**: The `updateXXX` methods in the store must **NEVER** overwrite the static fields (Symbol, LotSize) to ensure data integrity.
+
         std::shared_lock lock(mutex_);
         int index = token - TOKEN_OFFSET;
         if (index >= 0 && index < ARRAY_SIZE) {
@@ -242,66 +422,61 @@ extern PriceStore g_nseCmPriceStore;
 └──────────────────────────────────────────────────────────┘
                           ↓
 ┌──────────────────────────────────────────────────────────┐
-│ UDP PARSER (Pure C++)                                    │
-│ lib/cpp_broacast_nsefo/src/parser/parse_message_7200.cpp│
-│                                                           │
-│   void parse_message_7200(const MS_BCAST_MBO_MBP* msg) { │
-│       // 1. Decode packet fields                         │
-│       TouchlineData data;                                │
-│       data.token = msg->token;                           │
-│       data.ltp = msg->last_traded_price / 100.0;         │
-│       data.volume = msg->total_traded_quantity;          │
-│       // ... parse all dynamic fields ...                │
-│                                                           │
-│       // 2. STORE FIRST (preserves contract master)      │
-│       g_nseFoPriceStore.updateTouchline(data);           │
-│       //    ↑                                            │
-│       //    └─ Write lock held ~1µs during hash insert   │
-│       //       Lock released before callback             │
-│                                                           │
-│       // 3. NOTIFY (just token ID, no data copy)         │
-│       if (callback_) {                                   │
-│           callback_(data.token);  // ← Lightweight!      │
-│       }                                                   │
-│   }                                                       │
+│ MULTIPLE UDP PARSERS (Partial Updates)                   │
 └──────────────────────────────────────────────────────────┘
-                          ↓
-                  callback_(26000)
-                          ↓
+           ↓                             ↓
+┌──────────────────────────┐  ┌──────────────────────────┐
+│ Msg 7200 Parser (Price)  │  │ Msg 7208 Parser (Depth)  │
+└──────────────────────────┘  └──────────────────────────┘
+           ↓                             ↓
+    updatePrice(...)              updateDepth(...)
+           ↓                             ↓
 ┌──────────────────────────────────────────────────────────┐
-│ UdpBroadcastService (Qt Thread - Bridge Layer)           │
-│ src/services/UdpBroadcastService.cpp                     │
-│                                                           │
-│   void onNseFoTouchline(int token) {                     │
-│       // Just emit Qt signal with token ID               │
-│       emit nseFoUpdate(token);                           │
-│   }                                                       │
+│ DISTRIBUTED STORE (THE ACCUMULATOR)                      │
+│   Token 12345 Record:                                    │
+│   [ Static Fields  ] -> Kept from Master                 │
+│   [ Price Fields   ] <- Updated by 7200                  │
+│   [ Depth Fields   ] <- Updated by 7208                  │
+│   [ OI Fields      ] <- Updated by 7202                  │
 └──────────────────────────────────────────────────────────┘
-                          ↓
-              emit nseFoUpdate(26000)
-                          ↓
+                           ↓
+                   callback_(12345)
+                           ↓
 ┌──────────────────────────────────────────────────────────┐
-│ FeedHandler (Qt Thread - Distribution Hub)               │
-│ src/services/FeedHandler.cpp                             │
+│ FeedHandler (Full State Delivery)                        │
 │                                                           │
-│   void FeedHandler::onNseFoUpdate(int token) {           │
-│       // 1. Check if anyone subscribed to this token     │
-│       if (!hasSubscribers(2, token)) return;             │
+│   void onUpdate(int token) {                              │
+│       // Pulls the "Fused" result                         │
+│       const auto* state = g_store.getTouchline(token);    │
 │                                                           │
-│       // 2. Read from distributed store (read lock)      │
-│       const auto* data =                                 │
-│           nsefo::g_nseFoPriceStore.getTouchline(token);  │
-│       if (!data) return;                                 │
-│                                                           │
-│       // 3. Convert to UI-friendly format                │
-│       TickData tick = convertToTick(data);               │
-│                                                           │
-│       // 4. Distribute to all subscribers                │
-│       for (auto* subscriber : subscribers_[token]) {     │
-│           subscriber->onUpdate(tick);  // or Qt signal   │
-│       }                                                   │
+│       // State now contains BOTH Price and Depth          │
+│       // regardless of which packet came last.            │
+│       distributeToUI(state);                              │
 │   }                                                       │
 └──────────────────────────────────────────────────────────┘
+│                           ↓
+│                   callback_(26000)
+│                           ↓
+│ ┌──────────────────────────────────────────────────────────┐
+│ │ UdpBroadcastService (Qt Thread - Bridge Layer)           │
+│ └──────────────────────────────────────────────────────────┘
+│                           ↓
+│               emit nseFoUpdate(26000)
+│                           ↓
+│ ┌──────────────────────────────────────────────────────────┐
+│ │ FeedHandler (Qt Thread - Distribution Hub)               │
+│ │                                                           │
+│ │   void FeedHandler::onNseFoUpdate(int token) {           │
+│ │       // Read from distributed store                     │
+│ │       const auto* data =                                 │
+│ │           nsefo::g_nseFoPriceStore.getTouchline(token);  │
+│ │                                                           │
+│ │       // Distribute to UI subscribers only               │
+│ │       for (auto* sub : subscribers_[token]) {            │
+│ │           sub->onUpdate(tick);                           │
+│ │       }                                                   │
+│ │   }                                                       │
+│ └──────────────────────────────────────────────────────────┘
                           ↓
 ┌──────────────────────────────────────────────────────────┐
 │ UI WIDGETS (MarketWatch, DepthWindow, etc.)              │
@@ -331,39 +506,23 @@ extern PriceStore g_nseCmPriceStore;
 └──────────────────────────────────────────────────────────┘
                           ↓
 ┌──────────────────────────────────────────────────────────┐
-│ FeedHandler::subscribe() - IMMEDIATE DATA DELIVERY       │
+│ FeedHandler::subscribe() - HYBRID REGISTRATION           │
 │ src/services/FeedHandler.cpp                             │
 │                                                           │
 │   void subscribe(int segment, int token, QObject* sub) { │
-│       // 1. Register subscriber for future updates       │
+│       // 1. Register UI subscriber (Distribution list)   │
 │       subscribers_[{segment, token}].append(sub);        │
 │                                                           │
-│       // 2. READ FROM STORE IMMEDIATELY ⭐               │
-│       //    Critical for illiquid contracts!             │
-│       const TouchlineData* data = nullptr;               │
-│       if (segment == 2) {  // NSE_FO                     │
-│           data = nsefo::g_nseFoPriceStore                │
-│                    .getTouchline(token);                 │
-│       } else if (segment == 1) {  // NSE_CM              │
-│           data = nsecm::g_nseCmPriceStore                │
-│                    .getTouchline(token);                 │
-│       } else if (segment == 12) {  // BSE_FO             │
-│           data = bse::g_bseFoPriceStore                  │
-│                    .getRecord(token);                    │
-│       } else if (segment == 11) {  // BSE_CM             │
-│           data = bse::g_bseCmPriceStore                  │
-│                    .getRecord(token);                    │
+│       // 2. ENABLE FILTER IN UDP READER ⭐               │
+│       //    Only first subscription triggers this        │
+│       if (subscribers_[{segment, token}].size() == 1) {  │
+│           UdpBroadcastService::instance()                │
+│               ->enableToken(segment, token);             │
 │       }                                                   │
 │                                                           │
-│       // 3. Send immediately if data exists              │
-│       if (data) {                                        │
-│           TickData tick = convertToTick(data);           │
-│           sub->onUpdate(tick);  // Immediate delivery!   │
-│           //                                             │
-│           // Result: UI shows last known price instantly │
-│           // Even if contract hasn't traded today        │
-│           // Shows: symbol, strike, expiry, lot size     │
-│       }                                                   │
+│       // 3. READ FROM STORE IMMEDIATELY (Cached data)    │
+│       const TouchlineData* data = ...;                   │
+│       if (data) sub->onUpdate(convertToTick(data));      │
 │   }                                                       │
 └──────────────────────────────────────────────────────────┘
                           ↓
@@ -574,30 +733,24 @@ void onBseFoUpdate(int token);
 void onBseCmUpdate(int token);
 ```
 
-### 6.3 UDP Parser Callback API
+### 6.3 UDP Parser Notification Filtering API
 
-#### Old Signature (Deprecated)
-```cpp
-std::function<void(const TouchlineData&)> callback_;
-```
+#### Purpose
+The `g_store` is updated for **every** packet to ensure background data is always fresh. The filter only restricts **notifications** (callbacks/signals) to the Qt thread.
 
-#### New Signature (Recommended)
-```cpp
-std::function<void(int token)> callback_;
-```
-
-**Usage**:
 ```cpp
 void parse_message_7200(const MS_BCAST_MBO_MBP* msg) {
-    // Parse
-    TouchlineData data;
-    // ... populate data ...
+    uint32_t token = be32toh_func(msg->token);
     
-    // Store
+    // 1. UNCONDITIONAL STORE (Background State) ⭐
+    TouchlineData data;
+    // ... decode logic ...
     g_nseFoPriceStore.updateTouchline(data);
     
-    // Notify (lightweight)
-    if (callback_) callback_(data.token);
+    // 2. SELECTIVE NOTIFICATION
+    if (isTokenEnabled(token)) { 
+        if (callback_) callback_(token);
+    }
 }
 ```
 
@@ -627,14 +780,18 @@ void parse_message_7200(const MS_BCAST_MBO_MBP* msg) {
 - std::function<void(const TouchlineData&)> callback_;
 + std::function<void(int)> callback_;
 
-// 3. Store before callback
+// 4. Background Storage + Selective Notification ⭐
 void parse_message_XXXX(...) {
     TouchlineData data;
     // ... parse ...
     
++   // Always update store first
 +   g_nseFoPriceStore.updateTouchline(data);
-+   if (callback_) callback_(data.token);
--   if (callback_) callback_(data);
+    
++   // Only notify if UI is watching
++   if (isTokenEnabled(data.token)) {
++       if (callback_) callback_(data.token);
++   }
 }
 ```
 
@@ -655,10 +812,15 @@ Same pattern as NSE FO, use `g_nseCmPriceStore`.
 #include "bse_price_store.h"
 
 void FeedHandler::subscribe(int segment, int token, QObject* subscriber) {
-    // Register subscriber
+    // 1. Register subscriber
     subscribers_[{segment, token}].append(subscriber);
     
-    // IMMEDIATE DATA DELIVERY
+    // 2. ENABLE FILTER AT SOURCE ⭐
+    if (subscribers_[{segment, token}].size() == 1) {
+        UdpBroadcastService::instance()->enableToken(segment, token);
+    }
+    
+    // 3. IMMEDIATE DATA DELIVERY (from Store)
     const void* data = nullptr;
     if (segment == 2) {
         data = nsefo::g_nseFoPriceStore.getTouchline(token);
@@ -851,8 +1013,9 @@ TEST(PriceStore, ThreadSafety) {
   - [ ] Same pattern as NSE FO
   
 - [ ] Phase 4: FeedHandler Integration
+  - [ ] Add `enableToken` / `disableToken` logic for hybrid filtering
   - [ ] Add immediate data delivery on subscribe
-  - [ ] Update notification handlers
+  - [ ] Update notification handlers to use Token ID
   
 - [ ] Phase 5: UdpBroadcastService Cleanup
   - [ ] Remove PriceCache update calls

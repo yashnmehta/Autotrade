@@ -1,6 +1,7 @@
 #include "nse_parsers.h"
 #include "protocol.h"
 #include "nsefo_callback.h"
+#include "nsefo_price_store.h"
 #include <iostream>
 #include <chrono>
 
@@ -25,62 +26,51 @@ void parse_message_7208(const MS_BCAST_ONLY_MBP* msg) {
         if (token > 0) {
             uint64_t refNo = ++refNoCounter;
             
-            // Parse touchline data
-            TouchlineData touchline;
-            touchline.token = token;
-            touchline.refNo = refNo;
-            touchline.timestampRecv = now;
-            touchline.timestampParsed = now;
-            touchline.ltp = be32toh_func(data.lastTradedPrice) / 100.0;
-            
-            // Debug logging for token 49543
-            // if (token == 49543) {
-            //     std::cout << "[7208-TOUCHLINE] Token: 49543 | RefNo: " << refNo
-            //               << " | LTP: " << touchline.ltp
-            //               << " | timestampParsed: " << touchline.timestampParsed << " µs" << std::endl;
-            // }
-            
-            touchline.open = be32toh_func(data.openPrice) / 100.0;
-            touchline.high = be32toh_func(data.highPrice) / 100.0;
-            touchline.low = be32toh_func(data.lowPrice) / 100.0;
-            touchline.close = be32toh_func(data.closingPrice) / 100.0;
-            touchline.volume = be32toh_func(data.volumeTradedToday);
-            touchline.lastTradeQty = be32toh_func(data.lastTradeQuantity);
-            touchline.lastTradeTime = be32toh_func(data.lastTradeTime);
-            touchline.avgPrice = be32toh_func(data.averageTradePrice) / 100.0;
-            touchline.netChangeIndicator = data.netChangeIndicator;
-            touchline.netChange = be32toh_func(data.netPriceChangeFromClosingPrice) / 100.0;
-            touchline.tradingStatus = be16toh_func(data.tradingStatus);
-            touchline.bookType = be16toh_func(data.bookType);
-            
-            // Dispatch touchline callback
-            MarketDataCallbackRegistry::instance().dispatchTouchline(touchline);
-            
-            // Parse market depth data
-            MarketDepthData depth;
-            depth.token = token;
-            depth.refNo = refNo;
-            depth.timestampRecv = now;
-            depth.timestampParsed = now;
-            depth.totalBuyQty = data.totalBuyQuantity;
-            depth.totalSellQty = data.totalSellQuantity;
-            
-            // Parse bid/ask levels (5 levels each from recordBuffer)
+            // Unified Token State
+            UnifiedTokenState state;
+            std::memset(&state, 0, sizeof(state));
+
+            state.token = token;
+            state.lastPacketTimestamp = now;
+
+            // 1. Parse Price Fields
+            state.ltp = be32toh_func(data.lastTradedPrice) / 100.0;
+            state.open = be32toh_func(data.openPrice) / 100.0;
+            state.high = be32toh_func(data.highPrice) / 100.0;
+            state.low = be32toh_func(data.lowPrice) / 100.0;
+            state.close = be32toh_func(data.closingPrice) / 100.0;
+            state.volume = be32toh_func(data.volumeTradedToday);
+            state.lastTradeQty = be32toh_func(data.lastTradeQuantity);
+            state.lastTradeTime = be32toh_func(data.lastTradeTime);
+            state.avgPrice = be32toh_func(data.averageTradePrice) / 100.0;
+            state.netChangeIndicator = data.netChangeIndicator;
+            state.netChange = be32toh_func(data.netPriceChangeFromClosingPrice) / 100.0;
+            state.tradingStatus = be16toh_func(data.tradingStatus);
+            state.bookType = be16toh_func(data.bookType);
+
+            // 2. Parse Depth Fields
+            state.totalBuyQty = data.totalBuyQuantity;
+            state.totalSellQty = data.totalSellQuantity;
+
             for (int j = 0; j < 5; j++) {
-                depth.bids[j].quantity = be32toh_func(data.recordBuffer[j].quantity);
-                depth.bids[j].price = be32toh_func(data.recordBuffer[j].price) / 100.0;
-                depth.bids[j].orders = be16toh_func(data.recordBuffer[j].numberOfOrders);
+                state.bids[j].quantity = be32toh_func(data.recordBuffer[j].quantity);
+                state.bids[j].price = be32toh_func(data.recordBuffer[j].price) / 100.0;
+                state.bids[j].orders = be16toh_func(data.recordBuffer[j].numberOfOrders);
             }
-            
+
             for (int j = 5; j < 10; j++) {
                 int idx = j - 5;
-                depth.asks[idx].quantity = be32toh_func(data.recordBuffer[j].quantity);
-                depth.asks[idx].price = be32toh_func(data.recordBuffer[j].price) / 100.0;
-                depth.asks[idx].orders = be16toh_func(data.recordBuffer[j].numberOfOrders);
+                state.asks[idx].quantity = be32toh_func(data.recordBuffer[j].quantity);
+                state.asks[idx].price = be32toh_func(data.recordBuffer[j].price) / 100.0;
+                state.asks[idx].orders = be16toh_func(data.recordBuffer[j].numberOfOrders);
             }
-            
-            // Dispatch market depth callback
-            MarketDataCallbackRegistry::instance().dispatchMarketDepth(depth);
+
+            // 3. Update Global Store
+            g_nseFoPriceStore.updateTouchline(state);
+            g_nseFoPriceStore.updateDepth(state);
+
+            // 4. Dispatch ID
+            MarketDataCallbackRegistry::instance().dispatchTouchline(token);
         }
         
         /*

@@ -1,146 +1,129 @@
 #ifndef NSECM_PRICE_STORE_H
 #define NSECM_PRICE_STORE_H
 
-#include <unordered_map>
-#include <unordered_set>
 #include <vector>
-#include <cstdint>
-#include <QDebug>
+#include <shared_mutex>
+#include <atomic>
+#include <cstring>
 #include "nsecm_callback.h"
 
 namespace nsecm {
 
 /**
- * @brief Distributed price store for NSE CM (hash map)
- * 
- * NSE CM uses HASH MAP (unordered_map):
- * - Token range: Large, sparse (1-99999)
- * - Hash map for memory efficiency
- * - Still very fast (~30ns per operation)
+ * @brief Unified Token State for NSE CM
+ * Combines Touchline, Market Depth, and other related data into a single structure.
+ * Optimized for cache locality and thread-safe access.
  */
-class PriceStore {
-public:
-    PriceStore() = default;  // Hash maps initialize empty automatically
+struct UnifiedTokenState {
+    int32_t token = 0;
     
-    inline const TouchlineData* updateTouchline(const TouchlineData& data) {
-        touchlines[data.token] = data;
-        return &touchlines[data.token];
+    // Contract Master Info (Static)
+    char symbol[32] = {0};
+    char series[16] = {0};
+    char displayName[64] = {0};
+    int32_t lotSize = 0;
+    double tickSize = 0.0;
+    double priceBandHigh = 0.0;
+    double priceBandLow = 0.0;
+    
+    // Market Data (Dynamic)
+    double ltp = 0.0;
+    double open = 0.0;
+    double high = 0.0;
+    double low = 0.0;
+    double close = 0.0;
+    double avgPrice = 0.0;
+    
+    uint64_t volume = 0;       // Volume Traded Today (CM uses 64-bit)
+    uint32_t lastTradeQty = 0;
+    uint32_t lastTradeTime = 0;
+    
+    double netChange = 0.0;
+    char netChangeIndicator = ' ';
+    
+    uint16_t tradingStatus = 0;
+    uint16_t bookType = 0;
+    uint64_t totalBuyQty = 0;
+    uint64_t totalSellQty = 0;
+    
+    // Market Depth (5 levels)
+    DepthLevel bids[5];
+    DepthLevel asks[5];
+    
+    // Latency / Updates
+    int64_t lastPacketTimestamp = 0;
+    bool isUpdated = false;
+    
+    UnifiedTokenState() {
+        // Explicit zero initialization for arrays
+        std::memset(bids, 0, sizeof(bids));
+        std::memset(asks, 0, sizeof(asks));
     }
-    
-    inline const MarketDepthData* updateDepth(const MarketDepthData& data) {
-        depths[data.token] = data;
-        return &depths[data.token];
-    }
-    
-    inline const TickerData* updateTicker(const TickerData& data) {
-        tickers[data.token] = data;
-        return &tickers[data.token];
-    }
-    
-    inline const TouchlineData* getTouchline(uint32_t token) const {
-        auto it = touchlines.find(token);
-        return (it != touchlines.end()) ? &it->second : nullptr;
-    }
-    
-    inline const MarketDepthData* getDepth(uint32_t token) const {
-        auto it = depths.find(token);
-        return (it != depths.end()) ? &it->second : nullptr;
-    }
-    
-    inline const TickerData* getTicker(uint32_t token) const {
-        auto it = tickers.find(token);
-        return (it != tickers.end()) ? &it->second : nullptr;
-    }
-    
-    /**
-     * @brief Initialize valid tokens from contract master
-     * @param tokens Vector of valid NSE CM tokens
-     * 
-     * Pre-populate valid token set. Called once after loading contract master.
-     */
-    void initializeFromMaster(const std::vector<uint32_t>& tokens) {
-        validTokens.clear();
-        validTokens.reserve(tokens.size());
-        for (uint32_t token : tokens) {
-            validTokens.insert(token);
-        }
-        qDebug() << "[NSE CM Store] Initialized" << validTokens.size() << "valid tokens";
-    }
-    
-    /**
-     * @brief Initialize single token with contract master data
-     */
-    void initializeToken(uint32_t token, const char* symbol, const char* displayName,
-                        const char* series, int32_t lotSize, double tickSize,
-                        double priceBandHigh, double priceBandLow) {
-        // Pre-create entry with static fields
-        TouchlineData& tl = touchlines[token];
-        tl.token = token;
-        strncpy(tl.symbol, symbol, 31);
-        strncpy(tl.displayName, displayName, 63);
-        strncpy(tl.series, series, 15);
-        tl.lotSize = lotSize;
-        tl.tickSize = tickSize;
-        tl.priceBandHigh = priceBandHigh;
-        tl.priceBandLow = priceBandLow;
-    }
-    
-    bool isValidToken(uint32_t token) const {
-        return validTokens.find(token) != validTokens.end();
-    }
-    
-    size_t touchlineCount() const { return touchlines.size(); }
-    size_t depthCount() const { return depths.size(); }
-    size_t tickerCount() const { return tickers.size(); }
-    size_t getValidTokenCount() const { return validTokens.size(); }
-    
-    void clear() {
-        touchlines.clear();
-        depths.clear();
-        tickers.clear();
-        validTokens.clear();
-    }
-
-private:
-    std::unordered_map<uint32_t, TouchlineData> touchlines;
-    std::unordered_map<uint32_t, MarketDepthData> depths;
-    std::unordered_map<uint32_t, TickerData> tickers;
-    std::unordered_set<uint32_t> validTokens;  // Valid tokens from master
 };
 
 /**
- * @brief Index data store for NSE CM (hash map)
+ * @brief Thread-Safe Distributed Price Store for NSE CM
+ * Uses a pre-allocated vector for O(1) access by token ID.
+ * Protected by shared_mutex for concurrent reads and exclusive writes.
+ */
+class PriceStore {
+public:
+    static const size_t MAX_TOKENS = 26000; // Covers NSE CM token range
+    
+    PriceStore();
+    
+    // Initialization
+    void initializeFromMaster(const std::vector<uint32_t>& validTokens);
+    void initializeToken(uint32_t token, const char* symbol, const char* series, 
+                        const char* displayName, int32_t lotSize, double tickSize,
+                        double priceBandHigh, double priceBandLow);
+    
+    // Updates
+    void updateTouchline(int32_t token, double ltp, double open, double high, double low, double close,
+                        uint64_t volume, uint32_t lastTradeQty, uint32_t lastTradeTime,
+                        double avgPrice, double netChange, char netChangeInd, uint16_t status, uint16_t bookType);
+                        
+    void updateMarketDepth(int32_t token, const DepthLevel* bids, const DepthLevel* asks,
+                          uint64_t totalBuy, uint64_t totalSell);
+                          
+    void updateTicker(int32_t token, double fillPrice, uint64_t fillVol);
+    
+    // Read Access
+    const UnifiedTokenState* getUnifiedState(int32_t token) const;
+    
+    // Index Store (Keep simple generic access or separate class?)
+    // For now, IndexStore is separate in nsecm_price_store.cpp/h, 
+    // but the previous header had it inline. I will declare the class here to keep it compiling.
+    
+    size_t getTokenCount() const { return MAX_TOKENS; }
+
+private:
+    std::vector<UnifiedTokenState> tokenStates;
+    mutable std::shared_mutex mutex;
+};
+
+//min token for indiaces 26000
+
+/**
+ * @brief Index data store for NSE CM (Thread-Safe Wrapper)
  */
 class IndexStore {
 public:
-    IndexStore() = default;  // Hash maps initialize empty automatically
+    IndexStore() = default;
     
-    inline const IndexData* updateIndex(const IndexData& data) {
-        indices[data.token] = data;
-        return &indices[data.token];
-    }
-    
-    inline const IndustryIndexData* updateIndustryIndex(const IndustryIndexData& data) {
-        industryIndices[data.token] = data;
-        return &industryIndices[data.token];
-    }
-    
-    inline const IndexData* getIndex(uint32_t token) const {
-        auto it = indices.find(token);
-        return (it != indices.end()) ? &it->second : nullptr;
-    }
-    
-    size_t indexCount() const { return indices.size(); }
-    void clear() { indices.clear(); industryIndices.clear(); }
+    const IndexData* updateIndex(const IndexData& data);
+    const IndexData* getIndex(const std::string& name) const;
+    size_t indexCount() const;
+    void clear();
 
 private:
-    std::unordered_map<uint32_t, IndexData> indices;
-    std::unordered_map<uint32_t, IndustryIndexData> industryIndices;
+    std::unordered_map<std::string, IndexData> indices;
+    mutable std::shared_mutex mutex;
 };
 
 // Global instances
-extern PriceStore g_nseCmPriceStore;      // Hash map for instruments
-extern IndexStore g_nseCmIndexStore;      // Hash map for indices
+extern PriceStore g_nseCmPriceStore;
+extern IndexStore g_nseCmIndexStore;
 
 } // namespace nsecm
 

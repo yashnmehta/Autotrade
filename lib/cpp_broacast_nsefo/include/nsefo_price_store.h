@@ -6,209 +6,217 @@
 #include <vector>
 #include <cstdint>
 #include <cstring>
+#include <shared_mutex>
+#include <mutex>
 #include <QDebug>
 #include "nsefo_callback.h"
 
 namespace nsefo {
 
 /**
+ * @brief Unified record combining all market data fields for a token.
+ * This acts as the "Fused State Accumulator" from multiple UDP streams.
+ */
+struct UnifiedTokenState {
+    // =========================================================
+    // 1. STATIC FIELDS (From Contract Master - Never Changed)
+    // =========================================================
+    char symbol[32];
+    char displayName[64];
+    int32_t lotSize;
+    double strikePrice;
+    char optionType[3];       // CE/PE/XX
+    char expiryDate[16];      // DDMMMYYYY
+    int64_t assetToken;
+    int32_t instrumentType;     // 1=Future, 2=Option
+    double tickSize;
+
+    // =========================================================
+    // 2. DYNAMIC FIELDS (Updated by UDP Parsers)
+    // =========================================================
+    
+    // Identification
+    int32_t token;
+    
+    // Price / OHLCV (Msg 7200 / 7208)
+    double ltp;
+    double open;
+    double high;
+    double low;
+    double close;
+    double avgPrice;
+    uint32_t volume;
+    uint32_t lastTradeQty;
+    uint32_t lastTradeTime;
+    
+    // Net Change
+    char netChangeIndicator;
+    double netChange;
+    
+    // Market Depth (Msg 7200 / 7208)
+    DepthLevel bids[5];
+    DepthLevel asks[5];
+    double totalBuyQty;
+    double totalSellQty;
+    
+    // Open Interest (Msg 7202)
+    int64_t openInterest;
+    int64_t previousOpenInterest;
+    
+    // Status
+    uint16_t tradingStatus;
+    uint16_t bookType;
+    
+    // Latency Diagnostics
+    long long lastPacketTimestamp;
+    
+    // LPP (Msg 7211)
+    double lppHigh;
+    double lppLow;
+};
+
+/**
  * @brief Distributed price store for NSE FO (indexed array)
  * 
- * NSE FO uses INDEXED ARRAY for ultra-fast direct access:
- * - Token range: 10,000 - 99,999 (total ~90K tokens)
- * - Array[token] = direct O(1) access
- * - No hash lookup overhead (fastest possible)
- * - Perfect cache locality
- * 
- * Performance:
- * - Update: ~10ns (direct array write)
- * - Lookup: ~5ns (direct array read)
- * - No mutex (thread-local)
+ * Architecture:
+ * - Thread-Safe: Uses std::shared_mutex (Shared Read, Exclusive Write)
+ * - Unified: Stores all fields in one struct per token
+ * - Zero-Copy Read: Returns pointer to live record
+ * - Direct Access: Array indexing O(1)
  */
 class PriceStore {
 public:
-    static constexpr uint32_t MIN_TOKEN = 10000;
-    static constexpr uint32_t MAX_TOKEN = 99999;
+    static constexpr uint32_t MIN_TOKEN = 35000;
+    static constexpr uint32_t MAX_TOKEN = 250000;
     static constexpr uint32_t ARRAY_SIZE = MAX_TOKEN - MIN_TOKEN + 1;  // 90,000 slots
     
-    PriceStore() = default;  // Arrays zero-initialized at program start
+    PriceStore() = default;
     
+    // =========================================================
+    // PARTIAL UPDATES (Write Lock)
+    // =========================================================
+
     /**
-     * @brief Update touchline (direct array write, ~10ns)
+     * @brief Update price/volume fields from UnifiedTokenState (Msg 7200)
      */
-    inline const TouchlineData* updateTouchline(const TouchlineData& data) {
-        if (data.token < MIN_TOKEN || data.token > MAX_TOKEN) return nullptr;
-        uint32_t index = data.token - MIN_TOKEN;
-        touchlines[index] = data;
-        touchlines[index].token = data.token;  // Ensure token is set
-        return &touchlines[index];
+    void updateTouchline(const UnifiedTokenState& data) {
+        if (data.token < MIN_TOKEN || data.token > MAX_TOKEN) return;
+        
+        std::unique_lock lock(mutex_); // Exclusive Write
+        auto& row = store_[data.token - MIN_TOKEN];
+        
+        // Update only dynamic price fields
+        row.token = data.token;
+        row.ltp = data.ltp;
+        row.open = data.open;
+        row.high = data.high;
+        row.low = data.low;
+        row.close = data.close;
+        row.volume = data.volume;
+        row.lastTradeQty = data.lastTradeQty;
+        row.lastTradeTime = data.lastTradeTime;
+        row.avgPrice = data.avgPrice;
+        row.netChangeIndicator = data.netChangeIndicator;
+        row.netChange = data.netChange;
+        row.tradingStatus = data.tradingStatus;
+        row.bookType = data.bookType;
+        row.lastPacketTimestamp = data.lastPacketTimestamp;
+        
+        // Note: We DO NOT update bids/asks here as Msg 7200 depth is often just top level
+        // or handled by 7208. If 7200 contains depth, we should update it too.
+        // Assuming 7200 *does* contain depth in current parser, we can update it optionally.
+        // For now, adhering to strict "Partial Update" logic.
     }
     
     /**
-     * @brief Update market depth (direct array write)
+     * @brief Update detailed market depth (Msg 7208)
      */
-    inline const MarketDepthData* updateDepth(const MarketDepthData& data) {
-        if (data.token < MIN_TOKEN || data.token > MAX_TOKEN) return nullptr;
-        uint32_t index = data.token - MIN_TOKEN;
-        depths[index] = data;
-        depths[index].token = data.token;
-        return &depths[index];
+    void updateDepth(const UnifiedTokenState& data) {
+        if (data.token < MIN_TOKEN || data.token > MAX_TOKEN) return;
+        
+        std::unique_lock lock(mutex_); // Exclusive Write
+        auto& row = store_[data.token - MIN_TOKEN];
+        
+        row.token = data.token;
+        std::memcpy(row.bids, data.bids, sizeof(row.bids));
+        std::memcpy(row.asks, data.asks, sizeof(row.asks));
+        row.totalBuyQty = data.totalBuyQty;
+        row.totalSellQty = data.totalSellQty;
+        row.lastPacketTimestamp = data.lastPacketTimestamp;
     }
     
     /**
-     * @brief Update ticker (direct array write)
+     * @brief Update OI and Ticker fields (Msg 7202)
      */
-    inline const TickerData* updateTicker(const TickerData& data) {
-        if (data.token < MIN_TOKEN || data.token > MAX_TOKEN) return nullptr;
-        uint32_t index = data.token - MIN_TOKEN;
-        tickers[index] = data;
-        tickers[index].token = data.token;
-        return &tickers[index];
+    void updateTicker(const UnifiedTokenState& data) {
+        if (data.token < MIN_TOKEN || data.token > MAX_TOKEN) return;
+        
+        std::unique_lock lock(mutex_); // Exclusive Write
+        auto& row = store_[data.token - MIN_TOKEN];
+        
+        row.token = data.token;
+        row.openInterest = data.openInterest;
+        row.lastPacketTimestamp = data.lastPacketTimestamp;
     }
-    
+
     /**
-     * @brief Get touchline (direct array read, ~5ns)
+     * @brief Update LPP fields (Msg 7220)
      */
-    inline const TouchlineData* getTouchline(uint32_t token) const {
+    void updateLPP(const UnifiedTokenState& data) {
+        if (data.token < MIN_TOKEN || data.token > MAX_TOKEN) return;
+        
+        std::unique_lock lock(mutex_); // Exclusive Write
+        auto& row = store_[data.token - MIN_TOKEN];
+        
+        row.token = data.token;
+        row.lppHigh = data.lppHigh;
+        row.lppLow = data.lppLow;
+        row.lastPacketTimestamp = data.lastPacketTimestamp;
+    }
+
+    // =========================================================
+    // UNIFIED READ (Read Lock)
+    // =========================================================
+
+    /**
+     * @brief Get the complete fused state of a token
+     * @return const pointer to live record (valid until next write)
+     */
+    const UnifiedTokenState* getUnifiedState(uint32_t token) const {
         if (token < MIN_TOKEN || token > MAX_TOKEN) return nullptr;
-        uint32_t index = token - MIN_TOKEN;
-        return (touchlines[index].token == token) ? &touchlines[index] : nullptr;
+        
+        std::shared_lock lock(mutex_); // Shared Read
+        const auto& row = store_[token - MIN_TOKEN];
+        return (row.token == token) ? &row : nullptr;
     }
     
-    /**
-     * @brief Get depth (direct array read)
-     */
-    inline const MarketDepthData* getDepth(uint32_t token) const {
-        if (token < MIN_TOKEN || token > MAX_TOKEN) return nullptr;
-        uint32_t index = token - MIN_TOKEN;
-        return (depths[index].token == token) ? &depths[index] : nullptr;
-    }
-    
-    /**
-     * @brief Get ticker (direct array read)
-     */
-    inline const TickerData* getTicker(uint32_t token) const {
-        if (token < MIN_TOKEN || token > MAX_TOKEN) return nullptr;
-        uint32_t index = token - MIN_TOKEN;
-        return (tickers[index].token == token) ? &tickers[index] : nullptr;
-    }
-    
-    /**
-     * @brief Get active count (tokens with data)
-     */
-    size_t touchlineCount() const {
-        size_t count = 0;
-        for (uint32_t i = 0; i < ARRAY_SIZE; i++) {
-            if (touchlines[i].token >= MIN_TOKEN) count++;
-        }
-        return count;
-    }
-    
-    /**
-     * @brief Initialize valid tokens from contract master
-     * @param tokens Vector of valid NSE FO tokens
-     * 
-     * Mark valid token slots in all arrays. Called once after loading contract master.
-     */
-    void initializeFromMaster(const std::vector<uint32_t>& tokens) {
-        validTokenCount = 0;
-        for (uint32_t token : tokens) {
-            if (token >= MIN_TOKEN && token <= MAX_TOKEN) {
-                uint32_t index = token - MIN_TOKEN;
-                // Mark as valid in all arrays
-                touchlines[index].token = token;
-                depths[index].token = token;
-                tickers[index].token = token;
-                validTokenCount++;
-            }
-        }
-        qDebug() << "[NSE FO Store] Initialized" << validTokenCount << "valid tokens";
-    }
-    
-    /**
-     * @brief Initialize single token with contract master data
-     * @param token Token ID
-     * @param symbol Symbol name
-     * @param displayName Full display name
-     * @param lotSize Lot size
-     * @param strikePrice Strike price (0 for futures)
-     * @param optionType CE/PE/XX
-     * @param expiryDate DDMMMYYYY
-     * @param assetToken Underlying token
-     * @param instrumentType 1=Future, 2=Option
-     * @param tickSize Tick size
-     */
+    // =========================================================
+    // INITIALIZATION (One-time Startup)
+    // =========================================================
+
     void initializeToken(uint32_t token, const char* symbol, const char* displayName,
                         int32_t lotSize, double strikePrice, const char* optionType,
                         const char* expiryDate, int64_t assetToken, 
-                        int32_t instrumentType, double tickSize) {
-        uint32_t index = token - MIN_TOKEN;
-        if (index >= ARRAY_SIZE) return;
-        
-        // Initialize touchline static fields
-        touchlines[index].token = token;
-        strncpy(touchlines[index].symbol, symbol, 31);
-        strncpy(touchlines[index].displayName, displayName, 63);
-        touchlines[index].lotSize = lotSize;
-        touchlines[index].strikePrice = strikePrice;
-        strncpy(touchlines[index].optionType, optionType, 2);
-        strncpy(touchlines[index].expiryDate, expiryDate, 15);
-        touchlines[index].assetToken = assetToken;
-        touchlines[index].instrumentType = instrumentType;
-        touchlines[index].tickSize = tickSize;
-    }
+                        int32_t instrumentType, double tickSize);
+    
+    void initializeFromMaster(const std::vector<uint32_t>& tokens);
     
     size_t getValidTokenCount() const { return validTokenCount; }
     
     void clear() {
-        std::memset(touchlines, 0, sizeof(touchlines));
-        std::memset(depths, 0, sizeof(depths));
-        std::memset(tickers, 0, sizeof(tickers));
+        std::unique_lock lock(mutex_);
+        std::memset(store_, 0, sizeof(store_));
         validTokenCount = 0;
     }
 
 private:
-    // Fixed-size arrays (indexed by token - MIN_TOKEN)
-    TouchlineData touchlines[ARRAY_SIZE];      // ~45 MB (90K * 500 bytes)
-    MarketDepthData depths[ARRAY_SIZE];        // ~36 MB
-    TickerData tickers[ARRAY_SIZE];            // ~27 MB
-    size_t validTokenCount = 0;                // Number of valid tokens from master
-    // Total: ~108 MB for NSE FO store
+    UnifiedTokenState store_[ARRAY_SIZE];
+    mutable std::shared_mutex mutex_;
+    size_t validTokenCount = 0;
 };
 
-/**
- * @brief Index data store (hash map for indices)
- */
-class IndexStore {
-public:
-    IndexStore() = default;  // Hash maps initialize empty automatically
-    
-    inline const IndexData* updateIndex(const IndexData& data) {
-        indices[data.token] = data;
-        return &indices[data.token];
-    }
-    
-    inline const IndustryIndexData* updateIndustryIndex(const IndustryIndexData& data) {
-        industryIndices[data.token] = data;
-        return &industryIndices[data.token];
-    }
-    
-    inline const IndexData* getIndex(uint32_t token) const {
-        auto it = indices.find(token);
-        return (it != indices.end()) ? &it->second : nullptr;
-    }
-    
-    size_t indexCount() const { return indices.size(); }
-    void clear() { indices.clear(); industryIndices.clear(); }
-
-private:
-    std::unordered_map<uint32_t, IndexData> indices;
-    std::unordered_map<uint32_t, IndustryIndexData> industryIndices;
-};
-
-// Global instances
-extern PriceStore g_nseFoPriceStore;      // Indexed array for instruments
-extern IndexStore g_nseFoIndexStore;      // Hash map for indices
+extern PriceStore g_nseFoPriceStore;
+// NOTE: IndexStore removed for NSE FO as per requirements
 
 } // namespace nsefo
 

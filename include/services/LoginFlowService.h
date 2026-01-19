@@ -54,12 +54,17 @@ private:
     void handleMasterLoadingComplete(int contractCount);
     void handleMasterLoadingFailed(const QString& errorMessage);
     void continueLoginAfterMasters();
+    void startMastersPhase();
     void startMasterDownload(const QString& mastersDir);
 
     XTSMarketDataClient *m_mdClient;
     XTSInteractiveClient *m_iaClient;
     TradingDataService *m_tradingDataService;
     MasterLoaderWorker *m_masterLoader;
+
+    bool m_mdLoggedIn = false;
+    bool m_iaLoggedIn = false;
+    bool m_downloadMasters = false;
 
     std::function<void(const QString&, const QString&, int)> m_statusCallback;
     std::function<void(const QString&, const QString&)> m_errorCallback;

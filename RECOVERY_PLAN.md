@@ -201,6 +201,7 @@ C. Repurpose PriceCache to wrap g_stores with Qt-friendly API
 - **Option A**: Delete PriceCache (g_stores replace it)
 - **Option B**: Keep for XTS WebSocket data only
 - **Option C**: Wrap g_stores with PriceCache API
+
 - **Your choice?**
 
 ### Question 3: Parser Updates

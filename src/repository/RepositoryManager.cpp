@@ -9,6 +9,7 @@
 #include <fstream>
 #include <iostream>
 #include <string>
+#include <vector>
 
 // Include distributed price stores
 #include "nsefo_price_store.h"
@@ -958,7 +959,8 @@ void RepositoryManager::initializeDistributedStores() {
         
         // Mark valid tokens in store
         nsefo::g_nseFoPriceStore.initializeFromMaster(tokens);
-        qDebug() << \"  NSE FO:\" << tokens.size() << \"contracts pre-populated\";\n    }
+        qDebug() << "  NSE FO:" << tokens.size() << "contracts pre-populated";
+    }
     
     // NSE CM: Pre-populate hash map with contract master data
     if (m_nsecm && m_nsecm->isLoaded()) {
@@ -984,7 +986,8 @@ void RepositoryManager::initializeDistributedStores() {
         }
         
         nsecm::g_nseCmPriceStore.initializeFromMaster(tokens);
-        qDebug() << \"  NSE CM:\" << tokens.size() << \"contracts pre-populated\";\n    }
+        qDebug() << "  NSE CM:" << tokens.size() << "contracts pre-populated";
+    }
     
     // BSE FO: Pre-populate hash map with contract master data
     if (m_bsefo && m_bsefo->isLoaded()) {
@@ -1014,7 +1017,8 @@ void RepositoryManager::initializeDistributedStores() {
         }
         
         bse::g_bseFoPriceStore.initializeFromMaster(tokens);
-        qDebug() << \"  BSE FO:\" << tokens.size() << \"contracts pre-populated\";\n    }
+        qDebug() << "  BSE FO:" << tokens.size() << "contracts pre-populated";
+    }
     
     // BSE CM: Pre-populate hash map with contract master data
     if (m_bsecm && m_bsecm->isLoaded()) {
@@ -1044,6 +1048,8 @@ void RepositoryManager::initializeDistributedStores() {
         }
         
         bse::g_bseCmPriceStore.initializeFromMaster(tokens);
-        qDebug() << \"  BSE CM:\" << tokens.size() << \"contracts pre-populated\";\n    }
+        qDebug() << "  BSE CM:" << tokens.size() << "contracts pre-populated";
+    }
     
-    qDebug() << \"[RepositoryManager] Distributed stores initialized with contract master data\";\n}
+    qDebug() << "[RepositoryManager] Distributed stores initialized with contract master data";
+}

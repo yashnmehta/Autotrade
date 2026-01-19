@@ -30,13 +30,16 @@ public:
     void parsePacket(const uint8_t* buffer, size_t length, ParserStats& stats);
 
     // Callbacks
-    using RecordCallback = std::function<void(const DecodedRecord&)>;
-    using OpenInterestCallback = std::function<void(const DecodedOpenInterest&)>;
-    using SessionStateCallback = std::function<void(const DecodedSessionState&)>;
-    using ClosePriceCallback = std::function<void(const DecodedClosePrice&)>;
+    // Callbacks (Token only for Data)
+    using RecordCallback = std::function<void(uint32_t token)>;
+    using OpenInterestCallback = std::function<void(uint32_t token)>;
+    using SessionStateCallback = std::function<void(const DecodedSessionState&)>; // Keep low freq
+    using ClosePriceCallback = std::function<void(uint32_t token)>;
     // New callback for Implied Volatility
-    using ImpliedVolatilityCallback = std::function<void(const DecodedImpliedVolatility&)>; 
+    using ImpliedVolatilityCallback = std::function<void(uint32_t token)>; 
     using RBICallback = std::function<void(const DecodedRBIReferenceRate&)>;
+    // Index Callback (Token only)
+    using IndexCallback = std::function<void(uint32_t token)>;
 
     void setRecordCallback(RecordCallback callback) { recordCallback_ = callback; }
     void setOpenInterestCallback(OpenInterestCallback callback) { oiCallback_ = callback; }

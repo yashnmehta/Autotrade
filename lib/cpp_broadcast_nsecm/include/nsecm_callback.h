@@ -106,13 +106,13 @@ struct MarketWatchData {
 // ============================================================================
 
 // Callback for touchline updates (7200, 7208)
-using TouchlineCallback = std::function<void(const TouchlineData&)>;
+using TouchlineCallback = std::function<void(int32_t token)>;
 
 // Callback for market depth updates (7200, 7208)
-using MarketDepthCallback = std::function<void(const MarketDepthData&)>;
+using MarketDepthCallback = std::function<void(int32_t token)>;
 
 // Callback for ticker updates (7202, 17202, 18703)
-using TickerCallback = std::function<void(const TickerData&)>;
+using TickerCallback = std::function<void(int32_t token)>;
 
 // Callback for market watch updates (7201, 17201)
 using MarketWatchCallback = std::function<void(const MarketWatchData&)>;
@@ -282,36 +282,36 @@ public:
     }
     
     // Dispatch callbacks (called by parsers) - thread-safe
-    void dispatchTouchline(const TouchlineData& data) {
+    void dispatchTouchline(int32_t token) {
         TouchlineCallback callback;
         {
             std::lock_guard<std::mutex> lock(callbackMutex);
             callback = touchlineCallback;
         }
         if (callback) {
-            callback(data);
+            callback(token);
         }
     }
     
-    void dispatchMarketDepth(const MarketDepthData& data) {
+    void dispatchMarketDepth(int32_t token) {
         MarketDepthCallback callback;
         {
             std::lock_guard<std::mutex> lock(callbackMutex);
             callback = marketDepthCallback;
         }
         if (callback) {
-            callback(data);
+            callback(token);
         }
     }
     
-    void dispatchTicker(const TickerData& data) {
+    void dispatchTicker(int32_t token) {
         TickerCallback callback;
         {
             std::lock_guard<std::mutex> lock(callbackMutex);
             callback = tickerCallback;
         }
         if (callback) {
-            callback(data);
+            callback(token);
         }
     }
     
