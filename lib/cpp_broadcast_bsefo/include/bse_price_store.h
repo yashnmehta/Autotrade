@@ -27,7 +27,7 @@ using DepthLevel = MarketData::DepthLevel;
  */
 class PriceStore {
 public:
-    static const size_t MAX_TOKENS = 600000; // Covers BSE token range
+    static const size_t MAX_TOKENS = 60000; // Covers BSE token range
     PriceStore();
     ~PriceStore() = default;
 

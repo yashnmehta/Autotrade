@@ -364,9 +364,9 @@ void UdpBroadcastService::subscribeToken(uint32_t token, int exchangeSegment) {
     // Sync with Distributed Gateway filter
     MarketData::PriceStoreGateway::instance().setTokenEnabled(exchangeSegment, token, true);
 
-    qDebug() << "[UdpBroadcast] Subscribed to token:" << token 
-             << "Segment:" << exchangeSegment
-             << "Total subscriptions:" << m_subscribedTokens.size();
+    // qDebug() << "[UdpBroadcast] Subscribed to token:" << token 
+    //          << "Segment:" << exchangeSegment
+    //          << "Total subscriptions:" << m_subscribedTokens.size();
 }
 
 void UdpBroadcastService::unsubscribeToken(uint32_t token, int exchangeSegment) {
