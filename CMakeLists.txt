@@ -652,6 +652,7 @@ if(WIN32 AND MINGW)
                 --no-translations
                 --no-system-d3d-compiler
                 --no-opengl-sw
+                --no-angle
                 "$<TARGET_FILE:TradingTerminal>"
             COMMENT "Running windeployqt to copy Qt DLLs..."
         )
