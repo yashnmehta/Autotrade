@@ -38,8 +38,8 @@ void PriceStore::updateMarketPicture(uint32_t token, double ltp, double open, do
     state.close = close; // Prev Close
     state.volume = volume;
     state.turnover = turnover;
-    state.ltq = ltq;
-    state.weightedAvgPrice = atp;
+    state.lastTradeQty = ltq;
+    state.avgPrice = atp;
     state.totalBuyQty = totalBuy;
     state.totalSellQty = totalSell;
     state.lowerCircuit = lowerCir;

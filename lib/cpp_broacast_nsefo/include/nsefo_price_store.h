@@ -11,69 +11,12 @@
 #include <QDebug>
 #include "nsefo_callback.h"
 
+#include "data/UnifiedPriceState.h"
+
 namespace nsefo {
 
-/**
- * @brief Unified record combining all market data fields for a token.
- * This acts as the "Fused State Accumulator" from multiple UDP streams.
- */
-struct UnifiedTokenState {
-    // =========================================================
-    // 1. STATIC FIELDS (From Contract Master - Never Changed)
-    // =========================================================
-    char symbol[32];
-    char displayName[64];
-    int32_t lotSize;
-    double strikePrice;
-    char optionType[3];       // CE/PE/XX
-    char expiryDate[16];      // DDMMMYYYY
-    int64_t assetToken;
-    int32_t instrumentType;     // 1=Future, 2=Option
-    double tickSize;
+using UnifiedTokenState = MarketData::UnifiedState;
 
-    // =========================================================
-    // 2. DYNAMIC FIELDS (Updated by UDP Parsers)
-    // =========================================================
-    
-    // Identification
-    int32_t token;
-    
-    // Price / OHLCV (Msg 7200 / 7208)
-    double ltp;
-    double open;
-    double high;
-    double low;
-    double close;
-    double avgPrice;
-    uint32_t volume;
-    uint32_t lastTradeQty;
-    uint32_t lastTradeTime;
-    
-    // Net Change
-    char netChangeIndicator;
-    double netChange;
-    
-    // Market Depth (Msg 7200 / 7208)
-    DepthLevel bids[5];
-    DepthLevel asks[5];
-    double totalBuyQty;
-    double totalSellQty;
-    
-    // Open Interest (Msg 7202)
-    int64_t openInterest;
-    int64_t previousOpenInterest;
-    
-    // Status
-    uint16_t tradingStatus;
-    uint16_t bookType;
-    
-    // Latency Diagnostics
-    long long lastPacketTimestamp;
-    
-    // LPP (Msg 7211)
-    double lppHigh;
-    double lppLow;
-};
 
 /**
  * @brief Distributed price store for NSE FO (indexed array)

@@ -998,33 +998,24 @@ TEST(PriceStore, ThreadSafety) {
 
 ## 10. Migration Checklist
 
-- [ ] Phase 1: BSE Integration ✅
-  - [x] BSE parser stores first
-  - [x] Thread safety added
-  - [x] Callback signature changed
-  
-- [ ] Phase 2: NSE FO Integration
-  - [ ] Update 25 parser files
-  - [ ] Change callback signature
-  - [ ] Store before callback
-  
-- [ ] Phase 3: NSE CM Integration
-  - [ ] Update parser files
-  - [ ] Same pattern as NSE FO
-  
-- [ ] Phase 4: FeedHandler Integration
-  - [ ] Add `enableToken` / `disableToken` logic for hybrid filtering
-  - [ ] Add immediate data delivery on subscribe
-  - [ ] Update notification handlers to use Token ID
-  
-- [ ] Phase 5: UdpBroadcastService Cleanup
-  - [ ] Remove PriceCache update calls
-  - [ ] Simplify to signal emission only
-  
-- [ ] Phase 6: Delete PriceCache
-  - [ ] Delete files
-  - [ ] Update XTS integration to use getQuote
-  - [ ] Remove from CMakeLists.txt
+- [x] Phase 1: BSE Integration ✅
+- [x] Phase 2: NSE FO Integration ✅
+- [x] Phase 3: NSE CM Integration ✅
+- [x] Phase 4: Unified Store Gateway & Types ✅
+  - [x] Unified `MarketData::UnifiedState` crossing all segments
+  - [x] `PriceStoreGateway` for segment routing
+- [x] Phase 5: Notification Filter Integration ✅
+  - [x] `setTokenFilter` added to all broadcast registries
+  - [x] Parsers check `isEnabled(token)` before dispatching (IO thread speedup)
+- [ ] Phase 6: UI Migration (MarketWatchWindow)
+  - [ ] Switch from `PriceCacheZeroCopy` to `PriceStoreGateway`
+  - [ ] Implement Poller-based UI refresh
+- [ ] Phase 7: Heritage Code Deletion
+  - [ ] Remove `PriceCache` and `PriceCacheZeroCopy`
+  - [ ] Remove `MarketDataAggregator`
+- [ ] Phase 8: Final Optimization
+  - [ ] Eliminate last conversion to `XTS::Tick` in `UdpBroadcastService`
+
 
 ---
 

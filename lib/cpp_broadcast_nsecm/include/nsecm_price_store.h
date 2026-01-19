@@ -7,59 +7,12 @@
 #include <cstring>
 #include "nsecm_callback.h"
 
+#include "data/UnifiedPriceState.h"
+
 namespace nsecm {
 
-/**
- * @brief Unified Token State for NSE CM
- * Combines Touchline, Market Depth, and other related data into a single structure.
- * Optimized for cache locality and thread-safe access.
- */
-struct UnifiedTokenState {
-    int32_t token = 0;
-    
-    // Contract Master Info (Static)
-    char symbol[32] = {0};
-    char series[16] = {0};
-    char displayName[64] = {0};
-    int32_t lotSize = 0;
-    double tickSize = 0.0;
-    double priceBandHigh = 0.0;
-    double priceBandLow = 0.0;
-    
-    // Market Data (Dynamic)
-    double ltp = 0.0;
-    double open = 0.0;
-    double high = 0.0;
-    double low = 0.0;
-    double close = 0.0;
-    double avgPrice = 0.0;
-    
-    uint64_t volume = 0;       // Volume Traded Today (CM uses 64-bit)
-    uint32_t lastTradeQty = 0;
-    uint32_t lastTradeTime = 0;
-    
-    double netChange = 0.0;
-    char netChangeIndicator = ' ';
-    
-    uint16_t tradingStatus = 0;
-    uint16_t bookType = 0;
-    uint64_t totalBuyQty = 0;
-    uint64_t totalSellQty = 0;
-    
-    // Market Depth (5 levels)
-    DepthLevel bids[5];
-    DepthLevel asks[5];
-    
-    // Latency / Updates
-    int64_t lastPacketTimestamp = 0;
-    bool isUpdated = false;
-    
-    UnifiedTokenState() {
-        // Explicit zero initialization for arrays
-        std::memset(bids, 0, sizeof(bids));
-        std::memset(asks, 0, sizeof(asks));
-    }
-};
+using UnifiedTokenState = MarketData::UnifiedState;
+
 
 /**
  * @brief Thread-Safe Distributed Price Store for NSE CM

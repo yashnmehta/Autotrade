@@ -12,67 +12,13 @@
 #include <mutex>
 #include "bse_protocol.h"
 
+#include "data/UnifiedPriceState.h"
+
 namespace bse {
 
-// Maximum tokens for BSE (Scrip codes go up to ~6 digits, e.g., 500325, 9xxxxx for new)
-// 1 Million covers standard equity. FO tokens might be different.
-// Safe upper bound 1,200,000 for vector.
-constexpr size_t MAX_BSE_TOKENS = 1200000; // verify this figure from actual data (master data export)
+using UnifiedTokenState = MarketData::UnifiedState;
+using DepthLevel = MarketData::DepthLevel;
 
-/**
- * @brief Consolidated state for a single BSE token
- * Aligned for cache line performance.
- */
-struct UnifiedTokenState {
-    uint32_t token = 0;
-
-    // === STATIC MASTER DATA ===
-    char symbol[32] = {0};
-    char displayName[64] = {0};
-    char scripCode[16] = {0};
-    char series[16] = {0};
-    char optionType[3] = {0};
-    char expiryDate[16] = {0};
-    int32_t lotSize = 0;
-    double strikePrice = 0.0;
-    double tickSize = 0.0;
-    int32_t instrumentType = 0;
-    int32_t assetToken = 0;
-    double lowerCircuit = 0.0;
-    double upperCircuit = 0.0;
-
-    // === DYNAMIC MARKET DATA ===
-    double ltp = 0.0;
-    double open = 0.0;
-    double high = 0.0;
-    double low = 0.0;
-    double close = 0.0; // Previous Close
-    uint64_t volume = 0;
-    uint64_t turnover = 0; // Traded Value
-    uint64_t ltq = 0; // Last Traded Qty
-    double weightedAvgPrice = 0.0;
-    
-    uint64_t totalBuyQty = 0;
-    uint64_t totalSellQty = 0;
-
-    // Depth (Zero-Copy Array)
-    struct DepthLevel {
-        double price = 0.0;
-        uint64_t quantity = 0;
-        uint32_t orders = 0;
-    };
-    DepthLevel bids[5];
-    DepthLevel asks[5];
-
-    // Derivatives Specific
-    int64_t openInterest = 0;
-    int32_t openInterestChange = 0;
-    int64_t impliedVolatility = 0;
-
-    // Latency Tracking
-    uint64_t lastPacketTimestamp = 0;
-    bool isUpdated = false;
-};
 
 /**
  * @brief High-Performance Distributed Price Store for BSE

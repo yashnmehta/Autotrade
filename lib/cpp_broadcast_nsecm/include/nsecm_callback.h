@@ -280,12 +280,25 @@ public:
         std::lock_guard<std::mutex> lock(callbackMutex);
         marketOpenCallback = callback;
     }
+
+    // Filter management
+    using TokenFilterFunc = std::function<bool(int32_t)>;
+    void setTokenFilter(TokenFilterFunc filter) {
+        std::lock_guard<std::mutex> lock(callbackMutex);
+        tokenFilter = filter;
+    }
+
+    bool isEnabled(int32_t token) const {
+        if (!tokenFilter) return true;
+        return tokenFilter(token);
+    }
     
     // Dispatch callbacks (called by parsers) - thread-safe
     void dispatchTouchline(int32_t token) {
         TouchlineCallback callback;
         {
             std::lock_guard<std::mutex> lock(callbackMutex);
+            if (!isEnabled(token)) return;
             callback = touchlineCallback;
         }
         if (callback) {
@@ -297,6 +310,7 @@ public:
         MarketDepthCallback callback;
         {
             std::lock_guard<std::mutex> lock(callbackMutex);
+            if (!isEnabled(token)) return;
             callback = marketDepthCallback;
         }
         if (callback) {
@@ -308,6 +322,7 @@ public:
         TickerCallback callback;
         {
             std::lock_guard<std::mutex> lock(callbackMutex);
+            if (!isEnabled(token)) return;
             callback = tickerCallback;
         }
         if (callback) {
@@ -319,6 +334,7 @@ public:
         MarketWatchCallback callback;
         {
             std::lock_guard<std::mutex> lock(callbackMutex);
+            if (!isEnabled(data.token)) return;
             callback = marketWatchCallback;
         }
         if (callback) {
@@ -398,6 +414,7 @@ private:
     SystemInformationCallback systemInformationCallback;
     CallAuctionOrderCxlCallback callAuctionOrderCxlCallback;
     MarketOpenCallback marketOpenCallback;
+    TokenFilterFunc tokenFilter;
 };
 
 } // namespace nsecm

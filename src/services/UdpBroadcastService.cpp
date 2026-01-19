@@ -7,11 +7,13 @@
 #include "services/FeedHandler.h"
 #include "services/PriceCache.h"
 #include "utils/LatencyTracker.h"
+#include "data/PriceStoreGateway.h"
 #include <QMetaObject>
 #include <QDebug>
 #include <thread>
 #include <iostream>
 #include <cstring>
+
 
 // ========== CONVERSION HELPERS: Native Protocol → UDP::MarketTick ==========
 
@@ -358,6 +360,10 @@ UdpBroadcastService::~UdpBroadcastService() {
 void UdpBroadcastService::subscribeToken(uint32_t token, int exchangeSegment) {
     std::unique_lock lock(m_subscriptionMutex);
     m_subscribedTokens.insert(token);
+    
+    // Sync with Distributed Gateway filter
+    MarketData::PriceStoreGateway::instance().setTokenEnabled(exchangeSegment, token, true);
+
     qDebug() << "[UdpBroadcast] Subscribed to token:" << token 
              << "Segment:" << exchangeSegment
              << "Total subscriptions:" << m_subscribedTokens.size();
@@ -366,6 +372,10 @@ void UdpBroadcastService::subscribeToken(uint32_t token, int exchangeSegment) {
 void UdpBroadcastService::unsubscribeToken(uint32_t token, int exchangeSegment) {
     std::unique_lock lock(m_subscriptionMutex);
     m_subscribedTokens.erase(token);
+    
+    // Sync with Distributed Gateway filter
+    MarketData::PriceStoreGateway::instance().setTokenEnabled(exchangeSegment, token, false);
+
     qDebug() << "[UdpBroadcast] Unsubscribed from token:" << token
              << "Segment:" << exchangeSegment
              << "Remaining subscriptions:" << m_subscribedTokens.size();
@@ -388,6 +398,11 @@ void UdpBroadcastService::setSubscriptionFilterEnabled(bool enabled) {
 // ========== CALLBACK SETUP ==========
 
 void UdpBroadcastService::setupNseFoCallbacks() {
+    // 0. Set Notification Filter
+    nsefo::MarketDataCallbackRegistry::instance().setTokenFilter([](int32_t token) {
+        return MarketData::PriceStoreGateway::instance().isTokenEnabled(2, token);
+    });
+
     // Touchline + Depth (7200/7208) - Unified Callback
     auto unifiedCallback = [this](int32_t token) {
         // 1. Fetch from Global Store (Zero-Copy Read)
@@ -441,6 +456,11 @@ void UdpBroadcastService::setupNseFoCallbacks() {
 }
 
 void UdpBroadcastService::setupNseCmCallbacks() {
+    // 0. Set Notification Filter
+    nsecm::MarketDataCallbackRegistry::instance().setTokenFilter([](int32_t token) {
+        return MarketData::PriceStoreGateway::instance().isTokenEnabled(1, token);
+    });
+
     // Unified CM Callback
     auto unifiedCallback = [this](int32_t token) {
         // 1. Fetch from Global CM Store

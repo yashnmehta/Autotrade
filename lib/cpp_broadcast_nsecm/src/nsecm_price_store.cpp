@@ -41,8 +41,8 @@ void PriceStore::initializeToken(uint32_t token, const char* symbol, const char*
     
     state.lotSize = lotSize;
     state.tickSize = tickSize;
-    state.priceBandHigh = priceBandHigh;
-    state.priceBandLow = priceBandLow;
+    state.upperCircuit = priceBandHigh;
+    state.lowerCircuit = priceBandLow;
     state.isUpdated = true; // Mark as initialized
 }
 

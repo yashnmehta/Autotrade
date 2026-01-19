@@ -206,28 +206,39 @@ public:
     void registerCircuitLimitCallback(CircuitLimitCallback callback) {
         circuitLimitCallback = callback;
     }
+
+    // Filter management
+    using TokenFilterFunc = std::function<bool(int32_t)>;
+    void setTokenFilter(TokenFilterFunc filter) {
+        tokenFilter = filter;
+    }
+
+    bool isEnabled(int32_t token) const {
+        if (!tokenFilter) return true; // Default to enabled if no filter set
+        return tokenFilter(token);
+    }
     
     // Dispatch callbacks (called by parsers)
     void dispatchTouchline(int32_t token) {
-        if (touchlineCallback) {
+        if (touchlineCallback && isEnabled(token)) {
             touchlineCallback(token);
         }
     }
     
     void dispatchMarketDepth(int32_t token) {
-        if (marketDepthCallback) {
+        if (marketDepthCallback && isEnabled(token)) {
             marketDepthCallback(token);
         }
     }
     
     void dispatchTicker(int32_t token) {
-        if (tickerCallback) {
+        if (tickerCallback && isEnabled(token)) {
             tickerCallback(token);
         }
     }
     
     void dispatchMarketWatch(const MarketWatchData& data) {
-        if (marketWatchCallback) {
+        if (marketWatchCallback && isEnabled(data.token)) {
             marketWatchCallback(data);
         }
     }
@@ -245,7 +256,7 @@ public:
     }
     
     void dispatchCircuitLimit(int32_t token) {
-        if (circuitLimitCallback) {
+        if (circuitLimitCallback && isEnabled(token)) {
             circuitLimitCallback(token);
         }
     }
@@ -263,6 +274,7 @@ private:
     IndexCallback indexCallback;
     IndustryIndexCallback industryIndexCallback;
     CircuitLimitCallback circuitLimitCallback;
+    TokenFilterFunc tokenFilter;
 };
 
 } // namespace nsefo

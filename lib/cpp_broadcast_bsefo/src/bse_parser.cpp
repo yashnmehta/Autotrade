@@ -130,7 +130,7 @@ void BSEParser::decodeMarketPicture(const uint8_t* buffer, size_t length, uint16
         stats.packetsDecoded++;
         
         // Dispatch Callback (Token Only)
-        if (recordCallback_) {
+        if (recordCallback_ && isEnabled(token)) {
             recordCallback_(token);
         }
     }
@@ -174,7 +174,7 @@ void BSEParser::decodeOpenInterest(const uint8_t* buffer, size_t length, ParserS
         }
         
         stats.packetsDecoded++;
-        if (oiCallback_) oiCallback_(token);
+        if (oiCallback_ && isEnabled(token)) oiCallback_(token);
     }
 }
 
@@ -233,7 +233,7 @@ void BSEParser::decodeClosePrice(const uint8_t* buffer, size_t length, ParserSta
         }
         
         stats.packetsDecoded++;
-        if (closePriceCallback_) closePriceCallback_(token);
+        if (closePriceCallback_ && isEnabled(token)) closePriceCallback_(token);
     }
 }
 
@@ -311,7 +311,7 @@ void BSEParser::decodeImpliedVolatility(const uint8_t* buffer, size_t length, Pa
         }
         
         stats.packetsDecoded++;
-        if (ivCallback_) ivCallback_(token);
+        if (ivCallback_ && isEnabled(token)) ivCallback_(token);
     }
 }
 

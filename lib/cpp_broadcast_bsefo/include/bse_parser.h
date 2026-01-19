@@ -49,7 +49,17 @@ public:
     void setImpliedVolatilityCallback(ImpliedVolatilityCallback callback) { ivCallback_ = callback; }
     void setRBICallback(RBICallback callback) { rbiCallback_ = callback; }
 
+    // Filter management
+    using TokenFilterFunc = std::function<bool(uint32_t)>;
+    void setTokenFilter(TokenFilterFunc filter) { tokenFilter_ = filter; }
+
+    bool isEnabled(uint32_t token) const {
+        if (!tokenFilter_) return true;
+        return tokenFilter_(token);
+    }
+
     // Set Market Segment for PriceCache writes (e.g. BSE_CM = 2, BSE_FO = 3)
+
     void setMarketSegment(int segment) { marketSegment_ = segment; }
 
 private:
@@ -69,10 +79,9 @@ private:
     ImpliedVolatilityCallback ivCallback_;
     RBICallback rbiCallback_;
     RecordCallback indexCallback_; 
+    TokenFilterFunc tokenFilter_;
     
-    int marketSegment_ = -1; // -1 = Unknown/Not Set // Reuse record callback for Index? Or new one? 
-                                   // For now, let's assume Index might use DecodedRecord or similar. 
-                                   // existing code reused DecodedRecord for Index.
+    int marketSegment_ = -1; 
 };
 
 } // namespace bse
