@@ -2,7 +2,8 @@
 #include "models/TokenAddressBook.h"
 #include "services/TokenSubscriptionManager.h"
 #include "services/PriceCache.h"
-#include "services/PriceCacheZeroCopy.h"
+#include "data/PriceStoreGateway.h"
+#include "data/UnifiedPriceState.h"
 #include "utils/ClipboardHelpers.h"
 #include "utils/SelectionHelpers.h"
 #include "views/helpers/MarketWatchHelpers.h"
@@ -72,24 +73,32 @@ bool MarketWatchWindow::addScrip(const QString &symbol, const QString &exchange,
     // Also subscribe to legacy XTS::Tick (using segment-specific overload)
     FeedHandler::instance().subscribe(static_cast<int>(segment), token, this, &MarketWatchWindow::onTickUpdate);
     
-    // Initial Load from Cache (respect flag!)
+    // Initial Load from Distributed Store
     if (m_useZeroCopyPriceCache) {
-        // Use zero-copy cache for initial load
-        PriceCacheTypes::MarketSegment cacheSegment = static_cast<PriceCacheTypes::MarketSegment>(segment);
-        auto data = PriceCacheTypes::PriceCacheZeroCopy::getInstance().getLatestData(token, cacheSegment);
-        if (data.lastTradedPrice > 0) {  // Check if has valid data
-            // Convert to XTS::Tick for compatibility with existing onTickUpdate
-            XTS::Tick tick;
-            tick.exchangeSegment = static_cast<int>(segment);
-            tick.exchangeInstrumentID = token;
-            tick.lastTradedPrice = data.lastTradedPrice / 100.0;  // Convert paise to rupees
-            tick.lastTradedQuantity = data.lastTradeQuantity;
-            tick.volume = data.volumeTradedToday;
-            tick.open = data.openPrice / 100.0;
-            tick.high = data.highPrice / 100.0;
-            tick.low = data.lowPrice / 100.0;
-            tick.close = data.closePrice / 100.0;
-            onTickUpdate(tick);
+        if (auto data = MarketData::PriceStoreGateway::instance().getUnifiedState(static_cast<int>(segment), token)) {
+            m_tokenUnifiedPointers[token] = data;
+            if (data->ltp > 0) {
+                // Update via onUdpTickUpdate for consistency (it takes UnifiedState fields soon)
+                // For now, let's just trigger a model update if it has data
+                UDP::MarketTick udpTick;
+                udpTick.exchangeSegment = segment;
+                udpTick.token = token;
+                udpTick.ltp = data->ltp;
+                udpTick.open = data->open;
+                udpTick.high = data->high;
+                udpTick.low = data->low;
+                udpTick.prevClose = data->close;
+                udpTick.volume = data->volume;
+                udpTick.atp = data->avgPrice;
+                
+                // Copy best depth
+                udpTick.bids[0].price = data->bids[0].price;
+                udpTick.bids[0].quantity = data->bids[0].quantity;
+                udpTick.asks[0].price = data->asks[0].price;
+                udpTick.asks[0].quantity = data->asks[0].quantity;
+                
+                onUdpTickUpdate(udpTick);
+            }
         }
     } else {
         // Use legacy cache for initial load
@@ -100,11 +109,6 @@ bool MarketWatchWindow::addScrip(const QString &symbol, const QString &exchange,
     
     m_tokenAddressBook->addCompositeToken(exchange, "", token, newRow);
     m_tokenAddressBook->addIntKeyToken(static_cast<int>(segment), token, newRow);
-    
-    // Request Zero-Copy Subscription if enabled
-    if (m_useZeroCopyPriceCache) {
-        emit requestTokenSubscription(QUuid::createUuid().toString(), token, static_cast<uint16_t>(segment));
-    }
     
     emit scripAdded(scrip.symbol, exchange, token);
     return true;
@@ -145,24 +149,30 @@ bool MarketWatchWindow::addScripFromContract(const ScripData &contractData)
     // Also subscribe to legacy XTS::Tick (using segment-specific overload to avoid cross-talk)
     FeedHandler::instance().subscribe(static_cast<int>(segment), scrip.token, this, &MarketWatchWindow::onTickUpdate);
     
-    // Initial Load from Cache (respect flag!)
+    // Initial Load from Distributed Store
     if (m_useZeroCopyPriceCache) {
-        // Use zero-copy cache for initial load
-        PriceCacheTypes::MarketSegment cacheSegment = static_cast<PriceCacheTypes::MarketSegment>(segment);
-        auto data = PriceCacheTypes::PriceCacheZeroCopy::getInstance().getLatestData(scrip.token, cacheSegment);
-        if (data.lastTradedPrice > 0) {  // Check if has valid data
-            // Convert to XTS::Tick for compatibility with existing onTickUpdate
-            XTS::Tick tick;
-            tick.exchangeSegment = static_cast<int>(segment);
-            tick.exchangeInstrumentID = scrip.token;
-            tick.lastTradedPrice = data.lastTradedPrice / 100.0;  // Convert paise to rupees
-            tick.lastTradedQuantity = data.lastTradeQuantity;
-            tick.volume = data.volumeTradedToday;
-            tick.open = data.openPrice / 100.0;
-            tick.high = data.highPrice / 100.0;
-            tick.low = data.lowPrice / 100.0;
-            tick.close = data.closePrice / 100.0;
-            onTickUpdate(tick);
+        if (auto data = MarketData::PriceStoreGateway::instance().getUnifiedState(static_cast<int>(segment), scrip.token)) {
+            m_tokenUnifiedPointers[scrip.token] = data;
+            if (data->ltp > 0) {
+                UDP::MarketTick udpTick;
+                udpTick.exchangeSegment = segment;
+                udpTick.token = scrip.token;
+                udpTick.ltp = data->ltp;
+                udpTick.open = data->open;
+                udpTick.high = data->high;
+                udpTick.low = data->low;
+                udpTick.prevClose = data->close;
+                udpTick.volume = data->volume;
+                udpTick.atp = data->avgPrice;
+                
+                // Copy best depth
+                udpTick.bids[0].price = data->bids[0].price;
+                udpTick.bids[0].quantity = data->bids[0].quantity;
+                udpTick.asks[0].price = data->asks[0].price;
+                udpTick.asks[0].quantity = data->asks[0].quantity;
+                
+                onUdpTickUpdate(udpTick);
+            }
         }
     } else {
         // Use legacy cache for initial load
@@ -173,11 +183,6 @@ bool MarketWatchWindow::addScripFromContract(const ScripData &contractData)
     
     m_tokenAddressBook->addCompositeToken(scrip.exchange, "", scrip.token, newRow);
     m_tokenAddressBook->addIntKeyToken(static_cast<int>(segment), scrip.token, newRow);
-    
-    // Request Zero-Copy Subscription if enabled
-    if (m_useZeroCopyPriceCache) {
-        emit requestTokenSubscription(QUuid::createUuid().toString(), scrip.token, static_cast<uint16_t>(segment));
-    }
     
     emit scripAdded(scrip.symbol, scrip.exchange, scrip.token);
     return true;
@@ -463,43 +468,7 @@ void MarketWatchWindow::onLoadPortfolio()
 
 void MarketWatchWindow::exportPriceCacheDebug()
 {
-    QString fileName = QFileDialog::getSaveFileName(
-        this,
-        tr("Export Price Cache Debug"),
-        "price_cache_export.txt",
-        tr("Text Files (*.txt);;All Files (*)")
-    );
-    
-    if (fileName.isEmpty()) {
-        return;
-    }
-    
-    qDebug() << "[MarketWatch] Exporting price cache to:" << fileName;
-    
-    // Export zero-copy cache
-    PriceCacheTypes::PriceCacheZeroCopy::getInstance().exportCacheToFile(fileName, 200);
-    
-    // Show active token counts
-    uint32_t nseCmActive = PriceCacheTypes::PriceCacheZeroCopy::getInstance()
-        .getActiveTokenCount(PriceCacheTypes::MarketSegment::NSE_CM);
-    uint32_t nseFoActive = PriceCacheTypes::PriceCacheZeroCopy::getInstance()
-        .getActiveTokenCount(PriceCacheTypes::MarketSegment::NSE_FO);
-    uint32_t bseCmActive = PriceCacheTypes::PriceCacheZeroCopy::getInstance()
-        .getActiveTokenCount(PriceCacheTypes::MarketSegment::BSE_CM);
-    uint32_t bseFoActive = PriceCacheTypes::PriceCacheZeroCopy::getInstance()
-        .getActiveTokenCount(PriceCacheTypes::MarketSegment::BSE_FO);
-    
-    QString message = QString(
-        "Price cache exported to:\n%1\n\n"
-        "Active tokens (with LTP > 0):\n"
-        "NSE CM: %2\n"
-        "NSE FO: %3\n"
-        "BSE CM: %4\n"
-        "BSE FO: %5\n\n"
-        "Check console for update logs."
-    ).arg(fileName).arg(nseCmActive).arg(nseFoActive).arg(bseCmActive).arg(bseFoActive);
-    
-    QMessageBox::information(this, tr("Cache Export Complete"), message);
+    QMessageBox::information(this, "Debug", "This feature is currently being refactored for the new Distributed Price Store architecture.");
 }
 
 void MarketWatchWindow::saveState(QSettings &settings)

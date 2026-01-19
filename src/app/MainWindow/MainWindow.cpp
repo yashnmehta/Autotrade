@@ -7,7 +7,6 @@
 #include "app/ScripBar.h"
 #include "core/widgets/InfoBar.h"
 #include "services/PriceCache.h"
-#include "services/PriceCacheZeroCopy.h"
 #include "services/FeedHandler.h"
 #include "services/TradingDataService.h"
 #include "utils/ConfigLoader.h"
@@ -174,26 +173,9 @@ void MainWindow::onTickReceived(const XTS::Tick &tick)
 
 void MainWindow::onPriceSubscriptionRequest(QString requesterId, uint32_t token, uint16_t segment)
 {
-    // This method routes subscription requests from subscribers (MarketWatch, OptionChain)
-    // to the new zero-copy PriceCache when use_legacy_mode = false
-    
-    // Convert segment to MarketSegment enum
-    PriceCacheTypes::MarketSegment marketSegment;
-    switch (segment) {
-        case 1:  marketSegment = PriceCacheTypes::MarketSegment::NSE_CM; break;
-        case 2:  marketSegment = PriceCacheTypes::MarketSegment::NSE_FO; break;
-        case 11: marketSegment = PriceCacheTypes::MarketSegment::BSE_CM; break;
-        case 12: marketSegment = PriceCacheTypes::MarketSegment::BSE_FO; break;
-        default:
-            qWarning() << "[MainWindow] Invalid segment" << segment << "for token" << token;
-            return;
-    }
-    
-    qDebug() << "[MainWindow] Routing price subscription request to PriceCache"
-             << "RequesterId:" << requesterId << "Token:" << token << "Segment:" << segment;
-    
-    // Forward to PriceCache (async, will emit signal when ready)
-    PriceCacheTypes::PriceCacheZeroCopy::getInstance().subscribeAsync(token, marketSegment, requesterId);
+    // Legacy routing: FeedHandler now manages this automatically via subscribe() 
+    // but we keep the slot for any other component that might use it.
+    UdpBroadcastService::instance().subscribeToken(token, segment);
 }
 
 

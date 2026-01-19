@@ -86,8 +86,9 @@ public:
         TokenPublisher* pub = getOrCreatePublisher(key);
         connect(pub, &TokenPublisher::tickUpdated, receiver, slot);
         
-        // qDebug() << "[FeedHandler] Connected slot for segment:" << exchangeSegment 
-        //          << "token:" << token << "(key:" << key << ")";
+        // Notify UDP service to enable filtering for this token (via helper to avoid header cycle)
+        registerTokenWithUdpService(token, exchangeSegment);
+
         emit subscriptionCountChanged(token, 1);
     }
     
@@ -105,6 +106,9 @@ public:
         TokenPublisher* pub = getOrCreatePublisher(key);
         connect(pub, &TokenPublisher::udpTickUpdated, receiver, slot);
         
+        // Notify UDP service to enable filtering for this token
+        registerTokenWithUdpService(token, static_cast<int>(exchangeSegment));
+
         qDebug() << "[FeedHandler] Connected UDP slot for segment:" << static_cast<int>(exchangeSegment)
                  << "token:" << token << "(key:" << key << ")";
         emit subscriptionCountChanged(token, 1);
@@ -182,6 +186,8 @@ private:
     // Prevent copying
     FeedHandler(const FeedHandler&) = delete;
     FeedHandler& operator=(const FeedHandler&) = delete;
+
+    void registerTokenWithUdpService(uint32_t token, int segment);
 
     TokenPublisher* getOrCreatePublisher(int64_t compositeKey);
 

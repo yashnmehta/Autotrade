@@ -1,8 +1,9 @@
 #include "services/FeedHandler.h"
 #include "services/PriceCache.h"
 #include "utils/LatencyTracker.h"
-#include "services/PriceCacheZeroCopy.h"
 #include "utils/PreferencesManager.h"
+#include "services/UdpBroadcastService.h"
+
 #include <QDebug>
 
 FeedHandler& FeedHandler::instance() {
@@ -12,6 +13,9 @@ FeedHandler& FeedHandler::instance() {
 
 FeedHandler::FeedHandler() {
     qDebug() << "[FeedHandler] Initialized - Composite Key (Segment+Token) based";
+}
+void FeedHandler::registerTokenWithUdpService(uint32_t token, int segment) {
+    UdpBroadcastService::instance().subscribeToken(token, segment);
 }
 
 FeedHandler::~FeedHandler() {
@@ -83,8 +87,7 @@ void FeedHandler::onTickReceived(const XTS::Tick &tick) {
         // Use legacy PriceCache with proven merge logic
         mergedTick = PriceCache::instance().updatePrice(exchangeSegment, token, tick);
     } else {
-        // Use new zero-copy cache
-        PriceCacheTypes::PriceCacheZeroCopy::getInstance().update(tick);
+        // Unified Store already updated by library readers
         mergedTick = tick;  // Pass through for publishing
     }
     
@@ -179,8 +182,7 @@ void FeedHandler::onUdpTickReceived(const UDP::MarketTick& tick) {
         // Use legacy PriceCache with proven merge logic
         mergedXts = PriceCache::instance().updatePrice(exchangeSegment, token, xtsTick);
     } else {
-        // Use new zero-copy cache (direct UDP tick update)
-        PriceCacheTypes::PriceCacheZeroCopy::getInstance().update(tick);
+        // Unified Store already updated by library readers
         mergedXts = xtsTick;  // Pass through for publishing
     }
 

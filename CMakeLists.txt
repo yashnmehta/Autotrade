@@ -330,7 +330,6 @@ set(SERVICE_SOURCES
     src/services/LoginFlowService.cpp
     src/services/TradingDataService.cpp
     src/services/PriceCache.cpp
-    src/services/PriceCacheZeroCopy.cpp
     src/services/FeedHandler.cpp
     src/services/UdpBroadcastService.cpp
     src/services/MasterLoaderWorker.cpp
@@ -342,7 +341,6 @@ set(SERVICE_HEADERS
     include/services/LoginFlowService.h
     include/services/TradingDataService.h
     include/services/PriceCache.h
-    include/services/PriceCacheZeroCopy.h
     include/services/FeedHandler.h
     include/services/UdpBroadcastService.h
     include/services/MasterLoaderWorker.h
@@ -407,11 +405,9 @@ set(REPOSITORY_HEADERS
 # ✅ Real-time UDP broadcast integration
 # ========================================
 set(DATA_SOURCES
-    src/data/MarketDataAggregator.cpp
 )
 
 set(DATA_HEADERS
-    include/data/MarketDataAggregator.h
 )
 
 # ========================================

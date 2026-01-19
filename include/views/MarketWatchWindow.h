@@ -14,7 +14,8 @@
 #include <QSettings>
 #include <QTimer>
 #include <QMap>
-#include "services/PriceCacheZeroCopy.h"
+#include "data/UnifiedPriceState.h"
+#include "data/PriceStoreGateway.h"
 
 class TokenAddressBook;
 class XTSMarketDataClient;
@@ -290,10 +291,6 @@ signals:
     void buyRequestedWithContext(const WindowContext &context);
     void sellRequestedWithContext(const WindowContext &context);
 
-    /**
-     * @brief Emitted when a token subscription is requested (Zero-Copy mode)
-     */
-    void requestTokenSubscription(QString requesterId, uint32_t token, uint16_t segment);
 
 protected:
     /**
@@ -327,15 +324,6 @@ private slots:
     void onLoadPortfolio();
     
     // Zero-Copy Slots
-    void onPriceCacheSubscriptionReady(
-        QString requesterId,
-        uint32_t token,
-        PriceCacheTypes::MarketSegment segment,
-        PriceCacheTypes::ConsolidatedMarketData* dataPointer,
-        PriceCacheTypes::ConsolidatedMarketData snapshot,
-        bool success,
-        QString errorMessage
-    );
     void onZeroCopyTimerUpdate();
 
 private:
@@ -358,8 +346,7 @@ private:
     // Zero-Copy Members
     bool m_useZeroCopyPriceCache = true; // Default to true
     QTimer *m_zeroCopyUpdateTimer = nullptr;
-    QMap<QString, uint32_t> m_pendingSubscriptions;
-    QMap<uint32_t, PriceCacheTypes::ConsolidatedMarketData*> m_tokenDataPointers;
+    QMap<uint32_t, const MarketData::UnifiedState*> m_tokenUnifiedPointers;
 
     // Internal Helpers for Visual Persistence
     void captureProfileFromView(MarketWatchColumnProfile &profile);

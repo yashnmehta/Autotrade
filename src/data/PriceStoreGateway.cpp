@@ -22,6 +22,19 @@ PriceStoreGateway& PriceStoreGateway::instance() {
 
 PriceStoreGateway::PriceStoreGateway() {}
 
+void PriceStoreGateway::initialize(
+    const std::vector<uint32_t>& nseFoTokens,
+    const std::vector<uint32_t>& nseCmTokens,
+    const std::vector<uint32_t>& bseFoTokens,
+    const std::vector<uint32_t>& bseCmTokens
+) {
+    nsefo::g_nseFoPriceStore.initializeFromMaster(nseFoTokens);
+    nsecm::g_nseCmPriceStore.initializeFromMaster(nseCmTokens);
+    bse::g_bseFoPriceStore.initializeFromMaster(bseFoTokens);
+    bse::g_bseCmPriceStore.initializeFromMaster(bseCmTokens);
+    qDebug() << "[PriceStoreGateway] All stores initialized from master lists";
+}
+
 const UnifiedState* PriceStoreGateway::getUnifiedState(int segment, uint32_t token) const {
     switch (segment) {
         case 2:  return nsefo::g_nseFoPriceStore.getUnifiedState(token);

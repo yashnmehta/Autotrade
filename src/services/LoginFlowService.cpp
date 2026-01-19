@@ -1,8 +1,8 @@
 #include "services/LoginFlowService.h"
 #include "services/TradingDataService.h"
 #include "services/MasterDataState.h"
-#include "services/PriceCacheZeroCopy.h"
 #include "repository/RepositoryManager.h"
+#include "data/PriceStoreGateway.h"
 #include "utils/PreferencesManager.h"
 #include <QDebug>
 #include <QCoreApplication>
@@ -275,54 +275,35 @@ void LoginFlowService::handleMasterLoadingComplete(int contractCount)
     
     RepositoryManager* repo = RepositoryManager::getInstance();
     
-    // Build token maps for each segment (same logic as SplashScreen)
-    std::unordered_map<uint32_t, uint32_t> nseCmTokens;
+    // ==================================================================
+    // NEW ARCHITECTURE: Initialize Distributed Price Stores
+    // ==================================================================
+    std::vector<uint32_t> nseCmTokenList, nseFoTokenList, bseCmTokenList, bseFoTokenList;
+    
     const auto& nseCmContracts = repo->getContractsBySegment("NSE", "CM");
-    uint32_t nseCmIndex = 0;
-    for (const auto& contract : nseCmContracts) {
-        nseCmTokens[contract.exchangeInstrumentID] = nseCmIndex++;
-    }
+    for (const auto& contract : nseCmContracts) nseCmTokenList.push_back(contract.exchangeInstrumentID);
     
-    std::unordered_map<uint32_t, uint32_t> nseFoTokens;
     const auto& nseFoContracts = repo->getContractsBySegment("NSE", "FO");
-    uint32_t nseFoIndex = 0;
-    for (const auto& contract : nseFoContracts) {
-        nseFoTokens[contract.exchangeInstrumentID] = nseFoIndex++;
-    }
+    for (const auto& contract : nseFoContracts) nseFoTokenList.push_back(contract.exchangeInstrumentID);
     
-    std::unordered_map<uint32_t, uint32_t> bseCmTokens;
     const auto& bseCmContracts = repo->getContractsBySegment("BSE", "CM");
-    uint32_t bseCmIndex = 0;
-    for (const auto& contract : bseCmContracts) {
-        bseCmTokens[contract.exchangeInstrumentID] = bseCmIndex++;
-    }
+    for (const auto& contract : bseCmContracts) bseCmTokenList.push_back(contract.exchangeInstrumentID);
     
-    std::unordered_map<uint32_t, uint32_t> bseFoTokens;
     const auto& bseFoContracts = repo->getContractsBySegment("BSE", "FO");
-    uint32_t bseFoIndex = 0;
-    for (const auto& contract : bseFoContracts) {
-        bseFoTokens[contract.exchangeInstrumentID] = bseFoIndex++;
-    }
+    for (const auto& contract : bseFoContracts) bseFoTokenList.push_back(contract.exchangeInstrumentID);
     
-    // Re-initialize with fresh token maps
-    bool reinitSuccess = PriceCacheTypes::PriceCacheZeroCopy::getInstance().initialize(
-        nseCmTokens,
-        nseFoTokens,
-        bseCmTokens,
-        bseFoTokens
+    MarketData::PriceStoreGateway::instance().initialize(
+        nseFoTokenList,
+        nseCmTokenList,
+        bseFoTokenList,
+        bseCmTokenList
     );
     
-    if (reinitSuccess) {
-        auto stats = PriceCacheTypes::PriceCacheZeroCopy::getInstance().getStats();
-        qDebug() << "[LoginFlow] ✓ PriceCacheZeroCopy re-initialized successfully";
-        qDebug() << "    NSE CM:" << stats.nseCmTokenCount << "tokens";
-        qDebug() << "    NSE FO:" << stats.nseFoTokenCount << "tokens";
-        qDebug() << "    BSE CM:" << stats.bseCmTokenCount << "tokens";
-        qDebug() << "    BSE FO:" << stats.bseFoTokenCount << "tokens";
-        qDebug() << "    Total Memory:" << (stats.totalMemoryBytes / 1024 / 1024) << "MB";
-    } else {
-        qWarning() << "[LoginFlow] ⚠ Failed to re-initialize PriceCacheZeroCopy";
-    }
+    qDebug() << "[LoginFlow] ✓ Distributed Price Stores initialized via Gateway";
+    qDebug() << "    NSE CM:" << nseCmTokenList.size() << "tokens";
+    qDebug() << "    NSE FO:" << nseFoTokenList.size() << "tokens";
+    qDebug() << "    BSE CM:" << bseCmTokenList.size() << "tokens";
+    qDebug() << "    BSE FO:" << bseFoTokenList.size() << "tokens";
     // ==================================================================
     
     // Emit signal for UI

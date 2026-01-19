@@ -10,7 +10,7 @@ namespace bse {
 
 PriceStore::PriceStore() {
     // Resize for O(1) access
-    tokenStates.resize(MAX_BSE_TOKENS + 1); // +1 because tokens are 1-based usually
+    tokenStates.resize(MAX_TOKENS + 1); // +1 because tokens are 1-based usually
 }
 
 const UnifiedTokenState* PriceStore::getUnifiedState(uint32_t token) const {
@@ -150,7 +150,7 @@ void PriceStore::clear() {
     std::unique_lock<std::shared_mutex> lock(mutex);
     // Re-allocate to clear (easiest way to reset)
     tokenStates.clear();
-    tokenStates.resize(MAX_BSE_TOKENS + 1);
+    tokenStates.resize(MAX_TOKENS + 1);
 }
 
 bool PriceStore::isValidToken(uint32_t token) const {

@@ -707,7 +707,7 @@ void UdpBroadcastService::start(const Config& config) {
         // CRITICAL FIX: Stagger receiver startup to prevent thread storm
         // Starting all 4 receivers simultaneously causes:
         // 1. CPU thread scheduler thrashing
-        // 2. PriceCacheZeroCopy concurrent write contention
+        // 2. Distributed PriceStore concurrent write contention
         // 3. GUI event loop starvation
         // Solution: Start receivers with 100ms delays
 

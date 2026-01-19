@@ -1,0 +1,38 @@
+mingw32-make: Entering directory 'C:/Users/admin/Desktop/trading_terminal_cpp/build'
+[  0%] Built target cpp_broadcast_bsefo_autogen_timestamp_deps
+[  0%] Built target cpp_broadcast_bsefo_autogen
+[  3%] Built target cpp_broadcast_bsefo
+[  3%] Built target lzo_static_lib_autogen_timestamp_deps
+[  4%] Built target lzo_static_lib_autogen
+[ 31%] Built target lzo_static_lib
+[ 31%] Built target TradingTerminal_autogen_timestamp_deps
+[ 31%] Built target TradingTerminal_autogen
+[ 31%] Building CXX object CMakeFiles/TradingTerminal.dir/src/services/UdpBroadcastService.cpp.obj
+In file included from C:\Users\admin\Desktop\trading_terminal_cpp\src\services\UdpBroadcastService.cpp:4:
+C:/Users/admin/Desktop/trading_terminal_cpp/lib/cpp_broacast_nsefo/include/nsefo_price_store.h: In member function 'void nsefo::PriceStore::updateLPP(const UnifiedTokenState&)':
+C:/Users/admin/Desktop/trading_terminal_cpp/lib/cpp_broacast_nsefo/include/nsefo_price_store.h:115:13: error: 'struct MarketData::UnifiedState' has no member named 'lppHigh'
+         row.lppHigh = data.lppHigh;
+             ^~~~~~~
+C:/Users/admin/Desktop/trading_terminal_cpp/lib/cpp_broacast_nsefo/include/nsefo_price_store.h:115:28: error: 'const UnifiedTokenState' {aka 'const struct MarketData::UnifiedState'} has no member named 'lppHigh'
+         row.lppHigh = data.lppHigh;
+                            ^~~~~~~
+C:/Users/admin/Desktop/trading_terminal_cpp/lib/cpp_broacast_nsefo/include/nsefo_price_store.h:116:13: error: 'struct MarketData::UnifiedState' has no member named 'lppLow'; did you mean 'low'?
+         row.lppLow = data.lppLow;
+             ^~~~~~
+             low
+C:/Users/admin/Desktop/trading_terminal_cpp/lib/cpp_broacast_nsefo/include/nsefo_price_store.h:116:27: error: 'const UnifiedTokenState' {aka 'const struct MarketData::UnifiedState'} has no member named 'lppLow'; did you mean 'low'?
+         row.lppLow = data.lppLow;
+                           ^~~~~~
+                           low
+C:\Users\admin\Desktop\trading_terminal_cpp\src\services\UdpBroadcastService.cpp: In function 'UDP::MarketTick {anonymous}::convertBseUnified(const UnifiedTokenState&, UDP::ExchangeSegment)':
+C:\Users\admin\Desktop\trading_terminal_cpp\src\services\UdpBroadcastService.cpp:145:21: error: 'const UnifiedTokenState' {aka 'const struct MarketData::UnifiedState'} has no member named 'ltq'; did you mean 'ltp'?
+     tick.ltq = data.ltq;
+                     ^~~
+                     ltp
+C:\Users\admin\Desktop\trading_terminal_cpp\src\services\UdpBroadcastService.cpp:151:21: error: 'const UnifiedTokenState' {aka 'const struct MarketData::UnifiedState'} has no member named 'weightedAvgPrice'
+     tick.atp = data.weightedAvgPrice;
+                     ^~~~~~~~~~~~~~~~
+mingw32-make[2]: *** [CMakeFiles\TradingTerminal.dir\build.make:1017: CMakeFiles/TradingTerminal.dir/src/services/UdpBroadcastService.cpp.obj] Error 1
+mingw32-make[1]: *** [CMakeFiles\Makefile2:208: CMakeFiles/TradingTerminal.dir/all] Error 2
+mingw32-make: *** [makefile:135: all] Error 2
+mingw32-make: Leaving directory 'C:/Users/admin/Desktop/trading_terminal_cpp/build'

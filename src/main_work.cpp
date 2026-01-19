@@ -16,7 +16,7 @@
 #include "utils/FileLogger.h"
 #include "api/XTSTypes.h"
 #include "services/UdpBroadcastService.h"
-#include "services/PriceCacheZeroCopy.h"
+#include "data/PriceStoreGateway.h"
 #include "udp/UDPTypes.h"
 #include "api/XTSMarketDataClient.h"
 #include "api/XTSInteractiveClient.h"
@@ -214,38 +214,25 @@ int main(int argc, char *argv[])
                     UdpBroadcastService::instance().start(udpConfig);
                     qDebug() << "[DevMode] UDP Service started. Active:" << UdpBroadcastService::instance().isActive();
 
-                    /* 
-                    // 3. Initialize PriceCacheZeroCopy (DISABLED due to build errors)
-                    qDebug() << "[DevMode] Initializing Zero-Copy Price Cache...";
-                    std::unordered_map<uint32_t, uint32_t> nseCmMap, nseFoMap, bseCmMap, bseFoMap;
+                    // 3. Initialize Distributed Price Stores
+                    qDebug() << "[DevMode] Initializing Distributed Price Stores...";
+                    std::vector<uint32_t> nseCmTokens, nseFoTokens, bseCmTokens, bseFoTokens;
                     
                     if (auto* r = repo->getNSECMRepository()) {
-                        uint32_t idx = 0;
-                        for (const auto& c : r->getAllContracts()) nseCmMap[static_cast<uint32_t>(c.token)] = idx++;
-                        qDebug() << "  -> NSECM Tokens:" << nseCmMap.size();
+                        for (const auto& c : r->getAllContracts()) nseCmTokens.push_back(static_cast<uint32_t>(c.token));
                     }
                     if (auto* r = repo->getNSEFORepository()) {
-                        uint32_t idx = 0;
-                        for (const auto& c : r->getAllContracts()) nseFoMap[static_cast<uint32_t>(c.token)] = idx++;
-                        qDebug() << "  -> NSEFO Tokens:" << nseFoMap.size();
+                        for (const auto& c : r->getAllContracts()) nseFoTokens.push_back(static_cast<uint32_t>(c.token));
                     }
                     if (auto* r = repo->getBSECMRepository()) {
-                        uint32_t idx = 0;
-                        for (const auto& c : r->getAllContracts()) bseCmMap[static_cast<uint32_t>(c.token)] = idx++;
-                        qDebug() << "  -> BSECM Tokens:" << bseCmMap.size();
+                        for (const auto& c : r->getAllContracts()) bseCmTokens.push_back(static_cast<uint32_t>(c.token));
                     }
                     if (auto* r = repo->getBSEFORepository()) {
-                        uint32_t idx = 0;
-                        for (const auto& c : r->getAllContracts()) bseFoMap[static_cast<uint32_t>(c.token)] = idx++;
-                        qDebug() << "  -> BSEFO Tokens:" << bseFoMap.size();
+                        for (const auto& c : r->getAllContracts()) bseFoTokens.push_back(static_cast<uint32_t>(c.token));
                     }
                     
-                    if (PriceCacheZeroCopy::getInstance().initialize(nseCmMap, nseFoMap, bseCmMap, bseFoMap)) {
-                        qDebug() << "[DevMode] ✅ PriceCacheZeroCopy initialized successfully";
-                    } else {
-                        qCritical() << "[DevMode] ❌ PriceCacheZeroCopy initialization FAILED";
-                    }
-                    */
+                    MarketData::PriceStoreGateway::instance().initialize(nseFoTokens, nseCmTokens, bseFoTokens, bseCmTokens);
+                    qDebug() << "[DevMode] ✅ Distributed Price Stores initialized successfully";
 
                     // Show main window
                     mainWindow->show();

@@ -2,7 +2,7 @@
 #include "models/TokenAddressBook.h"
 #include "services/TokenSubscriptionManager.h"
 #include "services/FeedHandler.h"
-#include "services/PriceCacheZeroCopy.h"
+#include "data/PriceStoreGateway.h"
 #include "utils/PreferencesManager.h"
 #include "utils/WindowSettingsHelper.h"
 #include "repository/RepositoryManager.h"
@@ -50,23 +50,12 @@ MarketWatchWindow::~MarketWatchWindow()
             const ScripData &scrip = m_model->getScripAt(row);
             if (scrip.isValid()) {
                 TokenSubscriptionManager::instance()->unsubscribe(scrip.exchange, scrip.token);
-                
-                // Unsubscribe from new PriceCache if in zero-copy mode
-                if (m_useZeroCopyPriceCache) {
-                    PriceCacheTypes::MarketSegment segment = PriceCacheTypes::MarketSegment::NSE_CM;
-                    if (scrip.exchange == "NSEFO") segment = PriceCacheTypes::MarketSegment::NSE_FO;
-                    else if (scrip.exchange == "BSECM") segment = PriceCacheTypes::MarketSegment::BSE_CM;
-                    else if (scrip.exchange == "BSEFO") segment = PriceCacheTypes::MarketSegment::BSE_FO;
-                    
-                    PriceCacheTypes::PriceCacheZeroCopy::getInstance().unsubscribe(scrip.token, segment);
-                }
             }
         }
     }
     
-    // Clear pointer map (no need to free memory - owned by PriceCache)
-    m_tokenDataPointers.clear();
-    m_pendingSubscriptions.clear();
+    // Clear pointer map
+    m_tokenUnifiedPointers.clear();
 }
 
 void MarketWatchWindow::removeScripByToken(int token)
@@ -196,17 +185,6 @@ void MarketWatchWindow::setupZeroCopyMode()
     // Setup zero-copy mode
     qDebug() << "[MarketWatch] Setting up Zero-Copy mode connections...";
 
-    // Connect to PriceCache subscription signals
-    // Safe now because QApplication exists
-    connect(&PriceCacheTypes::PriceCacheZeroCopy::getInstance(), &PriceCacheTypes::PriceCacheZeroCopy::subscriptionReady,
-            this, &MarketWatchWindow::onPriceCacheSubscriptionReady,
-            Qt::QueuedConnection); // Thread-safe async delivery
-    
-    // Connect our request signal to FeedHandler
-    connect(this, &MarketWatchWindow::requestTokenSubscription,
-            &FeedHandler::instance(), &FeedHandler::requestPriceSubscription,
-            Qt::QueuedConnection);
-    
     // Setup timer for periodic zero-copy reads (100ms refresh)
     if (!m_zeroCopyUpdateTimer) {
         m_zeroCopyUpdateTimer = new QTimer(this);
@@ -218,118 +196,32 @@ void MarketWatchWindow::setupZeroCopyMode()
     qDebug() << "[MarketWatch] ✓ Zero-copy PriceCache mode configured with 100ms timer";
 }
 
-void MarketWatchWindow::onPriceCacheSubscriptionReady(
-    QString requesterId,
-    uint32_t token,
-    PriceCacheTypes::MarketSegment segment,
-    PriceCacheTypes::ConsolidatedMarketData* dataPointer,
-    PriceCacheTypes::ConsolidatedMarketData snapshot,
-    bool success,
-    QString errorMessage)
-{
-    // Check if this response is for our request
-    if (!m_pendingSubscriptions.contains(requesterId)) {
-        return; // Not our request
-    }
-    
-    uint32_t expectedToken = m_pendingSubscriptions.value(requesterId);
-    m_pendingSubscriptions.remove(requesterId);
-    
-    if (expectedToken != token) {
-        qWarning() << "[MarketWatch] Token mismatch in subscription response!"
-                   << "Expected:" << expectedToken << "Got:" << token;
-        return;
-    }
-    
-    if (!success) {
-        qWarning() << "[MarketWatch] ✗ Subscription failed for token" << token 
-                   << "Error:" << errorMessage;
-        // TODO: Show error to user or fallback to legacy mode
-        return;
-    }
-    
-    qDebug() << "[MarketWatch] ✓ Zero-copy subscription ready for token" << token
-             << "Pointer:" << static_cast<void*>(dataPointer);
-    
-    // Store pointer for direct zero-copy reads
-    m_tokenDataPointers[token] = dataPointer;
-    
-    // Use initial snapshot to update UI immediately
-    QList<int> rows = m_tokenAddressBook->getRowsForToken(token);
-    for (int row : rows) {
-        // Update LTP (convert paise to rupees)
-        if (snapshot.lastTradedPrice > 0) {
-            double ltp = snapshot.lastTradedPrice / 100.0;
-            double change = 0;
-            double changePercent = 0;
-            if (snapshot.closePrice > 0) {
-                double close = snapshot.closePrice / 100.0;
-                change = ltp - close;
-                changePercent = (change / close) * 100.0;
-            }
-            m_model->updatePrice(row, ltp, change, changePercent);
-        }
-        
-        // Update OHLC (convert paise to rupees)
-        if (snapshot.openPrice > 0 || snapshot.highPrice > 0 || snapshot.lowPrice > 0) {
-            m_model->updateOHLC(row, 
-                snapshot.openPrice / 100.0, 
-                snapshot.highPrice / 100.0, 
-                snapshot.lowPrice / 100.0, 
-                snapshot.closePrice / 100.0);
-        }
-        
-        // Update volume
-        if (snapshot.volumeTradedToday > 0) {
-            m_model->updateVolume(row, snapshot.volumeTradedToday);
-        }
-        
-        // Update bid/ask (use best level - index 0, convert paise to rupees)
-        if (snapshot.bidPrice[0] > 0 || snapshot.askPrice[0] > 0) {
-            m_model->updateBidAsk(row, snapshot.bidPrice[0] / 100.0, snapshot.askPrice[0] / 100.0);
-        }
-        
-        // Note: openInterest not in ConsolidatedMarketData structure yet
-        // TODO: Add openInterest field when implementing F&O support
-    }
-    
-    qDebug() << "[MarketWatch] Initial snapshot applied for token" << token 
-             << "LTP:" << (snapshot.lastTradedPrice / 100.0) << "Volume:" << snapshot.volumeTradedToday;
-}
 
 void MarketWatchWindow::onZeroCopyTimerUpdate()
 {
-    // This method is called every 100ms to read data directly from memory
-    // Zero-copy: No function calls, no copies, just direct pointer dereferencing
-    
-    if (m_tokenDataPointers.empty()) {
-        return; // No subscriptions yet
+    if (m_tokenUnifiedPointers.empty()) {
+        return;
     }
     
-    // Read all subscribed tokens (ultra-fast direct memory access)
-    // Iterate using iterator for QMap
-    for (auto it = m_tokenDataPointers.begin(); it != m_tokenDataPointers.end(); ++it) {
+    for (auto it = m_tokenUnifiedPointers.begin(); it != m_tokenUnifiedPointers.end(); ++it) {
         uint32_t token = it.key();
-        PriceCacheTypes::ConsolidatedMarketData* dataPtr = it.value();
+        const MarketData::UnifiedState* dataPtr = it.value();
         
-        if (!dataPtr) continue; // Safety check
+        if (!dataPtr) continue;
         
-        // Zero-copy read! Direct memory access (< 100ns)
-        const PriceCacheTypes::ConsolidatedMarketData& data = *dataPtr;
+        const MarketData::UnifiedState& data = *dataPtr;
         
-        // Get rows for this token
         QList<int> rows = m_tokenAddressBook->getRowsForToken(token);
         if (rows.isEmpty()) continue;
         
-        // Update LTP and change (convert paise to rupees)
-        if (data.lastTradedPrice > 0) {
-            double ltp = data.lastTradedPrice / 100.0; // Convert paise to rupees
+        // 1. Update LTP and change
+        if (data.ltp > 0) {
+            double ltp = data.ltp;
             double change = 0;
             double changePercent = 0;
-            if (data.closePrice > 0) {
-                double close = data.closePrice / 100.0;
-                change = ltp - close;
-                changePercent = (change / close) * 100.0;
+            if (data.close > 0) {
+                change = ltp - data.close;
+                changePercent = (change / data.close) * 100.0;
             }
             
             for (int row : rows) {
@@ -337,52 +229,57 @@ void MarketWatchWindow::onZeroCopyTimerUpdate()
             }
         }
         
-        // Update OHLC (convert paise to rupees)
-        if (data.openPrice > 0 || data.highPrice > 0 || data.lowPrice > 0) {
+        // 2. Update OHLC
+        if (data.open > 0 || data.high > 0 || data.low > 0) {
             for (int row : rows) {
-                m_model->updateOHLC(row, 
-                    data.openPrice / 100.0, 
-                    data.highPrice / 100.0, 
-                    data.lowPrice / 100.0, 
-                    data.closePrice / 100.0);
+                m_model->updateOHLC(row, data.open, data.high, data.low, data.close);
             }
         }
         
-        // Update volume
-        if (data.volumeTradedToday > 0) {
+        // 3. Update volume
+        if (data.volume > 0) {
             for (int row : rows) {
-                m_model->updateVolume(row, data.volumeTradedToday);
+                m_model->updateVolume(row, data.volume);
             }
         }
         
-        // Update bid/ask (use best level - index 0, convert paise to rupees)
-        if (data.bidPrice[0] > 0 || data.askPrice[0] > 0) {
+        // 4. Update best bid/ask
+        if (data.bids[0].price > 0 || data.asks[0].price > 0) {
             for (int row : rows) {
-                m_model->updateBidAsk(row, data.bidPrice[0] / 100.0, data.askPrice[0] / 100.0);
+                m_model->updateBidAsk(row, data.bids[0].price, data.asks[0].price);
+                m_model->updateBidAskQuantities(row, data.bids[0].quantity, data.asks[0].quantity);
             }
         }
         
-        // Update bid/ask quantities (use best level - index 0)
-        if (data.bidQuantity[0] > 0 || data.askQuantity[0] > 0) {
+        // 5. Update total buy/sell quantities
+        if (data.totalBuyQty > 0 || data.totalSellQty > 0) {
             for (int row : rows) {
-                m_model->updateBidAskQuantities(row, data.bidQuantity[0], data.askQuantity[0]);
+                m_model->updateTotalBuySellQty(row, data.totalBuyQty, data.totalSellQty);
             }
         }
         
-        // Update total buy/sell quantities
-        if (data.totalBuyQuantity > 0 || data.totalSellQuantity > 0) {
+        // 6. Update Open Interest
+        if (data.openInterest > 0) {
+            double oiChangePercent = 0.0;
+            if (data.openInterestChange != 0) {
+                oiChangePercent = (static_cast<double>(data.openInterestChange) / data.openInterest) * 100.0;
+            }
             for (int row : rows) {
-                m_model->updateTotalBuySellQty(row, data.totalBuyQuantity, data.totalSellQuantity);
+                m_model->updateOpenInterestWithChange(row, data.openInterest, oiChangePercent);
             }
         }
         
-        // Note: openInterest not in ConsolidatedMarketData structure yet
-        // TODO: Add openInterest field when implementing F&O support
-        
-        // Update LTQ
-        if (data.lastTradeQuantity > 0) {
+        // 7. Update LTQ
+        if (data.lastTradeQty > 0) {
             for (int row : rows) {
-                m_model->updateLastTradedQuantity(row, data.lastTradeQuantity);
+                m_model->updateLastTradedQuantity(row, data.lastTradeQty);
+            }
+        }
+
+        // 8. Average Traded Price
+        if (data.avgPrice > 0) {
+            for (int row : rows) {
+                m_model->updateAveragePrice(row, data.avgPrice);
             }
         }
     }

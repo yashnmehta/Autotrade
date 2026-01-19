@@ -9,6 +9,7 @@
 namespace nsefo { class PriceStore; }
 namespace nsecm { class PriceStore; }
 namespace bse { class PriceStore; }
+#include <vector>
 
 namespace MarketData {
 
@@ -44,6 +45,16 @@ public:
      * @brief Check if a token is enabled for notifications.
      */
     bool isTokenEnabled(int segment, uint32_t token) const;
+
+    /**
+     * @brief Initialize all background stores with master contract lists.
+     */
+    void initialize(
+        const std::vector<uint32_t>& nseFoTokens,
+        const std::vector<uint32_t>& nseCmTokens,
+        const std::vector<uint32_t>& bseFoTokens,
+        const std::vector<uint32_t>& bseCmTokens
+    );
 
 private:
     PriceStoreGateway();

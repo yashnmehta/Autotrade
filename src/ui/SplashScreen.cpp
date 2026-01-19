@@ -3,7 +3,7 @@
 #include "repository/RepositoryManager.h"
 #include "services/MasterLoaderWorker.h"
 #include "services/MasterDataState.h"
-#include "services/PriceCacheZeroCopy.h"
+#include "data/PriceStoreGateway.h"
 #include "utils/PreferencesManager.h"
 #include <QApplication>
 #include <QScreen>
@@ -187,74 +187,58 @@ void SplashScreen::onMasterLoadingComplete(int contractCount)
 
     if (!useLegacy) {
         qDebug() << "[SplashScreen] ========================================";
-        qDebug() << "[SplashScreen] Initializing Zero-Copy PriceCache...";
+        qDebug() << "[SplashScreen] Initializing Distributed Price Stores...";
         qDebug() << "[SplashScreen] ========================================";
         
-        setStatus(QString("Initializing zero-copy price cache..."));
+        setStatus(QString("Initializing background price stores..."));
         setProgress(90);
         
-        // Build token maps from repository
+        // Build token lists from repository
         RepositoryManager* repo = RepositoryManager::getInstance();
         
-        // NSE CM token map
-        std::unordered_map<uint32_t, uint32_t> nseCmTokens;
+        // NSE CM token list
+        std::vector<uint32_t> nseCmTokens;
         const auto& nseCmContracts = repo->getContractsBySegment("NSE", "CM");
-        uint32_t nseCmIndex = 0;
         for (const auto& contract : nseCmContracts) {
-            nseCmTokens[contract.exchangeInstrumentID] = nseCmIndex++;
+            nseCmTokens.push_back(contract.exchangeInstrumentID);
         }
         
-        // NSE FO token map
-        std::unordered_map<uint32_t, uint32_t> nseFoTokens;
+        // NSE FO token list
+        std::vector<uint32_t> nseFoTokens;
         const auto& nseFoContracts = repo->getContractsBySegment("NSE", "FO");
-        uint32_t nseFoIndex = 0;
         for (const auto& contract : nseFoContracts) {
-            nseFoTokens[contract.exchangeInstrumentID] = nseFoIndex++;
+            nseFoTokens.push_back(contract.exchangeInstrumentID);
         }
         
-        // BSE CM token map
-        std::unordered_map<uint32_t, uint32_t> bseCmTokens;
+        // BSE CM token list
+        std::vector<uint32_t> bseCmTokens;
         const auto& bseCmContracts = repo->getContractsBySegment("BSE", "CM");
-        uint32_t bseCmIndex = 0;
         for (const auto& contract : bseCmContracts) {
-            bseCmTokens[contract.exchangeInstrumentID] = bseCmIndex++;
+            bseCmTokens.push_back(contract.exchangeInstrumentID);
         }
         
-        // BSE FO token map
-        std::unordered_map<uint32_t, uint32_t> bseFoTokens;
+        // BSE FO token list
+        std::vector<uint32_t> bseFoTokens;
         const auto& bseFoContracts = repo->getContractsBySegment("BSE", "FO");
-        uint32_t bseFoIndex = 0;
         for (const auto& contract : bseFoContracts) {
-            bseFoTokens[contract.exchangeInstrumentID] = bseFoIndex++;
+            bseFoTokens.push_back(contract.exchangeInstrumentID);
         }
         
-        // Initialize PriceCacheZeroCopy
-        bool initSuccess = PriceCacheTypes::PriceCacheZeroCopy::getInstance().initialize(
-            nseCmTokens,
+        // Initialize via Gateway
+        MarketData::PriceStoreGateway::instance().initialize(
             nseFoTokens,
-            bseCmTokens,
-            bseFoTokens
+            nseCmTokens,
+            bseFoTokens,
+            bseCmTokens
         );
         
-        if (initSuccess) {
-            auto cacheStats = PriceCacheTypes::PriceCacheZeroCopy::getInstance().getStats();
-            qDebug() << "[SplashScreen] \u2713 Zero-Copy PriceCache initialized successfully";
-            qDebug() << "[SplashScreen]   NSE CM tokens:" << cacheStats.nseCmTokenCount;
-            qDebug() << "[SplashScreen]   NSE FO tokens:" << cacheStats.nseFoTokenCount;
-            qDebug() << "[SplashScreen]   BSE CM tokens:" << cacheStats.bseCmTokenCount;
-            qDebug() << "[SplashScreen]   BSE FO tokens:" << cacheStats.bseFoTokenCount;
-            qDebug() << "[SplashScreen]   Total cache memory:" << (cacheStats.totalMemoryBytes / 1024 / 1024) << "MB";
-            qDebug() << "[SplashScreen] ========================================";
-            
-            // Log RAM after cache allocation
-            MemoryProfiler::logSnapshot("Zero-Copy Active");
-            
-            setStatus("Zero-copy cache ready!");
-        } else {
-            qCritical() << "[SplashScreen] \u2717 Failed to initialize Zero-Copy PriceCache!";
-            qCritical() << "[SplashScreen]   Falling back to legacy mode...";
-            setStatus("Cache initialization failed");
-        }
+        qDebug() << "[SplashScreen] \u2713 Distributed Stores initialized successfully";
+        qDebug() << "[SplashScreen] ========================================";
+        
+        // Log RAM after store allocation
+        MemoryProfiler::logSnapshot("Distributed Stores Active");
+        
+        setStatus("Market data stores ready!");
     } else {
         MemoryProfiler::logSnapshot("Legacy Mode Active");
     }
