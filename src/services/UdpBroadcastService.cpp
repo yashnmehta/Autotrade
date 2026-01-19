@@ -142,13 +142,13 @@ UDP::MarketTick convertNseCmDepth(const nsecm::MarketDepthData& data) {
 UDP::MarketTick convertBseUnified(const bse::UnifiedTokenState& data, UDP::ExchangeSegment segment) {
     UDP::MarketTick tick(segment, data.token);
     tick.ltp = data.ltp;
-    tick.ltq = data.ltq;
+    tick.ltq = data.lastTradeQty;
     tick.volume = data.volume;
     tick.open = data.open;
     tick.high = data.high;
     tick.low = data.low;
     tick.prevClose = data.close;
-    tick.atp = data.weightedAvgPrice;
+    tick.atp = data.avgPrice;
     
     // Depth
     for (int i = 0; i < 5; i++) {

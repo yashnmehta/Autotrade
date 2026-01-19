@@ -36,8 +36,8 @@ void parse_limit_price_protection(const MS_BCAST_LIMIT_PRICE_PROTECTION_RANGE* m
         // Convert circuit limit prices (already in price units, divide by 100 for decimals)
         uint32_t high = be32toh_func(detail.highExecBand);
         uint32_t low = be32toh_func(detail.lowExecBand);
-        state.lppHigh = high / 100.0;
-        state.lppLow = low / 100.0;
+        state.upperCircuit = high / 100.0;
+        state.lowerCircuit = low / 100.0;
         
         // Latency tracking
         state.lastPacketTimestamp = timestampParsed;

@@ -1,38 +1,112 @@
 mingw32-make: Entering directory 'C:/Users/admin/Desktop/trading_terminal_cpp/build'
+CMake Warning (dev) at C:/vcpkg/installed/x64-mingw-dynamic/share/boost/vcpkg-cmake-wrapper.cmake:3 (_find_package):
+  Policy CMP0144 is not set: find_package uses upper-case <PACKAGENAME>_ROOT
+  variables.  Run "cmake --help-policy CMP0144" for policy details.  Use the
+  cmake_policy command to set the policy and suppress this warning.
+
+  CMake variable BOOST_ROOT is set to:
+
+    C:/local/boost_1_86_0
+
+  For compatibility, find_package is ignoring the variable, but code in a
+  .cmake module might still use it.
+Call Stack (most recent call first):
+  C:/vcpkg/scripts/buildsystems/vcpkg.cmake:862 (include)
+  CMakeLists.txt:20 (find_package)
+This warning is for project developers.  Use -Wno-dev to suppress it.
+
+CMake Warning (dev) at C:/vcpkg/installed/x64-mingw-dynamic/share/boost/vcpkg-cmake-wrapper.cmake:3 (_find_package):
+  Policy CMP0167 is not set: The FindBoost module is removed.  Run "cmake
+  --help-policy CMP0167" for policy details.  Use the cmake_policy command to
+  set the policy and suppress this warning.
+
+Call Stack (most recent call first):
+  C:/vcpkg/scripts/buildsystems/vcpkg.cmake:862 (include)
+  CMakeLists.txt:20 (find_package)
+This warning is for project developers.  Use -Wno-dev to suppress it.
+
+-- Checking for module 'lzo2'
+--   Package 'lzo2' not found
+-- System LZO library not found, using bundled version
+CMake Deprecation Warning at lib/lzo-2.10/CMakeLists.txt:11 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+
+
+-- CMAKE_BUILD_TYPE = Release
+-- MinGW: Enabled static linking for libgcc and libstdc++
+-- Configuring done (0.9s)
+-- Generating done (2.5s)
+-- Build files have been written to: C:/Users/admin/Desktop/trading_terminal_cpp/build
 [  0%] Built target cpp_broadcast_bsefo_autogen_timestamp_deps
+[  0%] Automatic MOC and UIC for target cpp_broadcast_bsefo
 [  0%] Built target cpp_broadcast_bsefo_autogen
-[  3%] Built target cpp_broadcast_bsefo
-[  3%] Built target lzo_static_lib_autogen_timestamp_deps
-[  4%] Built target lzo_static_lib_autogen
-[ 31%] Built target lzo_static_lib
-[ 31%] Built target TradingTerminal_autogen_timestamp_deps
+[  2%] Built target cpp_broadcast_bsefo
+[  2%] Built target lzo_static_lib_autogen_timestamp_deps
+[  3%] Built target lzo_static_lib_autogen
+[ 30%] Built target lzo_static_lib
+[ 30%] Built target TradingTerminal_autogen_timestamp_deps
+[ 31%] Automatic MOC and UIC for target TradingTerminal
 [ 31%] Built target TradingTerminal_autogen
-[ 31%] Building CXX object CMakeFiles/TradingTerminal.dir/src/services/UdpBroadcastService.cpp.obj
-In file included from C:\Users\admin\Desktop\trading_terminal_cpp\src\services\UdpBroadcastService.cpp:4:
-C:/Users/admin/Desktop/trading_terminal_cpp/lib/cpp_broacast_nsefo/include/nsefo_price_store.h: In member function 'void nsefo::PriceStore::updateLPP(const UnifiedTokenState&)':
-C:/Users/admin/Desktop/trading_terminal_cpp/lib/cpp_broacast_nsefo/include/nsefo_price_store.h:115:13: error: 'struct MarketData::UnifiedState' has no member named 'lppHigh'
-         row.lppHigh = data.lppHigh;
-             ^~~~~~~
-C:/Users/admin/Desktop/trading_terminal_cpp/lib/cpp_broacast_nsefo/include/nsefo_price_store.h:115:28: error: 'const UnifiedTokenState' {aka 'const struct MarketData::UnifiedState'} has no member named 'lppHigh'
-         row.lppHigh = data.lppHigh;
-                            ^~~~~~~
-C:/Users/admin/Desktop/trading_terminal_cpp/lib/cpp_broacast_nsefo/include/nsefo_price_store.h:116:13: error: 'struct MarketData::UnifiedState' has no member named 'lppLow'; did you mean 'low'?
-         row.lppLow = data.lppLow;
-             ^~~~~~
-             low
-C:/Users/admin/Desktop/trading_terminal_cpp/lib/cpp_broacast_nsefo/include/nsefo_price_store.h:116:27: error: 'const UnifiedTokenState' {aka 'const struct MarketData::UnifiedState'} has no member named 'lppLow'; did you mean 'low'?
-         row.lppLow = data.lppLow;
-                           ^~~~~~
-                           low
-C:\Users\admin\Desktop\trading_terminal_cpp\src\services\UdpBroadcastService.cpp: In function 'UDP::MarketTick {anonymous}::convertBseUnified(const UnifiedTokenState&, UDP::ExchangeSegment)':
-C:\Users\admin\Desktop\trading_terminal_cpp\src\services\UdpBroadcastService.cpp:145:21: error: 'const UnifiedTokenState' {aka 'const struct MarketData::UnifiedState'} has no member named 'ltq'; did you mean 'ltp'?
-     tick.ltq = data.ltq;
-                     ^~~
-                     ltp
-C:\Users\admin\Desktop\trading_terminal_cpp\src\services\UdpBroadcastService.cpp:151:21: error: 'const UnifiedTokenState' {aka 'const struct MarketData::UnifiedState'} has no member named 'weightedAvgPrice'
-     tick.atp = data.weightedAvgPrice;
-                     ^~~~~~~~~~~~~~~~
-mingw32-make[2]: *** [CMakeFiles\TradingTerminal.dir\build.make:1017: CMakeFiles/TradingTerminal.dir/src/services/UdpBroadcastService.cpp.obj] Error 1
-mingw32-make[1]: *** [CMakeFiles\Makefile2:208: CMakeFiles/TradingTerminal.dir/all] Error 2
-mingw32-make: *** [makefile:135: all] Error 2
+[ 31%] Building CXX object CMakeFiles/TradingTerminal.dir/src/app/MainWindow/Network.cpp.obj
+[ 31%] Linking CXX executable TradingTerminal.exe
+Running windeployqt to copy Qt DLLs...
+C:\Users\admin\Desktop\trading_terminal_cpp\build\TradingTerminal.exe 64 bit, release executable
+Adding Qt5Svg for qsvgicon.dll
+Direct dependencies: Qt5Core Qt5Gui Qt5Widgets
+All dependencies   : Qt5Core Qt5Gui Qt5Widgets
+To be deployed     : Qt5Core Qt5Gui Qt5Svg Qt5Widgets
+Qt5Core.dll is up to date.
+Qt5Gui.dll is up to date.
+Qt5Svg.dll is up to date.
+Qt5Widgets.dll is up to date.
+libGLESv2.dll is up to date.
+libEGL.dll is up to date.
+libgcc_s_seh-1.dll is up to date.
+libstdc++-6.dll is up to date.
+libwinpthread-1.dll is up to date.
+qsvgicon.dll is up to date.
+qgif.dll is up to date.
+qicns.dll is up to date.
+qico.dll is up to date.
+qjpeg.dll is up to date.
+qsvg.dll is up to date.
+qtga.dll is up to date.
+qtiff.dll is up to date.
+qwbmp.dll is up to date.
+qwebp.dll is up to date.
+qwindows.dll is up to date.
+qwindowsvistastyle.dll is up to date.
+Copying Qt Network and WebSockets DLLs...
+Copying vcpkg DLLs...
+Copying MinGW runtime DLLs...
+Built target TradingTerminal
+Built target lzotest_autogen_timestamp_deps
+Built target lzotest_autogen
+Built target lzotest
+Built target dict_autogen_timestamp_deps
+Built target dict_autogen
+Built target dict
+Built target lzopack_autogen_timestamp_deps
+Built target lzopack_autogen
+Built target lzopack
+Built target overlap_autogen_timestamp_deps
+Built target overlap_autogen
+Built target overlap
+Built target precomp_autogen_timestamp_deps
+Built target precomp_autogen
+Built target precomp
+Built target precomp2_autogen_timestamp_deps
+Built target precomp2_autogen
+Built target precomp2
+Built target simple_autogen_timestamp_deps
+Built target simple_autogen
+Built target simple
+Built target testmini_autogen_timestamp_deps
+Built target testmini_autogen
+Built target testmini
 mingw32-make: Leaving directory 'C:/Users/admin/Desktop/trading_terminal_cpp/build'

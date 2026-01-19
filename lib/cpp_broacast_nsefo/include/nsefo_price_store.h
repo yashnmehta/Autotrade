@@ -112,8 +112,8 @@ public:
         auto& row = store_[data.token - MIN_TOKEN];
         
         row.token = data.token;
-        row.lppHigh = data.lppHigh;
-        row.lppLow = data.lppLow;
+        row.upperCircuit = data.upperCircuit;
+        row.lowerCircuit = data.lowerCircuit;
         row.lastPacketTimestamp = data.lastPacketTimestamp;
     }
 

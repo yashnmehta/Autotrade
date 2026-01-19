@@ -21,7 +21,7 @@ set(HEADERS
     include/bse_price_store.h
 )
 
-# Find Qt5 Core (required for QString in PriceCacheZeroCopy.h)
+# Find Qt5 Core (required for QString and utilities)
 find_package(Qt5 COMPONENTS Core REQUIRED)
 
 # Create library

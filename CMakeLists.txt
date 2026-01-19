@@ -298,9 +298,20 @@ set(VIEW_HEADERS
 )
 
 # ========================================
-# MODELS LAYER - Data Models
-# ✅ Actively developed
+# DATA LAYER - Zero-Copy Shared Memory Stores
+# ✅ Distributed PriceStore Gateway
 # ========================================
+set(DATA_SOURCES
+    src/data/PriceStoreGateway.cpp
+)
+
+set(DATA_HEADERS
+    include/data/PriceStoreGateway.h
+    include/data/UnifiedPriceState.h
+)
+
+# ========================================
+# MODELS LAYER - Data Models
 set(MODEL_SOURCES
     src/models/MarketWatchModel.cpp
     src/models/MarketWatchColumnProfile.cpp
@@ -400,15 +411,6 @@ set(REPOSITORY_HEADERS
     include/repository/RepositoryManager.h
 )
 
-# ========================================
-# DATA LAYER - Market Data Aggregation
-# ✅ Real-time UDP broadcast integration
-# ========================================
-set(DATA_SOURCES
-)
-
-set(DATA_HEADERS
-)
 
 # ========================================
 # UTILITIES LAYER - Helper Functions

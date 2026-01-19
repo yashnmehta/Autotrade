@@ -14,7 +14,7 @@ void MainWindow::setupNetwork() {
         // 1. Main window is fully rendered and responsive
         // 2. UI thread has processed all pending events
         // 3. Socket initialization doesn't block the UI
-        // 4. PriceCacheZeroCopy is ready for concurrent updates
+        // 4. Distributed PriceStore is ready for concurrent updates
         // 5. IndicesView creation is complete (300ms delay in main.cpp)
         //
         // Increased from 100ms to 500ms to prevent thread storm during startup
