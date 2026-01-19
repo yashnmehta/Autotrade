@@ -340,7 +340,7 @@ set(SERVICE_SOURCES
     src/services/TokenSubscriptionManager.cpp
     src/services/LoginFlowService.cpp
     src/services/TradingDataService.cpp
-    src/services/PriceCache.cpp
+
     src/services/FeedHandler.cpp
     src/services/UdpBroadcastService.cpp
     src/services/MasterLoaderWorker.cpp
@@ -351,7 +351,7 @@ set(SERVICE_HEADERS
     include/services/TokenSubscriptionManager.h
     include/services/LoginFlowService.h
     include/services/TradingDataService.h
-    include/services/PriceCache.h
+
     include/services/FeedHandler.h
     include/services/UdpBroadcastService.h
     include/services/MasterLoaderWorker.h

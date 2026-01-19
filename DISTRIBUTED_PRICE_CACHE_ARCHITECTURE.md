@@ -1007,14 +1007,14 @@ TEST(PriceStore, ThreadSafety) {
 - [x] Phase 5: Notification Filter Integration ✅
   - [x] `setTokenFilter` added to all broadcast registries
   - [x] Parsers check `isEnabled(token)` before dispatching (IO thread speedup)
-- [ ] Phase 6: UI Migration (MarketWatchWindow)
-  - [ ] Switch from `PriceCacheZeroCopy` to `PriceStoreGateway`
-  - [ ] Implement Poller-based UI refresh
-- [ ] Phase 7: Heritage Code Deletion
-  - [ ] Remove `PriceCache` and `PriceCacheZeroCopy`
-  - [ ] Remove `MarketDataAggregator`
-- [ ] Phase 8: Final Optimization
-  - [ ] Eliminate last conversion to `XTS::Tick` in `UdpBroadcastService`
+- [x] Phase 6: UI Migration (MarketWatchWindow) ✅
+  - [x] Switch from `PriceCacheZeroCopy` to `PriceStoreGateway`
+  - [x] Direct UDP Signal integration
+- [x] Phase 7: Heritage Code Deletion ✅
+  - [x] Remove `PriceCache` and `PriceCacheZeroCopy` (Fully Deleted)
+  - [x] Remove `MarketDataAggregator` (Cleaned)
+- [x] Phase 8: Final Optimization ✅
+  - [x] Eliminate last conversion to `XTS::Tick` in `UdpBroadcastService`
 
 
 ---

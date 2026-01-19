@@ -15,7 +15,7 @@
 #include "models/PinnedRowProxyModel.h"
 
 #include <QTimer>
-#include "services/PriceCache.h"
+#include "data/PriceStoreGateway.h"
 #include <QMutexLocker>
 
 PositionWindow::PositionWindow(TradingDataService* tradingDataService, QWidget *parent)
@@ -411,71 +411,41 @@ void PositionWindow::updateMarketPrices() {
     QMutexLocker locker(&m_updateMutex);
     m_isUpdating = true;
     
-    auto& priceCache = PriceCache::instance();
+    auto& gateway = MarketData::PriceStoreGateway::instance();
     bool anyChanged = false;
 
-    // We iterate over proper positions, excluding filters/summary
-    // Since m_allPositions is the source of truth, we update it directly
-    // and then push changes to the model. Or simpler: Update m_allPositions and call applyFilters() 
-    // to refresh logic, but that might be heavy.
-    // Better: Update m_allPositions AND update the specific rows in model if visible.
-    
-    // For now, let's update m_allPositions and re-apply filters if needed
-    // or just update model directly if we can map indexes.
-    // Simpler approach: Update fields in m_allPositions, then re-set model data.
-    
+    // We iterate over m_allPositions directly
     for (int i = 0; i < m_allPositions.size(); ++i) {
         PositionData& pd = m_allPositions[i];
         
-        // Construct composite key for PriceCache
-        // We need exchange Segment ID. 
-        // We have pd.exchange ("NSE", "BSE") and could guess segment. 
-        // But better if we stored segment ID.
-        // Let's use RepositoryManager helper or store it earlier.
-        
-        // Helper to guess segment ID from string exchange + suffix
-        // Assuming we stored correct "NSE", "BSE" and suffix "CM", "FO" logic
-        
-        // Quick & Dirty lookup: Try both CM and FO for the exchange
+        // Construct segment ID logic
         int segIds[2] = {0, 0};
         if (pd.exchange == "NSE") { segIds[0] = 1; segIds[1] = 2; }
         else if (pd.exchange == "BSE") { segIds[0] = 11; segIds[1] = 12; }
         
-        std::optional<XTS::Tick> tick;
+        const MarketData::UnifiedState* data = nullptr;
         
-        // Try getting price
+        // Try getting price from first segment candidate
         if (segIds[0] > 0) {
-            tick = priceCache.getPrice(segIds[0], pd.scripCode);
-            if (!tick && segIds[1] > 0) tick = priceCache.getPrice(segIds[1], pd.scripCode);
+            data = gateway.getUnifiedState(segIds[0], pd.scripCode);
+            // If not found, try second candidate (e.g., if we didn't differentiate CM vs FO correctly)
+            if (!data && segIds[1] > 0) {
+                data = gateway.getUnifiedState(segIds[1], pd.scripCode);
+            }
         }
         
-        if (tick) {
-            double ltp = tick->lastTradedPrice;
+        if (data) {
+            double ltp = data->ltp;
             if (ltp > 0 && ltp != pd.marketPrice) {
                 pd.marketPrice = ltp;
                 
                 // Recalculate MTM
-                // MTM for Net Position: (Sell Avg - Buy Avg) * Min(BuyQty, SellQty) + (LTP - Buy/Sell Avg) * NetQty
-                // Simplified: (Current Value - Investment Cost)
-                // Buy Value is negative (outflow), Sell Value is positive (inflow) in accounting? 
-                
-                // Standard Logic:
-                // MTM = (Sell Value + Net Quantity * LTP) - Buy Value
-                // Verify signs:
-                // Buy 10 @ 100 -> BuyVal = 1000.  (Logic usually tracks absolute amounts)
-                // Sell 0. 
-                // Net Qty 10. MTM = (0 + 10*LTP) - 1000. 
-                
-                // Using stored absolute values:
                 double buyVal = pd.buyVal; // from API (usually absolute cost)
                 double sellVal = pd.sellVal; // from API (usually absolute revenue)
                 
                 double currentVal = sellVal - buyVal + (pd.netQty * ltp);
                 pd.mtm = currentVal;
                 
-                // Net Value usually means current exposure value? Or P&L?
-                // Request said "Net Val -> -481" which was -130 * price. 
-                // So Net Val = Net Qty * LTP (Market Value of Net Pos)
                 pd.netVal = pd.netQty * ltp;
                 
                 pd.totalValue = std::abs(buyVal) + std::abs(sellVal); 

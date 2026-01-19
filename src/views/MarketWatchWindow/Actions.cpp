@@ -1,7 +1,6 @@
 #include "views/MarketWatchWindow.h"
 #include "models/TokenAddressBook.h"
 #include "services/TokenSubscriptionManager.h"
-#include "services/PriceCache.h"
 #include "data/PriceStoreGateway.h"
 #include "data/UnifiedPriceState.h"
 #include "utils/ClipboardHelpers.h"
@@ -97,11 +96,6 @@ bool MarketWatchWindow::addScrip(const QString &symbol, const QString &exchange,
                 onUdpTickUpdate(udpTick);
             }
         }
-    } else {
-        // Use legacy cache for initial load
-        if (auto cached = PriceCache::instance().getPrice(static_cast<int>(segment), token)) {
-            onTickUpdate(*cached);
-        }
     }
     
     m_tokenAddressBook->addCompositeToken(exchange, "", token, newRow);
@@ -167,11 +161,6 @@ bool MarketWatchWindow::addScripFromContract(const ScripData &contractData)
                 
                 onUdpTickUpdate(udpTick);
             }
-        }
-    } else {
-        // Use legacy cache for initial load
-        if (auto cached = PriceCache::instance().getPrice(static_cast<int>(segment), scrip.token)) {
-            onTickUpdate(*cached);
         }
     }
     

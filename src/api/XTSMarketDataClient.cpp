@@ -1,5 +1,5 @@
 #include "api/XTSMarketDataClient.h"
-#include "services/PriceCache.h"
+
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
@@ -209,8 +209,9 @@ void XTSMarketDataClient::subscribe(const QVector<int64_t> &instrumentIDs, int e
                         processTickData(quoteData);
                         
                         // Cache the price for future use
-                        XTS::Tick tick = parseTickFromJson(quoteData);
-                        PriceCache::instance().updatePrice(tick.exchangeInstrumentID, tick);
+                        XTS::Tick tick = parseTickFromJson(quoteData);  
+                        // PriceCache update removed - relying on UDP or direct signal
+
                     }
                 }
                 
