@@ -76,7 +76,8 @@ ATM (At-The-Money) watch is a specialized market watch feature for options trade
 ### 2.2 Mechanism B: Polling-Based Updates
 
 **Approach:**
-- Poll underlying price at regular intervals (e.g., 500ms)
+- Poll underlying price at regular intervals (e.g.,  atm strike recalculation to be done once every 2 minutes)
+
 - Recalculate ATM strikes if price has changed significantly
 - Update UI when strikes change
 

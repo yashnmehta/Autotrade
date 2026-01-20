@@ -9,6 +9,7 @@
 #include "views/SellWindow.h"
 #include "views/SnapQuoteWindow.h"
 #include "ui/OptionChainWindow.h"
+#include "ui/ATMWatchWindow.h"
 #include "views/CustomizeDialog.h"
 #include "app/ScripBar.h"
 #include "services/UdpBroadcastService.h"
@@ -311,6 +312,20 @@ void MainWindow::createOptionChainWindow()
     
     window->setContentWidget(optionWindow);
     window->resize(1600, 800);
+    connectWindowSignals(window);
+    m_mdiArea->addWindow(window);
+    window->activateWindow();
+}
+
+void MainWindow::createATMWatchWindow()
+{
+    CustomMDISubWindow *window = new CustomMDISubWindow("ATM Watch", m_mdiArea);
+    window->setWindowType("ATMWatch");
+    
+    ATMWatchWindow *atmWindow = new ATMWatchWindow(window);
+    
+    window->setContentWidget(atmWindow);
+    window->resize(1200, 600);
     connectWindowSignals(window);
     m_mdiArea->addWindow(window);
     window->activateWindow();

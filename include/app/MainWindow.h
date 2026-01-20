@@ -77,6 +77,7 @@ private slots:
     void createSellWindow();
     void createSnapQuoteWindow();
     void createOptionChainWindow();
+    void createATMWatchWindow();
     void createTradeBookWindow();
     void createOrderBookWindow();
     void createPositionWindow();

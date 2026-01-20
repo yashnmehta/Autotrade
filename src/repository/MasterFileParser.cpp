@@ -162,9 +162,9 @@ bool MasterFileParser::parseNSEFO(const QVector<QStringRef> &fields,
     } else {
       optStr = optStr.toUpper();
       if (optStr == "CE")
-        contract.optionType = 1; // Map to CE code
+        contract.optionType = 3; // Map to CE code (3)
       else if (optStr == "PE")
-        contract.optionType = 2; // Map to PE code
+        contract.optionType = 4; // Map to PE code (4)
       else
         contract.optionType = 0;
     }

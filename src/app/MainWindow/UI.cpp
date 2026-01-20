@@ -228,6 +228,9 @@ void MainWindow::createMenuBar()
     QAction *wmOptionChain = windowMenu->addAction("&Option Chain\tF6");
     connect(wmOptionChain, &QAction::triggered, this, &MainWindow::createOptionChainWindow);
     
+    QAction *wmATMWatch = windowMenu->addAction("ATM &Watch");
+    connect(wmATMWatch, &QAction::triggered, this, &MainWindow::createATMWatchWindow);
+    
     QAction *wmOrderBook = windowMenu->addAction("&OrderBook\tF3");
     connect(wmOrderBook, &QAction::triggered, this, &MainWindow::createOrderBookWindow);
     

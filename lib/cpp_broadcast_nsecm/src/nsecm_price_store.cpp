@@ -1,6 +1,7 @@
 #include "nsecm_price_store.h"
 #include <cstring>
 #include <iostream>
+#include <unordered_map>
 
 namespace nsecm {
 
@@ -65,15 +66,22 @@ const UnifiedTokenState* PriceStore::getUnifiedState(int32_t token) const {
 // IndexStore Implementation
 // ============================================================================
 
+static std::string trimRight(const std::string& s) {
+    size_t end = s.find_last_not_of(" \t\n\r");
+    return (end == std::string::npos) ? "" : s.substr(0, end + 1);
+}
+
 const IndexData* IndexStore::updateIndex(const IndexData& data) {
     std::unique_lock<std::shared_mutex> lock(mutex);
-    indices[data.name] = data;
-    return &indices[data.name];
+    std::string key = trimRight(std::string(data.name));
+    indices[key] = data;
+    return &indices[key];
 }
 
 const IndexData* IndexStore::getIndex(const std::string& name) const {
     std::shared_lock<std::shared_mutex> lock(mutex);
-    auto it = indices.find(name);
+    std::string key = trimRight(name);
+    auto it = indices.find(key);
     return (it != indices.end()) ? &it->second : nullptr;
 }
 
@@ -85,6 +93,52 @@ size_t IndexStore::indexCount() const {
 void IndexStore::clear() {
     std::unique_lock<std::shared_mutex> lock(mutex);
     indices.clear();
+}
+
+double getGenericLtp(uint32_t token) {
+    if (token < 26000) {
+        auto* state = g_nseCmPriceStore.getUnifiedState(token);
+        return state ? state->ltp : 0.0;
+    } else {
+        // Map common tokens to their broadcast index names
+        // These can be verified from MS_INDICES broadcast
+        static const std::unordered_map<uint32_t, std::string> tokenToName = {
+            {26000, "Nifty 50"},
+            {26009, "BANKNIFTY"},
+            {26037, "NIFTY FIN SERVICE"},
+            {26074, "NIFTY MID SELECT"},
+            {26013, "Nifty Next 50"}
+        };
+        
+        auto it = tokenToName.find(token);
+        if (it != tokenToName.end()) {
+            // Try common name variants
+            const std::string& primaryName = it->second;
+            auto* index = g_nseCmIndexStore.getIndex(primaryName);
+            
+            // Fallback variants if primary name not found
+            if (!index) {
+                if (token == 26000) {
+                     index = g_nseCmIndexStore.getIndex("NIFTY 50");
+                     if (!index) index = g_nseCmIndexStore.getIndex("NIFTY50");
+                } else if (token == 26009) {
+                     index = g_nseCmIndexStore.getIndex("Nifty Bank");
+                     if (!index) index = g_nseCmIndexStore.getIndex("NIFTY BANK");
+                }
+            }
+
+            if (index) {
+                return index->value;
+            } else {
+                // Log failed lookup (throttled)
+                static int failCount = 0;
+                if (++failCount % 100 == 1) {
+                    std::cout << "[nsecm] Index not found in store: " << it->second << " (Token: " << token << ")" << std::endl;
+                }
+            }
+        }
+        return 0.0;
+    }
 }
 
 } // namespace nsecm

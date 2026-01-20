@@ -118,6 +118,13 @@ private:
 extern PriceStore g_nseCmPriceStore;
 extern IndexStore g_nseCmIndexStore;
 
+/**
+ * @brief Get LTP for any NSE token (Stock or Index)
+ * @param token NSE Token (0-25999 for stocks, 26000+ for indices)
+ * @return LTP or 0.0 if not found
+ */
+double getGenericLtp(uint32_t token);
+
 } // namespace nsecm
 
 #endif // NSECM_PRICE_STORE_H
