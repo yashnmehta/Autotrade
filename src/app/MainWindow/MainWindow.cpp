@@ -21,6 +21,7 @@
 #include "services/UdpBroadcastService.h"
 #include "views/MarketWatchWindow.h" // Needed for getActiveMarketWatch cast
 #include "views/IndicesView.h"
+#include "services/ATMWatchManager.h"
 
 MainWindow::MainWindow(QWidget *parent)
     : CustomMainWindow(parent)
@@ -64,9 +65,13 @@ MainWindow::MainWindow(QWidget *parent)
     if (m_statusBar) m_statusBar->setVisible(statusVisible);
     if (m_statusBarAction) m_statusBarAction->setChecked(statusVisible);
 
-    // ✅ IndicesView is NOT created here - it will be created after successful login
     // in setConfigLoader() to ensure market data windows only appear after authentication.
     // This improves startup time and ensures proper initialization order.
+
+    // Initialize Default ATM Watches
+    auto atm = ATMWatchManager::getInstance();
+    atm->addWatch("NIFTY", "29JAN2026", ATMWatchManager::BasePriceSource::Cash);
+    atm->addWatch("BANKNIFTY", "29JAN2026", ATMWatchManager::BasePriceSource::Cash);
 }
 
 MainWindow::~MainWindow()

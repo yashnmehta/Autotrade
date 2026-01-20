@@ -33,7 +33,13 @@ public:
     static constexpr uint32_t MAX_TOKEN = 250000;
     static constexpr uint32_t ARRAY_SIZE = MAX_TOKEN - MIN_TOKEN + 1;  // 90,000 slots
     
-    PriceStore() = default;
+    PriceStore() : store_(ARRAY_SIZE, nullptr) {}
+    
+    ~PriceStore() {
+        for (auto* ptr : store_) {
+            delete ptr;
+        }
+    }
     
     // =========================================================
     // PARTIAL UPDATES (Write Lock)
@@ -46,7 +52,9 @@ public:
         if (data.token < MIN_TOKEN || data.token > MAX_TOKEN) return;
         
         std::unique_lock lock(mutex_); // Exclusive Write
-        auto& row = store_[data.token - MIN_TOKEN];
+        auto* rowPtr = store_[data.token - MIN_TOKEN];
+        if (!rowPtr) return;
+        auto& row = *rowPtr;
         
         // Update only dynamic price fields
         row.token = data.token;
@@ -78,7 +86,9 @@ public:
         if (data.token < MIN_TOKEN || data.token > MAX_TOKEN) return;
         
         std::unique_lock lock(mutex_); // Exclusive Write
-        auto& row = store_[data.token - MIN_TOKEN];
+        auto* rowPtr = store_[data.token - MIN_TOKEN];
+        if (!rowPtr) return;
+        auto& row = *rowPtr;
         
         row.token = data.token;
         std::memcpy(row.bids, data.bids, sizeof(row.bids));
@@ -95,7 +105,9 @@ public:
         if (data.token < MIN_TOKEN || data.token > MAX_TOKEN) return;
         
         std::unique_lock lock(mutex_); // Exclusive Write
-        auto& row = store_[data.token - MIN_TOKEN];
+        auto* rowPtr = store_[data.token - MIN_TOKEN];
+        if (!rowPtr) return;
+        auto& row = *rowPtr;
         
         row.token = data.token;
         row.openInterest = data.openInterest;
@@ -109,7 +121,9 @@ public:
         if (data.token < MIN_TOKEN || data.token > MAX_TOKEN) return;
         
         std::unique_lock lock(mutex_); // Exclusive Write
-        auto& row = store_[data.token - MIN_TOKEN];
+        auto* rowPtr = store_[data.token - MIN_TOKEN];
+        if (!rowPtr) return;
+        auto& row = *rowPtr;
         
         row.token = data.token;
         row.upperCircuit = data.upperCircuit;
@@ -129,8 +143,9 @@ public:
         if (token < MIN_TOKEN || token > MAX_TOKEN) return nullptr;
         
         std::shared_lock lock(mutex_); // Shared Read
-        const auto& row = store_[token - MIN_TOKEN];
-        return (row.token == token) ? &row : nullptr;
+        const auto* rowPtr = store_[token - MIN_TOKEN];
+        if (!rowPtr) return nullptr;
+        return (rowPtr->token == token) ? rowPtr : nullptr;
     }
     
     // =========================================================
@@ -148,12 +163,13 @@ public:
     
     void clear() {
         std::unique_lock lock(mutex_);
-        std::memset(store_, 0, sizeof(store_));
+        store_.clear();
+        store_.resize(ARRAY_SIZE);
         validTokenCount = 0;
     }
 
 private:
-    UnifiedTokenState store_[ARRAY_SIZE];
+    std::vector<UnifiedTokenState*> store_; 
     mutable std::shared_mutex mutex_;
     size_t validTokenCount = 0;
 };

@@ -22,29 +22,17 @@ public:
      * @param contract Output MasterContract
      * @return true if parsed successfully
      */
-    static bool parseLine(const QString& line, const QString& exchange, 
+    static bool parseLine(const QStringRef& line, const QString& exchange, 
                          MasterContract& contract);
     
 private:
     /**
      * @brief Parse NSECM master line
      */
-    static bool parseNSECM(const QStringList& fields, MasterContract& contract);
-    
-    /**
-     * @brief Parse NSEFO master line
-     */
-    static bool parseNSEFO(const QStringList& fields, MasterContract& contract);
-    
-    /**
-     * @brief Parse BSECM master line
-     */
-    static bool parseBSECM(const QStringList& fields, MasterContract& contract);
-    
-    /**
-     * @brief Parse BSEFO master line
-     */
-    static bool parseBSEFO(const QStringList& fields, MasterContract& contract);
+    static bool parseNSECM(const QVector<QStringRef>& fields, MasterContract& contract);
+    static bool parseNSEFO(const QVector<QStringRef>& fields, MasterContract& contract);
+    static bool parseBSECM(const QVector<QStringRef>& fields, MasterContract& contract);
+    static bool parseBSEFO(const QVector<QStringRef>& fields, MasterContract& contract);
     
     /**
      * @brief Helper: Convert option type int to string

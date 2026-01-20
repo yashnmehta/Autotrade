@@ -461,6 +461,9 @@ void UdpBroadcastService::setupNseCmCallbacks() {
             // Log Stage 2: Data Content
             // qDebug() << "  -> Index:" << data.name << "Value:" << data.value << "Change:" << (data.value - data.close);
 
+            // CRITICAL FIX: Update global store so ATMWatchManager can see it
+            nsecm::g_nseCmIndexStore.updateIndex(data);
+
             UDP::IndexTick tick;
             tick.exchangeSegment = UDP::ExchangeSegment::NSECM;
             tick.token = 0; // No token in 7207
@@ -484,7 +487,7 @@ void UdpBroadcastService::setupNseCmCallbacks() {
             
             // Log Stage 3: Emission
             // Log Stage 3: Emission
-            if (tick.name  == "NIFTY50") {
+            if (strcmp(tick.name, "NIFTY50") == 0) {
                 std::cout << "[UDP] Emitting NSECM Index For: " << tick.name << " Val: " << tick.value << std::endl;
             }
             emit udpIndexReceived(tick);

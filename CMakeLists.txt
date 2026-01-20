@@ -13,7 +13,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOUIC_SEARCH_PATHS ${CMAKE_SOURCE_DIR}/resources/forms)
 
 # Find Qt5 components (UI only)
-find_package(Qt5 COMPONENTS Widgets Network WebSockets UiTools REQUIRED)
+find_package(Qt5 COMPONENTS Widgets Network WebSockets UiTools Concurrent REQUIRED)
 
 # Find Boost for native WebSocket (Beast + Asio)
 # Boost.Beast is header-only, just need Boost headers
@@ -236,12 +236,14 @@ set(UI_SOURCES
     src/ui/SplashScreen.cpp
     src/ui/LoginWindow.cpp
     src/ui/OptionChainWindow.cpp
+    src/ui/ATMWatchWindow.cpp
 )
 
 set(UI_HEADERS
     include/ui/SplashScreen.h
     include/ui/LoginWindow.h
     include/ui/OptionChainWindow.h
+    include/ui/ATMWatchWindow.h
 )
 
 # ========================================
@@ -345,6 +347,7 @@ set(SERVICE_SOURCES
     src/services/UdpBroadcastService.cpp
     src/services/MasterLoaderWorker.cpp
     src/services/MasterDataState.cpp
+    src/services/ATMWatchManager.cpp
 )
 
 set(SERVICE_HEADERS
@@ -356,6 +359,7 @@ set(SERVICE_HEADERS
     include/services/UdpBroadcastService.h
     include/services/MasterLoaderWorker.h
     include/services/MasterDataState.h
+    include/services/ATMWatchManager.h
 )
 
 # ========================================
@@ -596,6 +600,7 @@ target_link_libraries(TradingTerminal PRIVATE
     Qt5::Network
     Qt5::WebSockets
     Qt5::UiTools
+    Qt5::Concurrent
     OpenSSL::SSL
     OpenSSL::Crypto
     Threads::Threads
