@@ -103,14 +103,15 @@ bool RepositoryManager::loadAll(const QString &mastersPath) {
 
   bool anyLoaded = false;
 
-  // FAST PATH: Check for processed CSV files first (10x faster loading)
+  // FAST PATH DISABLED: CSV loading bypasses string interning optimization
+  // Force streaming path for memory efficiency
   QString nsefoCSV = mastersPath + "/processed_csv/nsefo_processed.csv";
   QString nsecmCSV = mastersPath + "/processed_csv/nsecm_processed.csv";
   QString bsefoCSV = mastersPath + "/processed_csv/bsefo_processed.csv";
   QString bsecmCSV = mastersPath + "/processed_csv/bsecm_processed.csv";
 
   // Check if at least NSE files exist (BSE is optional)
-  if (QFile::exists(nsefoCSV) && QFile::exists(nsecmCSV)) {
+  if (false && QFile::exists(nsefoCSV) && QFile::exists(nsecmCSV)) {
     qDebug() << "[RepositoryManager] Found processed CSV files, loading from "
                 "cache...";
 
@@ -191,8 +192,8 @@ bool RepositoryManager::loadAll(const QString &mastersPath) {
       // Initialize distributed price stores
       initializeDistributedStores();
 
-      // Save processed CSVs for fast loading next time
-      saveProcessedCSVs(mastersPath);
+      // CSV saving disabled to preserve string interning benefits
+      // saveProcessedCSVs(mastersPath);
 
       // Log summary
       SegmentStats stats = getSegmentStats();
