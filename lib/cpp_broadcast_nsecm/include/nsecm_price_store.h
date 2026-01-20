@@ -34,15 +34,55 @@ public:
     // Updates
     void updateTouchline(int32_t token, double ltp, double open, double high, double low, double close,
                         uint64_t volume, uint32_t lastTradeQty, uint32_t lastTradeTime,
-                        double avgPrice, double netChange, char netChangeInd, uint16_t status, uint16_t bookType);
+                        double avgPrice, double netChange, char netChangeInd, uint16_t status, uint16_t bookType) {
+        if (token < 0 || token >= (int32_t)tokenStates.size()) return;
+        std::unique_lock lock(mutex);
+        if (!tokenStates[token]) return;
+        auto& row = *tokenStates[token];
+        row.ltp = ltp;
+        row.open = open;
+        row.high = high;
+        row.low = low;
+        row.close = close;
+        row.volume = volume;
+        row.lastTradeQty = lastTradeQty;
+        row.lastTradeTime = lastTradeTime;
+        row.avgPrice = avgPrice;
+        row.netChange = netChange;
+        row.netChangeIndicator = netChangeInd;
+        row.tradingStatus = status;
+        row.bookType = bookType;
+        row.isUpdated = true;
+    }
                         
     void updateMarketDepth(int32_t token, const DepthLevel* bids, const DepthLevel* asks,
-                          uint64_t totalBuy, uint64_t totalSell);
+                          uint64_t totalBuy, uint64_t totalSell) {
+        if (token < 0 || token >= (int32_t)tokenStates.size()) return;
+        std::unique_lock lock(mutex);
+        if (!tokenStates[token]) return;
+        auto& row = *tokenStates[token];
+        if (bids) std::memcpy(row.bids, bids, sizeof(row.bids));
+        if (asks) std::memcpy(row.asks, asks, sizeof(row.asks));
+        row.totalBuyQty = totalBuy;
+        row.totalSellQty = totalSell;
+        row.isUpdated = true;
+    }
                           
-    void updateTicker(int32_t token, double fillPrice, uint64_t fillVol);
+    void updateTicker(int32_t token, double fillPrice, uint64_t fillVol) {
+        if (token < 0 || token >= (int32_t)tokenStates.size()) return;
+        std::unique_lock lock(mutex);
+        if (!tokenStates[token]) return;
+        // Ticker update normally updates LTP and last trade info
+        auto& row = *tokenStates[token];
+        row.ltp = fillPrice;
+        row.lastTradeQty = (uint32_t)fillVol;
+        row.isUpdated = true;
+    }
     
     // Read Access
     const UnifiedTokenState* getUnifiedState(int32_t token) const;
+    
+    ~PriceStore();
     
     // Index Store (Keep simple generic access or separate class?)
     // For now, IndexStore is separate in nsecm_price_store.cpp/h, 
@@ -51,7 +91,7 @@ public:
     size_t getTokenCount() const { return MAX_TOKENS; }
 
 private:
-    std::vector<UnifiedTokenState> tokenStates;
+    std::vector<UnifiedTokenState*> tokenStates;
     mutable std::shared_mutex mutex;
 };
 

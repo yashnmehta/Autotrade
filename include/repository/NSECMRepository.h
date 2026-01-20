@@ -119,6 +119,12 @@ public:
    * @return Vector of matching contracts
    */
   QVector<ContractData> getContractsBySymbol(const QString &symbol) const;
+  
+  /**
+   * @brief Iterate over all contracts (Zero-Copy)
+   * @param callback Function called for each contract
+   */
+  void forEachContract(std::function<void(const ContractData &)> callback) const;
 
   // ===== UPDATE METHODS =====
 
@@ -173,6 +179,10 @@ private:
   int32_t getIndex(int64_t token) const;
 
   // ===== DATA STORAGE =====
+
+private:
+  void addContractInternal(const MasterContract &contract,
+                           std::function<QString(const QString &)> intern);
 
   // Level 1: Token → Index mapping
   QHash<int64_t, int32_t> m_tokenToIndex;

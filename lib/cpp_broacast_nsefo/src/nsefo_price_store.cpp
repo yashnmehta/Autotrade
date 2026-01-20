@@ -12,11 +12,13 @@ void PriceStore::initializeToken(uint32_t token, const char* symbol, const char*
     uint32_t index = token - MIN_TOKEN;
     if (index >= ARRAY_SIZE) return;
     
-    // No lock needed during strict single-threaded startup phase
-    // If startup is multi-threaded, add unique_lock here.
     std::unique_lock lock(mutex_);
     
-    auto& row = store_[index];
+    if (!store_[index]) {
+        store_[index] = new UnifiedTokenState();
+    }
+    
+    auto& row = *store_[index];
     row.token = token;
     strncpy(row.symbol, symbol, 31);
     strncpy(row.displayName, displayName, 63);
@@ -34,8 +36,11 @@ void PriceStore::initializeFromMaster(const std::vector<uint32_t>& tokens) {
     validTokenCount = 0;
     for (uint32_t token : tokens) {
         if (token >= MIN_TOKEN && token <= MAX_TOKEN) {
-            // Just ensuring the token ID is set, data is already populated by initializeToken
-            store_[token - MIN_TOKEN].token = token;
+            uint32_t index = token - MIN_TOKEN;
+            if (!store_[index]) {
+                store_[index] = new UnifiedTokenState();
+            }
+            store_[index]->token = token;
             validTokenCount++;
         }
     }

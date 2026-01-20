@@ -9,15 +9,19 @@ namespace bse {
 // ============================================================================
 
 PriceStore::PriceStore() {
-    // Resize for O(1) access
-    tokenStates.resize(MAX_TOKENS + 1); // +1 because tokens are 1-based usually
+    tokenStates.assign(MAX_TOKENS + 1, nullptr);
+}
+
+PriceStore::~PriceStore() {
+    for (auto* ptr : tokenStates) {
+        delete ptr;
+    }
 }
 
 const UnifiedTokenState* PriceStore::getUnifiedState(uint32_t token) const {
     if (token >= tokenStates.size()) return nullptr;
     std::shared_lock<std::shared_mutex> lock(mutex);
-    if (!tokenStates[token].isUpdated && tokenStates[token].token == 0) return nullptr;
-    return &tokenStates[token];
+    return tokenStates[token];
 }
 
 void PriceStore::updateMarketPicture(uint32_t token, double ltp, double open, double high, double low, double close,
@@ -28,7 +32,8 @@ void PriceStore::updateMarketPicture(uint32_t token, double ltp, double open, do
     if (token >= tokenStates.size()) return;
     
     std::unique_lock<std::shared_mutex> lock(mutex);
-    UnifiedTokenState& state = tokenStates[token];
+    if (!tokenStates[token]) return;
+    UnifiedTokenState& state = *tokenStates[token];
     
     state.token = token;
     state.ltp = ltp;
@@ -70,10 +75,8 @@ void PriceStore::updateOpenInterest(uint32_t token, int64_t oi, int32_t oiChange
     if (token >= tokenStates.size()) return;
     
     std::unique_lock<std::shared_mutex> lock(mutex);
-    UnifiedTokenState& state = tokenStates[token];
-    
-    // Ensure token is set if this is the first update
-    if (state.token == 0) state.token = token;
+    if (!tokenStates[token]) return;
+    UnifiedTokenState& state = *tokenStates[token];
     
     state.openInterest = oi;
     state.openInterestChange = oiChange;
@@ -85,9 +88,8 @@ void PriceStore::updateClosePrice(uint32_t token, double closePrice, uint64_t ti
     if (token >= tokenStates.size()) return;
     
     std::unique_lock<std::shared_mutex> lock(mutex);
-    UnifiedTokenState& state = tokenStates[token];
-    
-    if (state.token == 0) state.token = token;
+    if (!tokenStates[token]) return;
+    UnifiedTokenState& state = *tokenStates[token];
     
     // Message 2014 is "Close Price", effectively updating the closing price for the day
     // Wait, is it Prev Close or Today's Close?
@@ -113,10 +115,8 @@ void PriceStore::updateImpliedVolatility(uint32_t token, int64_t iv, uint64_t ti
     if (token >= tokenStates.size()) return;
     
     std::unique_lock<std::shared_mutex> lock(mutex);
-    UnifiedTokenState& state = tokenStates[token];
-    
-    // Ensure token is set
-    if (state.token == 0) state.token = token;
+    if (!tokenStates[token]) return;
+    UnifiedTokenState& state = *tokenStates[token];
     
     state.impliedVolatility = iv;
     state.lastPacketTimestamp = timestamp;
@@ -126,10 +126,16 @@ void PriceStore::updateImpliedVolatility(uint32_t token, int64_t iv, uint64_t ti
 void PriceStore::initializeToken(uint32_t token, const char* symbol, const char* name, const char* scripCode,
                                 const char* series, int32_t lot, double strike, const char* optType, const char* expiry,
                                 int32_t assetToken, int32_t instType, double tick) {
-    if (token >= tokenStates.size()) return;
+    if (token >= tokenStates.size()) {
+        std::unique_lock<std::shared_mutex> lock(mutex);
+        tokenStates.resize(token + 1, nullptr);
+    }
     
     std::unique_lock<std::shared_mutex> lock(mutex);
-    UnifiedTokenState& state = tokenStates[token];
+    if (!tokenStates[token]) {
+        tokenStates[token] = new UnifiedTokenState();
+    }
+    UnifiedTokenState& state = *tokenStates[token];
     
     state.token = token;
     if (symbol) strncpy(state.symbol, symbol, sizeof(state.symbol) - 1);
@@ -144,19 +150,21 @@ void PriceStore::initializeToken(uint32_t token, const char* symbol, const char*
     state.assetToken = assetToken;
     state.instrumentType = instType;
     state.tickSize = tick;
+    state.isUpdated = true;
 }
 
 void PriceStore::clear() {
     std::unique_lock<std::shared_mutex> lock(mutex);
-    // Re-allocate to clear (easiest way to reset)
-    tokenStates.clear();
-    tokenStates.resize(MAX_TOKENS + 1);
+    for (auto* ptr : tokenStates) {
+        delete ptr;
+    }
+    tokenStates.assign(MAX_TOKENS + 1, nullptr);
 }
 
 bool PriceStore::isValidToken(uint32_t token) const {
     if (token >= tokenStates.size()) return false;
     std::shared_lock<std::shared_mutex> lock(mutex);
-    return tokenStates[token].token != 0;
+    return tokenStates[token] != nullptr;
 }
 
 void PriceStore::initializeFromMaster(const std::vector<uint32_t>& tokens) {
@@ -169,12 +177,16 @@ void PriceStore::initializeFromMaster(const std::vector<uint32_t>& tokens) {
 
     std::unique_lock<std::shared_mutex> lock(mutex);
     if (maxToken >= tokenStates.size()) {
-        tokenStates.resize(maxToken + 10000); // Resize with buffer
+        tokenStates.resize(maxToken + 10000, nullptr);
     }
     
-    // Mark these tokens as valid/known if not already?
-    // initializeToken() likely already handled metadata. 
-    // Just ensuring size is sufficient.
+    for (uint32_t t : tokens) {
+        if (t >= tokenStates.size()) continue;
+        if (!tokenStates[t]) {
+            tokenStates[t] = new UnifiedTokenState();
+            tokenStates[t]->token = t;
+        }
+    }
 }
 
 // ============================================================================

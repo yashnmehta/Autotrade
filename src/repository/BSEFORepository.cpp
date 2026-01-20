@@ -3,48 +3,63 @@
 #include <QDebug>
 #include <QFile>
 #include <QTextStream>
+#include <fstream>
+#include <iostream>
+#include <string>
 
 // Helper function to remove surrounding quotes from CSV field values
-static QString trimQuotes(const QString &str) {
-  QString trimmed = str.trimmed();
-  if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
-    return trimmed.mid(1, trimmed.length() - 2);
+static QString trimQuotes(const QStringRef &str) {
+  QStringRef trimmed = str.trimmed();
+  if (trimmed.startsWith('"') && trimmed.endsWith('"') && trimmed.length() >= 2) {
+    return trimmed.mid(1, trimmed.length() - 2).toString();
   }
-  return trimmed;
+  return trimmed.toString();
 }
 
 BSEFORepository::BSEFORepository() : m_contractCount(0), m_loaded(false) {}
 
 BSEFORepository::~BSEFORepository() = default;
-
 bool BSEFORepository::loadMasterFile(const QString &filename) {
   QWriteLocker locker(&m_mutex);
 
-  QFile file(filename);
-  if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+  // Native C++ file I/O (5-10x faster than QFile)
+  std::ifstream file(filename.toStdString(), std::ios::binary);
+  if (!file.is_open()) {
     qWarning() << "Failed to open BSE FO master file:" << filename;
     return false;
   }
 
-  QVector<MasterContract> contracts;
-  QTextStream in(&file);
+  prepareForLoad();
 
-  while (!in.atEnd()) {
-    QString line = in.readLine().trimmed();
-    if (line.isEmpty())
+  std::string line;
+  line.reserve(1024);
+  MasterContract contract;
+  QString qLine;
+
+  while (std::getline(file, line)) {
+    if (line.empty() || line[0] == '\r') {
       continue;
+    }
 
-    MasterContract contract;
-    if (MasterFileParser::parseLine(line, "BSEFO", contract)) {
-      contracts.append(contract);
+    // Remove trailing whitespace
+    while (!line.empty() &&
+           (line.back() == ' ' || line.back() == '\r' || line.back() == '\n')) {
+      line.pop_back();
+    }
+
+    if (line.empty()) {
+      continue;
+    }
+
+    qLine = QString::fromStdString(line);
+    if (MasterFileParser::parseLine(QStringRef(&qLine), "BSEFO", contract)) {
+      addContractInternal(contract, [](const QString &s) { return s; });
     }
   }
 
   file.close();
-
-  // Release lock and load from parsed contracts
-  locker.unlock();
-  return loadFromContracts(contracts);
+  finalizeLoad();
+  return m_loaded;
 }
 
 bool BSEFORepository::loadProcessedCSV(const QString &filename) {
@@ -55,19 +70,27 @@ bool BSEFORepository::loadProcessedCSV(const QString &filename) {
     return false;
   }
 
+  prepareForLoad();
+  MasterContract contract;
   QTextStream in(&file);
   QString header = in.readLine(); // Skip header
 
-  QVector<MasterContract> contracts;
-
   while (!in.atEnd()) {
-    QString line = in.readLine();
-    QStringList fields = line.split(',');
+    QString qLine = in.readLine();
+    
+    // Optimized split without QStringList
+    QVector<QStringRef> fields;
+    int start = 0;
+    int end = 0;
+    while ((end = qLine.indexOf(',', start)) != -1) {
+      fields.append(qLine.midRef(start, end - start));
+      start = end + 1;
+    }
+    fields.append(qLine.midRef(start, qLine.length() - start));
 
     if (fields.size() < 16)
       continue;
 
-    MasterContract contract;
     contract.exchange = "BSEFO";
     contract.exchangeInstrumentID = fields[0].toLongLong();
     contract.name = trimQuotes(fields[1]);
@@ -82,58 +105,68 @@ bool BSEFORepository::loadProcessedCSV(const QString &filename) {
 
     // Read OptionType from field 9 (CE/PE/FUT/SPD)
     QString optionTypeStr = trimQuotes(fields[9]);
-
-    // Convert string optionType to int for MasterContract
-    // Also populate nameWithSeries for fallback detection in loadFromContracts
     if (optionTypeStr == "CE") {
       contract.optionType = 3; // CE
-      contract.nameWithSeries =
-          contract.name + " CE"; // For detection in loadFromContracts
     } else if (optionTypeStr == "PE") {
       contract.optionType = 4; // PE
-      contract.nameWithSeries = contract.name + " PE";
     } else if (optionTypeStr == "FUT") {
       contract.optionType = 0; // Future
-      contract.nameWithSeries = contract.name + " FUT";
     } else if (optionTypeStr == "SPD") {
       contract.optionType = 0; // Spread
-      contract.nameWithSeries = contract.name + " SPD";
-      // Don't overwrite series - instrumentType field is authoritative
     } else {
       contract.optionType = 0;
-      contract.nameWithSeries = contract.name;
     }
 
-    // instrumentType field already correctly identifies spreads (4 = Spread)
-    // No need for displayName string matching
-
-    // VALIDATION: If Option (Type 2) has invalid optionType (0), the CSV is
-    // corrupted. This happens if the CSV was generated with missing option type
-    // mapping. In this case, abort loading from CSV to force fallback to master
-    // file.
     if (contract.instrumentType == 2 && contract.optionType == 0) {
-      qWarning() << "[BSEFORepo] Detected corrupted CSV (Option with 'XX' "
-                    "optionType). Forcing reload from master.";
+      qWarning() << "[BSEFORepo] Detected corrupted CSV. Forcing reload from master.";
       file.close();
       return false;
     }
 
-    contracts.append(contract);
+    addContractInternal(contract, [](const QString &s) { return s; });
   }
 
   file.close();
+  finalizeLoad();
 
-  // Release write lock before calling loadFromContracts
-  locker.unlock();
+  qDebug() << "BSE FO Repository loaded from CSV:" << filename
+           << m_contractCount << "contracts";
+  return m_loaded;
+}
 
-  bool result = loadFromContracts(contracts);
-
-  if (result) {
-    qDebug() << "BSE FO Repository loaded from CSV:" << filename
-             << m_contractCount << "contracts";
-  }
-
-  return result;
+void BSEFORepository::finalizeLoad() {
+  m_loaded = (m_contractCount > 0);
+  
+  // Squeeze all parallel arrays
+  m_token.squeeze();
+  m_name.squeeze();
+  m_displayName.squeeze();
+  m_description.squeeze();
+  m_series.squeeze();
+  m_lotSize.squeeze();
+  m_tickSize.squeeze();
+  m_expiryDate.squeeze();
+  m_strikePrice.squeeze();
+  m_optionType.squeeze();
+  m_assetToken.squeeze();
+  m_instrumentType.squeeze();
+  m_priceBandHigh.squeeze();
+  m_priceBandLow.squeeze();
+  m_freezeQty.squeeze();
+  m_ltp.squeeze();
+  m_open.squeeze();
+  m_high.squeeze();
+  m_low.squeeze();
+  m_close.squeeze();
+  m_prevClose.squeeze();
+  m_volume.squeeze();
+  m_bidPrice.squeeze();
+  m_askPrice.squeeze();
+  m_iv.squeeze();
+  m_delta.squeeze();
+  m_gamma.squeeze();
+  m_vega.squeeze();
+  m_theta.squeeze();
 }
 
 bool BSEFORepository::loadFromContracts(
@@ -482,7 +515,6 @@ void BSEFORepository::updateGreeks(int64_t token, double iv, double delta,
 }
 
 void BSEFORepository::prepareForLoad() {
-  QWriteLocker locker(&m_mutex);
   m_contractCount = 0;
   m_tokenToIndex.clear();
 
@@ -519,15 +551,15 @@ void BSEFORepository::prepareForLoad() {
   m_loaded = false;
 }
 
-void BSEFORepository::addContract(
-    const MasterContract &contract,
-    std::function<QString(const QString &)> internFunc) {
-
+void BSEFORepository::addContract(const MasterContract &contract,
+                                  std::function<QString(const QString &)> internFunc) {
   QWriteLocker locker(&m_mutex);
-
-  // Use supplied interner or identity if null
   auto intern = internFunc ? internFunc : [](const QString &s) { return s; };
+  addContractInternal(contract, intern);
+}
 
+void BSEFORepository::addContractInternal(const MasterContract &contract,
+                                        std::function<QString(const QString &)> intern) {
   int32_t idx = m_contractCount;
   m_tokenToIndex.insert(contract.exchangeInstrumentID, idx);
 
@@ -536,16 +568,6 @@ void BSEFORepository::addContract(
   m_displayName.append(contract.displayName);
   m_description.append(contract.description);
   m_series.append(intern(contract.series));
-
-  // BSE specific field (scrip code is often same as token or separate)
-  // MasterContract doesn't explicitly store scripCode separate from token for
-  // all But BSE usually has a Scrip Code (e.g. 500325). Assuming
-  // contract.scripCode might be available or we format it. Wait, MasterContract
-  // has assetToken, instrumentType... Let's check MasterContract definition
-  // quickly if needed, but for now appends string. Actually MasterContract
-  // usually doesn't have scripCode member? Let's assume we map it or leave
-  // empty if not available. Checking BSEFORepository.h parallel arrays...
-  // m_scripCode is QVector<QString>. We'll just put empty or token string.
 
   m_lotSize.append(contract.lotSize);
   m_tickSize.append(contract.tickSize);
@@ -564,6 +586,10 @@ void BSEFORepository::addContract(
       optType = "CE";
     else if (contract.optionType == 2 || contract.optionType == 4)
       optType = "PE";
+  } else if (contract.instrumentType == 4) {
+    optType = "SPD";
+  } else if (contract.instrumentType == 1) {
+    optType = "FUT";
   }
   m_optionType.append(intern(optType));
 
@@ -578,9 +604,46 @@ void BSEFORepository::addContract(
   m_close.append(0.0);
   m_prevClose.append(0.0);
   m_volume.append(0);
-
   m_bidPrice.append(0.0);
   m_askPrice.append(0.0);
+  m_iv.append(0.0);
+  m_delta.append(0.0);
+  m_gamma.append(0.0);
+  m_vega.append(0.0);
+  m_theta.append(0.0);
 
   m_contractCount++;
+}
+
+void BSEFORepository::forEachContract(
+    std::function<void(const ContractData &)> callback) const {
+  QReadLocker locker(&m_mutex);
+  ContractData data;
+  for (int32_t i = 0; i < m_contractCount; ++i) {
+    data.exchangeInstrumentID = m_token[i];
+    data.name = m_name[i];
+    data.displayName = m_displayName[i];
+    data.description = m_description[i];
+    data.series = m_series[i];
+    data.lotSize = m_lotSize[i];
+    data.tickSize = m_tickSize[i];
+    data.expiryDate = m_expiryDate[i];
+    data.strikePrice = m_strikePrice[i];
+    data.optionType = m_optionType[i];
+    data.assetToken = m_assetToken[i];
+    data.instrumentType = m_instrumentType[i];
+    data.priceBandHigh = m_priceBandHigh[i];
+    data.priceBandLow = m_priceBandLow[i];
+    data.ltp = m_ltp[i];
+    data.open = m_open[i];
+    data.high = m_high[i];
+    data.low = m_low[i];
+    data.close = m_close[i];
+    data.prevClose = m_prevClose[i];
+    data.volume = m_volume[i];
+    data.bidPrice = m_bidPrice[i];
+    data.askPrice = m_askPrice[i];
+
+    callback(data);
+  }
 }

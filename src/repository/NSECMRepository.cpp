@@ -8,13 +8,13 @@
 #include <string>
 #include <iostream>
 
-// Helper function to remove surrounding quotes from CSV field values
-static QString trimQuotes(const QString &str) {
-    QString trimmed = str.trimmed();
-    if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
-        return trimmed.mid(1, trimmed.length() - 2);
+// Helper function to remove surrounding quotes from field values
+static QString trimQuotes(const QStringRef &str) {
+    QStringRef trimmed = str.trimmed();
+    if (trimmed.startsWith('"') && trimmed.endsWith('"') && trimmed.length() >= 2) {
+        return trimmed.mid(1, trimmed.length() - 2).toString();
     }
-    return trimmed;
+    return trimmed.toString();
 }
 
 NSECMRepository::NSECMRepository()
@@ -58,175 +58,152 @@ void NSECMRepository::allocateArrays(int32_t count) {
     m_askPrice.resize(count);
 }
 
-bool NSECMRepository::loadMasterFile(const QString& filename) {
-    QWriteLocker locker(&m_mutex);
-    
-    // Native C++ file I/O (5-10x faster than QFile)
-    std::ifstream file(filename.toStdString(), std::ios::binary);
-    if (!file.is_open()) {
-        std::cerr << "Failed to open NSECM master file: " << filename.toStdString() << std::endl;
-        return false;
-    }
-    
-    // First pass: count contracts
-    std::string line;
-    line.reserve(1024);
-    QVector<MasterContract> contracts;
-    
-    while (std::getline(file, line)) {
-        if (line.empty()) {
-            continue;
-        }
-        
-        // Remove trailing whitespace
-        while (!line.empty() && (line.back() == ' ' || line.back() == '\r' || line.back() == '\n')) {
-            line.pop_back();
-        }
-        
-        if (line.empty()) {
-            continue;
-        }
-        
-        QString qLine = QString::fromStdString(line);
-        MasterContract contract;
-        if (MasterFileParser::parseLine(qLine, "NSECM", contract)) {
-            contracts.append(contract);
-        }
-    }
-    
-    file.close();
-    
-    // Allocate arrays
-    int32_t count = contracts.size();
-    allocateArrays(count);
-    m_tokenToIndex.reserve(count);
-    
-    // Second pass: load data
-    for (int32_t idx = 0; idx < count; ++idx) {
-        const MasterContract& contract = contracts[idx];
-        int64_t token = contract.exchangeInstrumentID;
-        
-        m_tokenToIndex[token] = idx;
-        m_token[idx] = token;
-        m_name[idx] = contract.name;
-        m_displayName[idx] = contract.displayName;
-        m_description[idx] = contract.description;
-        m_series[idx] = contract.series;
-        m_lotSize[idx] = contract.lotSize;
-        m_tickSize[idx] = contract.tickSize;
-        m_freezeQty[idx] = contract.freezeQty;
-        m_priceBandHigh[idx] = contract.priceBandHigh;
-        m_priceBandLow[idx] = contract.priceBandLow;
-        
-        // Initialize live data to zero
-        m_ltp[idx] = 0.0;
-        m_open[idx] = 0.0;
-        m_high[idx] = 0.0;
-        m_low[idx] = 0.0;
-        m_close[idx] = 0.0;
-        m_prevClose[idx] = 0.0;
-        m_volume[idx] = 0;
-        m_bidPrice[idx] = 0.0;
-        m_askPrice[idx] = 0.0;
-    }
-    
-    m_contractCount = count;
-    m_loaded = true;
-    
-    qDebug() << "NSE CM Repository loaded:" << m_contractCount << "contracts";
-    
-    return true;
+void NSECMRepository::addContractInternal(const MasterContract &contract, 
+                                        std::function<QString(const QString &)> intern) {
+  int32_t idx = m_contractCount;
+  m_tokenToIndex.insert(contract.exchangeInstrumentID, idx);
+
+  m_token.append(contract.exchangeInstrumentID);
+  m_name.append(intern(contract.name));
+  m_displayName.append(contract.displayName);
+  m_description.append(contract.description);
+  m_series.append(intern(contract.series));
+
+  m_lotSize.append(contract.lotSize);
+  m_tickSize.append(contract.tickSize);
+  m_freezeQty.append(contract.freezeQty);
+
+  m_priceBandHigh.append(contract.priceBandHigh);
+  m_priceBandLow.append(contract.priceBandLow);
+
+  // Initialize dynamic fields to 0
+  m_ltp.append(0.0);
+  m_open.append(0.0);
+  m_high.append(0.0);
+  m_low.append(0.0);
+  m_close.append(0.0);
+  m_prevClose.append(0.0);
+  m_volume.append(0);
+
+  m_bidPrice.append(0.0);
+  m_askPrice.append(0.0);
+
+  m_contractCount++;
 }
 
-bool NSECMRepository::loadProcessedCSV(const QString& filename) {
-    QWriteLocker locker(&m_mutex);
-    
-    // Native C++ file I/O (10x faster than QFile/QTextStream)
-    std::ifstream file(filename.toStdString(), std::ios::binary);
-    if (!file.is_open()) {
-        std::cerr << "Failed to open NSECM CSV file: " << filename.toStdString() << std::endl;
-        return false;
+bool NSECMRepository::loadMasterFile(const QString &filename) {
+  QWriteLocker locker(&m_mutex);
+
+  // Native C++ file I/O (5-10x faster than QFile)
+  std::ifstream file(filename.toStdString(), std::ios::binary);
+  if (!file.is_open()) {
+    std::cerr << "Failed to open NSECM master file: " << filename.toStdString()
+              << std::endl;
+    return false;
+  }
+
+  prepareForLoad();
+
+  std::string line;
+  line.reserve(1024);
+  MasterContract contract;
+  QString qLine;
+
+  while (std::getline(file, line)) {
+    if (line.empty() || line[0] == '\r') {
+      continue;
     }
-    
-    std::string line;
-    line.reserve(2048);
-    
-    // Skip header line
-    std::getline(file, line);
-    
-    QVector<QStringList> records;
-    records.reserve(5000);  // Pre-allocate for typical size
-    
-    while (std::getline(file, line)) {
-        if (line.empty()) {
-            continue;
-        }
-        
-        QString qLine = QString::fromStdString(line);
-        QStringList fields = qLine.split(',');
-        
-        if (fields.size() >= 17) {  // NSECM CSV has 17 columns
-            records.append(fields);
-        }
+
+    // Remove trailing whitespace
+    while (!line.empty() &&
+           (line.back() == ' ' || line.back() == '\r' || line.back() == '\n')) {
+      line.pop_back();
     }
-    
-    file.close();
-    
-    // Allocate arrays
-    int32_t count = records.size();
-    allocateArrays(count);
-    m_tokenToIndex.reserve(count);
-    
-    // Load data
-    for (int32_t idx = 0; idx < count; ++idx) {
-        const QStringList& fields = records[idx];
-        
-        bool ok;
-        int64_t token = fields[0].toLongLong(&ok);
-        if (!ok) {
-            continue;
-        }
-        
-        m_tokenToIndex[token] = idx;
-        m_token[idx] = token;
-        m_name[idx] = trimQuotes(fields[1]);             // Symbol
-        m_displayName[idx] = trimQuotes(fields[2]);      // DisplayName
-        m_description[idx] = trimQuotes(fields[3]);      // Description
-        m_series[idx] = trimQuotes(fields[4]);           // Series
-        m_lotSize[idx] = fields[5].toInt();
-        m_tickSize[idx] = fields[6].toDouble();
-        // fields[7] = ISIN (not stored separately)
-        m_priceBandHigh[idx] = fields[8].toDouble();
-        m_priceBandLow[idx] = fields[9].toDouble();
-        
-        // Live market data (initialized to 0 in CSV)
-        m_ltp[idx] = fields[10].toDouble();
-        m_open[idx] = fields[11].toDouble();
-        m_high[idx] = fields[12].toDouble();
-        m_low[idx] = fields[13].toDouble();
-        m_close[idx] = fields[14].toDouble();
-        m_prevClose[idx] = fields[15].toDouble();
-        m_volume[idx] = fields[16].toLongLong();
-        
-        // Initialize WebSocket-only fields
-        m_bidPrice[idx] = 0.0;
-        m_askPrice[idx] = 0.0;
-        m_freezeQty[idx] = 0;  // Not in CSV
+
+    if (line.empty()) {
+      continue;
     }
-    
-    m_contractCount = count;
-    
-    // Return false if no contracts loaded (empty CSV file)
-    if (count == 0) {
-        qWarning() << "NSE CM Repository CSV file is empty, will fall back to master file";
-        return false;
+
+    qLine = QString::fromStdString(line);
+    if (MasterFileParser::parseLine(QStringRef(&qLine), "NSECM", contract)) {
+      addContractInternal(contract, [](const QString &s) { return s; });
     }
-    
-    m_loaded = true;
-    
-    qDebug() << "NSE CM Repository loaded from CSV:" << m_contractCount << "contracts";
-    
-    return true;
+  }
+
+  file.close();
+  finalizeLoad();
+  return m_loaded;
+}
+
+bool NSECMRepository::loadProcessedCSV(const QString &filename) {
+  QWriteLocker locker(&m_mutex);
+
+  // Native C++ file I/O (10x faster than QFile/QTextStream)
+  std::ifstream file(filename.toStdString(), std::ios::binary);
+  if (!file.is_open()) {
+    std::cerr << "Failed to open NSECM CSV file: " << filename.toStdString()
+              << std::endl;
+    return false;
+  }
+
+  prepareForLoad();
+
+  std::string line;
+  line.reserve(2048);
+  MasterContract contract;
+  QString qLine;
+
+  // Skip header line
+  std::getline(file, line);
+
+  while (std::getline(file, line)) {
+    if (line.empty()) {
+      continue;
+    }
+
+    qLine = QString::fromStdString(line);
+
+    // Optimized split without QStringList
+    QVector<QStringRef> fields;
+    int start = 0;
+    int end = 0;
+    while ((end = qLine.indexOf(',', start)) != -1) {
+      fields.append(qLine.midRef(start, end - start));
+      start = end + 1;
+    }
+    fields.append(qLine.midRef(start, qLine.length() - start));
+
+    if (fields.size() < 17) {
+      continue;
+    }
+
+    bool ok;
+    int64_t token = fields[0].toLongLong(&ok);
+    if (!ok) {
+      continue;
+    }
+
+    contract.exchange = "NSECM";
+    contract.exchangeInstrumentID = token;
+    contract.name = trimQuotes(fields[1]);
+    contract.displayName = trimQuotes(fields[2]);
+    contract.description = trimQuotes(fields[3]);
+    contract.series = trimQuotes(fields[4]);
+    contract.lotSize = fields[5].toInt();
+    contract.tickSize = fields[6].toDouble();
+    contract.priceBandHigh = fields[8].toDouble();
+    contract.priceBandLow = fields[9].toDouble();
+    contract.instrumentType = fields[fields.size() - 1].toInt();
+
+    addContractInternal(contract, [](const QString &s) { return s; });
+  }
+
+  file.close();
+  finalizeLoad();
+
+  qDebug() << "NSE CM Repository loaded from CSV:" << m_contractCount
+           << "contracts";
+  return m_loaded;
 }
 
 int32_t NSECMRepository::getIndex(int64_t token) const {
@@ -485,8 +462,8 @@ bool NSECMRepository::saveProcessedCSV(const QString& filename) const {
             << m_lotSize[idx] << ","
             << m_tickSize[idx] << ","
             << m_priceBandHigh[idx] << ","
-            << m_priceBandLow[idx] << ","
-            << "0,0,0,0,0,0,0\n";  // Live data not persisted
+            << m_priceBandLow[idx] << ",";
+        out << "0,0,0,0,0,0,0\n";  // Live data not persisted
     }
     
     file.close();
@@ -494,8 +471,43 @@ bool NSECMRepository::saveProcessedCSV(const QString& filename) const {
     return true;
 }
 
+void NSECMRepository::forEachContract(
+    std::function<void(const ContractData &)> callback) const {
+  QReadLocker locker(&m_mutex);
+  ContractData data;
+  for (int32_t i = 0; i < m_contractCount; ++i) {
+    data.exchangeInstrumentID = m_token[i];
+    data.name = m_name[i];
+    data.displayName = m_displayName[i];
+    data.description = m_description[i];
+    data.series = m_series[i];
+    data.lotSize = m_lotSize[i];
+    data.tickSize = m_tickSize[i];
+    data.freezeQty = m_freezeQty[i];
+    data.priceBandHigh = m_priceBandHigh[i];
+    data.priceBandLow = m_priceBandLow[i];
+    data.ltp = m_ltp[i];
+    data.open = m_open[i];
+    data.high = m_high[i];
+    data.low = m_low[i];
+    data.close = m_close[i];
+    data.prevClose = m_prevClose[i];
+    data.volume = m_volume[i];
+    data.bidPrice = m_bidPrice[i];
+    data.askPrice = m_askPrice[i];
+    
+    // Default F&O fields for EQ
+    data.expiryDate = "";
+    data.strikePrice = 0.0;
+    data.optionType = "EQ";
+    data.assetToken = 0;
+    data.instrumentType = 0;
+
+    callback(data);
+  }
+}
+
 void NSECMRepository::prepareForLoad() {
-  QWriteLocker locker(&m_mutex);
   m_contractCount = 0;
   m_tokenToIndex.clear();
 
@@ -528,6 +540,28 @@ void NSECMRepository::prepareForLoad() {
 
 void NSECMRepository::finalizeLoad() {
   m_loaded = (m_contractCount > 0);
+  
+  // Squeeze all parallel arrays to return unused capacity to the OS
+  m_token.squeeze();
+  m_name.squeeze();
+  m_displayName.squeeze();
+  m_description.squeeze();
+  m_series.squeeze();
+  m_lotSize.squeeze();
+  m_tickSize.squeeze();
+  m_freezeQty.squeeze();
+  m_priceBandHigh.squeeze();
+  m_priceBandLow.squeeze();
+  m_ltp.squeeze();
+  m_open.squeeze();
+  m_high.squeeze();
+  m_low.squeeze();
+  m_close.squeeze();
+  m_prevClose.squeeze();
+  m_volume.squeeze();
+  m_bidPrice.squeeze();
+  m_askPrice.squeeze();
+
   qDebug() << "NSE CM Repository finalized:" << m_contractCount << "contracts";
 }
 
@@ -536,37 +570,6 @@ void NSECMRepository::addContract(
     std::function<QString(const QString &)> internFunc) {
 
   QWriteLocker locker(&m_mutex);
-
-  // Use supplied interner or identity if null
   auto intern = internFunc ? internFunc : [](const QString &s) { return s; };
-
-  int32_t idx = m_contractCount;
-  m_tokenToIndex.insert(contract.exchangeInstrumentID, idx);
-
-  m_token.append(contract.exchangeInstrumentID);
-  m_name.append(intern(contract.name));
-  m_displayName.append(contract.displayName);
-  m_description.append(contract.description);
-  m_series.append(intern(contract.series));
-
-  m_lotSize.append(contract.lotSize);
-  m_tickSize.append(contract.tickSize);
-  m_freezeQty.append(contract.freezeQty);
-
-  m_priceBandHigh.append(contract.priceBandHigh);
-  m_priceBandLow.append(contract.priceBandLow);
-
-  // Initialize dynamic fields to 0
-  m_ltp.append(0.0);
-  m_open.append(0.0);
-  m_high.append(0.0);
-  m_low.append(0.0);
-  m_close.append(0.0);
-  m_prevClose.append(0.0);
-  m_volume.append(0);
-
-  m_bidPrice.append(0.0);
-  m_askPrice.append(0.0);
-
-  m_contractCount++;
+  addContractInternal(contract, intern);
 }

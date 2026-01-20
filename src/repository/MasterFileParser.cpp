@@ -2,19 +2,26 @@
 #include <QDebug>
 
 // Helper function to remove surrounding quotes from field values
-static QString trimQuotes(const QString &str) {
-  QString trimmed = str.trimmed();
+static QString trimQuotes(const QStringRef &str) {
+  QStringRef trimmed = str.trimmed();
   if (trimmed.startsWith('"') && trimmed.endsWith('"') &&
       trimmed.length() >= 2) {
-    return trimmed.mid(1, trimmed.length() - 2);
+    return trimmed.mid(1, trimmed.length() - 2).toString();
   }
-  return trimmed;
+  return trimmed.toString();
 }
 
-bool MasterFileParser::parseLine(const QString &line, const QString &exchange,
+bool MasterFileParser::parseLine(const QStringRef &line, const QString &exchange,
                                  MasterContract &contract) {
-  // Split by pipe delimiter
-  QStringList fields = line.split('|');
+  // Split by pipe delimiter without allocating new strings for each field
+  QVector<QStringRef> fields;
+  int start = 0;
+  int end = 0;
+  while ((end = line.indexOf('|', start)) != -1) {
+    fields.append(line.mid(start, end - start));
+    start = end + 1;
+  }
+  fields.append(line.mid(start, line.length() - start));
 
   if (fields.isEmpty()) {
     return false;
@@ -34,7 +41,7 @@ bool MasterFileParser::parseLine(const QString &line, const QString &exchange,
   return false;
 }
 
-bool MasterFileParser::parseNSECM(const QStringList &fields,
+bool MasterFileParser::parseNSECM(const QVector<QStringRef> &fields,
                                   MasterContract &contract) {
   // NSECM format (17 fields):
   // 0: ExchangeSegment (always 1 for NSECM)
@@ -99,7 +106,7 @@ bool MasterFileParser::parseNSECM(const QStringList &fields,
   return true;
 }
 
-bool MasterFileParser::parseNSEFO(const QStringList &fields,
+bool MasterFileParser::parseNSEFO(const QVector<QStringRef> &fields,
                                   MasterContract &contract) {
   // NSEFO format has TWO different layouts:
   //
@@ -186,18 +193,16 @@ bool MasterFileParser::parseNSEFO(const QStringList &fields,
   if (!contract.expiryDate.isEmpty()) {
     QString year, month, day;
 
-    if (contract.expiryDate.contains('T')) {
-      // ISO datetime format: 2024-12-26T14:30:00
-      QStringList parts = contract.expiryDate.split('T');
-      if (!parts.isEmpty()) {
-        QStringList dateParts = parts[0].split('-');
-        if (dateParts.size() == 3) {
-          year = dateParts[0];
-          month = dateParts[1];
-          day = dateParts[2];
+      int tIdx = contract.expiryDate.indexOf('T');
+      if (tIdx != -1) {
+        int d1 = contract.expiryDate.indexOf('-');
+        int d2 = contract.expiryDate.indexOf('-', d1 + 1);
+        if (d1 != -1 && d2 != -1 && d2 < tIdx) {
+          year = contract.expiryDate.mid(0, d1);
+          month = contract.expiryDate.mid(d1 + 1, d2 - d1 - 1);
+          day = contract.expiryDate.mid(d2 + 1, tIdx - d2 - 1);
         }
-      }
-    } else if (contract.expiryDate.length() == 8 &&
+      } else if (contract.expiryDate.length() == 8 &&
                contract.expiryDate.at(0).isDigit()) {
       // YYYYMMDD format: 20241226
       year = contract.expiryDate.mid(0, 4);
@@ -219,7 +224,7 @@ bool MasterFileParser::parseNSEFO(const QStringList &fields,
   return true;
 }
 
-bool MasterFileParser::parseBSECM(const QStringList &fields,
+bool MasterFileParser::parseBSECM(const QVector<QStringRef> &fields,
                                   MasterContract &contract) {
   // BSECM format (18 fields):
   // Similar to NSECM but includes ScripCode
@@ -286,7 +291,7 @@ bool MasterFileParser::parseBSECM(const QStringList &fields,
   return true;
 }
 
-bool MasterFileParser::parseBSEFO(const QStringList &fields,
+bool MasterFileParser::parseBSEFO(const QVector<QStringRef> &fields,
                                   MasterContract &contract) {
   // BSEFO format has TWO different layouts (same as NSEFO):
   //
@@ -391,18 +396,16 @@ bool MasterFileParser::parseBSEFO(const QStringList &fields,
   if (!contract.expiryDate.isEmpty()) {
     QString year, month, day;
 
-    if (contract.expiryDate.contains('T')) {
-      // ISO datetime format: 2024-12-26T14:30:00
-      QStringList parts = contract.expiryDate.split('T');
-      if (!parts.isEmpty()) {
-        QStringList dateParts = parts[0].split('-');
-        if (dateParts.size() == 3) {
-          year = dateParts[0];
-          month = dateParts[1];
-          day = dateParts[2];
+      int tIdx = contract.expiryDate.indexOf('T');
+      if (tIdx != -1) {
+        int d1 = contract.expiryDate.indexOf('-');
+        int d2 = contract.expiryDate.indexOf('-', d1 + 1);
+        if (d1 != -1 && d2 != -1 && d2 < tIdx) {
+          year = contract.expiryDate.mid(0, d1);
+          month = contract.expiryDate.mid(d1 + 1, d2 - d1 - 1);
+          day = contract.expiryDate.mid(d2 + 1, tIdx - d2 - 1);
         }
-      }
-    } else if (contract.expiryDate.length() == 8 &&
+      } else if (contract.expiryDate.length() == 8 &&
                contract.expiryDate.at(0).isDigit()) {
       // YYYYMMDD format: 20241226
       year = contract.expiryDate.mid(0, 4);

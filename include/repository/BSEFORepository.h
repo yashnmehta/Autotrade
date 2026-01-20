@@ -54,6 +54,12 @@ public:
   QVector<ContractData> getAllContracts() const;
   QVector<ContractData> getContractsBySeries(const QString &series) const;
   QVector<ContractData> getContractsBySymbol(const QString &symbol) const;
+  
+  /**
+   * @brief Iterate over all contracts (Zero-Copy)
+   * @param callback Function called for each contract
+   */
+  void forEachContract(std::function<void(const ContractData &)> callback) const;
 
   // ===== UPDATE METHODS =====
 
@@ -67,9 +73,11 @@ public:
 
   int32_t getTotalCount() const { return m_contractCount; }
   bool isLoaded() const { return m_loaded; }
-  void finalizeLoad() { m_loaded = (m_contractCount > 0); }
+  void finalizeLoad();
 
 private:
+  void addContractInternal(const MasterContract &contract,
+                           std::function<QString(const QString &)> intern);
   // Two-level indexing
   QHash<int64_t, int32_t> m_tokenToIndex;
   int32_t m_contractCount;

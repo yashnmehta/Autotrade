@@ -9,13 +9,12 @@
 #include <string>
 #include <string_view>
 
-// Helper function to remove surrounding quotes from CSV field values
-static QString trimQuotes(const QString &str) {
-  QString trimmed = str.trimmed();
-  if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
-    return trimmed.mid(1, trimmed.length() - 2);
+static QString trimQuotes(const QStringRef &str) {
+  QStringRef trimmed = str.trimmed();
+  if (trimmed.startsWith('"') && trimmed.endsWith('"') && trimmed.length() >= 2) {
+    return trimmed.mid(1, trimmed.length() - 2).toString();
   }
-  return trimmed;
+  return trimmed.toString();
 }
 
 // Helper function to get underlying asset token for indices
@@ -131,6 +130,8 @@ bool NSEFORepository::loadMasterFile(const QString &filename) {
     return str;
   };
 
+  MasterContract contract;
+  QString qLine;
   while (std::getline(file, line)) {
     if (line.empty() || line[0] == '\r') {
       continue;
@@ -147,9 +148,8 @@ bool NSEFORepository::loadMasterFile(const QString &filename) {
     }
 
     // Parse master line
-    QString qLine = QString::fromStdString(line);
-    MasterContract contract;
-    if (!MasterFileParser::parseLine(qLine, "NSEFO", contract)) {
+    qLine = QString::fromStdString(line);
+    if (!MasterFileParser::parseLine(QStringRef(&qLine), "NSEFO", contract)) {
       continue;
     }
 
@@ -282,14 +282,23 @@ bool NSEFORepository::loadProcessedCSV(const QString &filename) {
     return str;
   };
 
+  QString qLine;
   while (std::getline(file, line)) {
-    if (line.empty()) {
+    if (line.empty() || line[0] == '\r') {
       continue;
     }
 
-    // Convert to QString for compatibility with existing code
-    QString qLine = QString::fromStdString(line);
-    QStringList fields = qLine.split(',');
+    qLine = QString::fromStdString(line);
+    
+    // Optimized manual split using midRef to avoid heap allocations
+    QVector<QStringRef> fields;
+    int start = 0;
+    int end = 0;
+    while ((end = qLine.indexOf(',', start)) != -1) {
+      fields.append(qLine.midRef(start, end - start));
+      start = end + 1;
+    }
+    fields.append(qLine.midRef(start, qLine.length() - start));
 
     if (fields.size() < 28) { // Added instrumentType
       continue;
@@ -316,15 +325,11 @@ bool NSEFORepository::loadProcessedCSV(const QString &filename) {
           internString(trimQuotes(fields[7])); // DDMMMYYYY format
       m_strikePrice[idx] = fields[8].toDouble();
       m_optionType[idx] = internString(trimQuotes(fields[9])); // CE/PE/XX
-      // fields[10] = UnderlyingSymbol (not stored separately)
       m_assetToken[idx] = fields[11].toLongLong();
       m_freezeQty[idx] = fields[12].toInt();
       m_priceBandHigh[idx] = fields[13].toDouble();
       m_priceBandLow[idx] = fields[14].toDouble();
       m_instrumentType[idx] = fields[27].toInt(); // Added
-
-      // Live market data/Greeks/Margins not stored in repository anymore
-      // They are managed by PriceStore directly
 
       loadedCount++;
     } else if (token >= SPREAD_THRESHOLD) {
@@ -363,7 +368,7 @@ bool NSEFORepository::loadProcessedCSV(const QString &filename) {
     return false;
   }
 
-  m_loaded = true;
+  finalizeLoad();
 
   qDebug() << "NSE FO Repository loaded from CSV:"
            << "Regular:" << m_regularCount << "Spread:" << m_spreadCount
@@ -772,6 +777,10 @@ void NSEFORepository::prepareForLoad() {
 
 void NSEFORepository::finalizeLoad() {
   m_loaded = (m_regularCount > 0 || m_spreadCount > 0);
+  
+  // Squeeze internal containers to return memory to the OS
+  m_spreadContracts.squeeze();
+
   qDebug() << "NSE FO Repository finalized: Regular:" << m_regularCount
            << "Spread:" << m_spreadCount << "Total:" << getTotalCount();
 }

@@ -28,7 +28,7 @@ class PriceStore {
 public:
   static const size_t MAX_TOKENS = 60000; // Covers BSE token range
   PriceStore();
-  ~PriceStore() = default;
+  ~PriceStore();
 
   // Delete copy/move
   PriceStore(const PriceStore &) = delete;
@@ -91,7 +91,7 @@ public:
   bool isValidToken(uint32_t token) const;
 
 private:
-  std::vector<UnifiedTokenState> tokenStates; // Fixed size vector
+  std::vector<UnifiedTokenState*> tokenStates; // Sparse vector of pointers
   mutable std::shared_mutex mutex;            // Shared mutex for thread safety
 };
 

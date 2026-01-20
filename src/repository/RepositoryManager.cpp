@@ -395,8 +395,8 @@ bool RepositoryManager::loadCombinedMasterFile(const QString &filePath) {
   int bsefoCount = 0;
   int bsecmCount = 0;
 
-  // Reusable objects
   MasterContract contract;
+  QString qLine;
 
   while (std::getline(file, line)) {
     lineCount++;
@@ -413,33 +413,37 @@ bool RepositoryManager::loadCombinedMasterFile(const QString &filePath) {
     if (line.empty())
       continue;
 
-    // Create QString once per line
-    QString qLine = QString::fromStdString(line);
+    // Create QString once per line and use QStringRef for parsing
+    qLine = QString::fromStdString(line);
+    QStringRef qLineRef(&qLine);
 
-    // Check segment prefix (first field before |)
-    QString segment = qLine.section('|', 0, 0);
+    // Check segment prefix (first field before |) using QStringRef
+    int pipeIdx = qLineRef.indexOf('|');
+    if (pipeIdx == -1) continue;
+    
+    QStringRef segment = qLineRef.left(pipeIdx);
     bool parsed = false;
 
     if (segment == "NSEFO") {
-      parsed = MasterFileParser::parseLine(qLine, "NSEFO", contract);
+      parsed = MasterFileParser::parseLine(qLineRef, "NSEFO", contract);
       if (parsed && m_nsefo) {
         m_nsefo->addContract(contract, intern);
         nsefoCount++;
       }
     } else if (segment == "NSECM") {
-      parsed = MasterFileParser::parseLine(qLine, "NSECM", contract);
+      parsed = MasterFileParser::parseLine(qLineRef, "NSECM", contract);
       if (parsed && m_nsecm) {
         m_nsecm->addContract(contract, intern);
         nsecmCount++;
       }
     } else if (segment == "BSEFO") {
-      parsed = MasterFileParser::parseLine(qLine, "BSEFO", contract);
+      parsed = MasterFileParser::parseLine(qLineRef, "BSEFO", contract);
       if (parsed && m_bsefo) {
         m_bsefo->addContract(contract, intern);
         bsefoCount++;
       }
     } else if (segment == "BSECM") {
-      parsed = MasterFileParser::parseLine(qLine, "BSECM", contract);
+      parsed = MasterFileParser::parseLine(qLineRef, "BSECM", contract);
       if (parsed && m_bsecm) {
         m_bsecm->addContract(contract, intern);
         bsecmCount++;
@@ -519,34 +523,37 @@ bool RepositoryManager::loadFromMemory(const QString &csvData) {
     QStringRef lineRef = csvData.midRef(start, end - start);
     start = end + 1;
 
-    if (lineRef.trimmed().isEmpty())
+    QStringRef trimmedLine = lineRef.trimmed();
+    if (trimmedLine.isEmpty())
       continue;
 
-    QString line = lineRef.toString();
-
-    QString segment = line.section('|', 0, 0);
+    // Fast segment detection without creating a new QString
+    int pipeIdx = trimmedLine.indexOf('|');
+    if (pipeIdx == -1) continue;
+    
+    QStringRef segment = trimmedLine.left(pipeIdx);
     bool parsed = false;
 
     if (segment == "NSEFO") {
-      parsed = MasterFileParser::parseLine(line, "NSEFO", contract);
+      parsed = MasterFileParser::parseLine(trimmedLine, "NSEFO", contract);
       if (parsed && m_nsefo) {
         m_nsefo->addContract(contract, intern);
         nsefoCount++;
       }
     } else if (segment == "NSECM") {
-      parsed = MasterFileParser::parseLine(line, "NSECM", contract);
+      parsed = MasterFileParser::parseLine(trimmedLine, "NSECM", contract);
       if (parsed && m_nsecm) {
         m_nsecm->addContract(contract, intern);
         nsecmCount++;
       }
     } else if (segment == "BSEFO") {
-      parsed = MasterFileParser::parseLine(line, "BSEFO", contract);
+      parsed = MasterFileParser::parseLine(trimmedLine, "BSEFO", contract);
       if (parsed && m_bsefo) {
         m_bsefo->addContract(contract, intern);
         bsefoCount++;
       }
     } else if (segment == "BSECM") {
-      parsed = MasterFileParser::parseLine(line, "BSECM", contract);
+      parsed = MasterFileParser::parseLine(trimmedLine, "BSECM", contract);
       if (parsed && m_bsecm) {
         m_bsecm->addContract(contract, intern);
         bsecmCount++;
@@ -556,34 +563,38 @@ bool RepositoryManager::loadFromMemory(const QString &csvData) {
 
   // Handle last line if no newline at end
   if (start < csvData.length()) {
-    QString line = csvData.mid(start);
-    if (!line.trimmed().isEmpty()) {
+    QStringRef lineRef = csvData.midRef(start);
+    QStringRef trimmedLine = lineRef.trimmed();
+    if (!trimmedLine.isEmpty()) {
       lineCount++;
-      QString segment = line.section('|', 0, 0);
-      bool parsed = false;
-      if (segment == "NSEFO") {
-        parsed = MasterFileParser::parseLine(line, "NSEFO", contract);
-        if (parsed && m_nsefo) {
-          m_nsefo->addContract(contract, intern);
-          nsefoCount++;
-        }
-      } else if (segment == "NSECM") {
-        parsed = MasterFileParser::parseLine(line, "NSECM", contract);
-        if (parsed && m_nsecm) {
-          m_nsecm->addContract(contract, intern);
-          nsecmCount++;
-        }
-      } else if (segment == "BSEFO") {
-        parsed = MasterFileParser::parseLine(line, "BSEFO", contract);
-        if (parsed && m_bsefo) {
-          m_bsefo->addContract(contract, intern);
-          bsefoCount++;
-        }
-      } else if (segment == "BSECM") {
-        parsed = MasterFileParser::parseLine(line, "BSECM", contract);
-        if (parsed && m_bsecm) {
-          m_bsecm->addContract(contract, intern);
-          bsecmCount++;
+      int pipeIdx = trimmedLine.indexOf('|');
+      if (pipeIdx != -1) {
+        QStringRef segment = trimmedLine.left(pipeIdx);
+        bool parsed = false;
+        if (segment == "NSEFO") {
+          parsed = MasterFileParser::parseLine(trimmedLine, "NSEFO", contract);
+          if (parsed && m_nsefo) {
+            m_nsefo->addContract(contract, intern);
+            nsefoCount++;
+          }
+        } else if (segment == "NSECM") {
+          parsed = MasterFileParser::parseLine(trimmedLine, "NSECM", contract);
+          if (parsed && m_nsecm) {
+            m_nsecm->addContract(contract, intern);
+            nsecmCount++;
+          }
+        } else if (segment == "BSEFO") {
+          parsed = MasterFileParser::parseLine(trimmedLine, "BSEFO", contract);
+          if (parsed && m_bsefo) {
+            m_bsefo->addContract(contract, intern);
+            bsefoCount++;
+          }
+        } else if (segment == "BSECM") {
+          parsed = MasterFileParser::parseLine(trimmedLine, "BSECM", contract);
+          if (parsed && m_bsecm) {
+            m_bsecm->addContract(contract, intern);
+            bsecmCount++;
+          }
         }
       }
     }
@@ -982,21 +993,20 @@ void RepositoryManager::initializeDistributedStores() {
 
   // NSE CM: Pre-populate hash map with contract master data
   if (m_nsecm && m_nsecm->isLoaded()) {
-    const auto &contracts = m_nsecm->getAllContracts();
     std::vector<uint32_t> tokens;
-    tokens.reserve(contracts.size());
+    tokens.reserve(m_nsecm->getTotalCount());
 
-    for (const auto &contract : contracts) {
+    m_nsecm->forEachContract([&](const ContractData &contract) {
       uint32_t token = static_cast<uint32_t>(contract.exchangeInstrumentID);
       tokens.push_back(token);
 
       // Initialize token with contract master metadata
       nsecm::g_nseCmPriceStore.initializeToken(
           token, contract.name.toUtf8().constData(),
-          contract.displayName.toUtf8().constData(),
-          contract.series.toUtf8().constData(), contract.lotSize,
+          contract.series.toUtf8().constData(),
+          contract.displayName.toUtf8().constData(), contract.lotSize,
           contract.tickSize, contract.priceBandHigh, contract.priceBandLow);
-    }
+    });
 
     nsecm::g_nseCmPriceStore.initializeFromMaster(tokens);
     qDebug() << "  NSE CM:" << tokens.size() << "contracts pre-populated";
@@ -1004,11 +1014,10 @@ void RepositoryManager::initializeDistributedStores() {
 
   // BSE FO: Pre-populate hash map with contract master data
   if (m_bsefo && m_bsefo->isLoaded()) {
-    const auto &contracts = m_bsefo->getAllContracts();
     std::vector<uint32_t> tokens;
-    tokens.reserve(contracts.size());
+    tokens.reserve(m_bsefo->getTotalCount());
 
-    for (const auto &contract : contracts) {
+    m_bsefo->forEachContract([&](const ContractData &contract) {
       uint32_t token = static_cast<uint32_t>(contract.exchangeInstrumentID);
       tokens.push_back(token);
 
@@ -1021,7 +1030,7 @@ void RepositoryManager::initializeDistributedStores() {
           contract.strikePrice, contract.optionType.toUtf8().constData(),
           contract.expiryDate.toUtf8().constData(), contract.assetToken,
           contract.instrumentType, contract.tickSize);
-    }
+    });
 
     bse::g_bseFoPriceStore.initializeFromMaster(tokens);
     qDebug() << "  BSE FO:" << tokens.size() << "contracts pre-populated";
@@ -1029,11 +1038,10 @@ void RepositoryManager::initializeDistributedStores() {
 
   // BSE CM: Pre-populate hash map with contract master data
   if (m_bsecm && m_bsecm->isLoaded()) {
-    const auto &contracts = m_bsecm->getAllContracts();
     std::vector<uint32_t> tokens;
-    tokens.reserve(contracts.size());
+    tokens.reserve(m_bsecm->getTotalCount());
 
-    for (const auto &contract : contracts) {
+    m_bsecm->forEachContract([&](const ContractData &contract) {
       uint32_t token = static_cast<uint32_t>(contract.exchangeInstrumentID);
       tokens.push_back(token);
 
@@ -1046,7 +1054,7 @@ void RepositoryManager::initializeDistributedStores() {
           contract.strikePrice, contract.optionType.toUtf8().constData(),
           contract.expiryDate.toUtf8().constData(), contract.assetToken,
           contract.instrumentType, contract.tickSize);
-    }
+    });
 
     bse::g_bseCmPriceStore.initializeFromMaster(tokens);
     qDebug() << "  BSE CM:" << tokens.size() << "contracts pre-populated";
