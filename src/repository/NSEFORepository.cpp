@@ -798,9 +798,9 @@ void NSEFORepository::addContract(
     // Determine OptionType (1=CE, 2=PE, 3/4=XX)
     QString optType = "XX";
     if (contract.instrumentType == 2) { // OPTIDX/OPTSTK
-      if (contract.optionType == 1)
+      if (contract.optionType == 1 || contract.optionType == 3)
         optType = "CE";
-      else if (contract.optionType == 2)
+      else if (contract.optionType == 2 || contract.optionType == 4)
         optType = "PE";
     }
 

@@ -152,7 +152,22 @@ bool MasterFileParser::parseNSEFO(const QVector<QStringRef> &fields,
     // OPTIONS (23 fields): 17=Strike, 18=OptionType, 19=DisplayName, 20=Num,
     // 21=Den
     contract.strikePrice = fields[17].toDouble();
-    contract.optionType = fields[18].toInt();
+    
+    // Handle OptionType being numeric or string (CE/PE)
+    QString optStr = trimQuotes(fields[18]);
+    bool optOk;
+    int optTypeVal = optStr.toInt(&optOk);
+    if (optOk) {
+      contract.optionType = optTypeVal;
+    } else {
+      optStr = optStr.toUpper();
+      if (optStr == "CE")
+        contract.optionType = 1; // Map to CE code
+      else if (optStr == "PE")
+        contract.optionType = 2; // Map to PE code
+      else
+        contract.optionType = 0;
+    }
     contract.displayName = trimQuotes(fields[19]);
 
     if (fields.size() >= 22) {
