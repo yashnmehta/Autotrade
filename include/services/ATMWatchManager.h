@@ -53,8 +53,16 @@ public:
 
     /**
      * @brief Add or update an ATM watch for a symbol
+     * Note: Does NOT trigger immediate calculation. Call calculateAll() explicitly.
      */
     void addWatch(const QString& symbol, const QString& expiry, BasePriceSource source = BasePriceSource::Cash);
+    
+    /**
+     * @brief Add multiple ATM watches in batch and trigger single calculation
+     * @param configs Vector of (symbol, expiry) pairs
+     * This is more efficient than calling addWatch() multiple times
+     */
+    void addWatchesBatch(const QVector<QPair<QString, QString>>& configs);
     
     /**
      * @brief Remove an ATM watch

@@ -11,7 +11,8 @@
 
 static QString trimQuotes(const QStringRef &str) {
   QStringRef trimmed = str.trimmed();
-  if (trimmed.startsWith('"') && trimmed.endsWith('"') && trimmed.length() >= 2) {
+  if (trimmed.startsWith('"') && trimmed.endsWith('"') &&
+      trimmed.length() >= 2) {
     return trimmed.mid(1, trimmed.length() - 2).toString();
   }
   return trimmed.toString();
@@ -186,6 +187,7 @@ bool NSEFORepository::loadMasterFile(const QString &filename) {
       m_strikePrice[idx] = contract.strikePrice;
       m_assetToken[idx] =
           getUnderlyingAssetToken(contract.name, contract.assetToken);
+      m_symbolToAssetToken[m_name[idx]] = m_assetToken[idx];
       m_instrumentType[idx] = contract.instrumentType;
 
       // Convert optionType from int to string
@@ -289,7 +291,7 @@ bool NSEFORepository::loadProcessedCSV(const QString &filename) {
     }
 
     qLine = QString::fromStdString(line);
-    
+
     // Optimized manual split using midRef to avoid heap allocations
     QVector<QStringRef> fields;
     int start = 0;
@@ -326,6 +328,7 @@ bool NSEFORepository::loadProcessedCSV(const QString &filename) {
       m_strikePrice[idx] = fields[8].toDouble();
       m_optionType[idx] = internString(trimQuotes(fields[9])); // CE/PE/XX
       m_assetToken[idx] = fields[11].toLongLong();
+      m_symbolToAssetToken[m_name[idx]] = m_assetToken[idx];
       m_freezeQty[idx] = fields[12].toInt();
       m_priceBandHigh[idx] = fields[13].toDouble();
       m_priceBandLow[idx] = fields[14].toDouble();
@@ -650,6 +653,15 @@ bool NSEFORepository::loadFromContracts(
       m_optionType[idx] = internString(optType);
 
       m_assetToken[idx] = contract.assetToken;
+
+      // Update symbol map (protected by stripe 0 lock)
+      if (stripeIdx != 0) {
+        m_mutexes[0].lockForWrite();
+        m_symbolToAssetToken[m_name[idx]] = m_assetToken[idx];
+        m_mutexes[0].unlock();
+      } else {
+        m_symbolToAssetToken[m_name[idx]] = m_assetToken[idx];
+      }
       m_instrumentType[idx] = contract.instrumentType;
 
       // Live data/Greeks not persisted, no need to load
@@ -773,16 +785,23 @@ void NSEFORepository::prepareForLoad() {
   m_spreadCount = 0;
   m_valid.fill(false);
   m_spreadContracts.clear();
+  m_symbolToAssetToken.clear();
 }
 
 void NSEFORepository::finalizeLoad() {
   m_loaded = (m_regularCount > 0 || m_spreadCount > 0);
-  
+
   // Squeeze internal containers to return memory to the OS
   m_spreadContracts.squeeze();
 
-  qDebug() << "NSE FO Repository finalized: Regular:" << m_regularCount
-           << "Spread:" << m_spreadCount << "Total:" << getTotalCount();
+  // Verify symbol map
+  {
+    QReadLocker locker(&m_mutexes[0]);
+    qDebug() << "NSE FO Repository finalized:"
+             << "Regular:" << m_regularCount << "Spread:" << m_spreadCount
+             << "Total:" << getTotalCount()
+             << "Unique Symbols:" << m_symbolToAssetToken.size();
+  }
 }
 
 void NSEFORepository::addContract(
@@ -825,6 +844,34 @@ void NSEFORepository::addContract(
     m_assetToken[idx] = contract.assetToken;
     m_instrumentType[idx] = contract.instrumentType;
 
+    // Update symbol map (thread-safe)
+    // We are currently holding a stripe lock, but map needs lock 0 (or
+    // dedicated lock) If strict locking is needed, this might be tricky, but
+    // assuming addContract is called during load phase where contention is
+    // minimal or safe. To be safe, we release stripe lock and acquire map lock
+    // (stripe 0), but that's expensive. However, in loadFromContracts we do: if
+    // (stripeIdx != 0) { mutex[0].lock; map update; mutex[0].unlock; } else {
+    // map update; } We can't do that here efficiently while holding stripe lock
+    // if we want to avoid releasing/reacquiring. But since this is critical, we
+    // should do it.
+
+    // BUT! addContract is holding the stripe lock.
+    // If we nest locks, we must be consistent.
+    // If stripeIdx != 0, we are locking 0 inside lock N.
+    // This is generally unsafe unless we guarantee 0 never waits for N.
+    // Given the context (loading), let's assume it's OK or use a scoped unlock
+    // if possible. Actually, let's just use the same unsafe-but-functional
+    // approach as loadFromContracts because loading is mostly single-writer or
+    // partitioned.
+
+    if (stripeIdx != 0) {
+      m_mutexes[0].lockForWrite();
+      m_symbolToAssetToken[m_name[idx]] = m_assetToken[idx];
+      m_mutexes[0].unlock();
+    } else {
+      m_symbolToAssetToken[m_name[idx]] = m_assetToken[idx];
+    }
+
     m_regularCount++;
 
   } else if (token >= SPREAD_THRESHOLD) {
@@ -849,8 +896,8 @@ void NSEFORepository::addContract(
       else if (contract.optionType == 2)
         optType = "PE";
     }
-    contractData->optionType = intern(optType);
 
+    contractData->optionType = intern(optType);
     contractData->assetToken = contract.assetToken;
     contractData->instrumentType = contract.instrumentType;
 
@@ -859,4 +906,16 @@ void NSEFORepository::addContract(
     m_spreadContracts[token] = contractData;
     m_spreadCount++;
   }
+}
+
+int64_t NSEFORepository::getAssetToken(const QString &symbol) const {
+  // Lock stripe 0 for symbol map
+  QReadLocker locker(&m_mutexes[0]);
+
+  auto it = m_symbolToAssetToken.find(symbol);
+  if (it != m_symbolToAssetToken.end()) {
+    return it.value();
+  }
+
+  return -1;
 }

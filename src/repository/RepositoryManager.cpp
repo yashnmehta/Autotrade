@@ -1,8 +1,10 @@
 #include "repository/RepositoryManager.h"
 #include "repository/MasterFileParser.h"
 #include <QCoreApplication>
+#include <QDate>
 #include <QDebug>
 #include <QDir>
+#include <QElapsedTimer>
 #include <QFile>
 #include <QFileInfo>
 #include <QSet>
@@ -420,8 +422,9 @@ bool RepositoryManager::loadCombinedMasterFile(const QString &filePath) {
 
     // Check segment prefix (first field before |) using QStringRef
     int pipeIdx = qLineRef.indexOf('|');
-    if (pipeIdx == -1) continue;
-    
+    if (pipeIdx == -1)
+      continue;
+
     QStringRef segment = qLineRef.left(pipeIdx);
     bool parsed = false;
 
@@ -471,6 +474,9 @@ bool RepositoryManager::loadCombinedMasterFile(const QString &filePath) {
     m_bsefo->finalizeLoad();
   if (m_bsecm)
     m_bsecm->finalizeLoad();
+
+  // Build expiry cache for ATM Watch optimization
+  buildExpiryCache();
 
   // Mark as loaded if we got any data
   bool anyLoaded =
@@ -530,8 +536,9 @@ bool RepositoryManager::loadFromMemory(const QString &csvData) {
 
     // Fast segment detection without creating a new QString
     int pipeIdx = trimmedLine.indexOf('|');
-    if (pipeIdx == -1) continue;
-    
+    if (pipeIdx == -1)
+      continue;
+
     QStringRef segment = trimmedLine.left(pipeIdx);
     bool parsed = false;
 
@@ -618,6 +625,9 @@ bool RepositoryManager::loadFromMemory(const QString &csvData) {
     m_bsefo->finalizeLoad();
   if (m_bsecm)
     m_bsecm->finalizeLoad();
+
+  // Build expiry cache for ATM Watch optimization
+  buildExpiryCache();
 
   bool anyLoaded =
       (nsefoCount > 0 || nsecmCount > 0 || bsefoCount > 0 || bsecmCount > 0);
@@ -1063,4 +1073,334 @@ void RepositoryManager::initializeDistributedStores() {
 
   qDebug() << "[RepositoryManager] Distributed stores initialized with "
               "contract master data";
+}
+
+// ===== EXPIRY CACHE IMPLEMENTATION =====
+
+// ===== EXPIRY CACHE IMPLEMENTATION =====
+
+void RepositoryManager::buildExpiryCache() {
+  m_expiryToSymbols.clear();
+  m_symbolToCurrentExpiry.clear();
+  m_optionSymbols.clear();
+  m_optionExpiries.clear();
+
+  // NEW: Clear ATM optimization caches
+  m_symbolExpiryStrikes.clear();
+  m_strikeToTokens.clear();
+  m_symbolToAssetToken.clear();
+  m_symbolExpiryFutureToken.clear();
+
+  QMap<QString, QVector<QString>> symbolToExpiries;
+
+  if (m_nsefo) {
+    QVector<ContractData> nsefoContracts = m_nsefo->getAllContracts();
+
+    QElapsedTimer timer;
+    timer.start();
+    for (const auto &contract : nsefoContracts) {
+      // Futures: FUTSTK (stock futures) and FUTIDX (index futures)
+      // instrumentType 1 = Future
+      if (contract.series == "FUTSTK" || contract.series == "FUTIDX") {
+        QString symbolExpiryKey = contract.name + "|" + contract.expiryDate;
+        // Store future token for this symbol+expiry
+        if (!m_symbolExpiryFutureToken.contains(symbolExpiryKey)) {
+          m_symbolExpiryFutureToken[symbolExpiryKey] =
+              contract.exchangeInstrumentID;
+        }
+      }
+
+      // Options: OPTSTK (stock options) and OPTIDX (index options)
+      if (contract.series == "OPTSTK" || contract.series == "OPTIDX") {
+
+        // all expiries
+        if (!m_optionExpiries.contains(contract.expiryDate)) {
+          m_optionExpiries.insert(contract.expiryDate);
+        }
+        // all symbols
+        if (!m_optionSymbols.contains(contract.name)) {
+          m_optionSymbols.insert(contract.name);
+        }
+
+        // Add symbol to expiry mapping
+        if (!m_expiryToSymbols[contract.expiryDate].contains(contract.name)) {
+          m_expiryToSymbols[contract.expiryDate].append(contract.name);
+        }
+
+        // Collect all expiries for this symbol
+        if (!symbolToExpiries[contract.name].contains(contract.expiryDate)) {
+          symbolToExpiries[contract.name].append(contract.expiryDate);
+        }
+
+        // NEW: Build strike list for symbol+expiry
+        QString symbolExpiryKey = contract.name + "|" + contract.expiryDate;
+        if (!m_symbolExpiryStrikes[symbolExpiryKey].contains(
+                contract.strikePrice)) {
+          m_symbolExpiryStrikes[symbolExpiryKey].append(contract.strikePrice);
+        }
+
+        // NEW: Map strike to CE/PE tokens
+        QString strikeKey = symbolExpiryKey + "|" +
+                            QString::number(contract.strikePrice, 'f', 2);
+        if (contract.optionType == "CE") {
+          m_strikeToTokens[strikeKey].first = contract.exchangeInstrumentID;
+        } else if (contract.optionType == "PE") {
+          m_strikeToTokens[strikeKey].second = contract.exchangeInstrumentID;
+        }
+
+        // NEW: Store asset token (once per symbol)
+        if (!m_symbolToAssetToken.contains(contract.name) &&
+            contract.assetToken > 0) {
+          m_symbolToAssetToken[contract.name] = contract.assetToken;
+        }
+      }
+    }
+
+    // Sort all strike lists
+    for (auto it = m_symbolExpiryStrikes.begin();
+         it != m_symbolExpiryStrikes.end(); ++it) {
+      std::sort(it.value().begin(), it.value().end());
+    }
+
+    std::cout << "NSE FO: build expiry cache time taken " << timer.elapsed()
+              << " ms, strikes cached: " << m_symbolExpiryStrikes.size()
+              << ", tokens cached: " << m_strikeToTokens.size()
+              << ", futures cached: " << m_symbolExpiryFutureToken.size()
+              << std::endl;
+  }
+
+  if (m_bsefo) {
+    QVector<ContractData> bsefoContracts = m_bsefo->getAllContracts();
+    QElapsedTimer timer; // New timer instance or restart existing one
+    timer.start();
+    for (const auto &contract : bsefoContracts) {
+      if (contract.series == "OPTSTK") { // OPTSTK (Options)
+        m_optionSymbols.insert(contract.name);
+
+        // Add symbol to expiry mapping
+        if (!m_expiryToSymbols[contract.expiryDate].contains(contract.name)) {
+          m_expiryToSymbols[contract.expiryDate].append(contract.name);
+        }
+
+        // Collect all expiries for this symbol
+        if (!symbolToExpiries[contract.name].contains(contract.expiryDate)) {
+          symbolToExpiries[contract.name].append(contract.expiryDate);
+        }
+      }
+    }
+    std::cout << "BSE FO: build expiry cache time taken " << timer.elapsed()
+              << " ms" << std::endl;
+  }
+
+  // get current expiry for all symbols
+  // for loop m_optionSymbols list
+
+  for (auto i_symbol : m_optionSymbols) {
+    // get all expiries for this symbol
+    QVector<QString> expiries = symbolToExpiries[i_symbol];
+    if (expiries.isEmpty())
+      continue;
+
+    // convert all expiries to QDate
+    QVector<QDate> expiryDates;
+    for (auto j_expiry : expiries) {
+      QDate date = QDate::fromString(j_expiry, "ddMMMyyyy");
+      if (date.isValid()) {
+        expiryDates.append(date);
+      }
+    }
+
+    if (expiryDates.isEmpty())
+      continue;
+
+    // sort expiryDates ascending
+    std::sort(expiryDates.begin(), expiryDates.end());
+    // get first (nearest) element and convert back to QString
+    QString firstExpiry = expiryDates.first().toString("ddMMMyyyy").toUpper();
+    // insert into m_symbolToCurrentExpiry
+    m_symbolToCurrentExpiry.insert(i_symbol, firstExpiry);
+  }
+
+  // Calculate memory overhead (approximate)
+  int memoryKB = 0;
+  memoryKB += m_optionSymbols.size() * 20;         // ~20 bytes per symbol
+  memoryKB += m_expiryToSymbols.size() * 30;       // ~30 bytes per expiry entry
+  memoryKB += m_symbolToCurrentExpiry.size() * 40; // ~40 bytes per mapping
+  qDebug() << "  - Estimated memory:" << (memoryKB / 1024.0) << "KB";
+}
+
+QVector<QString> RepositoryManager::getOptionSymbols() const {
+  return m_optionSymbols.values().toVector();
+}
+
+QVector<QString>
+RepositoryManager::getSymbolsForExpiry(const QString &expiry) const {
+
+  QVector<QString> symbols = m_expiryToSymbols.value(expiry);
+  // sort symbols ascending
+  std::sort(symbols.begin(), symbols.end());
+  return symbols;
+}
+
+QString RepositoryManager::getCurrentExpiry(const QString &symbol) const {
+  return m_symbolToCurrentExpiry.value(symbol);
+}
+
+// get all expiries for a symbol (sorted ascending)
+QVector<QString>
+RepositoryManager::getExpiriesForSymbol(const QString &symbol) const {
+  // Get all contracts for this symbol and extract unique expiries
+  QSet<QString> uniqueExpiries;
+
+  if (m_nsefo && m_nsefo->isLoaded()) {
+    QVector<ContractData> contracts = m_nsefo->getContractsBySymbol(symbol);
+    for (const auto &c : contracts) {
+      if (c.instrumentType == 2) { // Options only
+        uniqueExpiries.insert(c.expiryDate);
+      }
+    }
+  }
+
+  // Convert to vector and sort
+  QVector<QString> expiries;
+  for (const QString &exp : uniqueExpiries) {
+    expiries.append(exp);
+  }
+
+  // Sort by date
+  std::sort(expiries.begin(), expiries.end(),
+            [](const QString &a, const QString &b) {
+              QDate dateA = QDate::fromString(a, "ddMMMyyyy");
+              QDate dateB = QDate::fromString(b, "ddMMMyyyy");
+              return dateA < dateB;
+            });
+
+  return expiries;
+}
+
+QVector<QString> RepositoryManager::getAllExpiries() const {
+  // Convert QSet to QVector
+  QVector<QString> expiries;
+  for (const QString &exp : m_optionExpiries) {
+    expiries.append(exp);
+  }
+  // Sort by date
+  std::sort(expiries.begin(), expiries.end(),
+            [](const QString &a, const QString &b) {
+              QDate dateA = QDate::fromString(a, "ddMMMyyyy");
+              QDate dateB = QDate::fromString(b, "ddMMMyyyy");
+              return dateA < dateB;
+            });
+  return expiries;
+}
+
+// function to fecth list from array
+//  is there any way other than for loop to convert set to qvector
+
+QVector<QString> RepositoryManager::getOptionSymbolsFromArray() const {
+  QVector<QString> symbols;
+  symbols.reserve(m_optionSymbols.size());
+  for (const QString &symbol : m_optionSymbols) {
+    symbols.append(symbol);
+  }
+  return symbols;
+}
+
+// function to fetch unique expiry from array of stock option
+
+QVector<QString> RepositoryManager::getUniqueExpiryOfStockOption() const {
+  QVector<QString> expiries;
+  expiries.reserve(m_optionExpiries.size());
+  for (const QString &expiry : m_optionExpiries) {
+    expiries.append(expiry);
+  }
+  std::sort(expiries.begin(), expiries.end());
+  return expiries;
+}
+
+// get all unique symbol of stock option
+
+QVector<QString> RepositoryManager::getAllUniqueSymbolOfStockOption() const {
+  QVector<QString> symbols;
+  symbols.reserve(m_optionSymbols.size());
+  for (const QString &symbol : m_optionSymbols) {
+    symbols.append(symbol);
+  }
+  return symbols;
+}
+
+// get current expiry of all stock option take input as symbollist
+
+QVector<QString> RepositoryManager::getCurrentExpiryOfAllStockOption(
+    const QVector<QString> &symbolList) const {
+  QVector<QString> currentExpiries;
+  currentExpiries.reserve(symbolList.size());
+
+  for (const QString &symbol : symbolList) {
+    // Get all expiries for this symbol, then find nearest
+    QVector<QString> expiries = getExpiriesForSymbol(symbol);
+    QString nearestExpiry = getNearestExpiry(expiries);
+    currentExpiries.append(nearestExpiry);
+  }
+  return currentExpiries;
+}
+
+// get nearest expiry from a list of expiry dates
+QString
+RepositoryManager::getNearestExpiry(const QVector<QString> &expiryList) const {
+  if (expiryList.isEmpty()) {
+    return QString();
+  }
+
+  // convert all values into date and sort them
+  QVector<QDate> dates;
+  for (const QString &expiry : expiryList) {
+    QDate date = QDate::fromString(expiry, "ddMMMyyyy");
+    if (date.isValid()) {
+      dates.append(date);
+    }
+  }
+
+  if (dates.isEmpty()) {
+    return QString();
+  }
+
+  std::sort(dates.begin(), dates.end());
+
+  // find nearest expiry >= today
+  QDate today = QDate::currentDate();
+  for (const QDate &date : dates) {
+    if (date >= today) {
+      return date.toString("ddMMMyyyy").toUpper();
+    }
+  }
+
+  // If no future expiry found, return the last (most recent past) one
+  return dates.last().toString("ddMMMyyyy").toUpper();
+}
+
+// ===== ATM WATCH OPTIMIZATION: O(1) LOOKUPS =====
+
+QVector<double>
+RepositoryManager::getStrikesForSymbolExpiry(const QString &symbol,
+                                             const QString &expiry) const {
+  QString key = symbol + "|" + expiry;
+  return m_symbolExpiryStrikes.value(key);
+}
+
+QPair<int64_t, int64_t> RepositoryManager::getTokensForStrike(
+    const QString &symbol, const QString &expiry, double strike) const {
+  QString key = symbol + "|" + expiry + "|" + QString::number(strike, 'f', 2);
+  return m_strikeToTokens.value(key, qMakePair(0LL, 0LL));
+}
+
+int64_t RepositoryManager::getAssetTokenForSymbol(const QString &symbol) const {
+  return m_symbolToAssetToken.value(symbol, 0);
+}
+
+int64_t
+RepositoryManager::getFutureTokenForSymbolExpiry(const QString &symbol,
+                                                 const QString &expiry) const {
+  QString key = symbol + "|" + expiry;
+  return m_symbolExpiryFutureToken.value(key, 0);
 }
