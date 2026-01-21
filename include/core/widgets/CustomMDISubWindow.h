@@ -54,15 +54,13 @@ public:
     void setPinned(bool pinned);
     bool isPinned() const { return m_isPinned; }
 
-public slots:
-    void updateTitleBarVisibility();
-
 signals:
     void closeRequested();
     void minimizeRequested();
     void maximizeRequested();
     void windowActivated();
     void customizeRequested();
+    void windowMoved(const QPoint &pos);  // Emitted when window is moved
 
 protected:
     void mousePressEvent(QMouseEvent *event) override;

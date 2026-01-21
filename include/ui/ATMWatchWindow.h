@@ -13,10 +13,8 @@
 #include <QMap>
 #include <QComboBox>
 #include <QLineEdit>
-#include <QSortFilterProxyModel>
 #include "services/ATMWatchManager.h"
 #include "udp/UDPTypes.h"
-#include "models/WindowContext.h"
 
 /**
  * @brief Professional ATM Watch Window
@@ -28,7 +26,6 @@ class ATMWatchWindow : public QWidget
 
 public:
     explicit ATMWatchWindow(QWidget *parent = nullptr);
-    WindowContext getSelectedContext() const;
     ~ATMWatchWindow();
 
 private slots:
@@ -44,6 +41,7 @@ protected:
     bool eventFilter(QObject *obj, QEvent *event) override;
     void showEvent(QShowEvent *event) override;
 
+private:
     void setupUI();
     void setupModels();
     void setupConnections();
@@ -68,14 +66,13 @@ protected:
     QTableView *m_putTable;
     
     // Models
-    // Unified Model and Proxy for all 3 tables
-    QStandardItemModel *m_mainModel;
-    QSortFilterProxyModel *m_mainProxy;
+    QStandardItemModel *m_callModel;
+    QStandardItemModel *m_symbolModel;
+    QStandardItemModel *m_putModel;
     
     // Logic storage
     QMap<QString, int> m_symbolToRow;
     QMap<int64_t, std::pair<QString, bool>> m_tokenToInfo; // token -> {symbol, isCall}
-    QMap<int64_t, QString> m_underlyingToSymbol;         // token -> symbol
     QMap<uint32_t, int> m_underlyingToRow;
     QMap<QString, int64_t> m_symbolToUnderlyingToken;  // symbol -> underlying token (cash/future)
     

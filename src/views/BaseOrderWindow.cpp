@@ -468,47 +468,78 @@ bool BaseOrderWindow::eventFilter(QObject *obj, QEvent *event) {
 }
 
 bool BaseOrderWindow::focusNextPrevChild(bool next) {
-    // Define a fast-path sequence for trading
-    QList<QWidget*> widgets;
-    
-    // 1. Order Type
-    if (m_cbOrdType && m_cbOrdType->isEnabled()) widgets << m_cbOrdType;
-    
-    // 2. Product
-    if (m_cbProduct && m_cbProduct->isEnabled()) widgets << m_cbProduct;
-    
-    // 3. Quantity
-    if (m_leQty && m_leQty->isEnabled()) widgets << m_leQty;
-    
-    // 3. Price (if enabled)
-    if (m_leRate && m_leRate->isEnabled()) widgets << m_leRate;
-    
-    // 4. Trigger Price (if enabled)
-    if (m_leTrigPrice && m_leTrigPrice->isEnabled()) widgets << m_leTrigPrice;
-    
-    // 5. Submit Button
-    if (m_pbSubmit && m_pbSubmit->isEnabled()) widgets << m_pbSubmit;
-
-    if (widgets.isEmpty()) return QWidget::focusNextPrevChild(next);
-    
     QWidget *curr = QApplication::focusWidget();
-    int idx = widgets.indexOf(curr);
     
-    // If current focused widget is not in our fast-path, let default logic handle it
-    if (idx == -1) {
-        // Exception: if starting tab from somewhere else, maybe jump into the fast path?
-        // For now, let default logic find the next widget based on UI tab order
-        return QWidget::focusNextPrevChild(next);
+    if (next) {
+        // Forward navigation (Tab): Extended path
+        // Total Qty → Price → Pro/CLI → Order Type → Validity → User Remarks → Submit
+        QList<QWidget*> forwardWidgets;
+        
+        if (m_leQty && m_leQty->isEnabled()) forwardWidgets << m_leQty;
+        if (m_leRate && m_leRate->isEnabled()) forwardWidgets << m_leRate;
+        if (m_cbProCli && m_cbProCli->isEnabled()) forwardWidgets << m_cbProCli;
+        if (m_cbProduct && m_cbProduct->isEnabled()) forwardWidgets << m_cbProduct;
+        if (m_cbValidity && m_cbValidity->isEnabled()) forwardWidgets << m_cbValidity;
+        if (m_leRemarks && m_leRemarks->isEnabled()) forwardWidgets << m_leRemarks;
+        if (m_pbSubmit && m_pbSubmit->isEnabled()) forwardWidgets << m_pbSubmit;
+        
+        if (!forwardWidgets.isEmpty()) {
+            int idx = forwardWidgets.indexOf(curr);
+            if (idx != -1) {
+                // In our custom forward path, cycle through
+                int nextIdx = (idx + 1) % forwardWidgets.size();
+                forwardWidgets[nextIdx]->setFocus();
+                
+                QLineEdit *le = qobject_cast<QLineEdit*>(forwardWidgets[nextIdx]);
+                if (le) le->selectAll();
+                
+                return true;
+            }
+        }
+    } else {
+        // Backward navigation (Shift+Tab): Complete path
+        // Submit → User Remarks → Validity → Order Type → Pro/CLI → Price → Total Qty → 
+        // Opt Type → Strike Price → Expiry Date → Inst Type → Token → Type → Exchange
+        QList<QWidget*> backwardWidgets;
+        
+        // Second row fields (in reverse order for backward navigation)
+        if (m_pbSubmit && m_pbSubmit->isEnabled()) backwardWidgets << m_pbSubmit;
+        if (m_leRemarks && m_leRemarks->isEnabled()) backwardWidgets << m_leRemarks;
+        if (m_cbValidity && m_cbValidity->isEnabled()) backwardWidgets << m_cbValidity;
+        if (m_cbProduct && m_cbProduct->isEnabled()) backwardWidgets << m_cbProduct;
+        if (m_cbProCli && m_cbProCli->isEnabled()) backwardWidgets << m_cbProCli;
+        
+        // First row fields (right to left)
+        if (m_leRate && m_leRate->isEnabled()) backwardWidgets << m_leRate;
+        if (m_leQty && m_leQty->isEnabled()) backwardWidgets << m_leQty;
+        if (m_cbOptType && m_cbOptType->isEnabled()) backwardWidgets << m_cbOptType;
+        if (m_cbStrike && m_cbStrike->isEnabled()) backwardWidgets << m_cbStrike;
+        if (m_cbExp && m_cbExp->isEnabled()) backwardWidgets << m_cbExp;
+        if (m_cbInstrName && m_cbInstrName->isEnabled()) backwardWidgets << m_cbInstrName;
+        if (m_leToken && m_leToken->isEnabled()) backwardWidgets << m_leToken;
+        if (m_cbOrdType && m_cbOrdType->isEnabled()) backwardWidgets << m_cbOrdType;
+        if (m_cbEx && m_cbEx->isEnabled()) backwardWidgets << m_cbEx;
+        
+        if (!backwardWidgets.isEmpty()) {
+            int idx = backwardWidgets.indexOf(curr);
+            if (idx != -1) {
+                if (idx < backwardWidgets.size() - 1) {
+                    // Move to next widget in backward sequence
+                    int nextIdx = idx + 1;
+                    backwardWidgets[nextIdx]->setFocus();
+                    
+                    QLineEdit *le = qobject_cast<QLineEdit*>(backwardWidgets[nextIdx]);
+                    if (le) le->selectAll();
+                    
+                    return true;
+                }
+                // If at last widget (Exchange), let Qt handle further backward navigation
+            }
+        }
     }
     
-    int nextIdx = next ? (idx + 1) % widgets.size() : (idx - 1 + widgets.size()) % widgets.size();
-    widgets[nextIdx]->setFocus();
-    
-    // Select all text if it's a line edit for easier replacement
-    QLineEdit *le = qobject_cast<QLineEdit*>(widgets[nextIdx]);
-    if (le) le->selectAll();
-    
-    return true;
+    // Use default Qt behavior for widgets not in our custom paths
+    return QWidget::focusNextPrevChild(next);
 }
 
 void BaseOrderWindow::keyPressEvent(QKeyEvent *event) {
