@@ -148,6 +148,15 @@ void MainWindow::createBuyWindow()
                     }
                 }
             }
+            else if (activeSub->windowType() == "ATMWatch") {
+                ATMWatchWindow *atm = qobject_cast<ATMWatchWindow*>(activeSub->contentWidget());
+                if (atm) {
+                    WindowContext ctx = atm->getSelectedContext();
+                    if (ctx.isValid()) {
+                        buyWindow = new BuyWindow(ctx, window);
+                    }
+                }
+            }
         }
         if (!buyWindow) buyWindow = new BuyWindow(window);
     }
@@ -206,6 +215,15 @@ void MainWindow::createSellWindow()
                 OptionChainWindow *oc = qobject_cast<OptionChainWindow*>(activeSub->contentWidget());
                 if (oc) {
                     WindowContext ctx = oc->getSelectedContext();
+                    if (ctx.isValid()) {
+                        sellWindow = new SellWindow(ctx, window);
+                    }
+                }
+            }
+            else if (activeSub->windowType() == "ATMWatch") {
+                ATMWatchWindow *atm = qobject_cast<ATMWatchWindow*>(activeSub->contentWidget());
+                if (atm) {
+                    WindowContext ctx = atm->getSelectedContext();
                     if (ctx.isValid()) {
                         sellWindow = new SellWindow(ctx, window);
                     }
@@ -276,6 +294,15 @@ void MainWindow::createSnapQuoteWindow()
              OptionChainWindow *oc = qobject_cast<OptionChainWindow*>(activeSub->contentWidget());
              if (oc) {
                  WindowContext ctx = oc->getSelectedContext();
+                 if (ctx.isValid()) {
+                     snapWindow = new SnapQuoteWindow(ctx, window);
+                 }
+             }
+         }
+         else if (activeSub && activeSub->windowType() == "ATMWatch") {
+             ATMWatchWindow *atm = qobject_cast<ATMWatchWindow*>(activeSub->contentWidget());
+             if (atm) {
+                 WindowContext ctx = atm->getSelectedContext();
                  if (ctx.isValid()) {
                      snapWindow = new SnapQuoteWindow(ctx, window);
                  }

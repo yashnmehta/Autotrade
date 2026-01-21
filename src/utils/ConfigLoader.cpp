@@ -259,3 +259,9 @@ bool ConfigLoader::getUseLegacyPriceCache() const
     // Set to false in config.ini to enable new zero-copy architecture
     return getBool("PRICECACHE", "use_legacy_mode", true);
 }
+
+QString ConfigLoader::getBasePriceMode() const
+{
+    // Default to cash for backward compatibility
+    return getValue("ATM_WATCH", "base_price_mode", "cash").toLower();
+}

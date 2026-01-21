@@ -397,6 +397,7 @@ set(REPOSITORY_SOURCES
     src/repository/Greeks.cpp
     src/repository/MasterFileParser.cpp
     src/repository/NSEFORepository.cpp
+    src/repository/NSEFORepositoryPreSorted.cpp
     src/repository/NSECMRepository.cpp
     src/repository/BSEFORepository.cpp
     src/repository/BSECMRepository.cpp
@@ -409,6 +410,7 @@ set(REPOSITORY_HEADERS
     include/repository/ContractData.h
     include/repository/MasterFileParser.h
     include/repository/NSEFORepository.h
+    include/repository/NSEFORepositoryPreSorted.h
     include/repository/NSECMRepository.h
     include/repository/BSEFORepository.h
     include/repository/BSECMRepository.h
@@ -641,7 +643,7 @@ if(APPLE)
 endif()
 
 # Add tests subdirectory
-# add_subdirectory(tests)
+add_subdirectory(tests)
 
 # ========================================
 # Post-Build: Copy DLLs for Windows MinGW

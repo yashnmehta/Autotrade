@@ -147,7 +147,7 @@ void IndicesView::setupUI()
     
     // View styling
     m_view->setStyleSheet(
-        "QTableView { background-color: #ffffff; color: #000000; border: none; font-weight: bold; font-family: 'Segoe UI', sans-serif; }"
+        "QTableView { background-color: #ffffff; color: #000000; border: none; font-weight: bold; font-family: 'Inter', sans-serif; }"
         "QTableView::item { padding: 4px; border-bottom: 1px solid #eeeeee; }"
         "QTableView::item:selected { background-color: #e5f3ff; color: #000000; }"
     );

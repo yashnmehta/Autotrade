@@ -649,3 +649,11 @@ void CustomMDISubWindow::paintEvent(QPaintEvent *event)
         painter.fillPath(path, borderColor);
     }
 }
+void CustomMDISubWindow::updateTitleBarVisibility()
+{
+    bool visible = property("titleBarVisible").toBool();
+    if (m_titleBar)
+    {
+        m_titleBar->setVisible(visible);
+    }
+}

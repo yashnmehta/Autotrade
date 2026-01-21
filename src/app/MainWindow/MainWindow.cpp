@@ -68,10 +68,8 @@ MainWindow::MainWindow(QWidget *parent)
     // in setConfigLoader() to ensure market data windows only appear after authentication.
     // This improves startup time and ensures proper initialization order.
 
-    // Initialize Default ATM Watches
-    auto atm = ATMWatchManager::getInstance();
-    atm->addWatch("NIFTY", "27JAN2026", ATMWatchManager::BasePriceSource::Cash);
-    atm->addWatch("BANKNIFTY", "27JAN2026", ATMWatchManager::BasePriceSource::Cash);
+    // setupNetwork() will be called once configLoader is set
+    // to ensure we have the correct multicast IPs and ports.
 }
 
 MainWindow::~MainWindow()
@@ -100,6 +98,20 @@ void MainWindow::setTradingDataService(TradingDataService *service) {
 void MainWindow::setConfigLoader(ConfigLoader *loader) {
     m_configLoader = loader;
     
+    // Update ATM default source from config
+    if (m_configLoader) {
+        QString mode = m_configLoader->getBasePriceMode();
+        auto atm = ATMWatchManager::getInstance();
+        ATMWatchManager::BasePriceSource source = (mode == "future") ? 
+            ATMWatchManager::BasePriceSource::Future : ATMWatchManager::BasePriceSource::Cash;
+        
+        atm->setDefaultBasePriceSource(source);
+        
+        // Add default watches using the configured source
+        atm->addWatch("NIFTY", "27JAN2026", source);
+        atm->addWatch("BANKNIFTY", "27JAN2026", source);
+    }
+
     // ✅ DO NOT create IndicesView here!
     // IndicesView will be created in main.cpp continue button callback
     // AFTER mainWindow->show() completes rendering

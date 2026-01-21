@@ -32,7 +32,7 @@ TokenPublisher* FeedHandler::getOrCreatePublisher(int64_t compositeKey) {
         return it->second;
     }
 
-    TokenPublisher* pub = new TokenPublisher(compositeKey, this);
+    TokenPublisher* pub = new TokenPublisher(compositeKey);
     m_publishers[compositeKey] = pub;
     return pub;
 }

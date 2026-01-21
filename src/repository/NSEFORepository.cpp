@@ -273,24 +273,26 @@ bool NSEFORepository::loadProcessedCSV(const QString &filename) {
   int32_t loadedCount = 0;
   int32_t spreadLoadedCount = 0;
 
-  // String Interning Pool
-  QSet<QString> stringPool;
-  auto internString = [&stringPool](const QString &str) -> QString {
-    auto it = stringPool.find(str);
-    if (it != stringPool.end()) {
-      return *it;
-    }
-    stringPool.insert(str);
-    return str;
+
+  // String Interning Pool - DISABLED for CSV loading (causes O(n²) slowdown)
+  // QSet<QString> stringPool;
+  auto internString = [](const QString &str) -> QString {
+    return str;  // No interning - just return the string as-is
   };
 
   QString qLine;
+  int lineCount = 0;
   while (std::getline(file, line)) {
+    lineCount++;
+    if (lineCount % 10000 == 0) {
+      qDebug() << "[NSEFO] Loaded lines:" << lineCount;
+    }
     if (line.empty() || line[0] == '\r') {
       continue;
     }
 
     qLine = QString::fromStdString(line);
+
 
     // Optimized manual split using midRef to avoid heap allocations
     QVector<QStringRef> fields;
@@ -300,7 +302,7 @@ bool NSEFORepository::loadProcessedCSV(const QString &filename) {
       fields.append(qLine.midRef(start, end - start));
       start = end + 1;
     }
-    fields.append(qLine.midRef(start, qLine.length() - start));
+    fields.append(qLine.midRef(start));
 
     if (fields.size() < 28) { // Added instrumentType
       continue;
@@ -328,7 +330,12 @@ bool NSEFORepository::loadProcessedCSV(const QString &filename) {
       m_strikePrice[idx] = fields[8].toDouble();
       m_optionType[idx] = internString(trimQuotes(fields[9])); // CE/PE/XX
       m_assetToken[idx] = fields[11].toLongLong();
-      m_symbolToAssetToken[m_name[idx]] = m_assetToken[idx];
+      
+      // Only update symbol map if this symbol hasn't been seen yet
+      if (!m_symbolToAssetToken.contains(m_name[idx])) {
+        m_symbolToAssetToken[m_name[idx]] = m_assetToken[idx];
+      }
+      
       m_freezeQty[idx] = fields[12].toInt();
       m_priceBandHigh[idx] = fields[13].toDouble();
       m_priceBandLow[idx] = fields[14].toDouble();
@@ -358,9 +365,13 @@ bool NSEFORepository::loadProcessedCSV(const QString &filename) {
       spreadLoadedCount++;
     }
   }
-
+  qDebug() << "Loaded lines:" << lineCount;
+  qDebug() << "outside while loop";
+  
+  qDebug() << "Closing file...";
   file.close();
-
+  
+  qDebug() << "Setting counters...";
   m_regularCount = loadedCount;
   m_spreadCount = spreadLoadedCount;
 
@@ -371,6 +382,9 @@ bool NSEFORepository::loadProcessedCSV(const QString &filename) {
     return false;
   }
 
+  qDebug() << "Calling finalizeLoad()...";
+  // Unlock before calling finalizeLoad to avoid deadlock
+  locker.unlock();
   finalizeLoad();
 
   qDebug() << "NSE FO Repository loaded from CSV:"
@@ -585,6 +599,52 @@ NSEFORepository::getContractsBySymbol(const QString &symbol) const {
   return contracts;
 }
 
+QVector<ContractData>
+NSEFORepository::getContractsBySymbolAndExpiry(const QString &symbol,
+                                               const QString &expiry,
+                                               int instrumentType) const {
+  QVector<ContractData> contracts;
+
+  // Search regular contracts
+  for (int32_t idx = 0; idx < ARRAY_SIZE; ++idx) {
+    int32_t stripeIdx = getStripeIndex(idx);
+    QReadLocker locker(&m_mutexes[stripeIdx]);
+
+    if (m_valid[idx] && m_name[idx] == symbol && m_expiryDate[idx] == expiry) {
+      if (instrumentType == -1 || m_instrumentType[idx] == instrumentType) {
+        ContractData contract;
+        contract.exchangeInstrumentID = MIN_TOKEN + idx;
+        contract.name = m_name[idx];
+        contract.displayName = m_displayName[idx];
+        contract.series = m_series[idx];
+        contract.lotSize = m_lotSize[idx];
+        contract.expiryDate = m_expiryDate[idx];
+        contract.strikePrice = m_strikePrice[idx];
+        contract.optionType = m_optionType[idx];
+        contract.instrumentType = m_instrumentType[idx];
+
+        contracts.append(contract);
+      }
+    }
+  }
+
+  // Search spread contracts
+  {
+    QReadLocker locker(&m_mutexes[0]);
+    for (auto it = m_spreadContracts.begin(); it != m_spreadContracts.end();
+         ++it) {
+      const auto &c = *it.value();
+      if (c.name == symbol && c.expiryDate == expiry) {
+        if (instrumentType == -1 || c.instrumentType == instrumentType) {
+          contracts.append(c);
+        }
+      }
+    }
+  }
+
+  return contracts;
+}
+
 bool NSEFORepository::loadFromContracts(
     const QVector<MasterContract> &contracts) {
   if (contracts.isEmpty()) {
@@ -789,11 +849,14 @@ void NSEFORepository::prepareForLoad() {
 }
 
 void NSEFORepository::finalizeLoad() {
+  qDebug() << "  [finalizeLoad] Starting...";
   m_loaded = (m_regularCount > 0 || m_spreadCount > 0);
 
+  qDebug() << "  [finalizeLoad] Squeezing containers...";
   // Squeeze internal containers to return memory to the OS
   m_spreadContracts.squeeze();
 
+  qDebug() << "  [finalizeLoad] Verifying symbol map...";
   // Verify symbol map
   {
     QReadLocker locker(&m_mutexes[0]);
@@ -802,6 +865,7 @@ void NSEFORepository::finalizeLoad() {
              << "Total:" << getTotalCount()
              << "Unique Symbols:" << m_symbolToAssetToken.size();
   }
+  qDebug() << "  [finalizeLoad] Complete!";
 }
 
 void NSEFORepository::addContract(

@@ -60,6 +60,9 @@ public:
     // PriceCache Mode
     bool getUseLegacyPriceCache() const;
 
+    // ATM Watch Config
+    QString getBasePriceMode() const;
+
 private:
     bool m_loaded;
     QMap<QString, QMap<QString, QString>> m_config;

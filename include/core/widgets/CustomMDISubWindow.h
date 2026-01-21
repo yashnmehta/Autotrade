@@ -54,6 +54,9 @@ public:
     void setPinned(bool pinned);
     bool isPinned() const { return m_isPinned; }
 
+public slots:
+    void updateTitleBarVisibility();
+
 signals:
     void closeRequested();
     void minimizeRequested();
