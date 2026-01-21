@@ -79,9 +79,9 @@ private:
     // Timer for LTP updates
     QTimer* m_basePriceTimer;
 
-    enum CallCols { CALL_LTP = 0, CALL_CHG, CALL_BID, CALL_ASK, CALL_VOL, CALL_OI, CALL_COUNT };
+    enum CallCols { CALL_LTP = 0, CALL_CHG, CALL_BID, CALL_ASK, CALL_VOL, CALL_OI, CALL_IV, CALL_DELTA, CALL_GAMMA, CALL_VEGA, CALL_THETA, CALL_COUNT };
     enum SymbolCols { SYM_NAME = 0, SYM_PRICE, SYM_ATM, SYM_EXPIRY, SYM_COUNT };
-    enum PutCols { PUT_BID = 0, PUT_ASK, PUT_LTP, PUT_CHG, PUT_VOL, PUT_OI, PUT_COUNT };
+    enum PutCols { PUT_BID = 0, PUT_ASK, PUT_LTP, PUT_CHG, PUT_VOL, PUT_OI, PUT_IV, PUT_DELTA, PUT_GAMMA, PUT_VEGA, PUT_THETA, PUT_COUNT };
 };
 
 #endif // ATM_WATCH_WINDOW_H

@@ -1,5 +1,6 @@
 #include "models/MarketWatchModel.h"
 #include "models/MarketWatchColumnProfile.h"
+#include "services/GreeksCalculationService.h"
 #include "utils/LatencyTracker.h"
 #include <QColor>
 #include <QFont>
@@ -10,6 +11,25 @@ MarketWatchModel::MarketWatchModel(QObject *parent)
 {
     // Initialize with default column profile
     m_columnProfile = MarketWatchColumnProfile::createDefaultProfile();
+    
+    // Connect to Greeks service for live updates
+    auto& greeksService = GreeksCalculationService::instance();
+    connect(&greeksService, &GreeksCalculationService::greeksCalculated,
+            this, [this](uint32_t token, int exchangeSegment, const GreeksResult& result) {
+        // Find if we have this scrip in our model
+        // Note: findScripByToken is linear, effectively fast for typical watchlist sizes (50-100)
+        // For very large lists, we might need a token->row map
+        int row = findScripByToken(token);
+        if (row >= 0) {
+            updateGreeks(row, 
+                result.impliedVolatility, 
+                result.delta, 
+                result.gamma, 
+                result.vega, 
+                result.theta
+            );
+        }
+    });
 }
 
 int MarketWatchModel::rowCount(const QModelIndex &parent) const

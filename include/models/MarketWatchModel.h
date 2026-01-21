@@ -74,6 +74,8 @@ struct ScripData
     
     // Greeks (Options only - calculated by GreeksCalculationService)
     double iv = 0.0;                // Implied Volatility (decimal, 0.18 = 18%)
+    double bidIV = 0.0;
+    double askIV = 0.0;
     double delta = 0.0;             // Delta
     double gamma = 0.0;             // Gamma
     double vega = 0.0;              // Vega (per 1% IV change)
@@ -224,7 +226,7 @@ public:
     void updateBidAskQuantities(int row, int bidQty, int askQty);
     void updateTotalBuySellQty(int row, int totalBuyQty, int totalSellQty);
     void updateOpenInterestWithChange(int row, qint64 oi, double oiChangePercent);
-    void updateGreeks(int row, double iv, double delta, double gamma, double vega, double theta);
+    void updateGreeks(int row, double iv, double bidIV, double askIV, double delta, double gamma, double vega, double theta);
     
     // Batch updates for efficiency
     void updateScripData(int row, const ScripData &scrip);

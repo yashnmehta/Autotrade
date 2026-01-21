@@ -90,6 +90,11 @@ struct UnifiedState {
     double theoreticalPrice = 0.0;
     bool greeksCalculated = false;  // True if Greeks are valid
     
+    // Extended Greeks Logic
+    double bidIV = 0.0;
+    double askIV = 0.0;
+    int64_t lastGreeksUpdateTime = 0; // Timestamp of last Greek update (to throttle)
+    
     // =========================================================
     // 5. STATUS & LIMITS
     // =========================================================

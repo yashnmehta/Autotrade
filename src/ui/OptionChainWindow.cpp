@@ -14,6 +14,7 @@
 #include "repository/RepositoryManager.h"
 #include "services/FeedHandler.h"
 #include "services/TokenSubscriptionManager.h"
+#include "services/GreeksCalculationService.h"
 #include <QTimer>
 
 
@@ -304,7 +305,8 @@ void OptionChainWindow::setupModels() {
   m_callModel = new QStandardItemModel(this);
   m_callModel->setColumnCount(CALL_COLUMN_COUNT);
   m_callModel->setHorizontalHeaderLabels({"", "OI", "Chng in OI", "Volume",
-                                          "IV", "LTP", "Chng", "BID QTY", "BID",
+                                          "IV", "Delta", "Gamma", "Vega", "Theta", 
+                                          "LTP", "Chng", "BID QTY", "BID",
                                           "ASK", "ASK QTY"});
 
   m_callTable->setModel(m_callModel);
@@ -334,7 +336,8 @@ void OptionChainWindow::setupModels() {
   m_putModel = new QStandardItemModel(this);
   m_putModel->setColumnCount(PUT_COLUMN_COUNT);
   m_putModel->setHorizontalHeaderLabels({"BID QTY", "BID", "ASK", "ASK QTY",
-                                         "Chng", "LTP", "IV", "Volume",
+                                         "Chng", "LTP", "IV", "Delta", "Gamma",
+                                         "Vega", "Theta", "Volume",
                                          "Chng in OI", "OI", ""});
 
   m_putTable->setModel(m_putModel);
@@ -375,6 +378,48 @@ void OptionChainWindow::setupConnections() {
 
   connect(this, &OptionChainWindow::refreshRequested, this,
           &OptionChainWindow::refreshData);
+
+  // Greeks Updates
+  connect(&GreeksCalculationService::instance(), &GreeksCalculationService::greeksCalculated, this,
+          [this](uint32_t token, int exchangeSegment, const GreeksResult& result) {
+              if (!m_tokenToStrike.contains(token)) return;
+              double strike = m_tokenToStrike[token];
+              
+              if (!m_strikeData.contains(strike)) return;
+              OptionStrikeData& data = m_strikeData[strike];
+              
+              // Determine if it's Call or Put
+              bool isCall = (data.callToken == (int)token);
+              int row = m_strikes.indexOf(strike);
+              if (row < 0) return;
+              
+              if (isCall) {
+                  data.callIV = result.impliedVolatility;
+                  data.callDelta = result.delta;
+                  data.callGamma = result.gamma;
+                  data.callVega = result.vega;
+                  data.callTheta = result.theta;
+                  
+                  // Update Model directly to avoid full row refresh overhead
+                  m_callModel->item(row, CALL_IV)->setText(QString::number(data.callIV, 'f', 2));
+                  m_callModel->item(row, CALL_DELTA)->setText(QString::number(data.callDelta, 'f', 2));
+                  m_callModel->item(row, CALL_GAMMA)->setText(QString::number(data.callGamma, 'f', 4));
+                  m_callModel->item(row, CALL_VEGA)->setText(QString::number(data.callVega, 'f', 2));
+                  m_callModel->item(row, CALL_THETA)->setText(QString::number(data.callTheta, 'f', 2));
+              } else {
+                  data.putIV = result.impliedVolatility;
+                  data.putDelta = result.delta;
+                  data.putGamma = result.gamma;
+                  data.putVega = result.vega;
+                  data.putTheta = result.theta;
+                  
+                  m_putModel->item(row, PUT_IV)->setText(QString::number(data.putIV, 'f', 2));
+                  m_putModel->item(row, PUT_DELTA)->setText(QString::number(data.putDelta, 'f', 2));
+                  m_putModel->item(row, PUT_GAMMA)->setText(QString::number(data.putGamma, 'f', 4));
+                  m_putModel->item(row, PUT_VEGA)->setText(QString::number(data.putVega, 'f', 2));
+                  m_putModel->item(row, PUT_THETA)->setText(QString::number(data.putTheta, 'f', 2));
+              }
+          });
 }
 
 void OptionChainWindow::setSymbol(const QString &symbol,
@@ -429,6 +474,14 @@ void OptionChainWindow::updateStrikeData(double strike,
       ->setText(QString::number(data.callVolume));
   m_callModel->item(row, CALL_IV)
       ->setText(QString::number(data.callIV, 'f', 2));
+  m_callModel->item(row, CALL_DELTA)
+      ->setText(QString::number(data.callDelta, 'f', 2));
+  m_callModel->item(row, CALL_GAMMA)
+      ->setText(QString::number(data.callGamma, 'f', 4));
+  m_callModel->item(row, CALL_VEGA)
+      ->setText(QString::number(data.callVega, 'f', 2));
+  m_callModel->item(row, CALL_THETA)
+      ->setText(QString::number(data.callTheta, 'f', 2));
 
   updateItemWithColor(m_callModel->item(row, CALL_LTP), data.callLTP);
 
@@ -455,6 +508,10 @@ void OptionChainWindow::updateStrikeData(double strike,
 
   updateItemWithColor(m_putModel->item(row, PUT_LTP), data.putLTP);
   m_putModel->item(row, PUT_IV)->setText(QString::number(data.putIV, 'f', 2));
+  m_putModel->item(row, PUT_DELTA)->setText(QString::number(data.putDelta, 'f', 2));
+  m_putModel->item(row, PUT_GAMMA)->setText(QString::number(data.putGamma, 'f', 4));
+  m_putModel->item(row, PUT_VEGA)->setText(QString::number(data.putVega, 'f', 2));
+  m_putModel->item(row, PUT_THETA)->setText(QString::number(data.putTheta, 'f', 2));
   m_putModel->item(row, PUT_VOLUME)->setText(QString::number(data.putVolume));
   m_putModel->item(row, PUT_CHNG_IN_OI)
       ->setText(QString::number(data.putChngInOI));
@@ -766,6 +823,14 @@ void OptionChainWindow::refreshData() {
           data.callVolume = unifiedState->volume;
         if (unifiedState->openInterest > 0)
           data.callOI = (int)unifiedState->openInterest;
+          
+        if (unifiedState->greeksCalculated) {
+            data.callIV = unifiedState->impliedVolatility;
+            data.callDelta = unifiedState->delta;
+            data.callGamma = unifiedState->gamma;
+            data.callVega = unifiedState->vega;
+            data.callTheta = unifiedState->theta;
+        }
       }
     }
 
@@ -797,6 +862,14 @@ void OptionChainWindow::refreshData() {
           data.putVolume = (int)unifiedState->volume;
         if (unifiedState->openInterest > 0)
           data.putOI = (int)unifiedState->openInterest;
+
+        if (unifiedState->greeksCalculated) {
+            data.putIV = unifiedState->impliedVolatility;
+            data.putDelta = unifiedState->delta;
+            data.putGamma = unifiedState->gamma;
+            data.putVega = unifiedState->vega;
+            data.putTheta = unifiedState->theta;
+        }
       }
     }
 

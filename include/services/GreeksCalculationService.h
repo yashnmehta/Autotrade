@@ -24,6 +24,8 @@ struct GreeksResult {
     
     // Calculated values
     double impliedVolatility = 0.0;  // IV (decimal, e.g., 0.18 = 18%)
+    double bidIV = 0.0;
+    double askIV = 0.0;
     double delta = 0.0;
     double gamma = 0.0;
     double vega = 0.0;              // Per 1% IV change
@@ -68,6 +70,12 @@ struct GreeksConfig {
     
     // Time tick interval (seconds) for theta decay updates
     int timeTickIntervalSec = 60;
+    
+    // Background timer interval (seconds) for illiquid options (no trade > 30s)
+    int illiquidUpdateIntervalSec = 30;
+    
+    // Threshold (seconds) to consider an option illiquid
+    int illiquidThresholdSec = 30;
     
     // Enable/disable the service
     bool enabled = true;
@@ -193,6 +201,12 @@ private slots:
      * @brief Time tick handler for theta decay updates
      */
     void onTimeTick();
+    
+    /**
+     * @brief Background timer handler for illiquid options
+     * Updates Greeks for options not traded recently using stored IV + new Spot
+     */
+    void processIlliquidUpdates();
 
 private:
     explicit GreeksCalculationService(QObject* parent = nullptr);
@@ -244,13 +258,20 @@ private:
     struct CacheEntry {
         GreeksResult result;
         int64_t lastCalculationTime = 0;
+        int64_t lastTradeTimestamp = 0;  // Last time Option Price (LTP) changed
         double lastPrice = 0.0;
         double lastUnderlyingPrice = 0.0;
     };
     
     GreeksConfig m_config;
     QHash<uint32_t, CacheEntry> m_cache;
+    
+    // Map of Underlying Token -> List of Option Tokens
+    // Used to trigger recalculation when underlying price changes
+    QMultiHash<uint32_t, uint32_t> m_underlyingToOptions;
+    
     QTimer* m_timeTickTimer = nullptr;
+    QTimer* m_illiquidUpdateTimer = nullptr;
     RepositoryManager* m_repoManager = nullptr;
     
     // NSE Holiday set (loaded at initialization)

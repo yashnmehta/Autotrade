@@ -5,6 +5,7 @@
 #include "repository/ContractData.h"
 #include "nsefo_price_store.h"
 #include "nsecm_price_store.h"
+#include "bse_price_store.h"
 
 #include <QSettings>
 #include <QDate>
@@ -129,8 +130,12 @@ GreeksResult GreeksCalculationService::calculateForToken(uint32_t token, int exc
         if (state) {
             optionPrice = state->ltp;
         }
+    } else if (exchangeSegment == 4) { // BSEFO
+        const auto* state = bse::g_bseFoPriceStore.getUnifiedState(token);
+        if (state) {
+            optionPrice = state->ltp;
+        }
     }
-    // TODO: Add BSEFO price store access
     
     if (optionPrice <= 0) {
         emit calculationFailed(token, exchangeSegment, "No market price available");
@@ -142,6 +147,11 @@ GreeksResult GreeksCalculationService::calculateForToken(uint32_t token, int exc
     if (underlyingPrice <= 0) {
         emit calculationFailed(token, exchangeSegment, "Underlying price not available");
         return result;
+    }
+    
+    // Register mapping if new (for onUnderlyingPriceUpdate)
+    if (!m_cache.contains(token) && contract->assetToken > 0) {
+        m_underlyingToOptions.insert(static_cast<uint32_t>(contract->assetToken), token);
     }
     
     // Get strike and expiry from contract
@@ -231,6 +241,7 @@ std::optional<GreeksResult> GreeksCalculationService::getCachedGreeks(uint32_t t
 
 void GreeksCalculationService::clearCache() {
     m_cache.clear();
+    m_underlyingToOptions.clear();
 }
 
 void GreeksCalculationService::forceRecalculateAll() {
@@ -272,11 +283,22 @@ void GreeksCalculationService::onPriceUpdate(uint32_t token, double ltp, int exc
 }
 
 void GreeksCalculationService::onUnderlyingPriceUpdate(uint32_t underlyingToken, double ltp, int exchangeSegment) {
-    // TODO: Find all options with this underlying and recalculate
-    // This requires maintaining a mapping of underlying -> options
-    Q_UNUSED(underlyingToken);
-    Q_UNUSED(ltp);
-    Q_UNUSED(exchangeSegment);
+    if (!m_config.enabled || !m_config.autoCalculate) return;
+    
+    // Find all options linked to this underlying
+    // values() returns a list of all values associated with the key
+    QList<uint32_t> optionTokens = m_underlyingToOptions.values(underlyingToken);
+    
+    for (uint32_t token : optionTokens) {
+        // We need the exchange segment to calculate
+        // Since we only add to map if cached, we can look up segment from cache
+        auto it = m_cache.find(token);
+        if (it != m_cache.end()) {
+            // Recalculate associated option
+            // calculateForToken checks throttle internally, so this loop is safe
+            calculateForToken(token, it.value().result.exchangeSegment);
+        }
+    }
 }
 
 void GreeksCalculationService::onTimeTick() {
@@ -304,8 +326,7 @@ double GreeksCalculationService::getUnderlyingPrice(uint32_t optionToken, int ex
     // First try to get future price (more accurate for options)
     // Then fall back to cash market price
     
-    // Try NSEFO futures
-    if (exchangeSegment == 2) {
+    if (exchangeSegment == 2) { // NSEFO
         // Get underlying future from NSEFO
         const auto* futureState = nsefo::g_nseFoPriceStore.getUnifiedState(
             static_cast<uint32_t>(contract->assetToken)
@@ -316,6 +337,22 @@ double GreeksCalculationService::getUnderlyingPrice(uint32_t optionToken, int ex
         
         // Fall back to cash market from NSECM
         const auto* cashState = nsecm::g_nseCmPriceStore.getUnifiedState(
+            static_cast<uint32_t>(contract->assetToken)
+        );
+        if (cashState && cashState->ltp > 0) {
+            return cashState->ltp;
+        }
+    } else if (exchangeSegment == 4) { // BSEFO
+        // Get underlying from BSEFO
+        const auto* futureState = bse::g_bseFoPriceStore.getUnifiedState(
+            static_cast<uint32_t>(contract->assetToken)
+        );
+        if (futureState && futureState->ltp > 0) {
+            return futureState->ltp;
+        }
+        
+        // Fall back to cash market from BSECM
+        const auto* cashState = bse::g_bseCmPriceStore.getUnifiedState(
             static_cast<uint32_t>(contract->assetToken)
         );
         if (cashState && cashState->ltp > 0) {

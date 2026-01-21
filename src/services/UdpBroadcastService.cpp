@@ -381,6 +381,9 @@ void UdpBroadcastService::setupNseFoCallbacks() {
         if (greeksService.isEnabled() && data->ltp > 0) {
             // Trigger async Greeks calculation - service handles throttling internally
             greeksService.onPriceUpdate(token, data->ltp, 2 /*NSEFO*/);
+            
+            // Also trigger updates for options where THIS token is the underlying (Futures)
+            greeksService.onUnderlyingPriceUpdate(token, data->ltp, 2 /*NSEFO*/);
         }
 
         // 5. UI Signals (Throttled)
@@ -435,6 +438,12 @@ void UdpBroadcastService::setupNseCmCallbacks() {
         
         // 4. FeedHandler
         FeedHandler::instance().onUdpTickReceived(udpTick);
+        
+        // 5. Greeks Calculation (Update for underlyings in Cash Market)
+        auto& greeksService = GreeksCalculationService::instance();
+        if (greeksService.isEnabled() && data->ltp > 0) {
+            greeksService.onUnderlyingPriceUpdate(token, data->ltp, 1 /*NSECM*/);
+        }
 
         // 5. Signals
         if (shouldEmitSignal(token)) {
@@ -606,6 +615,8 @@ void UdpBroadcastService::setupBseFoCallbacks() {
         auto& greeksService = GreeksCalculationService::instance();
         if (greeksService.isEnabled() && data->ltp > 0) {
             greeksService.onPriceUpdate(token, data->ltp, 4 /*BSEFO*/);
+            // Also trigger updates for options where THIS token is the underlying
+            greeksService.onUnderlyingPriceUpdate(token, data->ltp, 4 /*BSEFO*/);
         }
 
         if (shouldEmitSignal(token)) {
@@ -645,6 +656,12 @@ void UdpBroadcastService::setupBseCmCallbacks() {
         m_totalTicks++;
 
         FeedHandler::instance().onUdpTickReceived(udpTick);
+        
+        // Greeks Calculation (Update for underlyings in Cash Market)
+        auto& greeksService = GreeksCalculationService::instance();
+        if (greeksService.isEnabled() && data->ltp > 0) {
+            greeksService.onUnderlyingPriceUpdate(token, data->ltp, 3 /*BSECM*/);
+        }
 
         if (shouldEmitSignal(token)) {
              emit udpTickReceived(udpTick);
