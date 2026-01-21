@@ -11,7 +11,8 @@ static QString trimQuotes(const QStringRef &str) {
   return trimmed.toString();
 }
 
-bool MasterFileParser::parseLine(const QStringRef &line, const QString &exchange,
+bool MasterFileParser::parseLine(const QStringRef &line,
+                                 const QString &exchange,
                                  MasterContract &contract) {
   // Split by pipe delimiter without allocating new strings for each field
   QVector<QStringRef> fields;
@@ -140,7 +141,17 @@ bool MasterFileParser::parseNSEFO(const QVector<QStringRef> &fields,
   contract.tickSize = fields[11].toDouble();
   contract.lotSize = fields[12].toInt();
   contract.multiplier = fields[13].toInt();
-  contract.assetToken = fields[14].toLongLong();
+
+  // Parse assetToken - XTS returns composite tokens like 1100100002885
+  // where the actual NSE CM token (e.g., 2885 for RELIANCE) is embedded
+  int64_t rawAssetToken = fields[14].toLongLong();
+  if (rawAssetToken > 100000000LL) {
+    // Extract actual cash segment token from composite format
+    contract.assetToken = rawAssetToken % 100000;
+  } else {
+    contract.assetToken = rawAssetToken;
+  }
+
   // field[15] = UnderlyingName/InstrumentID (not stored)
   contract.expiryDate = trimQuotes(fields[16]);
 
@@ -152,7 +163,7 @@ bool MasterFileParser::parseNSEFO(const QVector<QStringRef> &fields,
     // OPTIONS (23 fields): 17=Strike, 18=OptionType, 19=DisplayName, 20=Num,
     // 21=Den
     contract.strikePrice = fields[17].toDouble();
-    
+
     // Handle OptionType being numeric or string (CE/PE)
     QString optStr = trimQuotes(fields[18]);
     bool optOk;
@@ -208,16 +219,16 @@ bool MasterFileParser::parseNSEFO(const QVector<QStringRef> &fields,
   if (!contract.expiryDate.isEmpty()) {
     QString year, month, day;
 
-      int tIdx = contract.expiryDate.indexOf('T');
-      if (tIdx != -1) {
-        int d1 = contract.expiryDate.indexOf('-');
-        int d2 = contract.expiryDate.indexOf('-', d1 + 1);
-        if (d1 != -1 && d2 != -1 && d2 < tIdx) {
-          year = contract.expiryDate.mid(0, d1);
-          month = contract.expiryDate.mid(d1 + 1, d2 - d1 - 1);
-          day = contract.expiryDate.mid(d2 + 1, tIdx - d2 - 1);
-        }
-      } else if (contract.expiryDate.length() == 8 &&
+    int tIdx = contract.expiryDate.indexOf('T');
+    if (tIdx != -1) {
+      int d1 = contract.expiryDate.indexOf('-');
+      int d2 = contract.expiryDate.indexOf('-', d1 + 1);
+      if (d1 != -1 && d2 != -1 && d2 < tIdx) {
+        year = contract.expiryDate.mid(0, d1);
+        month = contract.expiryDate.mid(d1 + 1, d2 - d1 - 1);
+        day = contract.expiryDate.mid(d2 + 1, tIdx - d2 - 1);
+      }
+    } else if (contract.expiryDate.length() == 8 &&
                contract.expiryDate.at(0).isDigit()) {
       // YYYYMMDD format: 20241226
       year = contract.expiryDate.mid(0, 4);
@@ -340,7 +351,17 @@ bool MasterFileParser::parseBSEFO(const QVector<QStringRef> &fields,
   contract.tickSize = fields[11].toDouble();
   contract.lotSize = fields[12].toInt();
   contract.multiplier = fields[13].toInt();
-  contract.assetToken = fields[14].toLongLong();
+
+  // Parse assetToken - XTS returns composite tokens like 1100100002885
+  // where the actual BSE CM token is embedded
+  int64_t rawAssetToken = fields[14].toLongLong();
+  if (rawAssetToken > 100000000LL) {
+    // Extract actual cash segment token from composite format
+    contract.assetToken = rawAssetToken % 100000;
+  } else {
+    contract.assetToken = rawAssetToken;
+  }
+
   // field[15] = UnderlyingName/InstrumentID (not stored)
   contract.expiryDate = trimQuotes(fields[16]);
 
@@ -411,16 +432,16 @@ bool MasterFileParser::parseBSEFO(const QVector<QStringRef> &fields,
   if (!contract.expiryDate.isEmpty()) {
     QString year, month, day;
 
-      int tIdx = contract.expiryDate.indexOf('T');
-      if (tIdx != -1) {
-        int d1 = contract.expiryDate.indexOf('-');
-        int d2 = contract.expiryDate.indexOf('-', d1 + 1);
-        if (d1 != -1 && d2 != -1 && d2 < tIdx) {
-          year = contract.expiryDate.mid(0, d1);
-          month = contract.expiryDate.mid(d1 + 1, d2 - d1 - 1);
-          day = contract.expiryDate.mid(d2 + 1, tIdx - d2 - 1);
-        }
-      } else if (contract.expiryDate.length() == 8 &&
+    int tIdx = contract.expiryDate.indexOf('T');
+    if (tIdx != -1) {
+      int d1 = contract.expiryDate.indexOf('-');
+      int d2 = contract.expiryDate.indexOf('-', d1 + 1);
+      if (d1 != -1 && d2 != -1 && d2 < tIdx) {
+        year = contract.expiryDate.mid(0, d1);
+        month = contract.expiryDate.mid(d1 + 1, d2 - d1 - 1);
+        day = contract.expiryDate.mid(d2 + 1, tIdx - d2 - 1);
+      }
+    } else if (contract.expiryDate.length() == 8 &&
                contract.expiryDate.at(0).isDigit()) {
       // YYYYMMDD format: 20241226
       year = contract.expiryDate.mid(0, 4);
