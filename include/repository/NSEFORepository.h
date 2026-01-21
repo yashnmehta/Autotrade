@@ -8,6 +8,8 @@
 #include <QVector>
 #include <functional>
 #include <memory>
+#include <string>
+#include <unordered_map>
 
 /**
  * @brief NSE Futures & Options Repository with Cached Indexed Arrays
@@ -128,6 +130,13 @@ public:
    */
   QVector<ContractData> getContractsBySymbol(const QString &symbol) const;
 
+  /**
+   * @brief Get asset token by underlying symbol
+   * @param symbol Underlying name (e.g., RELIANCE, NIFTY)
+   * @return Asset token or -1 if not found
+   */
+  int64_t getAssetToken(const QString &symbol) const;
+
   // ===== UPDATE METHODS =====
 
   /**
@@ -221,6 +230,10 @@ private:
 
   // Spread contracts storage (tokens > 10,000,000)
   QHash<int64_t, std::shared_ptr<ContractData>> m_spreadContracts;
+
+  // Symbol to Asset Token Map (for fast lookup of asset tokens by symbol)
+  // Using QHash for Qt integration (implicit sharing) and performance
+  QHash<QString, int64_t> m_symbolToAssetToken;
 
   // Striped mutexes for concurrent access (256 stripes)
   mutable QReadWriteLock m_mutexes[NUM_STRIPES];

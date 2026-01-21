@@ -11,6 +11,8 @@
 #include <QScrollBar>
 #include <QStyledItemDelegate>
 #include <QMap>
+#include <QComboBox>
+#include <QLineEdit>
 #include "services/ATMWatchManager.h"
 #include "udp/UDPTypes.h"
 
@@ -30,6 +32,10 @@ private slots:
     void onATMUpdated();
     void synchronizeScrollBars(int value);
     void onTickUpdate(const UDP::MarketTick &tick);
+    void onExchangeChanged(int index);
+    void onExpiryChanged(int index);
+    void onBasePriceUpdate();  // Timer for LTP updates
+    void onSymbolsLoaded(int count);  // Background load completion
 
 protected:
     bool eventFilter(QObject *obj, QEvent *event) override;
@@ -40,8 +46,21 @@ private:
     void setupModels();
     void setupConnections();
     void refreshData();
+    void loadAllSymbols();  // Now runs in background thread
+    void populateCommonExpiries(const QString& exchange);
+    QString getNearestExpiry(const QString& symbol, const QString& exchange);
+    void updateBasePrices();  // Update all base prices from price stores
     
-    // UI Components
+    // UI Components - Controls
+    QComboBox *m_exchangeCombo;
+    QComboBox *m_expiryCombo;
+    QLabel *m_statusLabel;
+    
+    // Current filter state
+    QString m_currentExchange;
+    QString m_currentExpiry;
+    
+    // UI Components - Tables
     QTableView *m_callTable;
     QTableView *m_symbolTable;
     QTableView *m_putTable;
@@ -55,6 +74,10 @@ private:
     QMap<QString, int> m_symbolToRow;
     QMap<int64_t, std::pair<QString, bool>> m_tokenToInfo; // token -> {symbol, isCall}
     QMap<uint32_t, int> m_underlyingToRow;
+    QMap<QString, int64_t> m_symbolToUnderlyingToken;  // symbol -> underlying token (cash/future)
+    
+    // Timer for LTP updates
+    QTimer* m_basePriceTimer;
 
     enum CallCols { CALL_LTP = 0, CALL_CHG, CALL_BID, CALL_ASK, CALL_VOL, CALL_OI, CALL_COUNT };
     enum SymbolCols { SYM_NAME = 0, SYM_PRICE, SYM_ATM, SYM_EXPIRY, SYM_COUNT };

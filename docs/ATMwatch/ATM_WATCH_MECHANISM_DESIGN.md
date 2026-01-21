@@ -939,20 +939,18 @@ for (const QString& symbol : optionSymbols) {
 
 5. **Expiry Selection Logic** (`ATMWatchWindow::loadAllSymbols()`)
    ```
-   Step 1: Get option symbols from cache → repo->getOptionSymbols() (instant O(1) lookup)
-   Step 2: For each symbol:
+   Step 1: Filter OPTSTK contracts (instrumentType == 2) → Get all option symbols
+   Step 2: Extract unique symbols from options → ~270 symbols
+   Step 3: For each symbol, collect all unique expiry dates
+   Step 4: For each symbol:
            If "CURRENT" mode:
-               - Get current expiry: repo->getCurrentExpiry(symbol) (instant O(1) lookup)
+               - Sort expiries ascending (lexicographic: "23JAN26" < "30JAN26")
+               - Pick first expiry (nearest/current)
            Else:
-               - Verify symbol has user-selected expiry via cache lookup
-   Step 3: Batch add ALL symbols to ATMWatchManager (single call)
-   Step 4: Trigger ONE calculateAll() for all 270 symbols
+               - Use user-selected expiry
+   Step 5: Batch add ALL symbols to ATMWatchManager (single call)
+   Step 6: Trigger ONE calculateAll() for all 270 symbols
    ```
-   
-   **Performance Improvement:**
-   - **Before Cache**: Filter 100,000+ contracts → 500ms
-   - **After Cache**: Instant lookups → <1ms (500x faster)
-   - Cache is pre-built during master load in `RepositoryManager::buildExpiryCache()`
 
 6. **Base Price Sources**
    - **Cash Market** (Default): Uses `nsecm::getGenericLtp(assetToken)`

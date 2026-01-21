@@ -70,8 +70,8 @@ MainWindow::MainWindow(QWidget *parent)
 
     // Initialize Default ATM Watches
     auto atm = ATMWatchManager::getInstance();
-    atm->addWatch("NIFTY", "29JAN2026", ATMWatchManager::BasePriceSource::Cash);
-    atm->addWatch("BANKNIFTY", "29JAN2026", ATMWatchManager::BasePriceSource::Cash);
+    atm->addWatch("NIFTY", "27JAN2026", ATMWatchManager::BasePriceSource::Cash);
+    atm->addWatch("BANKNIFTY", "27JAN2026", ATMWatchManager::BasePriceSource::Cash);
 }
 
 MainWindow::~MainWindow()
