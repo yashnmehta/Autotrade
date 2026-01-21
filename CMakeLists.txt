@@ -348,6 +348,7 @@ set(SERVICE_SOURCES
     src/services/MasterLoaderWorker.cpp
     src/services/MasterDataState.cpp
     src/services/ATMWatchManager.cpp
+    src/services/GreeksCalculationService.cpp
 )
 
 set(SERVICE_HEADERS
@@ -360,6 +361,7 @@ set(SERVICE_HEADERS
     include/services/MasterLoaderWorker.h
     include/services/MasterDataState.h
     include/services/ATMWatchManager.h
+    include/services/GreeksCalculationService.h
 )
 
 # ========================================
@@ -395,6 +397,7 @@ set(API_HEADERS
 # ========================================
 set(REPOSITORY_SOURCES
     src/repository/Greeks.cpp
+    src/repository/IVCalculator.cpp
     src/repository/MasterFileParser.cpp
     src/repository/NSEFORepository.cpp
     src/repository/NSEFORepositoryPreSorted.cpp
@@ -406,6 +409,7 @@ set(REPOSITORY_SOURCES
 
 set(REPOSITORY_HEADERS
     include/repository/Greeks.h
+    include/repository/IVCalculator.h
     include/repository/ScripMaster.h
     include/repository/ContractData.h
     include/repository/MasterFileParser.h

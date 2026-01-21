@@ -72,6 +72,13 @@ struct ScripData
     qint64 openInterest = 0;        // Open interest
     double oiChangePercent = 0.0;   // % OI change
     
+    // Greeks (Options only - calculated by GreeksCalculationService)
+    double iv = 0.0;                // Implied Volatility (decimal, 0.18 = 18%)
+    double delta = 0.0;             // Delta
+    double gamma = 0.0;             // Gamma
+    double vega = 0.0;              // Vega (per 1% IV change)
+    double theta = 0.0;             // Theta (daily decay)
+    
     // Historical data
     double week52High = 0.0;        // 52 week high
     double week52Low = 0.0;         // 52 week low
@@ -217,6 +224,7 @@ public:
     void updateBidAskQuantities(int row, int bidQty, int askQty);
     void updateTotalBuySellQty(int row, int totalBuyQty, int totalSellQty);
     void updateOpenInterestWithChange(int row, qint64 oi, double oiChangePercent);
+    void updateGreeks(int row, double iv, double delta, double gamma, double vega, double theta);
     
     // Batch updates for efficiency
     void updateScripData(int row, const ScripData &scrip);

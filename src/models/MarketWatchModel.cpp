@@ -398,6 +398,21 @@ void MarketWatchModel::updateOpenInterestWithChange(int row, qint64 oi, double o
     }
 }
 
+void MarketWatchModel::updateGreeks(int row, double iv, double delta, double gamma, double vega, double theta)
+{
+    if (row >= 0 && row < m_scrips.count() && !m_scrips.at(row).isBlankRow) {
+        ScripData &scrip = m_scrips[row];
+        scrip.iv = iv;
+        scrip.delta = delta;
+        scrip.gamma = gamma;
+        scrip.vega = vega;
+        scrip.theta = theta;
+        
+        // Notify entire row for Greeks columns
+        notifyRowUpdated(row, 0, columnCount() - 1);
+    }
+}
+
 void MarketWatchModel::updateScripData(int row, const ScripData &scrip)
 {
     if (row >= 0 && row < m_scrips.count()) {
@@ -522,6 +537,11 @@ QVariant MarketWatchModel::getColumnData(const ScripData& scrip, MarketWatchColu
         case MarketWatchColumn::TOTAL_SELL_QTY: return static_cast<qlonglong>(scrip.totalSellQty);
         case MarketWatchColumn::OPEN_INTEREST: return static_cast<qlonglong>(scrip.openInterest);
         case MarketWatchColumn::OI_CHANGE_PERCENT: return scrip.oiChangePercent;
+        case MarketWatchColumn::IMPLIED_VOLATILITY: return scrip.iv * 100.0;  // Convert to percentage
+        case MarketWatchColumn::DELTA: return scrip.delta;
+        case MarketWatchColumn::GAMMA: return scrip.gamma;
+        case MarketWatchColumn::VEGA: return scrip.vega;
+        case MarketWatchColumn::THETA: return scrip.theta;
         case MarketWatchColumn::WEEK_52_HIGH: return scrip.week52High;
         case MarketWatchColumn::WEEK_52_LOW: return scrip.week52Low;
         case MarketWatchColumn::LIFETIME_HIGH: return scrip.lifetimeHigh;
@@ -647,6 +667,33 @@ QString MarketWatchModel::formatColumnData(const ScripData& scrip, MarketWatchCo
         case MarketWatchColumn::LAST_TRADED_TIME:
         case MarketWatchColumn::LAST_UPDATE_TIME:
             return getColumnData(scrip, column).toString();
+        
+        // Greeks columns
+        case MarketWatchColumn::IMPLIED_VOLATILITY: {
+            double value = scrip.iv * 100.0;  // Convert to percentage
+            if (value <= 0.0) return "-";
+            return QString::number(value, 'f', 1) + "%";
+        }
+        
+        case MarketWatchColumn::DELTA: {
+            if (scrip.iv <= 0.0) return "-";  // No Greeks if IV not calculated
+            return QString::number(scrip.delta, 'f', 3);
+        }
+        
+        case MarketWatchColumn::GAMMA: {
+            if (scrip.iv <= 0.0) return "-";
+            return QString::number(scrip.gamma, 'f', 5);
+        }
+        
+        case MarketWatchColumn::VEGA: {
+            if (scrip.iv <= 0.0) return "-";
+            return QString::number(scrip.vega, 'f', 2);
+        }
+        
+        case MarketWatchColumn::THETA: {
+            if (scrip.iv <= 0.0) return "-";
+            return QString::number(scrip.theta, 'f', 2);
+        }
             
         default:
             return "-";

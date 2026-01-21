@@ -76,11 +76,19 @@ struct UnifiedState {
     uint64_t totalSellQty = 0;
     
     // =========================================================
-    // 4. DERIVATIVES SPECIFIC (OI, IV)
+    // 4. DERIVATIVES SPECIFIC (OI, IV, Greeks)
     // =========================================================
     int64_t openInterest = 0;
     int64_t openInterestChange = 0;
     double impliedVolatility = 0.0;
+    
+    // Greeks (calculated by GreeksCalculationService)
+    double delta = 0.0;
+    double gamma = 0.0;
+    double vega = 0.0;              // Per 1% IV change
+    double theta = 0.0;             // Daily decay
+    double theoreticalPrice = 0.0;
+    bool greeksCalculated = false;  // True if Greeks are valid
     
     // =========================================================
     // 5. STATUS & LIMITS

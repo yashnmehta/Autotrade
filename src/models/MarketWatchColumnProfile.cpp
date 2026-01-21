@@ -436,6 +436,73 @@ void MarketWatchColumnProfile::initializeColumnMetadata()
     info.isFOSpecific = true;
     s_columnMetadata[MarketWatchColumn::OI_CHANGE_PERCENT] = info;
     
+    // Greeks (Options only)
+    info = ColumnInfo();
+    info.id = MarketWatchColumn::IMPLIED_VOLATILITY;
+    info.name = "IV";
+    info.shortName = "IV";
+    info.description = "Implied Volatility %";
+    info.defaultWidth = 65;
+    info.alignment = Qt::AlignRight | Qt::AlignVCenter;
+    info.visibleByDefault = false;
+    info.format = "%.1f";
+    info.unit = "%";
+    info.isNumeric = true;
+    info.isFOSpecific = true;
+    s_columnMetadata[MarketWatchColumn::IMPLIED_VOLATILITY] = info;
+    
+    info = ColumnInfo();
+    info.id = MarketWatchColumn::DELTA;
+    info.name = "Delta";
+    info.shortName = "Δ";
+    info.description = "Option Delta";
+    info.defaultWidth = 60;
+    info.alignment = Qt::AlignRight | Qt::AlignVCenter;
+    info.visibleByDefault = false;
+    info.format = "%.3f";
+    info.isNumeric = true;
+    info.isFOSpecific = true;
+    s_columnMetadata[MarketWatchColumn::DELTA] = info;
+    
+    info = ColumnInfo();
+    info.id = MarketWatchColumn::GAMMA;
+    info.name = "Gamma";
+    info.shortName = "Γ";
+    info.description = "Option Gamma";
+    info.defaultWidth = 65;
+    info.alignment = Qt::AlignRight | Qt::AlignVCenter;
+    info.visibleByDefault = false;
+    info.format = "%.5f";
+    info.isNumeric = true;
+    info.isFOSpecific = true;
+    s_columnMetadata[MarketWatchColumn::GAMMA] = info;
+    
+    info = ColumnInfo();
+    info.id = MarketWatchColumn::VEGA;
+    info.name = "Vega";
+    info.shortName = "ν";
+    info.description = "Option Vega (per 1% IV)";
+    info.defaultWidth = 65;
+    info.alignment = Qt::AlignRight | Qt::AlignVCenter;
+    info.visibleByDefault = false;
+    info.format = "%.2f";
+    info.isNumeric = true;
+    info.isFOSpecific = true;
+    s_columnMetadata[MarketWatchColumn::VEGA] = info;
+    
+    info = ColumnInfo();
+    info.id = MarketWatchColumn::THETA;
+    info.name = "Theta";
+    info.shortName = "Θ";
+    info.description = "Option Theta (daily decay)";
+    info.defaultWidth = 65;
+    info.alignment = Qt::AlignRight | Qt::AlignVCenter;
+    info.visibleByDefault = false;
+    info.format = "%.2f";
+    info.isNumeric = true;
+    info.isFOSpecific = true;
+    s_columnMetadata[MarketWatchColumn::THETA] = info;
+    
     // Historical Range
     info = ColumnInfo();
     info.id = MarketWatchColumn::WEEK_52_HIGH;
@@ -671,6 +738,14 @@ MarketWatchColumnProfile MarketWatchColumnProfile::createFOProfile()
     profile.setColumnVisible(MarketWatchColumn::SERIES_EXPIRY, true);
     profile.setColumnVisible(MarketWatchColumn::OPEN_INTEREST, true);
     profile.setColumnVisible(MarketWatchColumn::OI_CHANGE_PERCENT, true);
+    
+    // Add Greeks columns (key for options trading)
+    profile.setColumnVisible(MarketWatchColumn::IMPLIED_VOLATILITY, true);
+    profile.setColumnVisible(MarketWatchColumn::DELTA, true);
+    profile.setColumnVisible(MarketWatchColumn::THETA, true);
+    // Gamma and Vega hidden by default (advanced)
+    profile.setColumnVisible(MarketWatchColumn::GAMMA, false);
+    profile.setColumnVisible(MarketWatchColumn::VEGA, false);
     
     // Hide equity-specific
     profile.setColumnVisible(MarketWatchColumn::MARKET_CAP, false);

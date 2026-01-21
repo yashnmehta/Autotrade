@@ -221,3 +221,23 @@ target_link_libraries(benchmark_comparison
 set_target_properties(benchmark_comparison PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests"
 )
+
+# IV and Greeks Performance Benchmark
+add_executable(benchmark_greeks
+    benchmark_greeks.cpp
+    ../src/repository/Greeks.cpp
+    ../src/repository/IVCalculator.cpp
+)
+
+target_include_directories(benchmark_greeks PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/include/repository
+)
+
+target_link_libraries(benchmark_greeks
+    Qt5::Core
+)
+
+set_target_properties(benchmark_greeks PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests"
+)

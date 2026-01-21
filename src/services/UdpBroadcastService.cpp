@@ -5,6 +5,7 @@
 #include "nsecm_price_store.h"
 #include "bse_price_store.h"
 #include "services/FeedHandler.h"
+#include "services/GreeksCalculationService.h"
 #include "utils/LatencyTracker.h"
 #include "data/PriceStoreGateway.h"
 #include <QMetaObject>
@@ -372,8 +373,15 @@ void UdpBroadcastService::setupNseFoCallbacks() {
         UDP::MarketTick udpTick = convertNseFoUnified(*data);
         m_totalTicks++;
 
-        // 4. FeedHandler Distribution
+        // 3. FeedHandler Distribution
         FeedHandler::instance().onUdpTickReceived(udpTick);
+        
+        // 4. Greeks Calculation (for option contracts only)
+        auto& greeksService = GreeksCalculationService::instance();
+        if (greeksService.isEnabled() && data->ltp > 0) {
+            // Trigger async Greeks calculation - service handles throttling internally
+            greeksService.onPriceUpdate(token, data->ltp, 2 /*NSEFO*/);
+        }
 
         // 5. UI Signals (Throttled)
         if (shouldEmitSignal(token)) {
@@ -593,6 +601,12 @@ void UdpBroadcastService::setupBseFoCallbacks() {
         m_totalTicks++;
         
         FeedHandler::instance().onUdpTickReceived(udpTick);
+        
+        // Greeks Calculation (for option contracts only)
+        auto& greeksService = GreeksCalculationService::instance();
+        if (greeksService.isEnabled() && data->ltp > 0) {
+            greeksService.onPriceUpdate(token, data->ltp, 4 /*BSEFO*/);
+        }
 
         if (shouldEmitSignal(token)) {
              emit udpTickReceived(udpTick);
