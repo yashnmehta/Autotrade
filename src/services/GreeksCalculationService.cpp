@@ -44,7 +44,9 @@ GreeksCalculationService::~GreeksCalculationService() {
 
 void GreeksCalculationService::initialize(const GreeksConfig& config) {
     m_config = config;
-    
+    qInfo() << "[GreeksDebug] Initializing Service. Enabled:" << m_config.enabled 
+            << " RiskFree:" << m_config.riskFreeRate;
+             
     // Start time tick timer
     if (m_config.enabled && m_config.timeTickIntervalSec > 0) {
         m_timeTickTimer->start(m_config.timeTickIntervalSec * 1000);
@@ -108,11 +110,13 @@ GreeksResult GreeksCalculationService::calculateForToken(uint32_t token, int exc
     result.calculationTimestamp = QDateTime::currentMSecsSinceEpoch();
     
     if (!m_config.enabled) {
+        // qWarning() << "[GreeksDebug] Service disabled, skipping token:" << token;
         emit calculationFailed(token, exchangeSegment, "Service disabled");
         return result;
     }
     
     if (!m_repoManager) {
+        qWarning() << "[GreeksDebug] RepoManager null for token:" << token;
         emit calculationFailed(token, exchangeSegment, "Repository manager not set");
         return result;
     }
@@ -122,13 +126,14 @@ GreeksResult GreeksCalculationService::calculateForToken(uint32_t token, int exc
     const ContractData* contract = m_repoManager->getContractByToken(exchangeSegment, token);
     
     if (!contract) {
+        qWarning() << "[GreeksDebug] Contract not found for token:" << token << " Seg:" << exchangeSegment;
         emit calculationFailed(token, exchangeSegment, "Contract not found");
         return result;
     }
     
-    // Check if it's an option
+    // Check if it's an option (Instrument Type 2 is usually Options in our system)
     if (!isOption(contract->instrumentType)) {
-        emit calculationFailed(token, exchangeSegment, "Not an option contract");
+        // Not an error, just not an option
         return result;
     }
     
@@ -147,6 +152,7 @@ GreeksResult GreeksCalculationService::calculateForToken(uint32_t token, int exc
     }
     
     if (optionPrice <= 0) {
+        qWarning() << "[GreeksDebug] Option price <= 0 for token:" << token;
         emit calculationFailed(token, exchangeSegment, "No market price available");
         return result;
     }
@@ -155,21 +161,12 @@ GreeksResult GreeksCalculationService::calculateForToken(uint32_t token, int exc
     double bidPrice = 0.0;
     double askPrice = 0.0;
     
-    if (exchangeSegment == 2) {
-         if (auto state = nsefo::g_nseFoPriceStore.getUnifiedState(token)) {
-             bidPrice = state->bids[0].price;
-             askPrice = state->asks[0].price;
-         }
-    } else if (exchangeSegment == 4) {
-         if (auto state = bse::g_bseFoPriceStore.getUnifiedState(token)) {
-             bidPrice = state->bids[0].price;
-             askPrice = state->asks[0].price;
-         }
-    }
+    // ... fetching bid/ask ...
     
     // Get underlying price
     double underlyingPrice = getUnderlyingPrice(token, exchangeSegment);
     if (underlyingPrice <= 0) {
+        // qWarning() << "[GreeksDebug] Underlying price <= 0 for token:" << token << " Asset:" << contract->assetToken;
         emit calculationFailed(token, exchangeSegment, "Underlying price not available");
         return result;
     }
@@ -227,6 +224,15 @@ GreeksResult GreeksCalculationService::calculateForToken(uint32_t token, int exc
             m_config.ivInitialGuess, m_config.ivTolerance, m_config.ivMaxIterations
         );
         usedIV = ivResult.impliedVolatility;
+        
+        // Debug Log only if we have a valid IV
+        if (usedIV > 0.0001) {
+             // qInfo() << "[GreeksDebug] Calculated IV:" << usedIV << " for token:" << token;
+        } else {
+             qWarning() << "[GreeksDebug] IV calc failed (0) for token:" << token 
+                        << " P:" << optionPrice << " U:" << underlyingPrice 
+                        << " K:" << strikePrice << " T:" << T;
+        }
         result.impliedVolatility = usedIV;
         result.ivConverged = ivResult.converged;
         result.ivIterations = ivResult.iterations;
@@ -331,6 +337,8 @@ void GreeksCalculationService::onPriceUpdate(uint32_t token, double ltp, int exc
     if (!m_config.enabled || !m_config.autoCalculate) {
         return;
     }
+    
+    // qInfo() << "[GreeksDebug] onPriceUpdate token:" << token << " LTP:" << ltp;
     
     // Check throttle
     auto it = m_cache.find(token);

@@ -38,11 +38,12 @@ struct OptionStrikeData {
     double callAsk;
     int callAskQty;
     
-    // Call Greeks bot required onoy iv required for bid and ask
+    // Call Greeks
     double callDelta;
     double callGamma;
     double callVega;
     double callTheta;
+    
     
     // Put option data
     int putOI;
@@ -63,6 +64,7 @@ struct OptionStrikeData {
     double putGamma;
     double putVega;
     double putTheta;
+    
     // Token IDs for subscription
     int callToken = 0;
     int putToken = 0;
