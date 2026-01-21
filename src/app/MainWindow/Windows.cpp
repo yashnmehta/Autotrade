@@ -153,12 +153,31 @@ void MainWindow::createBuyWindow()
     }
     
     window->setContentWidget(buyWindow);
-    // window->setMinimumWidth(1200);
-    // window->setMinimumHeight(260);
-    
     window->resize(1220, 260);
     connectWindowSignals(window);
     m_mdiArea->addWindow(window);
+    
+    // Restore last saved position (shared between Buy and Sell windows)
+    QSettings settings("TradingCompany", "TradingTerminal");
+    if (settings.contains("orderwindow/last_x") && settings.contains("orderwindow/last_y")) {
+        int x = settings.value("orderwindow/last_x").toInt();
+        int y = settings.value("orderwindow/last_y").toInt();
+        window->move(x, y);
+    } else {
+        // Default position: bottom-right
+        QSize mdiSize = m_mdiArea->size();
+        int x = mdiSize.width() - 1220 - 20;
+        int y = mdiSize.height() - 260 - 20;
+        window->move(x, y);
+    }
+    
+    // Save position when window is moved (connection auto-disconnects when window is destroyed)
+    connect(window, &CustomMDISubWindow::windowMoved, window, [](const QPoint &pos) {
+        QSettings s("TradingCompany", "TradingTerminal");
+        s.setValue("orderwindow/last_x", pos.x());
+        s.setValue("orderwindow/last_y", pos.y());
+    }, Qt::UniqueConnection);
+    
     window->activateWindow();
 }
 
@@ -216,10 +235,31 @@ void MainWindow::createSellWindow()
     }
     
     window->setContentWidget(sellWindow);
-    // window->setMinimumWidth(1200);
     window->resize(1220, 260);
     connectWindowSignals(window);
     m_mdiArea->addWindow(window);
+    
+    // Restore last saved position (shared between Buy and Sell windows)
+    QSettings settings("TradingCompany", "TradingTerminal");
+    if (settings.contains("orderwindow/last_x") && settings.contains("orderwindow/last_y")) {
+        int x = settings.value("orderwindow/last_x").toInt();
+        int y = settings.value("orderwindow/last_y").toInt();
+        window->move(x, y);
+    } else {
+        // Default position: bottom-right
+        QSize mdiSize = m_mdiArea->size();
+        int x = mdiSize.width() - 1220 - 20;
+        int y = mdiSize.height() - 260 - 20;
+        window->move(x, y);
+    }
+    
+    // Save position when window is moved (connection auto-disconnects when window is destroyed)
+    connect(window, &CustomMDISubWindow::windowMoved, window, [](const QPoint &pos) {
+        QSettings s("TradingCompany", "TradingTerminal");
+        s.setValue("orderwindow/last_x", pos.x());
+        s.setValue("orderwindow/last_y", pos.y());
+    }, Qt::UniqueConnection);
+    
     window->activateWindow();
 }
 

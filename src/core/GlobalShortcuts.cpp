@@ -60,8 +60,14 @@ public:
 // --- MAIN WINDOW SHORTCUTS ---
 void setupMainWindowShortcuts(MainWindow* window) {
     if (!window) return;
+    // Buy Window: F1 or + key
     new QShortcut(QKeySequence(Qt::Key_F1), window, SLOT(createBuyWindow()));
+    new QShortcut(QKeySequence(Qt::Key_Plus), window, SLOT(createBuyWindow()));
+    
+    // Sell Window: F2 or - key
     new QShortcut(QKeySequence(Qt::Key_F2), window, SLOT(createSellWindow()));
+    new QShortcut(QKeySequence(Qt::Key_Minus), window, SLOT(createSellWindow()));
+    
     new QShortcut(QKeySequence("Ctrl+M"), window, SLOT(createMarketWatch()));
     new QShortcut(QKeySequence("Ctrl+S"), window, SLOT(focusScripBar()));
     new QShortcut(QKeySequence("Ctrl+P"), window, SLOT(showPreferences()));

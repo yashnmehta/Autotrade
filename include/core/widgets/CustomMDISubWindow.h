@@ -60,6 +60,7 @@ signals:
     void maximizeRequested();
     void windowActivated();
     void customizeRequested();
+    void windowMoved(const QPoint &pos);  // Emitted when window is moved
 
 protected:
     void mousePressEvent(QMouseEvent *event) override;
