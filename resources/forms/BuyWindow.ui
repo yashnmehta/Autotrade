@@ -141,6 +141,11 @@ QPushButton#pbSubmit:hover {
     background-color: #059669;
 }
 
+QPushButton#pbSubmit:focus {
+    background-color: #047857; /* Dark Green on Focus */
+    border: 2px solid #065f46;
+}
+
 QPushButton#pbSubmit:pressed {
     background-color: #047857;
 }
@@ -1049,21 +1054,11 @@ QWidget#verticalWidget, QWidget#verticalWidget_2 {
   </layout>
  </widget>
  <tabstops>
-  <tabstop>cbOrdType</tabstop>
-  <tabstop>leToken</tabstop>
-  <tabstop>cbExp</tabstop>
-  <tabstop>cbStrike</tabstop>
-  <tabstop>cbOptType</tabstop>
-  <tabstop>leQty</tabstop>
-  <tabstop>leRate</tabstop>
-  <tabstop>cbMFAON</tabstop>
-  <tabstop>leMEQty</tabstop>
-  <tabstop>leClient</tabstop>
-  <tabstop>leSetflor</tabstop>
-  <tabstop>leTrigPrice</tabstop>
-  <tabstop>cbProduct</tabstop>
-  <tabstop>cbValidity</tabstop>
-  <tabstop>leRemarks</tabstop>
+  \u003ctabstop\u003eleQty\u003c/tabstop\u003e
+  \u003ctabstop\u003eleRate\u003c/tabstop\u003e
+  \u003ctabstop\u003ecbProCli\u003c/tabstop\u003e
+  \u003ctabstop\u003epbSubmit\u003c/tabstop\u003e
+
  </tabstops>
  <resources/>
  <connections/>
