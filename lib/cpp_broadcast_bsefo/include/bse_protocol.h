@@ -85,10 +85,10 @@ struct DecodedHeader {
 };
 
 struct DecodedDepthLevel {
-    int32_t price;
-    uint64_t quantity; // V5.0: Long Long
-    uint32_t numOrders; // V5.0: Unsigned Long
-    uint64_t impliedQty; // V5.0: Long Long
+    double price;           // Converted from Long (paise) to double (rupees) by /100.0
+    uint64_t quantity;      // Long Long in BSE manual - Total Bid/Offer Quantity
+    uint32_t numOrders;     // Unsigned Long in BSE manual - No. of orders
+    uint64_t impliedQty;    // Long Long - Implied quantity (not used in NFCAST but in protocol)
 };
 
 struct DecodedRecord {

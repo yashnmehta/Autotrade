@@ -187,27 +187,37 @@ void IndicesView::onIndexReceived(const UDP::IndexTick& tick)
 {
     QString name = QString::fromLatin1(tick.name).trimmed();
     
-    // For BSE, name might be empty, so map from token
+    // For BSE, name is now populated by parser. Map tokens 1/2 for legacy/safety but allow others.
     if (tick.exchangeSegment == UDP::ExchangeSegment::BSECM || tick.exchangeSegment == UDP::ExchangeSegment::BSEFO) {
-        if (tick.token == 1) name = "SENSEX";
-        else if (tick.token == 2) name = "BSE 100"; 
-        else return;
+        if (name.isEmpty()) {
+            if (tick.token == 1) name = "SENSEX";
+            else if (tick.token == 2) name = "BSE 100"; 
+            else name = QString("INDEX_%1").arg(tick.token); // Fallback so we don't drop it
+        }
     }
     
-    // For NSE, standardize names (case-insensitive matching)
+    // Standardization Logic
     QString upperName = name.toUpper();
-    if (upperName.contains("NIFTY 50") || upperName == "NIFTY" || upperName.contains("NIFTY50")) {
-        name = "NIFTY 50";
-    } else if (upperName.contains("NIFTY BANK") || upperName.contains("BANKNIFTY") || upperName.contains("BANK NIFTY")) {
-        name = "BANKNIFTY";
-    } else if (upperName.contains("SENSEX")) {
+    
+    // Only normalize Nifty/BankNifty if coming from NSE (prevent BSE cross-listed index conflicts)
+    if (tick.exchangeSegment == UDP::ExchangeSegment::NSECM) {
+        if (upperName.contains("NIFTY 50") || upperName == "NIFTY" || upperName.contains("NIFTY50")) {
+            name = "NIFTY 50";
+        } else if (upperName.contains("NIFTY BANK") || upperName.contains("BANKNIFTY") || upperName.contains("BANK NIFTY")) {
+            name = "BANKNIFTY";
+        }
+    }
+    
+    // Allow SENSEX normalization for both (primary index for BSE)
+    if (upperName.contains("SENSEX")) {
         name = "SENSEX";
     }
     
     // Update (will be queued and batched)
     if (tick.exchangeSegment == UDP::ExchangeSegment::NSECM) {
         updateIndex(name, tick.value, tick.change, tick.changePercent);
-    } else if (name == "NIFTY 50" || name == "BANKNIFTY" || name == "SENSEX") {
+    } else if (!name.isEmpty()) { 
+        // Allow all other indices (BSE) if they have a name
         updateIndex(name, tick.value, tick.change, tick.changePercent);
     }
 }

@@ -261,8 +261,11 @@ UDP::IndexTick convertBseIndex(const bse::DecodedRecord& record, UDP::ExchangeSe
     tick.exchangeSegment = segment;
     tick.token = record.token;
     
-    // Name is not in the record, will rely on UI to map token to name
-    tick.name[0] = '\0';
+    // Name is stored in record.symbol by IndexStore
+    size_t copySize = sizeof(tick.name) - 1;
+    if (sizeof(record.symbol) < copySize) copySize = sizeof(record.symbol);
+    std::memcpy(tick.name, record.symbol, copySize);
+    tick.name[sizeof(tick.name) - 1] = '\0';
     
     tick.value = record.ltp / 100.0;
     tick.open = record.open / 100.0;
@@ -323,9 +326,9 @@ void UdpBroadcastService::subscribeToken(uint32_t token, int exchangeSegment) {
     // Sync with Distributed Gateway filter
     MarketData::PriceStoreGateway::instance().setTokenEnabled(exchangeSegment, token, true);
 
-    // qDebug() << "[UdpBroadcast] Subscribed to token:" << token 
-    //          << "Segment:" << exchangeSegment
-    //          << "Total subscriptions:" << m_subscribedTokens.size();
+    qDebug() << "[UdpBroadcast] Subscribed to token:" << token 
+             << "Segment:" << exchangeSegment
+             << "Total subscriptions:" << m_subscribedTokens.size();
 }
 
 void UdpBroadcastService::unsubscribeToken(uint32_t token, int exchangeSegment) {
@@ -561,8 +564,27 @@ void UdpBroadcastService::setupNseCmCallbacks() {
 void UdpBroadcastService::setupBseFoCallbacks() {
     if (!m_bseFoReceiver) return;
     
+    //  Set Notification Filter for BSE FO
+    m_bseFoReceiver->setTokenFilter([](uint32_t token) {
+        bool enabled = MarketData::PriceStoreGateway::instance().isTokenEnabled(12, token);
+        // Debug: Log filter decisions for first 10 tokens
+        static int filterCheckCount = 0;
+        if (filterCheckCount++ < 10) {
+            qDebug() << "[BSE FO Filter] Token:" << token << "Enabled:" << enabled;
+        }
+        return enabled;
+    });
+    
     auto unifiedCallback = [this](uint32_t token) {
         const auto* data = bse::g_bseFoPriceStore.getUnifiedState(token);
+        
+        // Debug: Log callback trigger
+        static int callbackCount = 0;
+        if (callbackCount++ < 20) {
+            qDebug() << "[BSE FO Callback] Token:" << token << "Data:" << (data ? "FOUND" : "NULL") 
+                     << (data ? QString(" LTP:%1").arg(data->ltp) : "");
+        }
+        
         if (!data) return;
 
         UDP::MarketTick udpTick = convertBseUnified(*data, UDP::ExchangeSegment::BSEFO);
@@ -599,8 +621,27 @@ void UdpBroadcastService::setupBseFoCallbacks() {
 void UdpBroadcastService::setupBseCmCallbacks() {
     if (!m_bseCmReceiver) return;
     
+    // Set Notification Filter for BSE CM
+    m_bseCmReceiver->setTokenFilter([](uint32_t token) {
+        bool enabled = MarketData::PriceStoreGateway::instance().isTokenEnabled(11, token);
+        // Debug: Log filter decisions for first 10 tokens
+        static int filterCheckCount = 0;
+        if (filterCheckCount++ < 10) {
+            qDebug() << "[BSE CM Filter] Token:" << token << "Enabled:" << enabled;
+        }
+        return enabled;
+    });
+    
     auto unifiedCallback = [this](uint32_t token) {
         const auto* data = bse::g_bseCmPriceStore.getUnifiedState(token);
+        
+        // Debug: Log callback trigger
+        static int callbackCount = 0;
+        if (callbackCount++ < 20) {
+            qDebug() << "[BSE CM Callback] Token:" << token << "Data:" << (data ? "FOUND" : "NULL") 
+                     << (data ? QString(" LTP:%1").arg(data->ltp) : "");
+        }
+        
         if (!data) return;
 
         UDP::MarketTick udpTick = convertBseUnified(*data, UDP::ExchangeSegment::BSECM);

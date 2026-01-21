@@ -33,7 +33,6 @@ public:
     void start();
     void stop();
     
-    // Callback setters - forward to parser
     void setRecordCallback(BSEParser::RecordCallback callback) { parser_.setRecordCallback(callback); }
     void setOpenInterestCallback(BSEParser::OpenInterestCallback callback) { parser_.setOpenInterestCallback(callback); }
     void setSessionStateCallback(BSEParser::SessionStateCallback callback) { parser_.setSessionStateCallback(callback); }
@@ -41,6 +40,10 @@ public:
 
     void setIndexCallback(BSEParser::RecordCallback callback) { parser_.setIndexCallback(callback); }
     void setImpliedVolatilityCallback(BSEParser::ImpliedVolatilityCallback callback) { parser_.setImpliedVolatilityCallback(callback); }
+    void setRBICallback(BSEParser::RBICallback callback) { parser_.setRBICallback(callback); }
+    
+    // Token filter for selective notification
+    void setTokenFilter(BSEParser::TokenFilterFunc filter) { parser_.setTokenFilter(filter); }
 
     const ReceiverStats& getStats() const { return stats_; }
     const ParserStats& getParserStats() const { return parserStats_; }

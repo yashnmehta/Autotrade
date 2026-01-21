@@ -94,8 +94,8 @@ void FeedHandler::onUdpTickReceived(const UDP::MarketTick& tick) {
     if (exchangeSegment == 12 || exchangeSegment == 11) {
         static int bseTickCount = 0;
         if (bseTickCount++ < 20) {
-            // qDebug() << "[FeedHandler] BSE UDP Tick - Segment:" << exchangeSegment 
-            //          << "Token:" << token << "Key:" << key << "LTP:" << tick.ltp;
+            qDebug() << "[FeedHandler] BSE UDP Tick - Segment:" << exchangeSegment 
+                     << "Token:" << token << "Key:" << key << "LTP:" << tick.ltp;
         }
     }
     
@@ -113,8 +113,8 @@ void FeedHandler::onUdpTickReceived(const UDP::MarketTick& tick) {
             if (exchangeSegment == 12 || exchangeSegment == 11) {
                 static int missingSubCount = 0;
                 if (missingSubCount++ < 10) {
-                    // qDebug() << "[FeedHandler] ⚠ No UDP subscriber for BSE - Segment:" << exchangeSegment
-                    //          << "Token:" << token << "Key:" << key;
+                    qDebug() << "[FeedHandler] ⚠ No UDP subscriber for BSE - Segment:" << exchangeSegment
+                             << "Token:" << token << "Key:" << key;
                 }
             }
         }

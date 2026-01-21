@@ -85,13 +85,22 @@ BSEReceiver::BSEReceiver(const std::string& ip, int port, const std::string& seg
     std::cout << "[" << segment_ << "] Connected to " << ip_ << ":" << port_ << std::endl;
 
     // Set parser market segment for PriceCache writes
-    // Maps to PriceCacheTypes::MarketSegment enum:
+    // Maps to PriceStoreGateway enum:
     // NSE_CM=1, NSE_FO=2, BSE_CM=11, BSE_FO=12
     int segParams = -1;
-    if (segment_ == "BSE_CM") segParams = 11;  // BSE_CM enum value
-    else if (segment_ == "BSE_FO") segParams = 12;  // BSE_FO enum value
+    // Handle both "BSE_CM" and "BSECM" formats
+    if (segment_ == "BSE_CM" || segment_ == "BSECM") {
+        segParams = 11;  // BSE_CM enum value
+    } else if (segment_ == "BSE_FO" || segment_ == "BSEFO") {
+        segParams = 12;  // BSE_FO enum value
+    }
     
-    parser_.setMarketSegment(segParams);
+    if (segParams != -1) {
+        parser_.setMarketSegment(segParams);
+        std::cout << "[" << segment_ << "] Market segment set to: " << segParams << std::endl;
+    } else {
+        std::cerr << "[" << segment_ << "] WARNING: Unknown segment, marketSegment_ will be -1!" << std::endl;
+    }
 }
 
 BSEReceiver::~BSEReceiver() {
@@ -133,6 +142,13 @@ void BSEReceiver::receiveLoop() {
         stats_.packetsReceived++;
         stats_.bytesReceived += n;
         
+        // Log packet reception progress every 100 packets
+        if (stats_.packetsReceived % 100 == 0) {
+            std::cout << "[" << segment_ << "] Packets received: " << stats_.packetsReceived 
+                      << ", valid: " << stats_.packetsValid 
+                      << ", invalid: " << stats_.packetsInvalid << std::endl;
+        }
+        
         if (validatePacket(buffer_, n)) {
             stats_.packetsValid++;
             parser_.parsePacket(buffer_, n, parserStats_);
@@ -171,11 +187,11 @@ bool BSEReceiver::validatePacket(const uint8_t* buffer, size_t length) {
     if (msgType != MSG_TYPE_MARKET_PICTURE) {
         // Check for potential Big Endian 2015 (0x07DF) -> LE Read: 0xDF07 (57095)
         // Check for potential Big Endian 2028 (0x07EC) -> LE Read: 0xEC07 (60423)
-        // std::cout << "[" << segment_ << "] Non-2020 MsgType Detected: " << msgType 
-        //           << " (Hex: " << std::hex << msgType << std::dec << ")" << std::endl;
-        
-        // Temporarily print ALL non-2020 to debug console
-        // std::cerr << ">> Pkt Type: " << msgType << std::endl;
+        static int nonMarketPictureCount = 0;
+        if (++nonMarketPictureCount <= 20) {  // Only log first 20 to avoid spam
+            std::cout << "[" << segment_ << "] Non-2020 MsgType Detected: " << msgType 
+                      << " (Hex: 0x" << std::hex << msgType << std::dec << ")" << std::endl;
+        }
     }
 
     if (msgType != MSG_TYPE_MARKET_PICTURE && 
