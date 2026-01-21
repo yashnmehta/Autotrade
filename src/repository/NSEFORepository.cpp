@@ -702,12 +702,12 @@ bool NSEFORepository::loadFromContracts(
       m_expiryDate[idx] = internString(contract.expiryDate);
       m_strikePrice[idx] = contract.strikePrice;
 
-      // Determine OptionType (1=CE, 2=PE, 3/4=XX)
+      // Determine OptionType (1=CE, 2=PE, 3=CE, 4=PE)
       QString optType = "XX";
       if (contract.instrumentType == 2) { // OPTIDX/OPTSTK
-        if (contract.optionType == 1)
+        if (contract.optionType == 1 || contract.optionType == 3)
           optType = "CE";
-        else if (contract.optionType == 2)
+        else if (contract.optionType == 2 || contract.optionType == 4)
           optType = "PE";
       }
       m_optionType[idx] = internString(optType);

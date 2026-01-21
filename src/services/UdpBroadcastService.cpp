@@ -485,12 +485,36 @@ void UdpBroadcastService::setupNseCmCallbacks() {
             tick.numAdvances = data.upMoves;
             tick.numDeclines = data.downMoves;
             
-            // Log Stage 3: Emission
-            // Log Stage 3: Emission
-            if (strcmp(tick.name, "NIFTY50") == 0) {
-                std::cout << "[UDP] Emitting NSECM Index For: " << tick.name << " Val: " << tick.value << std::endl;
-            }
             emit udpIndexReceived(tick);
+
+            // FUNNEL TO FEEDHANDLER: Convert IndexTick to MarketTick for subscribers (like ATM Watch)
+            static const std::unordered_map<std::string, uint32_t> indexNameToToken = {
+                {"Nifty 50", 26000},
+                {"NIFTY 50", 26000},
+                {"Nifty Bank", 26009},
+                {"NIFTY BANK", 26009},
+                {"Nifty Fin Service", 26037},
+                {"NIFTY FIN SERVICE", 26037},
+                {"Nifty Midcap 100", 26074},
+                {"NIFTY MIDCAP 100", 26074},
+                {"Nifty Next 50", 26013},
+                {"NIFTY NEXT 50", 26013}
+            };
+
+            auto it = indexNameToToken.find(tick.name);
+            if (it != indexNameToToken.end()) {
+                UDP::MarketTick mTick;
+                mTick.exchangeSegment = UDP::ExchangeSegment::NSECM;
+                mTick.token = it->second;
+                mTick.ltp = tick.value;
+                mTick.open = tick.open;
+                mTick.high = tick.high;
+                mTick.low = tick.low;
+                mTick.prevClose = tick.prevClose;
+                mTick.volume = 0; // Indices don't have volume in 7207
+                
+                FeedHandler::instance().onUdpTickReceived(mTick);
+            }
         }
     });
 

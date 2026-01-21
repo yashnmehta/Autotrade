@@ -102,9 +102,10 @@ void ScripBar::setupUI()
     connect(m_strikeCombo, &CustomScripComboBox::itemSelected,
             this, &ScripBar::onStrikeChanged);
 
-    // Option Type combo (custom)
+    // Option Type combo (custom) - SelectorMode since only CE/PE options
     m_optionTypeCombo = new CustomScripComboBox(this);
-    m_optionTypeCombo->setMode(CustomScripComboBox::SearchMode);
+    m_optionTypeCombo->setMode(CustomScripComboBox::SelectorMode);
+
     m_optionTypeCombo->setSortMode(CustomScripComboBox::NoSort);
 
     m_optionTypeCombo->setMinimumWidth(48);
@@ -515,10 +516,8 @@ void ScripBar::populateOptionTypes(const QString &strike)
     QStringList types = {"CE", "PE"};
     m_optionTypeCombo->addItems(types);
 
-    // Set default
-    if (m_optionTypeCombo->lineEdit()) {
-        m_optionTypeCombo->lineEdit()->setText("CE");
-    }
+    // Set default to CE (first item)
+    m_optionTypeCombo->setCurrentIndex(0);
     
     updateTokenDisplay();
 }

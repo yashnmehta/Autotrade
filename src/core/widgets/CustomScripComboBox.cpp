@@ -262,8 +262,7 @@ void CustomScripComboBox::onItemActivated(int index)
 
 void CustomScripComboBox::sortItems()
 {
-    if (m_sortMode == NoSort) return;
-    
+    // Apply sorting based on mode (skip sorting for NoSort, but still populate model)
     if (m_sortMode == AlphabeticalSort) {
         m_allItems.sort(Qt::CaseInsensitive); // Faster than std::sort for QStringList
     } else if (m_sortMode == ChronologicalSort) {
@@ -286,11 +285,13 @@ void CustomScripComboBox::sortItems()
             return a < b;
         });
     }
+    // NoSort: skip sorting, but still populate model below
     
+    // Always populate the model (even for NoSort)
     m_sourceModel->clear();
-    // Efficiently populate the model in one go
     QComboBox::addItems(m_allItems);
 }
+
 
 QDateTime CustomScripComboBox::parseDate(const QString &dateStr) const
 {
