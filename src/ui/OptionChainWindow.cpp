@@ -305,7 +305,7 @@ void OptionChainWindow::setupModels() {
   m_callModel = new QStandardItemModel(this);
   m_callModel->setColumnCount(CALL_COLUMN_COUNT);
   m_callModel->setHorizontalHeaderLabels({"", "OI", "Chng in OI", "Volume",
-                                          "IV", "Delta", "Gamma", "Vega", "Theta", 
+                                          "IV", "BidIV", "AskIV", "Delta", "Gamma", "Vega", "Theta", 
                                           "LTP", "Chng", "BID QTY", "BID",
                                           "ASK", "ASK QTY"});
 
@@ -336,7 +336,7 @@ void OptionChainWindow::setupModels() {
   m_putModel = new QStandardItemModel(this);
   m_putModel->setColumnCount(PUT_COLUMN_COUNT);
   m_putModel->setHorizontalHeaderLabels({"BID QTY", "BID", "ASK", "ASK QTY",
-                                         "Chng", "LTP", "IV", "Delta", "Gamma",
+                                         "Chng", "LTP", "IV", "BidIV", "AskIV", "Delta", "Gamma",
                                          "Vega", "Theta", "Volume",
                                          "Chng in OI", "OI", ""});
 
@@ -395,6 +395,8 @@ void OptionChainWindow::setupConnections() {
               
               if (isCall) {
                   data.callIV = result.impliedVolatility;
+                  data.callBidIV = result.bidIV;
+                  data.callAskIV = result.askIV;
                   data.callDelta = result.delta;
                   data.callGamma = result.gamma;
                   data.callVega = result.vega;
@@ -402,18 +404,24 @@ void OptionChainWindow::setupConnections() {
                   
                   // Update Model directly to avoid full row refresh overhead
                   m_callModel->item(row, CALL_IV)->setText(QString::number(data.callIV, 'f', 2));
+                  m_callModel->item(row, CALL_BID_IV)->setText(QString::number(data.callBidIV, 'f', 2));
+                  m_callModel->item(row, CALL_ASK_IV)->setText(QString::number(data.callAskIV, 'f', 2));
                   m_callModel->item(row, CALL_DELTA)->setText(QString::number(data.callDelta, 'f', 2));
                   m_callModel->item(row, CALL_GAMMA)->setText(QString::number(data.callGamma, 'f', 4));
                   m_callModel->item(row, CALL_VEGA)->setText(QString::number(data.callVega, 'f', 2));
                   m_callModel->item(row, CALL_THETA)->setText(QString::number(data.callTheta, 'f', 2));
               } else {
                   data.putIV = result.impliedVolatility;
+                  data.putBidIV = result.bidIV;
+                  data.putAskIV = result.askIV;
                   data.putDelta = result.delta;
                   data.putGamma = result.gamma;
                   data.putVega = result.vega;
                   data.putTheta = result.theta;
                   
                   m_putModel->item(row, PUT_IV)->setText(QString::number(data.putIV, 'f', 2));
+                  m_putModel->item(row, PUT_BID_IV)->setText(QString::number(data.putBidIV, 'f', 2));
+                  m_putModel->item(row, PUT_ASK_IV)->setText(QString::number(data.putAskIV, 'f', 2));
                   m_putModel->item(row, PUT_DELTA)->setText(QString::number(data.putDelta, 'f', 2));
                   m_putModel->item(row, PUT_GAMMA)->setText(QString::number(data.putGamma, 'f', 4));
                   m_putModel->item(row, PUT_VEGA)->setText(QString::number(data.putVega, 'f', 2));
@@ -474,6 +482,10 @@ void OptionChainWindow::updateStrikeData(double strike,
       ->setText(QString::number(data.callVolume));
   m_callModel->item(row, CALL_IV)
       ->setText(QString::number(data.callIV, 'f', 2));
+  m_callModel->item(row, CALL_BID_IV)
+      ->setText(QString::number(data.callBidIV, 'f', 2));
+  m_callModel->item(row, CALL_ASK_IV)
+      ->setText(QString::number(data.callAskIV, 'f', 2));
   m_callModel->item(row, CALL_DELTA)
       ->setText(QString::number(data.callDelta, 'f', 2));
   m_callModel->item(row, CALL_GAMMA)
@@ -508,6 +520,8 @@ void OptionChainWindow::updateStrikeData(double strike,
 
   updateItemWithColor(m_putModel->item(row, PUT_LTP), data.putLTP);
   m_putModel->item(row, PUT_IV)->setText(QString::number(data.putIV, 'f', 2));
+  m_putModel->item(row, PUT_BID_IV)->setText(QString::number(data.putBidIV, 'f', 2));
+  m_putModel->item(row, PUT_ASK_IV)->setText(QString::number(data.putAskIV, 'f', 2));
   m_putModel->item(row, PUT_DELTA)->setText(QString::number(data.putDelta, 'f', 2));
   m_putModel->item(row, PUT_GAMMA)->setText(QString::number(data.putGamma, 'f', 4));
   m_putModel->item(row, PUT_VEGA)->setText(QString::number(data.putVega, 'f', 2));

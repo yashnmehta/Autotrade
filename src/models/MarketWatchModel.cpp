@@ -23,6 +23,8 @@ MarketWatchModel::MarketWatchModel(QObject *parent)
         if (row >= 0) {
             updateGreeks(row, 
                 result.impliedVolatility, 
+                result.bidIV,
+                result.askIV,
                 result.delta, 
                 result.gamma, 
                 result.vega, 
@@ -418,11 +420,13 @@ void MarketWatchModel::updateOpenInterestWithChange(int row, qint64 oi, double o
     }
 }
 
-void MarketWatchModel::updateGreeks(int row, double iv, double delta, double gamma, double vega, double theta)
+void MarketWatchModel::updateGreeks(int row, double iv, double bidIV, double askIV, double delta, double gamma, double vega, double theta)
 {
     if (row >= 0 && row < m_scrips.count() && !m_scrips.at(row).isBlankRow) {
         ScripData &scrip = m_scrips[row];
         scrip.iv = iv;
+        scrip.bidIV = bidIV;
+        scrip.askIV = askIV;
         scrip.delta = delta;
         scrip.gamma = gamma;
         scrip.vega = vega;
@@ -558,6 +562,8 @@ QVariant MarketWatchModel::getColumnData(const ScripData& scrip, MarketWatchColu
         case MarketWatchColumn::OPEN_INTEREST: return static_cast<qlonglong>(scrip.openInterest);
         case MarketWatchColumn::OI_CHANGE_PERCENT: return scrip.oiChangePercent;
         case MarketWatchColumn::IMPLIED_VOLATILITY: return scrip.iv * 100.0;  // Convert to percentage
+        case MarketWatchColumn::BID_IV: return scrip.bidIV * 100.0;
+        case MarketWatchColumn::ASK_IV: return scrip.askIV * 100.0;
         case MarketWatchColumn::DELTA: return scrip.delta;
         case MarketWatchColumn::GAMMA: return scrip.gamma;
         case MarketWatchColumn::VEGA: return scrip.vega;
@@ -689,8 +695,10 @@ QString MarketWatchModel::formatColumnData(const ScripData& scrip, MarketWatchCo
             return getColumnData(scrip, column).toString();
         
         // Greeks columns
-        case MarketWatchColumn::IMPLIED_VOLATILITY: {
-            double value = scrip.iv * 100.0;  // Convert to percentage
+        case MarketWatchColumn::IMPLIED_VOLATILITY:
+        case MarketWatchColumn::BID_IV:
+        case MarketWatchColumn::ASK_IV: {
+            double value = getColumnData(scrip, column).toDouble();
             if (value <= 0.0) return "-";
             return QString::number(value, 'f', 1) + "%";
         }

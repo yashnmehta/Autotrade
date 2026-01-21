@@ -25,8 +25,10 @@ GreeksCalculationService& GreeksCalculationService::instance() {
 GreeksCalculationService::GreeksCalculationService(QObject* parent)
     : QObject(parent)
     , m_timeTickTimer(new QTimer(this))
+    , m_illiquidUpdateTimer(new QTimer(this))
 {
     connect(m_timeTickTimer, &QTimer::timeout, this, &GreeksCalculationService::onTimeTick);
+    connect(m_illiquidUpdateTimer, &QTimer::timeout, this, &GreeksCalculationService::processIlliquidUpdates);
     loadNSEHolidays();
 }
 
@@ -46,6 +48,11 @@ void GreeksCalculationService::initialize(const GreeksConfig& config) {
     // Start time tick timer
     if (m_config.enabled && m_config.timeTickIntervalSec > 0) {
         m_timeTickTimer->start(m_config.timeTickIntervalSec * 1000);
+    }
+    
+    // Start illiquid update timer
+    if (m_config.enabled && m_config.illiquidUpdateIntervalSec > 0) {
+        m_illiquidUpdateTimer->start(m_config.illiquidUpdateIntervalSec * 1000);
     }
     
     qDebug() << "[GreeksCalculationService] Initialized with:"
@@ -69,6 +76,8 @@ void GreeksCalculationService::loadConfiguration() {
     m_config.ivTolerance = settings.value("iv_tolerance", 1e-6).toDouble();
     m_config.ivMaxIterations = settings.value("iv_max_iterations", 100).toInt();
     m_config.timeTickIntervalSec = settings.value("time_tick_interval", 60).toInt();
+    m_config.illiquidUpdateIntervalSec = settings.value("illiquid_update_interval", 30).toInt();
+    m_config.illiquidThresholdSec = settings.value("illiquid_threshold", 30).toInt();
     
     settings.endGroup();
     
@@ -142,6 +151,22 @@ GreeksResult GreeksCalculationService::calculateForToken(uint32_t token, int exc
         return result;
     }
     
+    // Get Bid/Ask prices for skew Calculation
+    double bidPrice = 0.0;
+    double askPrice = 0.0;
+    
+    if (exchangeSegment == 2) {
+         if (auto state = nsefo::g_nseFoPriceStore.getUnifiedState(token)) {
+             bidPrice = state->bids[0].price;
+             askPrice = state->asks[0].price;
+         }
+    } else if (exchangeSegment == 4) {
+         if (auto state = bse::g_bseFoPriceStore.getUnifiedState(token)) {
+             bidPrice = state->bids[0].price;
+             askPrice = state->asks[0].price;
+         }
+    }
+    
     // Get underlying price
     double underlyingPrice = getUnderlyingPrice(token, exchangeSegment);
     if (underlyingPrice <= 0) {
@@ -172,26 +197,63 @@ GreeksResult GreeksCalculationService::calculateForToken(uint32_t token, int exc
     result.timeToExpiry = T;
     result.optionPrice = optionPrice;
     
-    // Calculate IV using Newton-Raphson
-    IVResult ivResult = IVCalculator::calculate(
-        optionPrice,
-        underlyingPrice,
-        strikePrice,
-        T,
-        m_config.riskFreeRate,
-        isCall,
-        m_config.ivInitialGuess,
-        m_config.ivTolerance,
-        m_config.ivMaxIterations
-    );
+    // -------------------------------------------------------------
+    // 1. Calculate Implied Volatility (LTP IV) - Only on Option Trade
+    // -------------------------------------------------------------
+    // Check if we should use cached IV (if this was triggered by Spot/Timer, not Option Trade)
+    // We infer this: if cached price == current price, reuse cached IV
+    double usedIV = 0.0;
+    bool usingCachedIV = false;
     
-    result.impliedVolatility = ivResult.impliedVolatility;
-    result.ivConverged = ivResult.converged;
-    result.ivIterations = ivResult.iterations;
+    if (m_cache.contains(token)) {
+        const auto& entry = m_cache[token];
+        // If option price hasn't changed, keep using the Snapshot IV
+        if (std::abs(entry.lastPrice - optionPrice) < 0.0001 && entry.result.impliedVolatility > 0) {
+            usedIV = entry.result.impliedVolatility;
+            result.impliedVolatility = usedIV;
+            result.bidIV = entry.result.bidIV;
+            result.askIV = entry.result.askIV;
+            result.ivConverged = entry.result.ivConverged;
+            result.ivIterations = entry.result.ivIterations;
+            usingCachedIV = true;
+        }
+    }
     
-    if (!ivResult.converged) {
+    if (!usingCachedIV) {
+        // Calculate LTP IV
+        IVResult ivResult = IVCalculator::calculate(
+            optionPrice, underlyingPrice, strikePrice, T,
+            m_config.riskFreeRate, isCall,
+            m_config.ivInitialGuess, m_config.ivTolerance, m_config.ivMaxIterations
+        );
+        usedIV = ivResult.impliedVolatility;
+        result.impliedVolatility = usedIV;
+        result.ivConverged = ivResult.converged;
+        result.ivIterations = ivResult.iterations;
+        
+        // Calculate Bid IV
+        if (bidPrice > 0) {
+            IVResult bidRes = IVCalculator::calculate(
+                bidPrice, underlyingPrice, strikePrice, T,
+                m_config.riskFreeRate, isCall, usedIV > 0 ? usedIV : m_config.ivInitialGuess
+            );
+            result.bidIV = bidRes.impliedVolatility;
+        }
+        
+        // Calculate Ask IV
+        if (askPrice > 0) {
+            IVResult askRes = IVCalculator::calculate(
+                askPrice, underlyingPrice, strikePrice, T,
+                m_config.riskFreeRate, isCall, usedIV > 0 ? usedIV : m_config.ivInitialGuess
+            );
+            result.askIV = askRes.impliedVolatility;
+        }
+    }
+    
+
+    if (!result.ivConverged && !usingCachedIV) {
         qDebug() << "[GreeksCalculationService] IV convergence failed for token:" << token
-                 << "after" << ivResult.iterations << "iterations";
+                 << "after" << result.ivIterations << "iterations";
     }
     
     // Calculate Greeks using the calculated IV
@@ -201,7 +263,7 @@ GreeksResult GreeksCalculationService::calculateForToken(uint32_t token, int exc
             strikePrice,
             T,
             m_config.riskFreeRate,
-            result.impliedVolatility,
+            usedIV, // Use the decided IV (Cached or New)
             isCall
         );
         
@@ -219,6 +281,15 @@ GreeksResult GreeksCalculationService::calculateForToken(uint32_t token, int exc
     entry.lastCalculationTime = result.calculationTimestamp;
     entry.lastPrice = optionPrice;
     entry.lastUnderlyingPrice = underlyingPrice;
+    
+    // If calculating fresh IV, update Last Trade Timestamp
+    if (!usingCachedIV) {
+        entry.lastTradeTimestamp = QDateTime::currentMSecsSinceEpoch();
+    } else if (m_cache.contains(token)) {
+        // Preserve original trade timestamp
+        entry.lastTradeTimestamp = m_cache[token].lastTradeTimestamp;
+    }
+    
     m_cache[token] = entry;
     
     // Emit signal
@@ -286,18 +357,51 @@ void GreeksCalculationService::onUnderlyingPriceUpdate(uint32_t underlyingToken,
     if (!m_config.enabled || !m_config.autoCalculate) return;
     
     // Find all options linked to this underlying
-    // values() returns a list of all values associated with the key
     QList<uint32_t> optionTokens = m_underlyingToOptions.values(underlyingToken);
+    int64_t now = QDateTime::currentMSecsSinceEpoch();
     
     for (uint32_t token : optionTokens) {
         // We need the exchange segment to calculate
-        // Since we only add to map if cached, we can look up segment from cache
         auto it = m_cache.find(token);
         if (it != m_cache.end()) {
-            // Recalculate associated option
-            // calculateForToken checks throttle internally, so this loop is safe
-            calculateForToken(token, it.value().result.exchangeSegment);
+            
+            // HYBRID THROTTLING LOGIC
+            // 1. If Liquid (Traded recently): Update immediately
+            // 2. If Illiquid: Skip (will be caught by processIlliquidUpdates timer)
+            
+            int64_t lastTradeTime = it.value().lastTradeTimestamp;
+            int64_t timeSinceTrade = now - lastTradeTime;
+            
+            if (timeSinceTrade < (m_config.illiquidThresholdSec * 1000)) {
+                // Liquid: Update immediately using Cached IV + New Spot
+                calculateForToken(token, it.value().result.exchangeSegment);
+            }
+            // else: Illiquid, do nothing. Background timer will handle it.
         }
+    }
+}
+
+void GreeksCalculationService::processIlliquidUpdates() {
+    if (!m_config.enabled || !m_config.autoCalculate) return;
+    
+    int64_t now = QDateTime::currentMSecsSinceEpoch();
+    int cutoff = m_config.illiquidThresholdSec * 1000;
+    
+    // Iterate all cached tokens
+    auto it = m_cache.begin();
+    while (it != m_cache.end()) {
+        int64_t lastTradeTime = it.value().lastTradeTimestamp;
+        
+        // Process only if ILLIQUID (> 30s since last option trade)
+        if ((now - lastTradeTime) > cutoff) {
+             
+             // Check if underlying moved significantly since last calc to avoid useless work
+             // (Optional optimization: reusing shouldRecalculate logic implicitly via calculateForToken)
+             
+             // Force calculation (using Cached IV + Current Spot)
+             calculateForToken(it.key(), it.value().result.exchangeSegment);
+        }
+        ++it;
     }
 }
 

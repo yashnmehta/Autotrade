@@ -450,6 +450,34 @@ void MarketWatchColumnProfile::initializeColumnMetadata()
     info.isNumeric = true;
     info.isFOSpecific = true;
     s_columnMetadata[MarketWatchColumn::IMPLIED_VOLATILITY] = info;
+
+    info = ColumnInfo();
+    info.id = MarketWatchColumn::BID_IV;
+    info.name = "Bid IV";
+    info.shortName = "BidIV";
+    info.description = "Bid Implied Volatility %";
+    info.defaultWidth = 65;
+    info.alignment = Qt::AlignRight | Qt::AlignVCenter;
+    info.visibleByDefault = false;
+    info.format = "%.1f";
+    info.unit = "%";
+    info.isNumeric = true;
+    info.isFOSpecific = true;
+    s_columnMetadata[MarketWatchColumn::BID_IV] = info;
+
+    info = ColumnInfo();
+    info.id = MarketWatchColumn::ASK_IV;
+    info.name = "Ask IV";
+    info.shortName = "AskIV";
+    info.description = "Ask Implied Volatility %";
+    info.defaultWidth = 65;
+    info.alignment = Qt::AlignRight | Qt::AlignVCenter;
+    info.visibleByDefault = false;
+    info.format = "%.1f";
+    info.unit = "%";
+    info.isNumeric = true;
+    info.isFOSpecific = true;
+    s_columnMetadata[MarketWatchColumn::ASK_IV] = info;
     
     info = ColumnInfo();
     info.id = MarketWatchColumn::DELTA;
@@ -741,6 +769,8 @@ MarketWatchColumnProfile MarketWatchColumnProfile::createFOProfile()
     
     // Add Greeks columns (key for options trading)
     profile.setColumnVisible(MarketWatchColumn::IMPLIED_VOLATILITY, true);
+    profile.setColumnVisible(MarketWatchColumn::BID_IV, true);
+    profile.setColumnVisible(MarketWatchColumn::ASK_IV, true);
     profile.setColumnVisible(MarketWatchColumn::DELTA, true);
     profile.setColumnVisible(MarketWatchColumn::THETA, true);
     // Gamma and Vega hidden by default (advanced)
