@@ -153,7 +153,7 @@ void MainWindow::createBuyWindow()
     }
     
     window->setContentWidget(buyWindow);
-    window->resize(1220, 260);
+    window->resize(1220, 200);
     connectWindowSignals(window);
     m_mdiArea->addWindow(window);
     
@@ -167,7 +167,7 @@ void MainWindow::createBuyWindow()
         // Default position: bottom-right
         QSize mdiSize = m_mdiArea->size();
         int x = mdiSize.width() - 1220 - 20;
-        int y = mdiSize.height() - 260 - 20;
+        int y = mdiSize.height() - 200 - 20;
         window->move(x, y);
     }
     
@@ -235,7 +235,7 @@ void MainWindow::createSellWindow()
     }
     
     window->setContentWidget(sellWindow);
-    window->resize(1220, 260);
+    window->resize(1220, 200);
     connectWindowSignals(window);
     m_mdiArea->addWindow(window);
     
@@ -249,7 +249,7 @@ void MainWindow::createSellWindow()
         // Default position: bottom-right
         QSize mdiSize = m_mdiArea->size();
         int x = mdiSize.width() - 1220 - 20;
-        int y = mdiSize.height() - 260 - 20;
+        int y = mdiSize.height() - 200 - 20;
         window->move(x, y);
     }
     
