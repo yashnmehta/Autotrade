@@ -134,8 +134,6 @@ void PriceStore::initializeToken(uint32_t token, const char* symbol, const char*
     std::unique_lock<std::shared_mutex> lock(mutex);
     if (!tokenStates[token]) {
         tokenStates[token] = new UnifiedTokenState();
-        // CRITICAL: Zero-initialize entire struct to prevent garbage values
-        std::memset(tokenStates[token], 0, sizeof(UnifiedTokenState));
     }
     UnifiedTokenState& state = *tokenStates[token];
     
@@ -186,8 +184,6 @@ void PriceStore::initializeFromMaster(const std::vector<uint32_t>& tokens) {
         if (t >= tokenStates.size()) continue;
         if (!tokenStates[t]) {
             tokenStates[t] = new UnifiedTokenState();
-            // CRITICAL: Zero-initialize to prevent garbage values
-            std::memset(tokenStates[t], 0, sizeof(UnifiedTokenState));
             tokenStates[t]->token = t;
         }
     }

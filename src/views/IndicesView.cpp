@@ -147,7 +147,7 @@ void IndicesView::setupUI()
     
     // View styling
     m_view->setStyleSheet(
-        "QTableView { background-color: #ffffff; color: #000000; border: none; font-weight: bold; font-family: 'Segoe UI', sans-serif; }"
+        "QTableView { background-color: #ffffff; color: #000000; border: none; font-weight: bold; font-family: 'Inter', sans-serif; }"
         "QTableView::item { padding: 4px; border-bottom: 1px solid #eeeeee; }"
         "QTableView::item:selected { background-color: #e5f3ff; color: #000000; }"
     );
@@ -187,37 +187,27 @@ void IndicesView::onIndexReceived(const UDP::IndexTick& tick)
 {
     QString name = QString::fromLatin1(tick.name).trimmed();
     
-    // For BSE, name is now populated by parser. Map tokens 1/2 for legacy/safety but allow others.
+    // For BSE, name might be empty, so map from token
     if (tick.exchangeSegment == UDP::ExchangeSegment::BSECM || tick.exchangeSegment == UDP::ExchangeSegment::BSEFO) {
-        if (name.isEmpty()) {
-            if (tick.token == 1) name = "SENSEX";
-            else if (tick.token == 2) name = "BSE 100"; 
-            else name = QString("INDEX_%1").arg(tick.token); // Fallback so we don't drop it
-        }
+        if (tick.token == 1) name = "SENSEX";
+        else if (tick.token == 2) name = "BSE 100"; 
+        else return;
     }
     
-    // Standardization Logic
+    // For NSE, standardize names (case-insensitive matching)
     QString upperName = name.toUpper();
-    
-    // Only normalize Nifty/BankNifty if coming from NSE (prevent BSE cross-listed index conflicts)
-    if (tick.exchangeSegment == UDP::ExchangeSegment::NSECM) {
-        if (upperName.contains("NIFTY 50") || upperName == "NIFTY" || upperName.contains("NIFTY50")) {
-            name = "NIFTY 50";
-        } else if (upperName.contains("NIFTY BANK") || upperName.contains("BANKNIFTY") || upperName.contains("BANK NIFTY")) {
-            name = "BANKNIFTY";
-        }
-    }
-    
-    // Allow SENSEX normalization for both (primary index for BSE)
-    if (upperName.contains("SENSEX")) {
+    if (upperName.contains("NIFTY 50") || upperName == "NIFTY" || upperName.contains("NIFTY50")) {
+        name = "NIFTY 50";
+    } else if (upperName.contains("NIFTY BANK") || upperName.contains("BANKNIFTY") || upperName.contains("BANK NIFTY")) {
+        name = "BANKNIFTY";
+    } else if (upperName.contains("SENSEX")) {
         name = "SENSEX";
     }
     
     // Update (will be queued and batched)
     if (tick.exchangeSegment == UDP::ExchangeSegment::NSECM) {
         updateIndex(name, tick.value, tick.change, tick.changePercent);
-    } else if (!name.isEmpty()) { 
-        // Allow all other indices (BSE) if they have a name
+    } else if (name == "NIFTY 50" || name == "BANKNIFTY" || name == "SENSEX") {
         updateIndex(name, tick.value, tick.change, tick.changePercent);
     }
 }

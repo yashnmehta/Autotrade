@@ -243,8 +243,8 @@ public:
   QVector<QString> getExpiriesForSymbol(const QString &symbol) const;
 
   // ATM Watch Optimization: O(1) lookups for strikes and tokens
-  QVector<double> getStrikesForSymbolExpiry(const QString &symbol,
-                                            const QString &expiry) const;
+  const QVector<double> &getStrikesForSymbolExpiry(const QString &symbol,
+                                                   const QString &expiry) const;
   QPair<int64_t, int64_t> getTokensForStrike(const QString &symbol,
                                              const QString &expiry,
                                              double strike) const;
@@ -353,15 +353,19 @@ private:
   ~RepositoryManager();
 
   /**
-   * @brief Build expiry cache for fast ATM Watch lookups
+   * @brief Build caches for efficient symbol/expiry/strike lookups.
    *
-   * Processes all F&O contracts to extract:
-   * - Set of all option-enabled symbols
-   * - Map of expiry dates to symbols
-   * - Map of symbols to their nearest expiry
+   * Strategy:
+   * 1. Iterates through all NSE FO contracts once during startup (in finalizeLoad()).
+   * 2. Populates m_symbolExpiryStrikes: Map of (Symbol|Expiry) -> sorted unique strikes.
+   * 3. Populates m_strikeToTokens: Map of (Symbol|Expiry|Strike) -> (CallToken, PutToken).
+   * 4. Populates m_symbolExpiryFutureToken: Map of (Symbol|Expiry) -> Future Token.
+   * 5. Populates m_symbolToAssetToken: Map of Symbol -> Cash Asset Token.
    *
-   * This is called once during master load (in finalizeLoad())
-   * to enable O(1) lookups instead of filtering 100K+ contracts.
+   * This pre-computation moves the O(N) filtering cost to startup, enabling O(1) 
+   * lookups for real-time ATM Watch calculations and UI rendering. This keeps 
+   * the runtime loops extremamente lightweight (sub-microsecond lookups) even 
+   * with 100K+ contracts.
    */
   void buildExpiryCache();
 

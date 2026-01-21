@@ -27,7 +27,7 @@ if exist CMakeCache.txt (
     del CMakeCache.txt
 )
 
-REM Configure with CMake (MSYS2 provides all dependencies)
+REM Configure with CMake
 echo.
 echo Running CMake configuration...
 echo.
@@ -35,7 +35,10 @@ echo.
 cmake -G "MinGW Makefiles" ^
     -DCMAKE_BUILD_TYPE=Release ^
     -DCMAKE_PREFIX_PATH=%QT_DIR% ^
-    -DCMAKE_MAKE_PROGRAM=%MINGW_ROOT%\bin\mingw32-make.exe ^
+    -DCMAKE_TOOLCHAIN_FILE=%VCPKG_ROOT%\scripts\buildsystems\vcpkg.cmake ^
+    -DVCPKG_TARGET_TRIPLET=x64-mingw-dynamic ^
+    -DBoost_INCLUDE_DIR=%VCPKG_ROOT%\installed\x64-mingw-dynamic\include ^
+    -DOPENSSL_ROOT_DIR=%VCPKG_ROOT%\installed\x64-mingw-dynamic ^
     ..
 
 if %errorlevel% equ 0 (

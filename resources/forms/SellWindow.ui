@@ -151,11 +151,6 @@ QPushButton#pbSubmit:hover {
     background-color: #b91c1c;
 }
 
-QPushButton#pbSubmit:focus {
-    background-color: #991b1b; /* Dark Red on Focus */
-    border: 2px solid #7f1d1d;
-}
-
 QPushButton#pbSubmit:pressed {
     background-color: #991b1b;
 }

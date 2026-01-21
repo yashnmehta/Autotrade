@@ -19,6 +19,15 @@ void parse_message_7207(const MS_BCAST_INDICES* msg) {
         std::memcpy(data.name, rec.indexName, 21);
         data.name[20] = '\0';
         
+        // Trim trailing spaces
+        for (int j = 19; j >= 0; j--) {
+            if (data.name[j] == ' ' || data.name[j] == '\0') {
+                data.name[j] = '\0';
+            } else {
+                break;
+            }
+        }
+        
         // Parse values from big-endian
         data.value = (int32_t)be32toh_func(rec.indexValue) / 100.0;
         data.high = (int32_t)be32toh_func(rec.highIndexValue) / 100.0;

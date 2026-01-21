@@ -7,7 +7,6 @@
 #include "core/widgets/CustomMDISubWindow.h"
 #include <QMessageBox>
 #include <QDebug>
-#include <QTimer>
 #include <cmath>
 
 
@@ -184,13 +183,4 @@ void BuyWindow::showEvent(QShowEvent *event)
 {
     BaseOrderWindow::showEvent(event);
     SoundManager::instance().playBeepForEvent(SoundManager::EventType::BuyWindowOpen);
-    
-    // Set default focus on Total Quantity field
-    // Use QTimer to ensure this happens AFTER all other initialization
-    QTimer::singleShot(50, this, [this]() {
-        if (m_leQty) {
-            m_leQty->setFocus();
-            m_leQty->selectAll();
-        }
-    });
 }

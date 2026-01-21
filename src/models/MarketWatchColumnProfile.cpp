@@ -3,7 +3,6 @@
 #include <QJsonDocument>
 #include <QDebug>
 #include <QDir>
-#include <QDateTime>
 
 // Static member initialization
 QMap<MarketWatchColumn, ColumnInfo> MarketWatchColumnProfile::s_columnMetadata;
