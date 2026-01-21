@@ -141,27 +141,33 @@ GreeksResult GreeksCalculationService::calculateForToken(uint32_t token, int exc
     double optionPrice = 0.0;
     if (exchangeSegment == 2) { // NSEFO
         const auto* state = nsefo::g_nseFoPriceStore.getUnifiedState(token);
-        if (state) {
-            optionPrice = state->ltp;
-        }
+        if (state) optionPrice = state->ltp;
     } else if (exchangeSegment == 4) { // BSEFO
         const auto* state = bse::g_bseFoPriceStore.getUnifiedState(token);
-        if (state) {
-            optionPrice = state->ltp;
-        }
-    }
-    
-    if (optionPrice <= 0) {
-        qWarning() << "[GreeksDebug] Option price <= 0 for token:" << token;
-        emit calculationFailed(token, exchangeSegment, "No market price available");
-        return result;
+        if (state) optionPrice = state->ltp;
     }
     
     // Get Bid/Ask prices for skew Calculation
     double bidPrice = 0.0;
     double askPrice = 0.0;
     
-    // ... fetching bid/ask ...
+    if (exchangeSegment == 2) {
+         if (auto state = nsefo::g_nseFoPriceStore.getUnifiedState(token)) {
+             bidPrice = state->bids[0].price;
+             askPrice = state->asks[0].price;
+         }
+    } else if (exchangeSegment == 4) {
+         if (auto state = bse::g_bseFoPriceStore.getUnifiedState(token)) {
+             bidPrice = state->bids[0].price;
+             askPrice = state->asks[0].price;
+         }
+    }
+    
+    if (optionPrice <= 0 && bidPrice <= 0 && askPrice <= 0) {
+        // qWarning() << "[GreeksDebug] No market data (LTP/Bid/Ask) for token:" << token;
+        emit calculationFailed(token, exchangeSegment, "No market data available");
+        return result;
+    }
     
     // Get underlying price
     double underlyingPrice = getUnderlyingPrice(token, exchangeSegment);
@@ -218,24 +224,24 @@ GreeksResult GreeksCalculationService::calculateForToken(uint32_t token, int exc
     
     if (!usingCachedIV) {
         // Calculate LTP IV
-        IVResult ivResult = IVCalculator::calculate(
-            optionPrice, underlyingPrice, strikePrice, T,
-            m_config.riskFreeRate, isCall,
-            m_config.ivInitialGuess, m_config.ivTolerance, m_config.ivMaxIterations
-        );
-        usedIV = ivResult.impliedVolatility;
-        
-        // Debug Log only if we have a valid IV
-        if (usedIV > 0.0001) {
-             // qInfo() << "[GreeksDebug] Calculated IV:" << usedIV << " for token:" << token;
-        } else {
-             qWarning() << "[GreeksDebug] IV calc failed (0) for token:" << token 
-                        << " P:" << optionPrice << " U:" << underlyingPrice 
-                        << " K:" << strikePrice << " T:" << T;
+        if (optionPrice > 0) {
+            IVResult ivResult = IVCalculator::calculate(
+                optionPrice, underlyingPrice, strikePrice, T,
+                m_config.riskFreeRate, isCall,
+                m_config.ivInitialGuess, m_config.ivTolerance, m_config.ivMaxIterations
+            );
+            usedIV = ivResult.impliedVolatility;
+            
+            // Debug Log only if we have a valid IV
+            if (usedIV > 0.0001) {
+                 // qInfo() << "[GreeksDebug] Calculated IV:" << usedIV << " for token:" << token;
+            } else {
+                 // qWarning() << "[GreeksDebug] IV calc failed (0) for token:" << token;
+            }
+            result.impliedVolatility = usedIV;
+            result.ivConverged = ivResult.converged;
+            result.ivIterations = ivResult.iterations;
         }
-        result.impliedVolatility = usedIV;
-        result.ivConverged = ivResult.converged;
-        result.ivIterations = ivResult.iterations;
         
         // Calculate Bid IV
         if (bidPrice > 0) {
