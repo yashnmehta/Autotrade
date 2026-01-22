@@ -71,3 +71,6 @@ masters
 #D:\Pratham\Terminal\trading_terminal_cpp\lib\cpp_broadcast_nsecm\CM_Tests add this into the gitignore
 /lib/cpp_broadcast_nsecm/CM_Tests/
 build/build_log.txt
+
+#add batch files
+*.bat
