@@ -33,10 +33,12 @@ struct MS_INDICES {
 
 // MS_BCAST_INDICES - 474 bytes
 // Transaction Code: 7207
+// CRITICAL FIX: There are 8 bytes of padding between header and numberOfRecords
 struct MS_BCAST_INDICES {
     BCAST_HEADER header;                   // Offset 0 (40 bytes)
-    uint16_t numberOfRecords;              // Offset 40
-    MS_INDICES indices[6];                 // Offset 42 (432 bytes = 72 * 6)
+    uint8_t reserved[8];                   // Offset 40 (8 bytes padding) - CRITICAL FIX
+    uint16_t numberOfRecords;              // Offset 48 (matches Python implementation)
+    MS_INDICES indices[6];                 // Offset 50 (432 bytes = 72 * 6)
 };
 
 // ============================================================================
