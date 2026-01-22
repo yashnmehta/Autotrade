@@ -14,8 +14,9 @@ void parse_message_7207(const MS_BCAST_INDICES* msg) {
     for (int i = 0; i < update.numRecords; i++) {
         const auto& rec = msg->indices[i];
         IndexData& data = update.indices[i];
-        
+
         // Copy name and null-terminate
+
         std::memcpy(data.name, rec.indexName, 21);
         data.name[20] = '\0';
         
