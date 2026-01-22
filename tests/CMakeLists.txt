@@ -127,6 +127,10 @@ target_link_libraries(benchmark_repository_filters
     ${LZO_LIBRARIES}
 )
 
+if(WIN32)
+    target_link_libraries(benchmark_repository_filters ws2_32 psapi)
+endif()
+
 # Set output directory
 set_target_properties(benchmark_repository_filters PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests"
@@ -174,6 +178,10 @@ target_link_libraries(simple_load_test
     Threads::Threads
     ${LZO_LIBRARIES}
 )
+
+if(WIN32)
+    target_link_libraries(simple_load_test ws2_32 psapi)
+endif()
 
 set_target_properties(simple_load_test PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests"
