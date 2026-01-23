@@ -42,8 +42,11 @@ void ATMWatchManager::addWatch(const QString &symbol, const QString &expiry,
   config.expiry = expiry;
   config.source = source;
   m_configs[symbol] = config;
-  // Note: Removed immediate calculateAll() trigger to avoid N × N complexity
-  // Caller should call calculateAll() explicitly after adding all watches
+}
+
+void ATMWatchManager::setDefaultBasePriceSource(BasePriceSource source) {
+  std::unique_lock lock(m_mutex);
+  m_defaultSource = source;
 }
 
 void ATMWatchManager::addWatchesBatch(
@@ -54,7 +57,7 @@ void ATMWatchManager::addWatchesBatch(
       ATMConfig config;
       config.symbol = pair.first;
       config.expiry = pair.second;
-      config.source = BasePriceSource::Cash; // Default to cash
+      config.source = m_defaultSource; // Use the default source
       m_configs[pair.first] = config;
     }
   }
@@ -103,14 +106,21 @@ void ATMWatchManager::calculateAll() {
   int successCount = 0;
   int failCount = 0;
 
+
   for (auto it = m_configs.begin(); it != m_configs.end(); ++it) {
     const auto &config = it.value();
+    
+    // Initialize or get existing info
+    ATMInfo &info = m_results[config.symbol];
+    info.symbol = config.symbol;
+    info.expiry = config.expiry;
+    info.isValid = false; // Reset to false until calculation succeeds
 
     // Unified Step 1 & 2: Get Underlying Price (Cash -> Future Fallback)
     double basePrice = repo->getUnderlyingPrice(config.symbol, config.expiry);
 
     // Step 3: Get sorted strikes from cache (O(1) lookup)
-    QVector<double> strikeList =
+    const QVector<double> &strikeList =
         repo->getStrikesForSymbolExpiry(config.symbol, config.expiry);
 
     if (strikeList.isEmpty()) {
@@ -118,8 +128,11 @@ void ATMWatchManager::calculateAll() {
       continue;
     }
 
-    // If still no valid base price, skip this symbol
+    // If still no valid base price, we can't calculate ATM strike
     if (basePrice <= 0) {
+      if (config.symbol == "NIFTY") {
+          qDebug() << "[ATMWatch] ERROR: NIFTY base price is 0. Token:" << assetToken;
+      }
       failCount++;
       continue;
     }
@@ -133,9 +146,6 @@ void ATMWatchManager::calculateAll() {
       auto tokens = repo->getTokensForStrike(config.symbol, config.expiry,
                                              result.atmStrike);
 
-      ATMInfo info;
-      info.symbol = config.symbol;
-      info.expiry = config.expiry;
       info.basePrice = basePrice;
       info.atmStrike = result.atmStrike;
       info.callToken = tokens.first;
@@ -143,7 +153,6 @@ void ATMWatchManager::calculateAll() {
       info.lastUpdated = QDateTime::currentDateTime();
       info.isValid = true;
 
-      m_results[config.symbol] = info;
       successCount++;
     } else {
       failCount++;
@@ -151,7 +160,7 @@ void ATMWatchManager::calculateAll() {
   }
 
   qDebug() << "[ATMWatch] Calculation complete:" << successCount << "succeeded,"
-           << failCount << "failed out of" << m_configs.size() << "symbols";
+           << failCount << "failed out of" << m_configs.size() << "symbols. Results size:" << m_results.size();
 
   emit atmUpdated();
 }

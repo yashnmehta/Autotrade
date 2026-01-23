@@ -58,14 +58,14 @@ public:
    * @param filename Path to nsefo_processed.csv
    * @return true if successful
    */
-  bool loadProcessedCSV(const QString &filename);
+  virtual bool loadProcessedCSV(const QString &filename);
 
   /**
    * @brief Load contracts directly from parsed QVector (fastest)
    * @param contracts Pre-parsed contracts from combined master file
    * @return true if successful
    */
-  bool loadFromContracts(const QVector<MasterContract> &contracts);
+  virtual bool loadFromContracts(const QVector<MasterContract> &contracts);
 
   /**
    * @brief Prepare repository for streaming load (clears data)
@@ -83,7 +83,7 @@ public:
   /**
    * @brief Finalize loading after streaming (marks repository as loaded)
    */
-  void finalizeLoad();
+  virtual void finalizeLoad();
 
   /**
    * @brief Save contracts to processed CSV file
@@ -110,6 +110,12 @@ public:
   bool hasContract(int64_t token) const;
 
   /**
+   * @brief Iterate through all contracts without creating a copy
+   * @param visitor Function to call for each contract
+   */
+  void forEachContract(std::function<void(const ContractData &)> visitor) const;
+
+  /**
    * @brief Get all contracts (for iteration)
    * @return Vector of all valid contracts
    * @note Creates a copy, use sparingly
@@ -131,6 +137,17 @@ public:
   QVector<ContractData> getContractsBySymbol(const QString &symbol) const;
 
   /**
+   * @brief Get contracts by underlying symbol and expiry
+   * @param symbol Underlying name (e.g., NIFTY, BANKNIFTY)
+   * @param expiry Expiry date string (e.g., 27JAN2026)
+   * @param instrumentType Filter by instrument type (-1=all, 1=future, 2=option)
+   * @return Vector of matching contracts
+   */
+  virtual QVector<ContractData> getContractsBySymbolAndExpiry(const QString &symbol,
+                                                              const QString &expiry,
+                                                              int instrumentType = -1) const;
+
+  /**
    * @brief Get asset token by underlying symbol
    * @param symbol Underlying name (e.g., RELIANCE, NIFTY)
    * @return Asset token or -1 if not found
@@ -139,12 +156,6 @@ public:
 
   // ===== UPDATE METHODS =====
 
-  /**
-   * @brief Iterate over all contracts (Zero-Copy)
-   * @param callback Function called for each contract
-   */
-  void
-  forEachContract(std::function<void(const ContractData &)> callback) const;
 
   // ===== METADATA =====
 

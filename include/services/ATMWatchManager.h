@@ -52,6 +52,12 @@ public:
     static ATMWatchManager* getInstance();
 
     /**
+     * @brief Set default source for new watches
+     */
+    void setDefaultBasePriceSource(BasePriceSource source);
+    BasePriceSource getDefaultBasePriceSource() const { return m_defaultSource; }
+
+    /**
      * @brief Add or update an ATM watch for a symbol
      * Note: Does NOT trigger immediate calculation. Call calculateAll() explicitly.
      */
@@ -100,6 +106,7 @@ private:
 
     double fetchBasePrice(const ATMConfig& config);
     
+    BasePriceSource m_defaultSource = BasePriceSource::Cash;
     QTimer* m_timer;
     QHash<QString, ATMConfig> m_configs;
     QHash<QString, ATMInfo> m_results;

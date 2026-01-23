@@ -77,8 +77,11 @@ bool BSECMRepository::loadProcessedCSV(const QString &filename) {
   QTextStream in(&file);
   QString header = in.readLine(); // Skip header
 
+  int lineCount = 0;
   while (!in.atEnd()) {
     QString qLine = in.readLine();
+    lineCount++;
+    if (lineCount % 1000 == 0) qDebug() << "[BSECM] Loaded lines:" << lineCount;
     
     // Optimized split without QStringList
     QVector<QStringRef> fields;
@@ -88,7 +91,7 @@ bool BSECMRepository::loadProcessedCSV(const QString &filename) {
       fields.append(qLine.midRef(start, end - start));
       start = end + 1;
     }
-    fields.append(qLine.midRef(start, qLine.length() - start));
+    fields.append(qLine.midRef(start));
 
     if (fields.size() < 11)
       continue;

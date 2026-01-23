@@ -79,6 +79,15 @@ enum class MarketWatchColumn {
     OPEN_INTEREST,
     OI_CHANGE_PERCENT,
     
+    // Greeks (5 columns - Options only)
+    IMPLIED_VOLATILITY,  // IV %
+    BID_IV,              // New
+    ASK_IV,              // New
+    DELTA,
+    GAMMA,
+    VEGA,
+    THETA,
+    
     // Historical Range (4 columns)
     WEEK_52_HIGH,
     WEEK_52_LOW,

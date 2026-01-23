@@ -29,6 +29,8 @@ struct OptionStrikeData {
     int callChngInOI;
     int callVolume;
     double callIV;
+    double callBidIV;
+    double callAskIV;
     double callLTP;
     double callChng;
     int callBidQty;
@@ -36,28 +38,48 @@ struct OptionStrikeData {
     double callAsk;
     int callAskQty;
     
+    // Call Greeks
+    double callDelta;
+    double callGamma;
+    double callVega;
+    double callTheta;
+    
+    
     // Put option data
     int putOI;
     int putChngInOI;
     int putVolume;
     double putIV;
+    double putBidIV;
+    double putAskIV;
     double putLTP;
     double putChng;
     int putBidQty;
     double putBid;
     double putAsk;
     int putAskQty;
+    
+    // Put Greeks
+    double putDelta;
+    double putGamma;
+    double putVega;
+    double putTheta;
+    
     // Token IDs for subscription
     int callToken = 0;
     int putToken = 0;
     
     OptionStrikeData() 
         : strikePrice(0.0), callOI(0), callChngInOI(0), callVolume(0), 
-          callIV(0.0), callLTP(0.0), callChng(0.0), callBidQty(0), 
+          callIV(0.0), callBidIV(0.0), callAskIV(0.0),
+          callLTP(0.0), callChng(0.0), callBidQty(0),
           callBid(0.0), callAsk(0.0), callAskQty(0),
+          callDelta(0.0), callGamma(0.0), callVega(0.0), callTheta(0.0),
           putOI(0), putChngInOI(0), putVolume(0), 
-          putIV(0.0), putLTP(0.0), putChng(0.0), putBidQty(0),
+          putIV(0.0), putBidIV(0.0), putAskIV(0.0), 
+          putLTP(0.0), putChng(0.0), putBidQty(0),
           putBid(0.0), putAsk(0.0), putAskQty(0),
+          putDelta(0.0), putGamma(0.0), putVega(0.0), putTheta(0.0),
           callToken(0), putToken(0) {}
 };
 
@@ -189,6 +211,12 @@ private:
         CALL_CHNG_IN_OI,
         CALL_VOLUME,
         CALL_IV,
+        CALL_BID_IV,
+        CALL_ASK_IV,
+        CALL_DELTA,
+        CALL_GAMMA,
+        CALL_VEGA,
+        CALL_THETA,
         CALL_LTP,
         CALL_CHNG,
         CALL_BID_QTY,
@@ -207,6 +235,12 @@ private:
         PUT_CHNG,
         PUT_LTP,
         PUT_IV,
+        PUT_BID_IV,
+        PUT_ASK_IV,
+        PUT_DELTA,
+        PUT_GAMMA,
+        PUT_VEGA,
+        PUT_THETA,
         PUT_VOLUME,
         PUT_CHNG_IN_OI,
         PUT_OI,

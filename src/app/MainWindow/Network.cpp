@@ -1,4 +1,6 @@
 #include "app/MainWindow.h"
+#include "services/GreeksCalculationService.h"
+#include "repository/RepositoryManager.h"
 #include <QSettings>
 #include <QTimer>
 #include <QDebug>
@@ -19,6 +21,13 @@ void MainWindow::setupNetwork() {
         //
         // Increased from 100ms to 500ms to prevent thread storm during startup
         QTimer::singleShot(500, this, [this]() {
+            // Initialize Greeks Calculation Service
+            // Needs to be done before UDP starts feeding it data
+            qDebug() << "[MainWindow] Initializing Greeks Calculation Service...";
+            auto& greeksService = GreeksCalculationService::instance();
+            greeksService.loadConfiguration();
+            greeksService.setRepositoryManager(RepositoryManager::getInstance());
+            
             qDebug() << "[MainWindow] Starting UDP broadcast receivers (staggered startup)...";
             startBroadcastReceiver();
         });

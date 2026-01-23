@@ -64,11 +64,10 @@ masters
 # /configs/*.json
 # /configs/config.ini
 
+# add config files
+/configs/config.ini
+
 
 #D:\Pratham\Terminal\trading_terminal_cpp\lib\cpp_broadcast_nsecm\CM_Tests add this into the gitignore
 /lib/cpp_broadcast_nsecm/CM_Tests/
 build/build_log.txt
-
-#add bat files into gitignore
-*.bat
-

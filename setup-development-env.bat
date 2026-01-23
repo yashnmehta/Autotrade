@@ -10,24 +10,25 @@ echo Trading Terminal - Development Environment
 echo ================================================
 echo.
 
-REM Set MinGW paths (MSYS2 MinGW64 - installed on this system)
+REM Set MinGW paths (Qt bundled MinGW)
 echo Setting up MinGW environment...
-set "MINGW_ROOT=C:\msys64\mingw64"
+set "MINGW_ROOT=C:\Qt\Tools\mingw810_64"
 if not exist "%MINGW_ROOT%\bin\g++.exe" (
     echo WARNING: MinGW not found at %MINGW_ROOT%
-    echo Please install MSYS2 with MinGW64
-    echo Download from: https://www.msys2.org/
+    echo Please install Qt with MinGW component first
+    echo Download from: https://www.qt.io/download-qt-installer
     pause
     exit /b 1
 )
 set "PATH=%MINGW_ROOT%\bin;%PATH%"
 
-REM Set Qt paths (using MSYS2 Qt)
+REM Set Qt paths
 echo Setting up Qt paths...
-set "QT_DIR=%MINGW_ROOT%"
+set "QT_DIR=C:\Qt\5.15.2\mingw81_64"
 if not exist "%QT_DIR%\bin\qmake.exe" (
     echo WARNING: Qt not found at %QT_DIR%
-    echo Please install Qt via MSYS2: pacman -S mingw-w64-x86_64-qt5
+    echo Please install Qt 5.15.2 with MinGW first
+    echo Download from: https://www.qt.io/download-qt-installer
     pause
     exit /b 1
 )

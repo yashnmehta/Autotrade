@@ -5,6 +5,7 @@
 #include "nsecm_price_store.h"
 #include "bse_price_store.h"
 #include "services/FeedHandler.h"
+#include "services/GreeksCalculationService.h"
 #include "utils/LatencyTracker.h"
 #include "data/PriceStoreGateway.h"
 #include <QMetaObject>
@@ -261,11 +262,8 @@ UDP::IndexTick convertBseIndex(const bse::DecodedRecord& record, UDP::ExchangeSe
     tick.exchangeSegment = segment;
     tick.token = record.token;
     
-    // Name is stored in record.symbol by IndexStore
-    size_t copySize = sizeof(tick.name) - 1;
-    if (sizeof(record.symbol) < copySize) copySize = sizeof(record.symbol);
-    std::memcpy(tick.name, record.symbol, copySize);
-    tick.name[sizeof(tick.name) - 1] = '\0';
+    // Name is not in the record, will rely on UI to map token to name
+    tick.name[0] = '\0';
     
     tick.value = record.ltp / 100.0;
     tick.open = record.open / 100.0;
@@ -326,9 +324,9 @@ void UdpBroadcastService::subscribeToken(uint32_t token, int exchangeSegment) {
     // Sync with Distributed Gateway filter
     MarketData::PriceStoreGateway::instance().setTokenEnabled(exchangeSegment, token, true);
 
-    qDebug() << "[UdpBroadcast] Subscribed to token:" << token 
-             << "Segment:" << exchangeSegment
-             << "Total subscriptions:" << m_subscribedTokens.size();
+    // qDebug() << "[UdpBroadcast] Subscribed to token:" << token 
+    //          << "Segment:" << exchangeSegment
+    //          << "Total subscriptions:" << m_subscribedTokens.size();
 }
 
 void UdpBroadcastService::unsubscribeToken(uint32_t token, int exchangeSegment) {
@@ -375,8 +373,18 @@ void UdpBroadcastService::setupNseFoCallbacks() {
         UDP::MarketTick udpTick = convertNseFoUnified(*data);
         m_totalTicks++;
 
-        // 4. FeedHandler Distribution
+        // 3. FeedHandler Distribution
         FeedHandler::instance().onUdpTickReceived(udpTick);
+        
+        // 4. Greeks Calculation (for option contracts only)
+        auto& greeksService = GreeksCalculationService::instance();
+        if (greeksService.isEnabled() && data->ltp > 0) {
+            // Trigger async Greeks calculation - service handles throttling internally
+            greeksService.onPriceUpdate(token, data->ltp, 2 /*NSEFO*/);
+            
+            // Also trigger updates for options where THIS token is the underlying (Futures)
+            greeksService.onUnderlyingPriceUpdate(token, data->ltp, 2 /*NSEFO*/);
+        }
 
         // 5. UI Signals (Throttled)
         if (shouldEmitSignal(token)) {
@@ -430,6 +438,12 @@ void UdpBroadcastService::setupNseCmCallbacks() {
         
         // 4. FeedHandler
         FeedHandler::instance().onUdpTickReceived(udpTick);
+        
+        // 5. Greeks Calculation (Update for underlyings in Cash Market)
+        auto& greeksService = GreeksCalculationService::instance();
+        if (greeksService.isEnabled() && data->ltp > 0) {
+            greeksService.onUnderlyingPriceUpdate(token, data->ltp, 1 /*NSECM*/);
+        }
 
         // 5. Signals
         if (shouldEmitSignal(token)) {
@@ -488,12 +502,36 @@ void UdpBroadcastService::setupNseCmCallbacks() {
             tick.numAdvances = data.upMoves;
             tick.numDeclines = data.downMoves;
             
-            // Log Stage 3: Emission
-            // Log Stage 3: Emission
-            if (strcmp(tick.name, "NIFTY50") == 0) {
-                std::cout << "[UDP] Emitting NSECM Index For: " << tick.name << " Val: " << tick.value << std::endl;
-            }
             emit udpIndexReceived(tick);
+
+            // FUNNEL TO FEEDHANDLER: Convert IndexTick to MarketTick for subscribers (like ATM Watch)
+            static const std::unordered_map<std::string, uint32_t> indexNameToToken = {
+                {"Nifty 50", 26000},
+                {"NIFTY 50", 26000},
+                {"Nifty Bank", 26009},
+                {"NIFTY BANK", 26009},
+                {"Nifty Fin Service", 26037},
+                {"NIFTY FIN SERVICE", 26037},
+                {"Nifty Midcap 100", 26074},
+                {"NIFTY MIDCAP 100", 26074},
+                {"Nifty Next 50", 26013},
+                {"NIFTY NEXT 50", 26013}
+            };
+
+            auto it = indexNameToToken.find(tick.name);
+            if (it != indexNameToToken.end()) {
+                UDP::MarketTick mTick;
+                mTick.exchangeSegment = UDP::ExchangeSegment::NSECM;
+                mTick.token = it->second;
+                mTick.ltp = tick.value;
+                mTick.open = tick.open;
+                mTick.high = tick.high;
+                mTick.low = tick.low;
+                mTick.prevClose = tick.prevClose;
+                mTick.volume = 0; // Indices don't have volume in 7207
+                
+                FeedHandler::instance().onUdpTickReceived(mTick);
+            }
         }
     });
 
@@ -564,33 +602,22 @@ void UdpBroadcastService::setupNseCmCallbacks() {
 void UdpBroadcastService::setupBseFoCallbacks() {
     if (!m_bseFoReceiver) return;
     
-    //  Set Notification Filter for BSE FO
-    m_bseFoReceiver->setTokenFilter([](uint32_t token) {
-        bool enabled = MarketData::PriceStoreGateway::instance().isTokenEnabled(12, token);
-        // Debug: Log filter decisions for first 10 tokens
-        static int filterCheckCount = 0;
-        if (filterCheckCount++ < 10) {
-            qDebug() << "[BSE FO Filter] Token:" << token << "Enabled:" << enabled;
-        }
-        return enabled;
-    });
-    
     auto unifiedCallback = [this](uint32_t token) {
         const auto* data = bse::g_bseFoPriceStore.getUnifiedState(token);
-        
-        // Debug: Log callback trigger
-        static int callbackCount = 0;
-        if (callbackCount++ < 20) {
-            qDebug() << "[BSE FO Callback] Token:" << token << "Data:" << (data ? "FOUND" : "NULL") 
-                     << (data ? QString(" LTP:%1").arg(data->ltp) : "");
-        }
-        
         if (!data) return;
 
         UDP::MarketTick udpTick = convertBseUnified(*data, UDP::ExchangeSegment::BSEFO);
         m_totalTicks++;
         
         FeedHandler::instance().onUdpTickReceived(udpTick);
+        
+        // Greeks Calculation (for option contracts only)
+        auto& greeksService = GreeksCalculationService::instance();
+        if (greeksService.isEnabled() && data->ltp > 0) {
+            greeksService.onPriceUpdate(token, data->ltp, 4 /*BSEFO*/);
+            // Also trigger updates for options where THIS token is the underlying
+            greeksService.onUnderlyingPriceUpdate(token, data->ltp, 4 /*BSEFO*/);
+        }
 
         if (shouldEmitSignal(token)) {
              emit udpTickReceived(udpTick);
@@ -621,33 +648,20 @@ void UdpBroadcastService::setupBseFoCallbacks() {
 void UdpBroadcastService::setupBseCmCallbacks() {
     if (!m_bseCmReceiver) return;
     
-    // Set Notification Filter for BSE CM
-    m_bseCmReceiver->setTokenFilter([](uint32_t token) {
-        bool enabled = MarketData::PriceStoreGateway::instance().isTokenEnabled(11, token);
-        // Debug: Log filter decisions for first 10 tokens
-        static int filterCheckCount = 0;
-        if (filterCheckCount++ < 10) {
-            qDebug() << "[BSE CM Filter] Token:" << token << "Enabled:" << enabled;
-        }
-        return enabled;
-    });
-    
     auto unifiedCallback = [this](uint32_t token) {
         const auto* data = bse::g_bseCmPriceStore.getUnifiedState(token);
-        
-        // Debug: Log callback trigger
-        static int callbackCount = 0;
-        if (callbackCount++ < 20) {
-            qDebug() << "[BSE CM Callback] Token:" << token << "Data:" << (data ? "FOUND" : "NULL") 
-                     << (data ? QString(" LTP:%1").arg(data->ltp) : "");
-        }
-        
         if (!data) return;
 
         UDP::MarketTick udpTick = convertBseUnified(*data, UDP::ExchangeSegment::BSECM);
         m_totalTicks++;
 
         FeedHandler::instance().onUdpTickReceived(udpTick);
+        
+        // Greeks Calculation (Update for underlyings in Cash Market)
+        auto& greeksService = GreeksCalculationService::instance();
+        if (greeksService.isEnabled() && data->ltp > 0) {
+            greeksService.onUnderlyingPriceUpdate(token, data->ltp, 3 /*BSECM*/);
+        }
 
         if (shouldEmitSignal(token)) {
              emit udpTickReceived(udpTick);

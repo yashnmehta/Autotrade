@@ -21,7 +21,7 @@ using UnifiedTokenState = MarketData::UnifiedState;
  */
 class PriceStore {
 public:
-    static const size_t MAX_TOKENS = 26000; // Covers NSE CM token range
+    static const size_t MAX_TOKENS = 100000; // Increased to cover all NSE tokens and indices
     
     PriceStore();
     

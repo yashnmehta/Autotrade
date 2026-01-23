@@ -98,6 +98,17 @@ public:
     }
 
     /**
+     * @brief Subscribe without callback (just to ensure data is cached in price store)
+     */
+    void subscribe(int exchangeSegment, int token) {
+        int64_t key = makeKey(exchangeSegment, token);
+        std::lock_guard<std::mutex> lock(m_mutex);
+        getOrCreatePublisher(key);
+        registerTokenWithUdpService(token, exchangeSegment);
+        emit subscriptionCountChanged(token, 1);
+    }
+
+    /**
      * @brief Unsubscribe with exchange segment
      */
     void unsubscribe(int exchangeSegment, int token, QObject* receiver);

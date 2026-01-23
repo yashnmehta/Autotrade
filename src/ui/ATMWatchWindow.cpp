@@ -2,6 +2,7 @@
 #include "data/PriceStoreGateway.h"
 #include "repository/RepositoryManager.h"
 #include "services/FeedHandler.h"
+#include "services/GreeksCalculationService.h"
 #include <QDate>
 #include <QDebug>
 #include <QEvent>
@@ -128,7 +129,7 @@ void ATMWatchWindow::setupModels() {
   m_callModel = new QStandardItemModel(this);
   m_callModel->setColumnCount(CALL_COUNT);
   m_callModel->setHorizontalHeaderLabels(
-      {"LTP", "Chg", "Bid", "Ask", "Vol", "OI"});
+      {"LTP", "Chg", "Bid", "Ask", "Vol", "OI", "IV", "Delta", "Gamma", "Vega", "Theta"});
   m_callTable->setModel(m_callModel);
   m_callTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
 
@@ -142,7 +143,7 @@ void ATMWatchWindow::setupModels() {
   m_putModel = new QStandardItemModel(this);
   m_putModel->setColumnCount(PUT_COUNT);
   m_putModel->setHorizontalHeaderLabels(
-      {"Bid", "Ask", "LTP", "Chg", "Vol", "OI"});
+      {"Bid", "Ask", "LTP", "Chg", "Vol", "OI", "IV", "Delta", "Gamma", "Vega", "Theta"});
   m_putTable->setModel(m_putModel);
   m_putTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
 }
@@ -150,6 +151,29 @@ void ATMWatchWindow::setupModels() {
 void ATMWatchWindow::setupConnections() {
   connect(ATMWatchManager::getInstance(), &ATMWatchManager::atmUpdated, this,
           &ATMWatchWindow::onATMUpdated);
+
+  // Greeks updates
+  connect(&GreeksCalculationService::instance(), &GreeksCalculationService::greeksCalculated, this,
+          [this](uint32_t token, int exchangeSegment, const GreeksResult& result) {
+              if (!m_tokenToInfo.contains(token)) return;
+              auto info = m_tokenToInfo[token]; // {symbol, isCall}
+              int row = m_symbolToRow.value(info.first, -1);
+              if (row < 0) return;
+
+              if (info.second) { // Call
+                  m_callModel->setData(m_callModel->index(row, CALL_IV), QString::number(result.impliedVolatility, 'f', 2));
+                  m_callModel->setData(m_callModel->index(row, CALL_DELTA), QString::number(result.delta, 'f', 2));
+                  m_callModel->setData(m_callModel->index(row, CALL_GAMMA), QString::number(result.gamma, 'f', 4));
+                  m_callModel->setData(m_callModel->index(row, CALL_VEGA), QString::number(result.vega, 'f', 2));
+                  m_callModel->setData(m_callModel->index(row, CALL_THETA), QString::number(result.theta, 'f', 2));
+              } else { // Put
+                  m_putModel->setData(m_putModel->index(row, PUT_IV), QString::number(result.impliedVolatility, 'f', 2));
+                  m_putModel->setData(m_putModel->index(row, PUT_DELTA), QString::number(result.delta, 'f', 2));
+                  m_putModel->setData(m_putModel->index(row, PUT_GAMMA), QString::number(result.gamma, 'f', 4));
+                  m_putModel->setData(m_putModel->index(row, PUT_VEGA), QString::number(result.vega, 'f', 2));
+                  m_putModel->setData(m_putModel->index(row, PUT_THETA), QString::number(result.theta, 'f', 2));
+              }
+          });
 
   // Filter connections
   connect(m_exchangeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
@@ -223,7 +247,25 @@ void ATMWatchWindow::refreshData() {
         tick.asks[0].price = state->asks[0].price;
         tick.volume = state->volume;
         tick.openInterest = state->openInterest;
+        tick.openInterest = state->openInterest;
         onTickUpdate(tick);
+        
+        // Pre-populate Greeks if available
+        if (state->greeksCalculated) {
+             if (isCall) {
+                  m_callModel->setData(m_callModel->index(row, CALL_IV), QString::number(state->impliedVolatility, 'f', 2));
+                  m_callModel->setData(m_callModel->index(row, CALL_DELTA), QString::number(state->delta, 'f', 2));
+                  m_callModel->setData(m_callModel->index(row, CALL_GAMMA), QString::number(state->gamma, 'f', 4));
+                  m_callModel->setData(m_callModel->index(row, CALL_VEGA), QString::number(state->vega, 'f', 2));
+                  m_callModel->setData(m_callModel->index(row, CALL_THETA), QString::number(state->theta, 'f', 2));
+             } else {
+                  m_putModel->setData(m_putModel->index(row, PUT_IV), QString::number(state->impliedVolatility, 'f', 2));
+                  m_putModel->setData(m_putModel->index(row, PUT_DELTA), QString::number(state->delta, 'f', 2));
+                  m_putModel->setData(m_putModel->index(row, PUT_GAMMA), QString::number(state->gamma, 'f', 4));
+                  m_putModel->setData(m_putModel->index(row, PUT_VEGA), QString::number(state->vega, 'f', 2));
+                  m_putModel->setData(m_putModel->index(row, PUT_THETA), QString::number(state->theta, 'f', 2));
+             }
+        }
       }
     };
 

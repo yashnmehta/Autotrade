@@ -63,14 +63,10 @@ bool MarketWatchWindow::addScrip(const QString &symbol, const QString &exchange,
     
     // Subscribe to UDP ticks (new) - Convert exchange string to segment
     UDP::ExchangeSegment segment = UDP::ExchangeSegment::NSECM;  // default
-    
-    // Normalize exchange string for comparison
-    QString exchUpper = exchange.toUpper();
-    
-    if (exchUpper == "NSEFO" || exchUpper == "NSE_FO") segment = UDP::ExchangeSegment::NSEFO;
-    else if (exchUpper == "NSECM" || exchUpper == "NSE_CM" || exchUpper == "NSE") segment = UDP::ExchangeSegment::NSECM;
-    else if (exchUpper == "BSEFO" || exchUpper == "BSE_FO") segment = UDP::ExchangeSegment::BSEFO;
-    else if (exchUpper == "BSECM" || exchUpper == "BSE_CM" || exchUpper == "BSE") segment = UDP::ExchangeSegment::BSECM;
+    if (exchange == "NSEFO") segment = UDP::ExchangeSegment::NSEFO;
+    else if (exchange == "NSECM") segment = UDP::ExchangeSegment::NSECM;
+    else if (exchange == "BSEFO") segment = UDP::ExchangeSegment::BSEFO;
+    else if (exchange == "BSECM") segment = UDP::ExchangeSegment::BSECM;
     FeedHandler::instance().subscribeUDP(segment, token, this, &MarketWatchWindow::onUdpTickUpdate);
     
     // Initial Load from Distributed Store
@@ -135,14 +131,10 @@ bool MarketWatchWindow::addScripFromContract(const ScripData &contractData)
     
     // Subscribe to UDP ticks (new) - Convert exchange string to segment
     UDP::ExchangeSegment segment = UDP::ExchangeSegment::NSECM;  // default
-    
-    // Normalize exchange string for comparison
-    QString exchUpper = scrip.exchange.toUpper();
-    
-    if (exchUpper == "NSEFO" || exchUpper == "NSE_FO") segment = UDP::ExchangeSegment::NSEFO;
-    else if (exchUpper == "NSECM" || exchUpper == "NSE_CM" || exchUpper == "NSE") segment = UDP::ExchangeSegment::NSECM;
-    else if (exchUpper == "BSEFO" || exchUpper == "BSE_FO") segment = UDP::ExchangeSegment::BSEFO;
-    else if (exchUpper == "BSECM" || exchUpper == "BSE_CM" || exchUpper == "BSE") segment = UDP::ExchangeSegment::BSECM;
+    if (scrip.exchange == "NSEFO") segment = UDP::ExchangeSegment::NSEFO;
+    else if (scrip.exchange == "NSECM") segment = UDP::ExchangeSegment::NSECM;
+    else if (scrip.exchange == "BSEFO") segment = UDP::ExchangeSegment::BSEFO;
+    else if (scrip.exchange == "BSECM") segment = UDP::ExchangeSegment::BSECM;
     FeedHandler::instance().subscribeUDP(segment, scrip.token, this, &MarketWatchWindow::onUdpTickUpdate);
     
     // Initial Load from Distributed Store
@@ -189,14 +181,10 @@ void MarketWatchWindow::removeScrip(int row)
         // Unsubscribe from UDP ticks
         // Convert exchange string to segment for specific unsubscription
         UDP::ExchangeSegment segment = UDP::ExchangeSegment::NSECM;  // default
-        
-        // Normalize exchange string for comparison
-        QString exchUpper = scrip.exchange.toUpper();
-        
-        if (exchUpper == "NSEFO" || exchUpper == "NSE_FO") segment = UDP::ExchangeSegment::NSEFO;
-        else if (exchUpper == "NSECM" || exchUpper == "NSE_CM" || exchUpper == "NSE") segment = UDP::ExchangeSegment::NSECM;
-        else if (exchUpper == "BSEFO" || exchUpper == "BSE_FO") segment = UDP::ExchangeSegment::BSEFO;
-        else if (exchUpper == "BSECM" || exchUpper == "BSE_CM" || exchUpper == "BSE") segment = UDP::ExchangeSegment::BSECM;
+        if (scrip.exchange == "NSEFO") segment = UDP::ExchangeSegment::NSEFO;
+        else if (scrip.exchange == "NSECM") segment = UDP::ExchangeSegment::NSECM;
+        else if (scrip.exchange == "BSEFO") segment = UDP::ExchangeSegment::BSEFO;
+        else if (scrip.exchange == "BSECM") segment = UDP::ExchangeSegment::BSECM;
         
         // Note: Individual token unsubscription for a specific receiver 
         // FeedHandler::unsubscribe(token, this) is DEPRECATED as it unsubscribes all segments

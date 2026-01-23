@@ -156,7 +156,10 @@ bool NSECMRepository::loadProcessedCSV(const QString &filename) {
   // Skip header line
   std::getline(file, line);
 
+  int lineCount = 0;
   while (std::getline(file, line)) {
+    lineCount++;
+    if (lineCount % 1000 == 0) qDebug() << "[NSECM] Loaded lines:" << lineCount;
     if (line.empty()) {
       continue;
     }
@@ -171,7 +174,7 @@ bool NSECMRepository::loadProcessedCSV(const QString &filename) {
       fields.append(qLine.midRef(start, end - start));
       start = end + 1;
     }
-    fields.append(qLine.midRef(start, qLine.length() - start));
+    fields.append(qLine.midRef(start));
 
     if (fields.size() < 17) {
       continue;

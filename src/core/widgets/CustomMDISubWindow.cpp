@@ -137,12 +137,6 @@ CustomMDISubWindow::CustomMDISubWindow(const QString &title, QWidget *parent)
             QRect snapped = mdiArea->getSnappedGeometry(geometry());
             setGeometry(snapped);
             mdiArea->hideSnapPreview();
-            
-            // Emit signal that window was moved
-            emit windowMoved(snapped.topLeft());
-        } else {
-            // Emit signal even without MDI area
-            emit windowMoved(pos());
         }
     });
 
@@ -653,5 +647,13 @@ void CustomMDISubWindow::paintEvent(QPaintEvent *event)
         path.lineTo(width() - handleSize, height());
         path.closeSubpath();
         painter.fillPath(path, borderColor);
+    }
+}
+void CustomMDISubWindow::updateTitleBarVisibility()
+{
+    bool visible = property("titleBarVisible").toBool();
+    if (m_titleBar)
+    {
+        m_titleBar->setVisible(visible);
     }
 }
