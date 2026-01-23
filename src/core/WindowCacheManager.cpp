@@ -132,6 +132,9 @@ bool WindowCacheManager::showBuyWindow(const WindowContext* context)
     m_cachedBuyMdiWindow->show();
     m_cachedBuyMdiWindow->activateWindow();
     
+    // Apply focus to appropriate field based on user preference
+    m_cachedBuyWindow->applyDefaultFocus();
+    
     qDebug() << "[WindowCacheManager] ✓ Buy window shown from cache";
     return true;
 }
@@ -176,6 +179,9 @@ bool WindowCacheManager::showSellWindow(const WindowContext* context)
     // Show and activate
     m_cachedSellMdiWindow->show();
     m_cachedSellMdiWindow->activateWindow();
+    
+    // Apply focus to appropriate field based on user preference
+    m_cachedSellWindow->applyDefaultFocus();
     
     qDebug() << "[WindowCacheManager] ✓ Sell window shown from cache";
     return true;
