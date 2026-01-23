@@ -19,6 +19,7 @@ CustomMDISubWindow::CustomMDISubWindow(const QString &title, QWidget *parent)
       m_isMinimized(false),
       m_isMaximized(false),
       m_isPinned(false),
+      m_isCached(false),
       m_isDragging(false),
       m_isResizing(false)
 {
@@ -177,6 +178,14 @@ CustomMDISubWindow::~CustomMDISubWindow()
 void CustomMDISubWindow::closeEvent(QCloseEvent *event)
 {
     qDebug() << "[MDISubWindow] closeEvent for" << title();
+    
+    // If this is a cached window, hide it instead of destroying it
+    if (m_isCached) {
+        qDebug() << "[MDISubWindow] Cached window - hiding instead of closing";
+        event->ignore();  // Prevent actual close
+        hide();
+        return;
+    }
     
     // Try to close content widget first so it can save state
     // if (m_contentWidget) {

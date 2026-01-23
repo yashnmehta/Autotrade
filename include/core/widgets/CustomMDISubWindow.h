@@ -53,6 +53,10 @@ public:
     // Pinning
     void setPinned(bool pinned);
     bool isPinned() const { return m_isPinned; }
+    
+    // Cached Window Management (for WindowCacheManager)
+    void setCached(bool cached) { m_isCached = cached; }
+    bool isCached() const { return m_isCached; }
 
     // Title Bar Visibility
     void updateTitleBarVisibility();
@@ -91,6 +95,7 @@ private:
     bool m_isMinimized;
     bool m_isMaximized;
     bool m_isPinned;
+    bool m_isCached;        // Flag for cached windows (don't destroy on close)
     QRect m_normalGeometry; // For restoring from maximize
 
     // Dragging/Resizing (Native C++)
