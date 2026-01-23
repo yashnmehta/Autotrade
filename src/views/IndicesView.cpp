@@ -199,7 +199,7 @@ void IndicesView::onIndexReceived(const UDP::IndexTick& tick)
     // Standardization Logic
     QString upperName = name.toUpper();
     
-    // Only normalize Nifty/BankNifty if coming from NSE (prevent BSE cross-listed index conflicts)
+    // NSE: Normalize to standard names
     if (tick.exchangeSegment == UDP::ExchangeSegment::NSECM) {
         if (upperName.contains("NIFTY 50") || upperName == "NIFTY" || upperName.contains("NIFTY50")) {
             name = "NIFTY 50";
@@ -207,10 +207,18 @@ void IndicesView::onIndexReceived(const UDP::IndexTick& tick)
             name = "BANKNIFTY";
         }
     }
-    
-    // Allow SENSEX normalization for both (primary index for BSE)
-    if (upperName.contains("SENSEX")) {
-        name = "SENSEX";
+    // BSE: Prevent Nifty/BankNifty conflict by prefixing
+    else if (tick.exchangeSegment == UDP::ExchangeSegment::BSECM || tick.exchangeSegment == UDP::ExchangeSegment::BSEFO) {
+        if (upperName == "NIFTY 50" || upperName == "NIFTY" || upperName.contains("NIFTY 50")) {
+            name = "BSE NIFTY 50";
+        } else if (upperName == "BANKNIFTY" || upperName.contains("BANKEX")) { 
+             if (upperName == "BANKNIFTY") name = "BSE BANKNIFTY";
+        }
+        
+        // Allow SENSEX to merge (it's the primary index)
+        if (upperName.contains("SENSEX")) {
+            name = "SENSEX";
+        }
     }
     
     // Update (will be queued and batched)

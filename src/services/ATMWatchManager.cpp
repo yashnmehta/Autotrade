@@ -20,7 +20,7 @@ ATMWatchManager *ATMWatchManager::getInstance() {
 ATMWatchManager::ATMWatchManager(QObject *parent) : QObject(parent) {
   m_timer = new QTimer(this);
   connect(m_timer, &QTimer::timeout, this, &ATMWatchManager::onMinuteTimer);
-  m_timer->start(60000); // 1 minute
+  m_timer->start(30000); // 30 seconds (Changed from 1 min)
 
   // Also trigger calculation as soon as masters are ready
   connect(MasterDataState::getInstance(), &MasterDataState::mastersReady, this,
@@ -106,27 +106,8 @@ void ATMWatchManager::calculateAll() {
   for (auto it = m_configs.begin(); it != m_configs.end(); ++it) {
     const auto &config = it.value();
 
-    // Step 1: Get asset token for base price (O(1) lookup)
-    int64_t assetToken = repo->getAssetTokenForSymbol(config.symbol);
-
-    // Step 2: Fetch base price from live feed (try cash first, then future)
-    double basePrice = 0.0;
-    if (assetToken > 0) {
-      basePrice = nsecm::getGenericLtp(static_cast<uint32_t>(assetToken));
-    }
-
-    // Step 2b: If cash LTP not available, try future LTP
-    if (basePrice <= 0) {
-      int64_t futureToken =
-          repo->getFutureTokenForSymbolExpiry(config.symbol, config.expiry);
-      if (futureToken > 0) {
-        auto *state = nsefo::g_nseFoPriceStore.getUnifiedState(
-            static_cast<uint32_t>(futureToken));
-        if (state) {
-          basePrice = state->ltp;
-        }
-      }
-    }
+    // Unified Step 1 & 2: Get Underlying Price (Cash -> Future Fallback)
+    double basePrice = repo->getUnderlyingPrice(config.symbol, config.expiry);
 
     // Step 3: Get sorted strikes from cache (O(1) lookup)
     QVector<double> strikeList =
@@ -201,18 +182,8 @@ double ATMWatchManager::fetchBasePrice(const ATMConfig &config) {
           static_cast<uint32_t>(contracts[0].assetToken));
     }
 
-    // Final fallback for known indices (should not be needed if map is
-    // populated)
-    if (config.symbol == "NIFTY") {
-      return nsecm::getGenericLtp(26000);
-    } else if (config.symbol == "BANKNIFTY") {
-      return nsecm::getGenericLtp(26009);
-    } else if (config.symbol == "FINNIFTY") {
-      return nsecm::getGenericLtp(26037);
-    } else if (config.symbol == "MIDCPNIFTY") {
-      return nsecm::getGenericLtp(26074);
-    }
-
+    // Final fallback for known indices
+    // Now handled by RepositoryManager mapping from Index Master
     return 0.0;
   } else {
     // Find Future LTP

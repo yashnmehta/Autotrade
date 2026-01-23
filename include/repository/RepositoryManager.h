@@ -12,6 +12,7 @@
 #include <QString>
 #include <QVector>
 #include <memory>
+#include <shared_mutex>
 
 // Forward declare price stores
 namespace nsefo {
@@ -97,6 +98,11 @@ public:
    * @param preferCSV If true, try CSV first before master file
    */
   bool loadBSECM(const QString &mastersPath, bool preferCSV = true);
+  
+  /**
+   * @brief Load NSE Index Master to populate Asset Tokens for Indices
+   */
+  bool loadIndexMaster(const QString &mastersPath);
 
   /**
    * @brief Load combined master file (all segments in one file from XTS)
@@ -251,6 +257,19 @@ public:
   int64_t getAssetTokenForSymbol(const QString &symbol) const;
   int64_t getFutureTokenForSymbolExpiry(const QString &symbol,
                                         const QString &expiry) const;
+  
+  /**
+   * @brief Get underlying price (LTP) using unified logic (Cash -> Future fallback)
+   * @param symbol Symbol (e.g., "NIFTY")
+   * @param expiry Expiry Date (e.g., "30JAN2025")
+   * @return double LTP (0.0 if not found)
+   */
+  double getUnderlyingPrice(const QString &symbol, const QString &expiry) const;
+  
+  QString getSymbolForFutureToken(int64_t token) const;
+  
+  // Debug helper
+  void dumpFutureTokenMap(const QString& filepath) const;
 
   /**
    * @brief Get all contracts for a specific segment
@@ -380,11 +399,12 @@ private:
   // Pre-processed data for fast option symbol and expiry lookups
   // Built once during master load, used by ATM Watch for instant rendering
 
-  QMap<QString, QVector<QString>>
+  QHash<QString, QVector<QString>>
       m_expiryToSymbols; // "30JAN26" -> ["NIFTY", "BANKNIFTY", ...]
-  QMap<QString, QString> m_symbolToCurrentExpiry; // "NIFTY" -> "30JAN26"
+  QHash<QString, QString> m_symbolToCurrentExpiry; // "NIFTY" -> "30JAN26"
   QSet<QString> m_optionSymbols;  // {"NIFTY", "BANKNIFTY", "RELIANCE", ...}
-  QSet<QString> m_optionExpiries; // {"30JAN26", "31JAN26", ...}
+  // Cache for sorted expiries to avoid re-sorting on every access
+  QVector<QString> m_sortedExpiries;
 
   // ATM Watch Optimization: Pre-built strike and token caches
   // Key: "SYMBOL|EXPIRY" -> sorted list of strikes
@@ -393,9 +413,15 @@ private:
   QHash<QString, QPair<int64_t, int64_t>> m_strikeToTokens;
   // Symbol -> asset token (for cash price lookup)
   QHash<QString, int64_t> m_symbolToAssetToken;
+  // Index Name -> Token (Loaded from nse_cm_index_master.csv)
+  QHash<QString, int64_t> m_indexNameTokenMap;
   // Key: "SYMBOL|EXPIRY" -> future token (for future price lookup when cash not
   // available)
   QHash<QString, int64_t> m_symbolExpiryFutureToken;
+  // Key: Future Token -> Symbol (Reverse mapping)
+  QHash<int64_t, QString> m_futureTokenToSymbol;
+  // Mutex for reader-writer locking of key caches
+  mutable std::shared_mutex m_expiryCacheMutex;
 };
 
 #endif // REPOSITORY_MANAGER_H
