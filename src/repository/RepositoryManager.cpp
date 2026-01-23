@@ -1141,7 +1141,7 @@ void RepositoryManager::buildExpiryCache() {
     QElapsedTimer timer;
     timer.start();
 
-    m_nsefo->forEachContract([this, &symbolToExpiries](const ContractData &contract) {
+    m_nsefo->forEachContract([this, &symbolToExpiries, &optionExpiries](const ContractData &contract) {
       // Futures: FUTSTK (stock futures) and FUTIDX (index futures)
       // instrumentType 1 = Future
       if (contract.series == "FUTSTK" || contract.series == "FUTIDX") {
@@ -1507,13 +1507,14 @@ RepositoryManager::getNearestExpiry(const QVector<QString> &expiryList) const {
 const QVector<double> &
 RepositoryManager::getStrikesForSymbolExpiry(const QString &symbol,
                                              const QString &expiry) const {
+  static const QVector<double> emptyVector; // Static empty vector for invalid lookups
   std::shared_lock lock(m_expiryCacheMutex);                                            
   QString key = symbol + "|" + expiry;
   auto it = m_symbolExpiryStrikes.find(key);
   if (it != m_symbolExpiryStrikes.end()) {
     return it.value();
   }
-  return empty;
+  return emptyVector;
 }
 
 QPair<int64_t, int64_t> RepositoryManager::getTokensForStrike(

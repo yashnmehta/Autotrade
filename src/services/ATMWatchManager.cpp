@@ -131,7 +131,7 @@ void ATMWatchManager::calculateAll() {
     // If still no valid base price, we can't calculate ATM strike
     if (basePrice <= 0) {
       if (config.symbol == "NIFTY") {
-          qDebug() << "[ATMWatch] ERROR: NIFTY base price is 0. Token:" << assetToken;
+          qDebug() << "[ATMWatch] ERROR: NIFTY base price is 0 for expiry:" << config.expiry;
       }
       failCount++;
       continue;
