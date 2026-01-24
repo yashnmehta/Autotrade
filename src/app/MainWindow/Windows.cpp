@@ -17,6 +17,7 @@
 #include "repository/RepositoryManager.h"
 #include <QDebug>
 #include <QStatusBar>
+#include "core/WindowCacheManager.h"
 
 
 // Helper to count windows
@@ -100,6 +101,17 @@ void MainWindow::createMarketWatch()
 
 void MainWindow::createBuyWindow()
 {
+    // Try cache first for fast opening (~10ms instead of ~400ms)
+    MarketWatchWindow *activeMarketWatch = getActiveMarketWatch();
+    WindowContext context;
+    if (activeMarketWatch && activeMarketWatch->hasValidSelection()) {
+        context = activeMarketWatch->getSelectedContractContext();
+    }
+    if (WindowCacheManager::instance().showBuyWindow(context.isValid() ? &context : nullptr)) {
+        return; // Cache handled it
+    }
+    
+    // Fallback to normal creation if cache not available
     // Enforce single order window limit: Only one Buy OR Sell window at a time
     closeWindowsByType("BuyWindow");
     closeWindowsByType("SellWindow");
@@ -107,7 +119,7 @@ void MainWindow::createBuyWindow()
     CustomMDISubWindow *window = new CustomMDISubWindow("Buy Order", m_mdiArea);
     window->setWindowType("BuyWindow");
 
-    MarketWatchWindow *activeMarketWatch = getActiveMarketWatch();
+    // activeMarketWatch is already declared above
     BuyWindow *buyWindow = nullptr;
     
     if (activeMarketWatch && activeMarketWatch->hasValidSelection()) {
@@ -153,7 +165,7 @@ void MainWindow::createBuyWindow()
     }
     
     window->setContentWidget(buyWindow);
-    window->resize(1220, 260);
+    window->resize(1220, 200);
     connectWindowSignals(window);
     m_mdiArea->addWindow(window);
     
@@ -167,7 +179,7 @@ void MainWindow::createBuyWindow()
         // Default position: bottom-right
         QSize mdiSize = m_mdiArea->size();
         int x = mdiSize.width() - 1220 - 20;
-        int y = mdiSize.height() - 260 - 20;
+        int y = mdiSize.height() - 200 - 20;
         window->move(x, y);
     }
     
@@ -183,6 +195,17 @@ void MainWindow::createBuyWindow()
 
 void MainWindow::createSellWindow()
 {
+    // Try cache first for fast opening (~10ms instead of ~400ms)
+    MarketWatchWindow *activeMarketWatch = getActiveMarketWatch();
+    WindowContext context;
+    if (activeMarketWatch && activeMarketWatch->hasValidSelection()) {
+        context = activeMarketWatch->getSelectedContractContext();
+    }
+    if (WindowCacheManager::instance().showSellWindow(context.isValid() ? &context : nullptr)) {
+        return; // Cache handled it
+    }
+    
+    // Fallback to normal creation if cache not available
     // Enforce single order window limit: Only one Buy OR Sell window at a time
     closeWindowsByType("BuyWindow");
     closeWindowsByType("SellWindow");
@@ -190,7 +213,7 @@ void MainWindow::createSellWindow()
     CustomMDISubWindow *window = new CustomMDISubWindow("Sell Order", m_mdiArea);
     window->setWindowType("SellWindow");
 
-    MarketWatchWindow *activeMarketWatch = getActiveMarketWatch();
+    // activeMarketWatch is already declared above
     SellWindow *sellWindow = nullptr;
     
     if (activeMarketWatch && activeMarketWatch->hasValidSelection()) {
@@ -235,7 +258,7 @@ void MainWindow::createSellWindow()
     }
     
     window->setContentWidget(sellWindow);
-    window->resize(1220, 260);
+    window->resize(1220, 200);
     connectWindowSignals(window);
     m_mdiArea->addWindow(window);
     
@@ -249,7 +272,7 @@ void MainWindow::createSellWindow()
         // Default position: bottom-right
         QSize mdiSize = m_mdiArea->size();
         int x = mdiSize.width() - 1220 - 20;
-        int y = mdiSize.height() - 260 - 20;
+        int y = mdiSize.height() - 200 - 20;
         window->move(x, y);
     }
     

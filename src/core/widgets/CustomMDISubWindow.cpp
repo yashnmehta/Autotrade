@@ -11,6 +11,7 @@
 #include <QApplication>
 #include <QTimer>
 #include <QPainterPath>
+#include <QSettings>
 #include <QDebug>
 
 CustomMDISubWindow::CustomMDISubWindow(const QString &title, QWidget *parent)
@@ -19,6 +20,7 @@ CustomMDISubWindow::CustomMDISubWindow(const QString &title, QWidget *parent)
       m_isMinimized(false),
       m_isMaximized(false),
       m_isPinned(false),
+      m_isCached(false),
       m_isDragging(false),
       m_isResizing(false)
 {
@@ -177,6 +179,24 @@ CustomMDISubWindow::~CustomMDISubWindow()
 void CustomMDISubWindow::closeEvent(QCloseEvent *event)
 {
     qDebug() << "[MDISubWindow] closeEvent for" << title();
+    
+    // If this is a cached window, hide it instead of destroying it
+    if (m_isCached) {
+        qDebug() << "[MDISubWindow] Cached window - hiding instead of closing";
+        
+        // Save position for Buy/Sell order windows
+        if (m_windowType == "BuyWindow" || m_windowType == "SellWindow") {
+            QSettings settings("TradingCompany", "TradingTerminal");
+            QPoint windowPos = geometry().topLeft();  // Use geometry() which gives correct position
+            settings.setValue("orderwindow/last_x", windowPos.x());
+            settings.setValue("orderwindow/last_y", windowPos.y());
+            qDebug() << "[MDISubWindow] Saved position:" << windowPos;
+        }
+        
+        event->ignore();  // Prevent actual close
+        hide();
+        return;
+    }
     
     // Try to close content widget first so it can save state
     // if (m_contentWidget) {
@@ -372,6 +392,18 @@ void CustomMDISubWindow::mouseReleaseEvent(QMouseEvent *event)
 {
     if (event->button() == Qt::LeftButton)
     {
+        // Save position after dragging for cached order windows
+        if (m_isDragging && m_isCached) {
+            if (m_windowType == "BuyWindow" || m_windowType == "SellWindow") {
+                QSettings settings("TradingCompany", "TradingTerminal");
+                QPoint windowPos = geometry().topLeft();  // Use geometry() which gives correct position
+                settings.setValue("orderwindow/last_x", windowPos.x());
+                settings.setValue("orderwindow/last_y", windowPos.y());
+                qDebug() << "[MDISubWindow] Saved position after drag:" << windowPos;
+            }
+        }
+        
+        m_isDragging = false;
         m_isResizing = false;
         m_resizeEdges = Qt::Edges();
     }
