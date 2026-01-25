@@ -1,5 +1,6 @@
 #include "models/MarketWatchColumnProfile.h"
 #include <QFile>
+#include <QDateTime>
 #include <QJsonDocument>
 #include <QDebug>
 #include <QDir>
