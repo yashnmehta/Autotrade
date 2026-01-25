@@ -48,6 +48,28 @@ struct GreeksResult {
 };
 
 /**
+ * @brief Validation result for Greeks calculation
+ * 
+ * Provides detailed error information when Greeks calculation fails.
+ * This helps identify exactly which validation step failed.
+ */
+struct GreeksValidationResult {
+    bool valid = false;
+    QString errorMessage;
+    GreeksResult result;  // Only populated if valid==true
+    
+    // Validation details
+    bool contractFound = false;
+    bool isOption = false;
+    bool hasValidAssetToken = false;
+    bool hasUnderlyingPrice = false;
+    bool notExpired = false;
+    bool marketPriceValid = false;
+    
+    GreeksValidationResult() = default;
+};
+
+/**
  * @brief Configuration for Greeks calculation
  */
 struct GreeksConfig {
@@ -123,10 +145,28 @@ public:
      * @brief Calculate Greeks for a single option token
      * 
      * @param token Instrument token
-     * @param exchangeSegment Exchange segment (NSEFO=2, BSEFO=4)
+     * @param exchangeSegment Exchange segment (NSEFO=2, BSEFO=12)
      * @return GreeksResult with calculated values
      */
     GreeksResult calculateForToken(uint32_t token, int exchangeSegment);
+    
+    /**
+     * @brief Validate inputs before Greeks calculation
+     * 
+     * Performs comprehensive validation of all inputs required for Greeks:
+     * - Contract existence
+     * - Instrument type (must be option)
+     * - Asset token validity
+     * - Underlying price availability
+     * - Expiration date (not expired)
+     * - Market price validity
+     * 
+     * @param token Instrument token
+     * @param exchangeSegment Exchange segment (NSEFO=2, BSEFO=12)
+     * @param optionPrice Market price to validate
+     * @return GreeksValidationResult with detailed validation status
+     */
+    GreeksValidationResult validateGreeksInputs(uint32_t token, int exchangeSegment, double optionPrice) const;
     
     /**
      * @brief Get cached Greeks result
@@ -231,6 +271,14 @@ private:
      * @return Time to expiry in years
      */
     double calculateTimeToExpiry(const QString& expiryDate);
+ 
+    /**
+     * @brief Calculate time to expiry in years
+     * 
+     * @param expiryDate Parsed expiry date
+     * @return Time to expiry in years
+     */
+    double calculateTimeToExpiry(const QDate& expiryDate);
     
     /**
      * @brief Calculate trading days between two dates

@@ -100,6 +100,7 @@ add_executable(benchmark_repository_filters
     ${NSEFO_SOURCES}
     ${NSECM_SOURCES}
     ${COMMON_LZO_SOURCES}
+    ../include/repository/RepositoryManager.h
     ../include/services/MasterLoaderWorker.h
     ../include/utils/PreferencesManager.h
     ../include/services/MasterDataState.h
@@ -155,6 +156,7 @@ add_executable(simple_load_test
     ${NSEFO_SOURCES}
     ${NSECM_SOURCES}
     ${COMMON_LZO_SOURCES}
+    ../include/repository/RepositoryManager.h
     ../include/services/MasterLoaderWorker.h
     ../include/utils/PreferencesManager.h
     ../include/services/MasterDataState.h

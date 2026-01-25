@@ -109,15 +109,24 @@ bool MasterFileParser::parseNSECM(const QVector<QStringRef> &fields,
 
 bool MasterFileParser::parseNSEFO(const QVector<QStringRef> &fields,
                                   MasterContract &contract) {
-  // NSEFO format has TWO different layouts:
+  // NSEFO format has VARIABLE layouts based on XTS API:
   //
-  // OPTIONS (OPTSTK, OPTIDX): 19+ fields
-  // 14: AssetToken, 15: UnderlyingName, 16: Expiry, 17: StrikePrice, 18:
-  // OptionType, 19: DisplayName
+  // Official XTS Header (22 fields + 1 extra):
+  // ExchangeSegment|ExchangeInstrumentID|InstrumentType|Name|Description|Series|
+  // NameWithSeries|InstrumentID|PriceBand.High|PriceBand.Low|FreezeQty|TickSize|
+  // LotSize|Multiplier|UnderlyingInstrumentId|UnderlyingIndexName|ContractExpiration|
+  // StrikePrice|OptionType|displayName|PriceNumerator|PriceDenominator
   //
-  // FUTURES (FUTSTK, FUTIDX): 17+ fields (NO strike price field!)
-  // 14: AssetToken (-1 typically), 15: UnderlyingName, 16: Expiry, 17:
-  // DisplayName, 18-19: Other
+  // ACTUAL DATA:
+  // OPTIONS: 23 fields (includes all 22 + extra actualSymbol at end)
+  // FUTURES/SPREAD: 21 fields (OptionType field OMITTED entirely, not just empty)
+  //
+  // Field 14: UnderlyingInstrumentId (composite like 1100100007229, or -1 for indices)
+  // Field 15: UnderlyingIndexName (symbol name for options, empty for futures)
+  // Field 16: ContractExpiration (ISO: 2026-01-27T14:30:00)
+  // Field 17: StrikePrice (present in options, empty in futures)
+  // Field 18: OptionType (3=CE, 4=PE) - ONLY IN OPTIONS, omitted from futures
+  // Field 19/17: displayName (field 19 for options, field 17 for futures - shifted!)
 
   if (fields.size() < 17) {
     return false;
@@ -142,26 +151,39 @@ bool MasterFileParser::parseNSEFO(const QVector<QStringRef> &fields,
   contract.lotSize = fields[12].toInt();
   contract.multiplier = fields[13].toInt();
 
-  // Parse assetToken - XTS returns composite tokens like 1100100002885
-  // where the actual NSE CM token (e.g., 2885 for RELIANCE) is embedded
-  int64_t rawAssetToken = fields[14].toLongLong();
-  if (rawAssetToken > 100000000LL) {
-    // Extract actual cash segment token from composite format
-    contract.assetToken = rawAssetToken % 100000;
+  // Field 14: UnderlyingInstrumentId
+  // XTS returns composite tokens like 1100100007229 (11001 prefix + 00007229 token)
+  // or -1 for index instruments (need to lookup from index master)
+  int64_t underlyingInstrumentId = fields[14].toLongLong();
+  
+  if (underlyingInstrumentId == -1) {
+    // Index instrument - asset token needs to be resolved from index master
+    // For now, mark as 0 (will be updated during post-processing)
+    contract.assetToken = 0;
+  } else if (underlyingInstrumentId > 10000000000LL) {
+    // Composite format: extract last 5 digits as asset token
+    contract.assetToken = underlyingInstrumentId % 100000;
   } else {
-    contract.assetToken = rawAssetToken;
+    // Direct token
+    contract.assetToken = underlyingInstrumentId;
   }
 
-  // field[15] = UnderlyingName/InstrumentID (not stored)
+  // Field 15: UnderlyingIndexName (symbol name)
+  // Field 16: ContractExpiration (ISO format)
   contract.expiryDate = trimQuotes(fields[16]);
 
-  // Check if this is OPTIONS or FUTURES or SPREADS based on instrumentType
+  // CRITICAL: Check instrumentType to determine field layout
   bool isOption = (contract.instrumentType == 2);
-  bool isSpread = (contract.instrumentType == 4);
 
   if (isOption && fields.size() >= 20) {
-    // OPTIONS (23 fields): 17=Strike, 18=OptionType, 19=DisplayName, 20=Num,
-    // 21=Den
+    // OPTIONS (23 fields total): Has StrikePrice AND OptionType fields
+    // Field 17: StrikePrice
+    // Field 18: OptionType (3=CE, 4=PE)
+    // Field 19: displayName
+    // Field 20: PriceNumerator
+    // Field 21: PriceDenominator
+    // Field 22: actualSymbol (extra field)
+    
     contract.strikePrice = fields[17].toDouble();
 
     // Handle OptionType being numeric or string (CE/PE)
@@ -186,30 +208,26 @@ bool MasterFileParser::parseNSEFO(const QVector<QStringRef> &fields,
       contract.priceDenominator = fields[21].toInt();
     }
     if (fields.size() >= 23) {
+      // Extra actualSymbol field
       contract.isin = trimQuotes(fields[22]);
     }
-  } else if (isSpread && fields.size() >= 18) {
-    // SPREADS (21 fields): 17=DisplayName, 18=Num, 19=Den
-    contract.strikePrice = 0.0;
-    contract.optionType = 0;
-    contract.displayName = trimQuotes(fields[17]);
-    if (fields.size() >= 20) {
-      contract.priceNumerator = fields[18].toInt();
-      contract.priceDenominator = fields[19].toInt();
-    }
-    if (fields.size() >= 21) {
-      contract.isin = trimQuotes(fields[20]);
-    }
   } else {
-    // FUTURES (21 fields): 17=DisplayName, 18=Num, 19=Den
+    // FUTURES or SPREADS (21 fields total): OptionType field OMITTED
+    // Field 17: displayName (SHIFTED because no StrikePrice/OptionType)
+    // Field 18: PriceNumerator (SHIFTED)
+    // Field 19: PriceDenominator (SHIFTED)
+    // Field 20: actualSymbol (extra field)
+    
     contract.strikePrice = 0.0;
     contract.optionType = 0;
     contract.displayName = trimQuotes(fields[17]);
+    
     if (fields.size() >= 20) {
       contract.priceNumerator = fields[18].toInt();
       contract.priceDenominator = fields[19].toInt();
     }
     if (fields.size() >= 21) {
+      // Extra actualSymbol field
       contract.isin = trimQuotes(fields[20]);
     }
   }
@@ -243,6 +261,7 @@ bool MasterFileParser::parseNSEFO(const QVector<QStringRef> &fields,
       int monthNum = month.toInt();
       if (monthNum >= 1 && monthNum <= 12) {
         contract.expiryDate = day + months[monthNum] + year;
+        contract.expiryDate_dt = QDate(year.toInt(), monthNum, day.toInt());
       }
     }
   }
@@ -319,15 +338,19 @@ bool MasterFileParser::parseBSECM(const QVector<QStringRef> &fields,
 
 bool MasterFileParser::parseBSEFO(const QVector<QStringRef> &fields,
                                   MasterContract &contract) {
-  // BSEFO format has TWO different layouts (same as NSEFO):
+  // BSEFO format follows same XTS API structure as NSEFO:
   //
-  // OPTIONS (IO, SO, etc): 19+ fields
-  // 14: AssetToken, 15: UnderlyingName, 16: Expiry, 17: DisplayName, 18:
-  // StrikePrice, 19: OptionType
+  // Official XTS Header (22 fields + 1 extra):
+  // ExchangeSegment|ExchangeInstrumentID|InstrumentType|Name|Description|Series|
+  // NameWithSeries|InstrumentID|PriceBand.High|PriceBand.Low|FreezeQty|TickSize|
+  // LotSize|Multiplier|UnderlyingInstrumentId|UnderlyingIndexName|ContractExpiration|
+  // StrikePrice|OptionType|displayName|PriceNumerator|PriceDenominator
   //
-  // FUTURES (IF, etc): 17+ fields (NO strike price field!)
-  // 14: AssetToken (-1 typically), 15: UnderlyingName, 16: Expiry, 17:
-  // DisplayName, 18-19: Other
+  // ACTUAL DATA:
+  // OPTIONS: 23 fields (includes all 22 + extra actualSymbol at end)
+  // FUTURES/SPREAD: 21 fields (OptionType field OMITTED entirely)
+  //
+  // BSE InstrumentTypes: 1=IF/SF (Futures), 2=IO/SO (Options), 4=SPD (Spreads)
 
   if (fields.size() < 17) {
     return false;
@@ -352,77 +375,80 @@ bool MasterFileParser::parseBSEFO(const QVector<QStringRef> &fields,
   contract.lotSize = fields[12].toInt();
   contract.multiplier = fields[13].toInt();
 
-  // Parse assetToken - XTS returns composite tokens like 1100100002885
-  // where the actual BSE CM token is embedded
-  int64_t rawAssetToken = fields[14].toLongLong();
-  if (rawAssetToken > 100000000LL) {
-    // Extract actual cash segment token from composite format
-    contract.assetToken = rawAssetToken % 100000;
+  // Field 14: UnderlyingInstrumentId
+  // XTS returns composite tokens like 1100100007229 or -1 for index instruments
+  int64_t underlyingInstrumentId = fields[14].toLongLong();
+  
+  if (underlyingInstrumentId == -1) {
+    // Index instrument - asset token needs to be resolved from index master
+    contract.assetToken = 0;
+  } else if (underlyingInstrumentId > 10000000000LL) {
+    // Composite format: extract last 5 digits as asset token
+    contract.assetToken = underlyingInstrumentId % 100000;
   } else {
-    contract.assetToken = rawAssetToken;
+    // Direct token
+    contract.assetToken = underlyingInstrumentId;
   }
 
-  // field[15] = UnderlyingName/InstrumentID (not stored)
+  // Field 16: ContractExpiration (ISO format)
   contract.expiryDate = trimQuotes(fields[16]);
 
   // Check if this is OPTIONS, FUTURES or SPREADS based on instrumentType
-  // BSE: 1=IF/SF (Futures), 2=IO/SO (Options), 4=SPD (Spreads)
   bool isOption = (contract.instrumentType == 2);
-  bool isSpread = (contract.instrumentType == 4);
 
-  if (isOption && fields.size() >= 19) {
-    // OPTIONS (19-23 fields): 17=Strike, 18=OptionType, 19=DisplayName (if
-    // present), 20-21=Num/Den
+  if (isOption && fields.size() >= 20) {
+    // OPTIONS (23 fields total): Has StrikePrice AND OptionType fields
+    // Field 17: StrikePrice
+    // Field 18: OptionType (3=CE, 4=PE)
+    // Field 19: displayName
+    // Field 20: PriceNumerator
+    // Field 21: PriceDenominator
+    // Field 22: actualSymbol (extra field)
+    
     contract.strikePrice = fields[17].toDouble();
 
     // Handle OptionType being numeric or string (CE/PE)
     QString optStr = trimQuotes(fields[18]);
-    bool ok;
-    int optTypeVal = optStr.toInt(&ok);
-    if (ok) {
+    bool optOk;
+    int optTypeVal = optStr.toInt(&optOk);
+    if (optOk) {
       contract.optionType = optTypeVal;
     } else {
       optStr = optStr.toUpper();
       if (optStr == "CE")
-        contract.optionType = 1; // BSE CE
+        contract.optionType = 3; // Map to CE code (3)
       else if (optStr == "PE")
-        contract.optionType = 2; // BSE PE
+        contract.optionType = 4; // Map to PE code (4)
       else
         contract.optionType = 0;
     }
-    if (fields.size() >= 20) {
-      contract.displayName = trimQuotes(fields[19]);
-    }
+    contract.displayName = trimQuotes(fields[19]);
 
     if (fields.size() >= 22) {
       contract.priceNumerator = fields[20].toInt();
       contract.priceDenominator = fields[21].toInt();
     }
     if (fields.size() >= 23) {
+      // Extra actualSymbol field
       contract.isin = trimQuotes(fields[22]);
     }
-  } else if (isSpread && fields.size() >= 18) {
-    // SPREADS (21 fields): 17=DisplayName, 18=Num, 19=Den
-    contract.strikePrice = 0.0;
-    contract.optionType = 0;
-    contract.displayName = trimQuotes(fields[17]);
-    if (fields.size() >= 20) {
-      contract.priceNumerator = fields[18].toInt();
-      contract.priceDenominator = fields[19].toInt();
-    }
-    if (fields.size() >= 21) {
-      contract.isin = trimQuotes(fields[20]);
-    }
   } else {
-    // FUTURES (21 fields): 17=DisplayName, 18=Num, 19=Den
+    // FUTURES or SPREADS (21 fields total): OptionType field OMITTED
+    // Field 17: displayName (SHIFTED)
+    // Field 18: PriceNumerator (SHIFTED)
+    // Field 19: PriceDenominator (SHIFTED)
+    // Field 20: actualSymbol (extra field)
+    
     contract.strikePrice = 0.0;
     contract.optionType = 0;
     contract.displayName = trimQuotes(fields[17]);
+    
     if (fields.size() >= 20) {
       contract.priceNumerator = fields[18].toInt();
       contract.priceDenominator = fields[19].toInt();
     }
     if (fields.size() >= 21) {
+      // Extra actualSymbol field
       contract.isin = trimQuotes(fields[20]);
     }
   }
@@ -456,6 +482,7 @@ bool MasterFileParser::parseBSEFO(const QVector<QStringRef> &fields,
       int monthNum = month.toInt();
       if (monthNum >= 1 && monthNum <= 12) {
         contract.expiryDate = day + months[monthNum] + year;
+        contract.expiryDate_dt = QDate(year.toInt(), monthNum, day.toInt());
       }
     }
   }

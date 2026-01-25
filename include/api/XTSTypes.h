@@ -12,11 +12,11 @@ namespace XTS {
 enum class ExchangeSegment {
     NSECM = 1,  // NSE Cash
     NSEFO = 2,  // NSE F&O
+    NSECD = 3,  // NSE Currency (per XTS API)
     BSECM = 11, // BSE Cash
     BSEFO = 12, // BSE F&O
-    NSECD = 13, // NSE Currency
-    BSECD = 61, // BSE Currency
-    MCXFO = 51  // MCX Commodity
+    MCXFO = 51, // MCX Commodity
+    BSECD = 61  // BSE Currency
 };
 
 // 5-level market depth structure

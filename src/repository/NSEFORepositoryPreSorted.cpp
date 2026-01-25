@@ -94,28 +94,16 @@ void NSEFORepositoryPreSorted::sortIndexArrays() {
     for (auto it = m_symbolIndex.begin(); it != m_symbolIndex.end(); ++it) {
         QVector<int64_t>& tokens = it.value();
         
-        // Pre-compute dates for all tokens in this symbol
-        dateCache.clear();
-        dateCache.reserve(tokens.size());
-        for (int64_t token : tokens) {
-            const ContractData* c = getContract(token);
-            if (c) {
-                dateCache[token] = expiryToDate(c->expiryDate);
-            }
-        }
-        
         std::sort(tokens.begin(), tokens.end(), 
-                  [this, &dateCache](int64_t tokenA, int64_t tokenB) {
+                  [this](int64_t tokenA, int64_t tokenB) {
                       const ContractData* a = getContract(tokenA);
                       const ContractData* b = getContract(tokenB);
                       
                       if (!a || !b) return tokenA < tokenB;
                       
-                      // Primary: Expiry (by pre-computed DATE)
-                      QDate dateA = dateCache.value(tokenA);
-                      QDate dateB = dateCache.value(tokenB);
-                      if (dateA != dateB)
-                          return dateA < dateB;
+                      // Primary: Expiry (by pre-parsed DATE)
+                      if (a->expiryDate_dt != b->expiryDate_dt)
+                          return a->expiryDate_dt < b->expiryDate_dt;
                       
                       // Secondary: InstrumentType (Futures=1, Options=2, Spreads=4)
                       if (a->instrumentType != b->instrumentType)
@@ -134,26 +122,15 @@ void NSEFORepositoryPreSorted::sortIndexArrays() {
     for (auto it = m_seriesIndex.begin(); it != m_seriesIndex.end(); ++it) {
         QVector<int64_t>& tokens = it.value();
         
-        dateCache.clear();
-        dateCache.reserve(tokens.size());
-        for (int64_t token : tokens) {
-            const ContractData* c = getContract(token);
-            if (c) {
-                dateCache[token] = expiryToDate(c->expiryDate);
-            }
-        }
-        
         std::sort(tokens.begin(), tokens.end(), 
-                  [this, &dateCache](int64_t tokenA, int64_t tokenB) {
+                  [this](int64_t tokenA, int64_t tokenB) {
                       const ContractData* a = getContract(tokenA);
                       const ContractData* b = getContract(tokenB);
                       
                       if (!a || !b) return tokenA < tokenB;
                       
-                      QDate dateA = dateCache.value(tokenA);
-                      QDate dateB = dateCache.value(tokenB);
-                      if (dateA != dateB)
-                          return dateA < dateB;
+                      if (a->expiryDate_dt != b->expiryDate_dt)
+                          return a->expiryDate_dt < b->expiryDate_dt;
                       if (a->name != b->name)
                           return a->name < b->name;
                       if (a->instrumentType != b->instrumentType)
@@ -204,13 +181,13 @@ QVector<ContractData> NSEFORepositoryPreSorted::getContractsBySymbolAndExpiry(
     
     // Step 2: O(log n) binary search to find first contract with this expiry
     auto lower = std::lower_bound(
-        tokens.begin(), 
-        tokens.end(), 
+        tokens.begin(),
+        tokens.end(),
         targetDate,
         [this](int64_t token, const QDate& target) {
             const ContractData* c = getContract(token);
             if (!c) return true;
-            return expiryToDate(c->expiryDate) < target;
+            return c->expiryDate_dt < target;
         }
     );
     
@@ -220,7 +197,7 @@ QVector<ContractData> NSEFORepositoryPreSorted::getContractsBySymbolAndExpiry(
         if (!contract) continue;
         
         // Stop when we hit a different expiry (since array is sorted by date)
-        if (expiryToDate(contract->expiryDate) != targetDate) {
+        if (contract->expiryDate_dt != targetDate) {
             break;
         }
         

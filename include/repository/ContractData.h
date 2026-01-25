@@ -2,7 +2,69 @@
 #define CONTRACT_DATA_H
 
 #include <QString>
+#include <QDate>
 #include <cstdint>
+
+namespace XTS {
+    /**
+     * @brief Instrument type codes from XTS API
+     * Based on actual master file data analysis (131,009 records)
+     */
+    enum class InstrumentType : int32_t {
+        Future = 1,  // Futures contracts
+        Option = 2,  // Options contracts
+        Spread = 4,  // Calendar/inter-commodity spreads
+        Equity = 8   // Equity stocks (cash market)
+    };
+    
+    /**
+     * @brief Option type codes from XTS API
+     * NSE uses 3/4, BSE may use 1/2 or 3/4 (dual encoding)
+     */
+    enum class OptionType : int32_t {
+        CE = 3,      // Call European (NSE standard)
+        PE = 4,      // Put European (NSE standard)
+        CE_BSE = 1,  // Call (BSE alternate encoding)
+        PE_BSE = 2   // Put (BSE alternate encoding)
+    };
+    
+    /**
+     * @brief Check if option type code represents a Call option
+     * Accepts both NSE (3) and BSE (1) encodings
+     */
+    static inline bool isCallOption(int32_t optType) {
+        return optType == 1 || optType == 3;
+    }
+    
+    /**
+     * @brief Check if option type code represents a Put option
+     * Accepts both NSE (4) and BSE (2) encodings
+     */
+    static inline bool isPutOption(int32_t optType) {
+        return optType == 2 || optType == 4;
+    }
+    
+    /**
+     * @brief Check if instrument type is an option
+     */
+    static inline bool isOption(int32_t instType) {
+        return instType == static_cast<int32_t>(InstrumentType::Option);
+    }
+    
+    /**
+     * @brief Check if instrument type is a future
+     */
+    static inline bool isFuture(int32_t instType) {
+        return instType == static_cast<int32_t>(InstrumentType::Future);
+    }
+    
+    /**
+     * @brief Check if instrument type is a spread
+     */
+    static inline bool isSpread(int32_t instType) {
+        return instType == static_cast<int32_t>(InstrumentType::Spread);
+    }
+} // namespace XTS
 
 /**
  * @brief Unified contract data structure for all segments (NSE/BSE CM/FO)
@@ -35,6 +97,7 @@ struct ContractData {
     
     // ===== F&O SPECIFIC FIELDS =====
     QString expiryDate;             // Expiry date (DDMMMYYYY format, e.g., 26DEC2024)
+    QDate expiryDate_dt;            // Parsed expiry date for sorting/comparison
     double strikePrice;             // Strike price (0 for futures, >0 for options)
     QString optionType;             // CE/PE/XX (Call/Put/NotApplicable)
     int64_t assetToken;             // Underlying asset token
@@ -120,6 +183,7 @@ struct MasterContract {
     
     // F&O Specific (from field positions 14-18 in NSEFO/BSEFO)
     QString expiryDate;             // Field 16 (ISO format or DDMMMYYYY)
+    QDate expiryDate_dt;            // Parsed expiry date
     double strikePrice;             // Field 17
     int32_t optionType;             // Field 18 (1=CE, 2=PE, 3/4=XX)
     int64_t assetToken;             // Field 14 (underlying asset token)
@@ -157,6 +221,7 @@ struct MasterContract {
         data.priceBandHigh = priceBandHigh;
         data.priceBandLow = priceBandLow;
         data.expiryDate = expiryDate;
+        data.expiryDate_dt = expiryDate_dt;
         data.strikePrice = strikePrice;
         data.assetToken = assetToken;
         data.instrumentType = instrumentType;

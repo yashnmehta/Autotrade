@@ -14,11 +14,11 @@ namespace UDP {
 enum class ExchangeSegment : uint8_t {
     NSECM = 1,   // NSE Cash Market (Equities)
     NSEFO = 2,   // NSE Futures & Options (Derivatives)
+    NSECD = 3,   // NSE Currency Derivatives (per XTS API)
     BSECM = 11,  // BSE Cash Market (Equities)
     BSEFO = 12,  // BSE Futures & Options (Derivatives)
-    NSECD = 13,  // NSE Currency Derivatives
-    BSECD = 61,  // BSE Currency Derivatives
-    MCXFO = 51   // MCX Commodity Derivatives
+    MCXFO = 51,  // MCX Commodity Derivatives
+    BSECD = 61   // BSE Currency Derivatives
 };
 
 /**

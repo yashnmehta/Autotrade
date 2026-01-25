@@ -31,7 +31,7 @@ RepositoryManager *RepositoryManager::getInstance() {
   return s_instance;
 }
 
-RepositoryManager::RepositoryManager() : m_loaded(false) {
+RepositoryManager::RepositoryManager() : QObject(nullptr), m_loaded(false) {
   m_nsefo = std::make_unique<NSEFORepositoryPreSorted>();
   m_nsecm = std::make_unique<NSECMRepository>();
   m_bsefo = std::make_unique<BSEFORepository>();
@@ -101,159 +101,83 @@ QString RepositoryManager::getMastersDirectory() {
 }
 
 bool RepositoryManager::loadAll(const QString &mastersPath) {
-  qDebug() << "[RepositoryManager] Loading all master contracts from:"
-           << mastersPath;
-
-  bool anyLoaded = false;
-
-  // FAST PATH DISABLED: CSV loading bypasses string interning optimization
-  // Force streaming path for memory efficiency
-  QString nsefoCSV = mastersPath + "/processed_csv/nsefo_processed.csv";
-  QString nsecmCSV = mastersPath + "/processed_csv/nsecm_processed.csv";
-  QString bsefoCSV = mastersPath + "/processed_csv/bsefo_processed.csv";
-  QString bsecmCSV = mastersPath + "/processed_csv/bsecm_processed.csv";
-
-  // Load Index Master
-  loadIndexMaster(mastersPath);
-
-  // Check if at least one NSE file exists to attempt CSV load
-  if (QFile::exists(nsefoCSV) || QFile::exists(nsecmCSV)) {
-    qDebug() << "[RepositoryManager] Found processed CSV files, loading from "
-                "cache...";
-
-    bool nsefoLoaded = false;
-    bool nsecmLoaded = false;
-    bool bsefoLoaded = false;
-    bool bsecmLoaded = false;
-
-    // Load NSE segments
-    if (m_nsefo->loadProcessedCSV(nsefoCSV)) {
-      nsefoLoaded = true;
-      anyLoaded = true;
-    } else {
-      qWarning() << "[RepositoryManager] Failed to load NSE F&O CSV";
-    }
-
-    if (m_nsecm->loadProcessedCSV(nsecmCSV)) {
-      nsecmLoaded = true;
-      anyLoaded = true;
-    } else {
-      qWarning() << "[RepositoryManager] Failed to load NSE CM CSV";
-    }
-
-    // Load BSE segments (optional - don't fail if missing)
-    if (QFile::exists(bsefoCSV)) {
-      if (m_bsefo->loadProcessedCSV(bsefoCSV)) {
-        bsefoLoaded = true;
-        anyLoaded = true;
-        qDebug() << "[RepositoryManager] BSE F&O CSV loaded successfully";
-      } else {
-        qWarning() << "[RepositoryManager] Failed to load BSE F&O CSV";
-      }
-    }
-
-    if (QFile::exists(bsecmCSV)) {
-      if (m_bsecm->loadProcessedCSV(bsecmCSV)) {
-        bsecmLoaded = true;
-        anyLoaded = true;
-        qDebug() << "[RepositoryManager] BSE CM CSV loaded successfully";
-      } else {
-        qWarning() << "[RepositoryManager] Failed to load BSE CM CSV";
-      }
-    }
-
-    if (nsefoLoaded && nsecmLoaded) {
-      m_loaded = true;
-
-      // Initialize distributed price stores
-      initializeDistributedStores();
-
-      // Log summary
-      SegmentStats stats = getSegmentStats();
-      qDebug() << "[RepositoryManager] CSV loading complete (FAST PATH):";
-      qDebug() << "  NSE F&O:" << stats.nsefo << "contracts";
-      qDebug() << "  NSE CM:" << stats.nsecm << "contracts";
-      qDebug() << "  BSE F&O:" << stats.bsefo << "contracts";
-      qDebug() << "  BSE CM:" << stats.bsecm << "contracts";
-      qDebug() << "  Total:" << getTotalContractCount() << "contracts";
-
-      MemoryProfiler::logSnapshot("Post-Repository Load (CSV)");
-
-      return true;
-    }
-    // If CSV loading partially failed, fall through to master file loading
-    qDebug() << "[RepositoryManager] CSV loading incomplete, falling back to "
-                "master file...";
+  qDebug() << "[RepositoryManager] ========================================";
+  qDebug() << "[RepositoryManager] Starting Master File Loading";
+  qDebug() << "[RepositoryManager] ========================================";
+  
+  QString mastersDir = mastersPath;
+  if (mastersDir == "Masters") {
+      mastersDir = getMastersDirectory();
   }
 
-  // SLOW PATH: Check if there's a combined master file (from XTS download)
-  QString combinedFile = mastersPath + "/master_contracts_latest.txt";
-  if (QFile::exists(combinedFile)) {
-    qDebug() << "[RepositoryManager] Found combined master file, parsing "
-                "segments...";
-    if (loadCombinedMasterFile(combinedFile)) {
-      anyLoaded = true;
-      m_loaded = true;
-
-      // Initialize distributed price stores
-      initializeDistributedStores();
-
-      // CSV saving disabled to preserve string interning benefits
-      // saveProcessedCSVs(mastersPath);
-
-      // Log summary
-      SegmentStats stats = getSegmentStats();
-      qDebug() << "[RepositoryManager] Loading complete:";
-      qDebug() << "  NSE F&O:" << stats.nsefo << "contracts";
-      qDebug() << "  NSE CM:" << stats.nsecm << "contracts";
-      qDebug() << "  Total:" << getTotalContractCount() << "contracts";
-
-      return true;
-    }
+  // PHASE 1: Load NSE CM Index Master (Required)
+  qDebug() << "[RepositoryManager] [1/5] Loading NSE CM Index Master...";
+  if (!loadIndexMaster(mastersDir)) {
+    qWarning() << "[RepositoryManager] Failed to load index master from" << mastersDir;
+    // We continue, but some functionality might be limited (no indices)
   }
-
-  // Fall back to individual segment files
-  qDebug() << "[RepositoryManager] No combined file, trying individual segment "
-              "files...";
-
-  // Load NSE F&O (try CSV first, fall back to master file)
-  if (loadNSEFO(mastersPath, true)) {
-    anyLoaded = true;
+  
+  // PHASE 2: Load NSE CM (Stocks) - Fallback from CSV to Master File
+  qDebug() << "[RepositoryManager] [2/5] Loading NSE CM (Stocks)...";
+  if (!loadNSECM(mastersDir, true)) {
+    emit loadingError("Failed to load NSE CM", {"nsecm_processed.csv", "contract_nsecm_latest.txt"});
+    return false;
   }
-
-  // Load NSE CM (try CSV first, fall back to master file)
-  if (loadNSECM(mastersPath, true)) {
-    anyLoaded = true;
+  
+  // Append index master contracts to NSECM repository
+  if (!m_indexContracts.isEmpty()) {
+    qDebug() << "[RepositoryManager] Appending" << m_indexContracts.size() 
+             << "index contracts to NSECM repository";
+    m_nsecm->appendContracts(m_indexContracts);
   }
-
-  // Load BSE F&O (try CSV first, fall back to master file)
-  if (loadBSEFO(mastersPath, true)) {
-    anyLoaded = true;
+  
+  // PHASE 3: Load NSE FO (Futures & Options) - Fallback from CSV to Master File
+  qDebug() << "[RepositoryManager] [3/5] Loading NSE F&O...";
+  if (!loadNSEFO(mastersDir, true)) {
+    emit loadingError("Failed to load NSE F&O", {"nsefo_processed.csv", "contract_nsefo_latest.txt"});
+    return false;
   }
-
-  // Load BSE CM (try CSV first, fall back to master file)
-  if (loadBSECM(mastersPath, true)) {
-    anyLoaded = true;
-  }
-
-  if (anyLoaded) {
-    m_loaded = true;
-
-    // Initialize distributed price stores
-    initializeDistributedStores();
-
-    // Log summary
-    SegmentStats stats = getSegmentStats();
-    qDebug() << "[RepositoryManager] Loading complete:";
-    qDebug() << "  NSE CM:" << stats.nsecm << "contracts";
-    qDebug() << "  BSE F&O:" << stats.bsefo << "contracts";
-    qDebug() << "  BSE CM:" << stats.bsecm << "contracts";
-    qDebug() << "  Total:" << getTotalContractCount() << "contracts";
-  } else {
-    qWarning() << "[RepositoryManager] Failed to load any master contracts";
-  }
-
-  return anyLoaded;
+  
+  // Update asset tokens in NSEFO from index master
+  updateIndexAssetTokens();
+  
+  // Resolve index asset tokens (for contracts with assetToken = 0 or -1)
+  resolveIndexAssetTokens();
+  
+  // PHASE 4: Load BSE segments (optional)
+  qDebug() << "[RepositoryManager] [4/5] Loading BSE CM (optional)...";
+  loadBSECM(mastersDir, true);
+  
+  qDebug() << "[RepositoryManager] [5/5] Loading BSE F&O (optional)...";
+  loadBSEFO(mastersDir, true);
+  
+  // PHASE 6: Initialize distributed price stores
+  qDebug() << "[RepositoryManager] Initializing distributed price stores...";
+  initializeDistributedStores();
+  
+  // PHASE 7: Build expiry cache
+  qDebug() << "[RepositoryManager] Building expiry cache for ATM Watch...";
+  buildExpiryCache();
+  
+  // PHASE 8: Log summary
+  SegmentStats stats = getSegmentStats();
+  qDebug() << "[RepositoryManager] ========================================";
+  qDebug() << "[RepositoryManager] Loading Complete";
+  qDebug() << "[RepositoryManager] NSE CM:    " << stats.nsecm << "contracts";
+  qDebug() << "[RepositoryManager] NSE F&O:   " << stats.nsefo << "contracts";
+  qDebug() << "[RepositoryManager] BSE CM:    " << stats.bsecm << "contracts";
+  qDebug() << "[RepositoryManager] BSE F&O:   " << stats.bsefo << "contracts";
+  qDebug() << "[RepositoryManager] Total:     " << getTotalContractCount() << "contracts";
+  qDebug() << "[RepositoryManager] ========================================";
+  
+  m_loaded = true;
+  emit mastersLoaded();
+  
+  // CRITICAL: Emit repositoryLoaded signal so UDP readers can start safely
+  emit repositoryLoaded();
+  qInfo() << "[RepositoryManager] Repository loaded - UDP readers may now start";
+  
+  return true;
 }
 
 bool RepositoryManager::loadNSEFO(const QString &mastersPath, bool preferCSV) {
@@ -365,6 +289,9 @@ bool RepositoryManager::loadIndexMaster(const QString &mastersPath) {
     }
 
     m_indexNameTokenMap.clear();
+    m_indexContracts.clear();
+    m_symbolToAssetToken.clear();
+    
     QTextStream in(&file);
     
     // Skip header
@@ -372,21 +299,191 @@ bool RepositoryManager::loadIndexMaster(const QString &mastersPath) {
 
     while (!in.atEnd()) {
         QString line = in.readLine();
-        QStringList parts = line.split(',');
-        // Format: id,index_name,token,created_at
-        // Example: 3,Nifty 50,26000,2025...
-        if (parts.size() >= 3) {
-            QString name = parts[1].trimmed();
+        QStringList fields = line.split(',');
+        
+        // Expected Format: Token,Symbol,Name,ClosePrice
+        // or Format: id,Name,Token,created_at
+        
+        if (fields.size() >= 3) {
             bool ok;
-            int64_t token = parts[2].toLongLong(&ok);
+            int64_t token = 0;
+            QString symbol;
+            QString name;
+            
+            // Try to detect format
+            if (fields[0].at(0).isDigit() && fields[0].length() >= 5) {
+                // Token,Symbol,Name format
+                token = fields[0].toLongLong(&ok);
+                symbol = fields[1].trimmed();
+                name = fields[2].trimmed();
+            } else {
+                // id,Name,Token format
+                name = fields[1].trimmed();
+                token = fields[2].toLongLong(&ok);
+                symbol = name; // Fallback
+            }
+            
             if (ok) {
+                // Map: "Nifty 50" -> 26000
                 m_indexNameTokenMap[name] = token;
+                
+                // Map: "NIFTY" -> 26000
+                m_symbolToAssetToken[symbol] = token;
+                
+                // Create ContractData for appending to NSECM
+                ContractData contract;
+                contract.exchangeInstrumentID = token;
+                contract.name = symbol; // Use symbol (e.g. NIFTY) as name
+                contract.displayName = name; // Use full name (e.g. Nifty 50) as displayName
+                contract.description = name;
+                contract.series = "INDEX";
+                contract.instrumentType = 0; // Index
+                m_indexContracts.append(contract);
             }
         }
     }
     file.close();
     qDebug() << "Loaded" << m_indexNameTokenMap.size() << "indices from" << filePath;
+    
+    // Initialize UDP index name→token mapping for NSE CM price store
+    if (!m_indexNameTokenMap.isEmpty()) {
+        qDebug() << "[RepositoryManager] Initializing NSE CM UDP index name mapping...";
+        
+        // Convert QHash<QString, int64_t> to std::unordered_map<std::string, uint32_t>
+        std::unordered_map<std::string, uint32_t> mapping;
+        for (auto it = m_indexNameTokenMap.constBegin(); it != m_indexNameTokenMap.constEnd(); ++it) {
+            mapping[it.key().toStdString()] = static_cast<uint32_t>(it.value());
+        }
+        
+        // Pass to UDP price store so it can resolve index names from UDP packets
+        nsecm::initializeIndexMapping(mapping);
+        
+        qDebug() << "[RepositoryManager] Initialized" << mapping.size() 
+                 << "index name→token mappings for UDP price updates";
+    }
+    
     return true;
+}
+
+void RepositoryManager::updateIndexAssetTokens() {
+  if (!m_nsefo || m_symbolToAssetToken.isEmpty()) {
+    return;
+  }
+  
+  qDebug() << "Updating asset tokens in NSEFO from index master...";
+  
+  int updatedCount = 0;
+  m_nsefo->forEachContract([this, &updatedCount](const ContractData& contract) {
+    // For index options/futures
+    if (contract.series == "OPTIDX" || contract.series == "FUTIDX") {
+      // Look up asset token from index master
+      if (m_symbolToAssetToken.contains(contract.name)) {
+        int64_t assetToken = m_symbolToAssetToken[contract.name];
+        if (contract.assetToken != assetToken) {
+            m_nsefo->updateAssetToken(contract.exchangeInstrumentID, assetToken);
+            updatedCount++;
+        }
+      }
+    }
+  });
+  
+  qDebug() << "Updated" << updatedCount << "contracts with asset tokens";
+}
+
+void RepositoryManager::resolveIndexAssetTokens() {
+  QWriteLocker lock(&m_repositoryLock);  // Thread-safe write access - modifying contracts
+  
+  if (!m_nsecm || !m_nsefo) {
+    qWarning() << "[RepositoryManager] Cannot resolve index tokens: "
+                  "NSECM or NSEFO not loaded";
+    return;
+  }
+
+  qDebug() << "[RepositoryManager] Resolving index asset tokens...";
+
+  // Step 1: Build index name → token map from NSECM and m_symbolToAssetToken
+  QHash<QString, int64_t> indexTokens;
+  
+  // Use the existing symbol to asset token map from index master
+  if (!m_symbolToAssetToken.isEmpty()) {
+    indexTokens = m_symbolToAssetToken;
+    qDebug() << "[RepositoryManager] Using" << indexTokens.size() 
+             << "index tokens from index master";
+  }
+  
+  // Also add from NSECM INDEX series for additional coverage
+  m_nsecm->forEachContract([&indexTokens](const ContractData& c) {
+    if (c.series == "INDEX") {
+      indexTokens[c.name] = c.exchangeInstrumentID;
+      
+      // Store variations without common suffixes for better matching
+      QString shortName = c.name;
+      shortName.replace(" 50", "").replace(" BANK", "").replace(" 100", "");
+      if (shortName != c.name) {
+        indexTokens[shortName] = c.exchangeInstrumentID;
+      }
+    }
+  });
+
+  if (indexTokens.isEmpty()) {
+    qWarning() << "[RepositoryManager] No index tokens available for resolution";
+    return;
+  }
+
+  qDebug() << "[RepositoryManager] Built index token map with" 
+           << indexTokens.size() << "entries";
+
+  // Step 2: Update NSEFO contracts with assetToken = 0 or -1
+  int totalCount = 0;
+  int resolvedCount = 0;
+  int unresolvedCount = 0;
+  QStringList unresolvedSymbols;
+  
+  m_nsefo->forEachContract([&](const ContractData& contract) {
+    // Check if this contract has missing or invalid asset token
+    if (contract.assetToken == 0 || contract.assetToken == -1) {
+      totalCount++;
+      
+      // Try to resolve from index token map using the contract's name (underlying)
+      QString symbol = contract.name;
+      
+      if (indexTokens.contains(symbol)) {
+        int64_t newAssetToken = indexTokens[symbol];
+        
+        // Update the asset token in the repository
+        m_nsefo->updateAssetToken(contract.exchangeInstrumentID, newAssetToken);
+        resolvedCount++;
+        
+        if (resolvedCount <= 3) { // Log first few for verification
+          qDebug() << "  Resolved:" << symbol 
+                   << "token" << contract.exchangeInstrumentID
+                   << "→ assetToken" << newAssetToken;
+        }
+      } else {
+        unresolvedCount++;
+        if (unresolvedCount <= 5) { // Log first few unresolved
+          qWarning() << "  Cannot resolve:" << symbol 
+                     << "(token" << contract.exchangeInstrumentID << ")";
+          unresolvedSymbols.append(symbol);
+        }
+      }
+    }
+  });
+
+  qDebug() << "[RepositoryManager] Index asset token resolution summary:";
+  qDebug() << "  Total contracts with missing asset tokens:" << totalCount;
+  qDebug() << "  Resolved:" << resolvedCount 
+           << "(" << (totalCount > 0 ? QString::number(100.0 * resolvedCount / totalCount, 'f', 1) : "0") << "%)";
+  qDebug() << "  Unresolvable:" << unresolvedCount;
+  
+  if (unresolvedCount > 0 && !unresolvedSymbols.isEmpty()) {
+    qWarning() << "[RepositoryManager] Unresolved symbols:" << unresolvedSymbols.join(", ");
+  }
+  
+  if (resolvedCount > 0) {
+    qDebug() << "[RepositoryManager] Successfully resolved" << resolvedCount 
+             << "index asset tokens for Greeks calculation";
+  }
 }
 
 bool RepositoryManager::loadCombinedMasterFile(const QString &filePath) {
@@ -663,6 +760,19 @@ bool RepositoryManager::loadFromMemory(const QString &csvData) {
   if (m_bsecm)
     m_bsecm->finalizeLoad();
 
+  // NEW: Integrate Index Master Data (Crucial for Download Master flow)
+  QString mastersDir = getMastersDirectory();
+  qDebug() << "[RepositoryManager] Loading Index Master from" << mastersDir;
+  if (loadIndexMaster(mastersDir)) {
+      if (!m_indexContracts.isEmpty() && m_nsecm) {
+          m_nsecm->appendContracts(m_indexContracts);
+      }
+      updateIndexAssetTokens();
+  }
+
+  // Initialize distributed price stores (Required for real-time data)
+  initializeDistributedStores();
+
   // Build expiry cache for ATM Watch optimization
   buildExpiryCache();
 
@@ -753,6 +863,8 @@ QVector<ContractData> RepositoryManager::searchScrips(const QString &exchange,
 
 const ContractData *RepositoryManager::getContractByToken(int exchangeSegmentID,
                                                           int64_t token) const {
+  QReadLocker lock(&m_repositoryLock);  // Thread-safe read access
+  
   if (exchangeSegmentID == 1 && m_nsecm->isLoaded()) {
     return m_nsecm->getContract(token);
   } else if (exchangeSegmentID == 2 && m_nsefo->isLoaded()) {
@@ -768,6 +880,8 @@ const ContractData *RepositoryManager::getContractByToken(int exchangeSegmentID,
 QVector<ContractData>
 RepositoryManager::getScrips(const QString &exchange, const QString &segment,
                              const QString &series) const {
+  QReadLocker lock(&m_repositoryLock);  // Thread-safe read access
+  
   QString segmentKey = getSegmentKey(exchange, segment);
 
   if (segmentKey == "NSEFO" && m_nsefo->isLoaded()) {
@@ -786,6 +900,8 @@ RepositoryManager::getScrips(const QString &exchange, const QString &segment,
 const ContractData *
 RepositoryManager::getContractByToken(const QString &segmentKey,
                                       int64_t token) const {
+  QReadLocker lock(&m_repositoryLock);  // Thread-safe read access
+  
   QString key = segmentKey.toUpper();
   if (key == "NSEFO" || key == "NSEF" || key == "NSEO") {
     return m_nsefo->isLoaded() ? m_nsefo->getContract(token) : nullptr;
@@ -807,6 +923,8 @@ const ContractData *RepositoryManager::getContractByToken(
 QVector<ContractData>
 RepositoryManager::getOptionChain(const QString &exchange,
                                   const QString &symbol) const {
+  QReadLocker lock(&m_repositoryLock);  // Thread-safe read access
+  
   if (exchange == "NSE" && m_nsefo->isLoaded()) {
     return m_nsefo->getContractsBySymbol(symbol);
   } else if (exchange == "BSE" && m_bsefo->isLoaded()) {
@@ -1016,6 +1134,14 @@ void RepositoryManager::initializeDistributedStores() {
   qDebug() << "[RepositoryManager] Initializing distributed price stores with "
               "contract master...";
 
+  // Reset all stores before re-initialization (Clean reload)
+  nsefo::g_nseFoPriceStore.clear();
+  nsecm::g_nseCmPriceStore.clear();
+  bse::g_bseFoPriceStore.clear();
+  bse::g_bseCmPriceStore.clear();
+  bse::g_bseFoIndexStore.clear();
+  bse::g_bseCmIndexStore.clear();
+
   // NSE FO: Pre-populate array with contract master data
   if (m_nsefo && m_nsefo->isLoaded()) {
     std::vector<uint32_t> tokens;
@@ -1041,6 +1167,14 @@ void RepositoryManager::initializeDistributedStores() {
 
   // NSE CM: Pre-populate hash map with contract master data
   if (m_nsecm && m_nsecm->isLoaded()) {
+    // Pass index name to token map to the broadcast library for unified price store
+    QHash<QString, int64_t> indexMap = m_nsecm->getIndexNameTokenMap();
+    std::unordered_map<std::string, uint32_t> stdIndexMap;
+    for (auto it = indexMap.begin(); it != indexMap.end(); ++it) {
+        stdIndexMap[it.key().toStdString()] = static_cast<uint32_t>(it.value());
+    }
+    nsecm::initializeIndexMapping(stdIndexMap);
+
     std::vector<uint32_t> tokens;
     tokens.reserve(m_nsecm->getTotalCount());
 
@@ -1301,10 +1435,22 @@ void RepositoryManager::buildExpiryCache() {
 
     // sort expiryDates ascending
     std::sort(expiryDates.begin(), expiryDates.end());
-    // get first (nearest) element and convert back to QString
-    QString firstExpiry = expiryDates.first().toString("ddMMMyyyy").toUpper();
-    // insert into m_symbolToCurrentExpiry
-    m_symbolToCurrentExpiry.insert(i_symbol, firstExpiry);
+    
+    // get nearest expiry >= today
+    QDate today = QDate::currentDate();
+    auto it = std::lower_bound(expiryDates.begin(), expiryDates.end(), today);
+    
+    QString nearestExpiry;
+    if (it != expiryDates.end()) {
+        nearestExpiry = it->toString("ddMMMyyyy").toUpper();
+    } else if (!expiryDates.isEmpty()) {
+        // Fallback to last expiry if all are in the past (unlikely for live systems)
+        nearestExpiry = expiryDates.last().toString("ddMMMyyyy").toUpper();
+    }
+    
+    if (!nearestExpiry.isEmpty()) {
+        m_symbolToCurrentExpiry.insert(i_symbol, nearestExpiry);
+    }
   }
 
   // Pre-sort all symbol vectors in m_expiryToSymbols so that

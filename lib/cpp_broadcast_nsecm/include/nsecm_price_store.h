@@ -89,6 +89,8 @@ public:
     // but the previous header had it inline. I will declare the class here to keep it compiling.
     
     size_t getTokenCount() const { return MAX_TOKENS; }
+    
+    void clear();
 
 private:
     std::vector<UnifiedTokenState*> tokenStates;
@@ -97,26 +99,19 @@ private:
 
 //min token for indiaces 26000
 
-/**
- * @brief Index data store for NSE CM (Thread-Safe Wrapper)
- */
-class IndexStore {
-public:
-    IndexStore() = default;
-    
-    const IndexData* updateIndex(const IndexData& data);
-    const IndexData* getIndex(const std::string& name) const;
-    size_t indexCount() const;
-    void clear();
-
-private:
-    std::unordered_map<std::string, IndexData> indices;
-    mutable std::shared_mutex mutex;
-};
-
 // Global instances
 extern PriceStore g_nseCmPriceStore;
-extern IndexStore g_nseCmIndexStore;
+
+/**
+ * @brief Map broadcast index names (e.g. "Nifty 50") to tokens (e.g. 26000)
+ * This is populated during repository load from nse_cm_index_master.csv
+ */
+extern std::unordered_map<std::string, uint32_t> g_indexNameToToken;
+
+/**
+ * @brief Initialize index name mapping from RepositoryManager
+ */
+void initializeIndexMapping(const std::unordered_map<std::string, uint32_t>& mapping);
 
 /**
  * @brief Get LTP for any NSE token (Stock or Index)

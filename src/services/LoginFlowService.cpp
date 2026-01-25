@@ -64,7 +64,13 @@ void LoginFlowService::setCompleteCallback(std::function<void()> callback) {
 void LoginFlowService::startMastersPhase() {
   // Phase 3: Check shared state and handle masters accordingly
   MasterDataState *masterState = MasterDataState::getInstance();
+
+  
+
   QString mastersDir = RepositoryManager::getMastersDirectory();
+  
+  
+  
   QDir().mkpath(mastersDir);
 
   // Check if splash screen is still loading masters

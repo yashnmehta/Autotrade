@@ -1,6 +1,7 @@
 #include "../../include/nse_parsers.h"
 #include "../../include/nsecm_callback.h"
 #include "../../include/protocol.h"
+#include "../../include/nsecm_price_store.h" // Added
 #include <chrono>
 #include <cstring>
 #include <iostream>
@@ -13,9 +14,7 @@ void parse_message_7207(const MS_BCAST_INDICES *msg) {
   uint16_t numRecords = be16toh_func(msg->numberOfRecords);
   IndicesUpdate update;
   update.numRecords = std::min(numRecords, (uint16_t)6);
-  //
 
-  std::cout << "[Index] " << numRecords << std::endl;
   for (int i = 0; i < update.numRecords; i++) {
     const auto &rec = msg->indices[i];
     IndexData &data = update.indices[i];
@@ -44,16 +43,16 @@ void parse_message_7207(const MS_BCAST_INDICES *msg) {
     data.yearlyLow = (int32_t)be32toh_func(rec.yearlyLow) / 100.0;
     data.upMoves = be32toh_func(rec.noOfUpmoves);
     data.downMoves = be32toh_func(rec.noOfDownmoves);
-    // std::cout << data.name << std::endl;
-    // std::cout << i << " " << data.name << std::endl;
-    if (std::strcmp(data.name, "Nifty 50") == 0 ||
-        std::strcmp(data.name, "Nifty Bank") == 0) {
-      std::cout << "    [Index] " << data.name << " " << data.value << " "
-                << data.high << " " << data.low << " " << data.open << " "
-                << data.close << " " << data.percentChange << " "
-                << data.yearlyHigh << " " << data.yearlyLow << " "
-                << data.upMoves << " " << data.downMoves << std::endl;
+
+    // Update Unified Price Store if token is found
+    std::string indexName(data.name);
+    auto it = g_indexNameToToken.find(indexName);
+    if (it != g_indexNameToToken.end()) {
+        uint32_t token = it->second;
+        g_nseCmPriceStore.updateTouchline(token, data.value, data.open, data.high, data.low, data.close, 
+                                        0, 0, 0, 0, data.percentChange, data.netChangeIndicator, 0, 0);
     }
+
     // marketCapitalisation is a double - needs byte swap
     uint64_t rawMktCap;
     std::memcpy(&rawMktCap, &rec.marketCapitalisation, sizeof(double));
@@ -62,8 +61,7 @@ void parse_message_7207(const MS_BCAST_INDICES *msg) {
 
     data.netChangeIndicator = rec.netChangeIndicator;
   }
-  // add timesleep of 100ms
-  std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  
   MarketDataCallbackRegistry::instance().dispatchIndices(update);
 }
 

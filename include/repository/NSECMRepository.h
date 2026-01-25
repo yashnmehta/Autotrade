@@ -58,6 +58,11 @@ public:
    * @return true if successful
    */
   bool loadFromContracts(const QVector<MasterContract> &contracts);
+  
+  /**
+   * @brief Append contracts (for index master integration)
+   */
+  void appendContracts(const QVector<ContractData>& contracts);
 
   /**
    * @brief Prepare repository for streaming load (clears data)
@@ -166,6 +171,16 @@ public:
    * @brief Check if repository is loaded
    */
   bool isLoaded() const { return m_loaded; }
+  
+  /**
+   * @brief Get index name to token mapping
+   */
+  QHash<QString, int64_t> getIndexNameTokenMap() const;
+  
+  /**
+   * @brief Build index name to token mapping after load
+   */
+  void buildIndexNameMap();
 
 private:
   /**
@@ -223,6 +238,9 @@ private:
   int32_t m_contractCount;
   bool m_loaded;
   mutable QReadWriteLock m_mutex;
+  
+  // Index name -> Token mapping for indices
+  QHash<QString, int64_t> m_indexNameToToken;
 };
 
 #endif // NSECM_REPOSITORY_H

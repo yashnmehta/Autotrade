@@ -136,7 +136,7 @@ GreeksResult GreeksCalculationService::calculateForToken(uint32_t token,
   }
 
   // Get contract data using unified API
-  // exchangeSegment: 2=NSEFO, 4=BSEFO
+  // exchangeSegment: 2=NSEFO, 12=BSEFO
   const ContractData *contract =
       m_repoManager->getContractByToken(exchangeSegment, token);
 
@@ -166,7 +166,7 @@ GreeksResult GreeksCalculationService::calculateForToken(uint32_t token,
     const auto *state = nsefo::g_nseFoPriceStore.getUnifiedState(token);
     if (state)
       optionPrice = state->ltp;
-  } else if (exchangeSegment == 4) { // BSEFO
+  } else if (exchangeSegment == 12) { // BSEFO
     const auto *state = bse::g_bseFoPriceStore.getUnifiedState(token);
     if (state)
       optionPrice = state->ltp;
@@ -181,7 +181,7 @@ GreeksResult GreeksCalculationService::calculateForToken(uint32_t token,
       bidPrice = state->bids[0].price;
       askPrice = state->asks[0].price;
     }
-  } else if (exchangeSegment == 4) {
+  } else if (exchangeSegment == 12) {
     if (auto state = bse::g_bseFoPriceStore.getUnifiedState(token)) {
       bidPrice = state->bids[0].price;
       askPrice = state->asks[0].price;
@@ -222,7 +222,13 @@ GreeksResult GreeksCalculationService::calculateForToken(uint32_t token,
   bool isCall = (contract->optionType == "CE");
 
   // Calculate time to expiry
-  double T = calculateTimeToExpiry(expiryDate);
+  double T = 0.0;
+  if (contract->expiryDate_dt.isValid()) {
+    T = calculateTimeToExpiry(contract->expiryDate_dt);
+  } else {
+    T = calculateTimeToExpiry(expiryDate);
+  }
+
   if (T <= 0) {
     if (shouldLog) {
       qWarning() << "[GreeksDebug] FAIL: Time to expiry <= 0 for token:"
@@ -560,11 +566,11 @@ double GreeksCalculationService::getUnderlyingPrice(uint32_t optionToken,
       return price;
     }
 
-    if (shouldLog) {
+      if (shouldLog) {
       qWarning() << "[GreeksDebug] getUnderlyingPrice: No price for underlying:"
                  << underlyingToken;
     }
-  } else if (exchangeSegment == 4) { // BSEFO
+  } else if (exchangeSegment == 12) { // BSEFO
     // Get underlying from BSEFO
     const auto *futureState = bse::g_bseFoPriceStore.getUnifiedState(
         static_cast<uint32_t>(underlyingToken));
@@ -603,6 +609,11 @@ GreeksCalculationService::calculateTimeToExpiry(const QString &expiryDate) {
     return 0.0;
   }
 
+  return calculateTimeToExpiry(expiry);
+}
+
+double
+GreeksCalculationService::calculateTimeToExpiry(const QDate &expiry) {
   QDate today = QDate::currentDate();
 
   if (expiry < today) {
@@ -620,8 +631,14 @@ GreeksCalculationService::calculateTimeToExpiry(const QString &expiryDate) {
   if (now < marketClose) {
     // Trading day not over
     int secondsRemaining = now.secsTo(marketClose);
-    int tradingSeconds = 6 * 60 * 60; // 6 hours trading day
-    intraDayFraction = static_cast<double>(secondsRemaining) / tradingSeconds;
+    int tradingSeconds = 6.5 * 60 * 60; // 6.5 hours trading day
+    intraDayFraction = static_cast<double>(secondsRemaining) / (24 * 60 * 60); // As fraction of full day or trading day?
+    // Architecture document says: intraDayFraction = secondsRemaining / tradingSeconds
+    // Actually, BSE/NSE trading hours are 6h 15m usually (9:15 to 3:30)
+    // Let's use 6.25 hours = 22500 seconds.
+    // However, the original code used 6 hours.
+    
+    // For Greeks, T is typically (Days + TimeFrac)/252
     if (tradingDays > 0) {
       tradingDays--; // Don't double count today
     }

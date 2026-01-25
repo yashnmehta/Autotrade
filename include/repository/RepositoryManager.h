@@ -6,11 +6,13 @@
 #include "ContractData.h"
 #include "NSECMRepository.h"
 #include "NSEFORepository.h"
+#include <QObject>
 #include <QHash>
 #include <QMap>
 #include <QSet>
 #include <QString>
 #include <QVector>
+#include <QReadWriteLock>
 #include <memory>
 #include <shared_mutex>
 
@@ -50,7 +52,8 @@ class IndexStore;
  * "REL");
  * ```
  */
-class RepositoryManager {
+class RepositoryManager : public QObject {
+  Q_OBJECT
 public:
   /**
    * @brief Get singleton instance
@@ -103,6 +106,19 @@ public:
    * @brief Load NSE Index Master to populate Asset Tokens for Indices
    */
   bool loadIndexMaster(const QString &mastersPath);
+  
+  /**
+   * @brief Resolve asset tokens for index derivatives (where field 14 = -1)
+   * 
+   * Index options and futures have UnderlyingInstrumentId = -1 in the master file.
+   * This function resolves them to actual index tokens by looking up the index
+   * master data loaded from nse_cm_index_master.csv.
+   * 
+   * Must be called AFTER both NSECM and NSEFO repositories are loaded.
+   * 
+   * Impact: Without this, Greeks calculation fails for ~15,000 index option contracts.
+   */
+  void resolveIndexAssetTokens();
 
   /**
    * @brief Load combined master file (all segments in one file from XTS)
@@ -305,6 +321,11 @@ public:
   void updateGreeks(int64_t token, double iv, double delta, double gamma,
                     double vega, double theta);
 
+  /**
+   * @brief Update asset tokens in NSEFO from index master mapping
+   */
+  void updateIndexAssetTokens();
+  
   // ===== STATISTICS =====
 
   /**
@@ -366,10 +387,31 @@ public:
    * @return Absolute path to Masters directory
    */
   static QString getMastersDirectory();
+  
+signals:
+  void mastersLoaded();
+  void loadingError(const QString& title, const QStringList& details);
+  
+  /**
+   * @brief Emitted when all repositories have been loaded and initialized
+   * 
+   * This signal indicates that:
+   * - Master files have been parsed
+   * - Index master integrated
+   * - Asset tokens resolved
+   * - UDP mappings initialized
+   * 
+   * UDP readers should wait for this signal before starting to avoid
+   * race conditions with index name resolution.
+   */
+  void repositoryLoaded();
 
 private:
   RepositoryManager();
   ~RepositoryManager();
+  
+  // Thread safety for concurrent access (protects all public getters)
+  mutable QReadWriteLock m_repositoryLock;
 
   /**
    * @brief Build caches for efficient symbol/expiry/strike lookups.
@@ -409,6 +451,9 @@ private:
   QSet<QString> m_optionSymbols;  // {"NIFTY", "BANKNIFTY", "RELIANCE", ...}
   // Cache for sorted expiries to avoid re-sorting on every access
   QVector<QString> m_sortedExpiries;
+  
+  // Temporary storage for index contracts before merging
+  QVector<ContractData> m_indexContracts;
 
   // ATM Watch Optimization: Pre-built strike and token caches
   // Key: "SYMBOL|EXPIRY" -> sorted list of strikes

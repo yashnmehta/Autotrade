@@ -154,6 +154,13 @@ public:
    */
   int64_t getAssetToken(const QString &symbol) const;
 
+  /**
+   * @brief Update asset token for a specific contract
+   * @param token Exchange instrument ID
+   * @param assetToken New underlying asset token
+   */
+  void updateAssetToken(int64_t token, int64_t assetToken);
+
   // ===== UPDATE METHODS =====
 
 

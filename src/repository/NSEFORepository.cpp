@@ -645,6 +645,32 @@ NSEFORepository::getContractsBySymbolAndExpiry(const QString &symbol,
   return contracts;
 }
 
+void NSEFORepository::updateAssetToken(int64_t token, int64_t assetToken) {
+    if (isRegularContract(token)) {
+        int32_t idx = getArrayIndex(token);
+        int32_t stripeIdx = getStripeIndex(idx);
+        QWriteLocker locker(&m_mutexes[stripeIdx]);
+        if (m_valid[idx]) {
+            m_assetToken[idx] = assetToken;
+            
+            // Also update the symbolic map (using stripe 0 for map access)
+            if (stripeIdx != 0) {
+                m_mutexes[0].lockForWrite();
+                m_symbolToAssetToken[m_name[idx]] = assetToken;
+                m_mutexes[0].unlock();
+            } else {
+                m_symbolToAssetToken[m_name[idx]] = assetToken;
+            }
+        }
+    } else if (token >= SPREAD_THRESHOLD) {
+        QWriteLocker locker(&m_mutexes[0]);
+        auto it = m_spreadContracts.find(token);
+        if (it != m_spreadContracts.end()) {
+            it.value()->assetToken = assetToken;
+        }
+    }
+}
+
 bool NSEFORepository::loadFromContracts(
     const QVector<MasterContract> &contracts) {
   if (contracts.isEmpty()) {

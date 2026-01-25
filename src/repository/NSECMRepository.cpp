@@ -544,6 +544,9 @@ void NSECMRepository::prepareForLoad() {
 void NSECMRepository::finalizeLoad() {
   m_loaded = (m_contractCount > 0);
   
+  // Build index name map for indices
+  buildIndexNameMap();
+
   // Squeeze all parallel arrays to return unused capacity to the OS
   m_token.squeeze();
   m_name.squeeze();
@@ -575,4 +578,70 @@ void NSECMRepository::addContract(
   QWriteLocker locker(&m_mutex);
   auto intern = internFunc ? internFunc : [](const QString &s) { return s; };
   addContractInternal(contract, intern);
+}
+
+void NSECMRepository::appendContracts(const QVector<ContractData>& contracts) {
+    QWriteLocker lock(&m_mutex);
+    
+    for (const ContractData& contract : contracts) {
+        if (m_tokenToIndex.contains(contract.exchangeInstrumentID)) {
+            continue; // Skip duplicates
+        }
+        
+        int32_t idx = m_contractCount;
+        
+        m_token.append(contract.exchangeInstrumentID);
+        m_name.append(contract.name);
+        m_displayName.append(contract.displayName);
+        m_description.append(contract.description);
+        m_series.append(contract.series);
+        
+        m_lotSize.append(contract.lotSize);
+        m_tickSize.append(contract.tickSize);
+        m_freezeQty.append(contract.freezeQty);
+        
+        m_priceBandHigh.append(contract.priceBandHigh);
+        m_priceBandLow.append(contract.priceBandLow);
+        
+        // Initialize dynamic fields to 0
+        m_ltp.append(0.0);
+        m_open.append(0.0);
+        m_high.append(0.0);
+        m_low.append(0.0);
+        m_close.append(0.0);
+        m_prevClose.append(0.0);
+        m_volume.append(0);
+        
+        m_bidPrice.append(0.0);
+        m_askPrice.append(0.0);
+        
+        m_tokenToIndex.insert(contract.exchangeInstrumentID, idx);
+        m_contractCount++;
+        
+        // For indices, also map name -> token
+        if (contract.series == "INDEX") {
+            m_indexNameToToken[contract.name] = contract.exchangeInstrumentID;
+        }
+    }
+    
+    qDebug() << "Appended" << contracts.size() << "contracts to NSECM. Total:" << m_contractCount;
+}
+
+void NSECMRepository::buildIndexNameMap() {
+    // Note: Mutex is already locked if called from finalizeLoad
+    // but we use a locker to be safe if called externally
+    QWriteLocker lock(&m_mutex);
+    
+    m_indexNameToToken.clear();
+    for (int32_t i = 0; i < m_contractCount; ++i) {
+        if (m_series[i] == "INDEX") {
+            m_indexNameToToken[m_name[i]] = m_token[i];
+        }
+    }
+    qDebug() << "Built index name map with" << m_indexNameToToken.size() << "entries";
+}
+
+QHash<QString, int64_t> NSECMRepository::getIndexNameTokenMap() const {
+    QReadLocker lock(&m_mutex);
+    return m_indexNameToToken;
 }

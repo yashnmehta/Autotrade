@@ -478,8 +478,12 @@ void UdpBroadcastService::setupNseCmCallbacks() {
             // Log Stage 2: Data Content
             // qDebug() << "  -> Index:" << data.name << "Value:" << data.value << "Change:" << (data.value - data.close);
 
-            // CRITICAL FIX: Update global store so ATMWatchManager can see it
-            nsecm::g_nseCmIndexStore.updateIndex(data);
+            // Update unified store for ATMs and Watchlist
+            auto itName = nsecm::g_indexNameToToken.find(data.name);
+            if (itName != nsecm::g_indexNameToToken.end()) {
+                uint32_t token = itName->second;
+                nsecm::g_nseCmPriceStore.updateTouchline(token, data.value, data.open, data.high, data.low, data.close, 0, 0, 0, data.value, 0, 0, 0, 0);
+            }
 
             UDP::IndexTick tick;
             tick.exchangeSegment = UDP::ExchangeSegment::NSECM;
@@ -505,24 +509,10 @@ void UdpBroadcastService::setupNseCmCallbacks() {
             emit udpIndexReceived(tick);
 
             // FUNNEL TO FEEDHANDLER: Convert IndexTick to MarketTick for subscribers (like ATM Watch)
-            static const std::unordered_map<std::string, uint32_t> indexNameToToken = {
-                {"Nifty 50", 26000},
-                {"NIFTY 50", 26000},
-                {"Nifty Bank", 26009},
-                {"NIFTY BANK", 26009},
-                {"Nifty Fin Service", 26037},
-                {"NIFTY FIN SERVICE", 26037},
-                {"Nifty Midcap 100", 26074},
-                {"NIFTY MIDCAP 100", 26074},
-                {"Nifty Next 50", 26013},
-                {"NIFTY NEXT 50", 26013}
-            };
-
-            auto it = indexNameToToken.find(tick.name);
-            if (it != indexNameToToken.end()) {
+            if (itName != nsecm::g_indexNameToToken.end()) {
                 UDP::MarketTick mTick;
                 mTick.exchangeSegment = UDP::ExchangeSegment::NSECM;
-                mTick.token = it->second;
+                mTick.token = itName->second;
                 mTick.ltp = tick.value;
                 mTick.open = tick.open;
                 mTick.high = tick.high;
@@ -614,9 +604,9 @@ void UdpBroadcastService::setupBseFoCallbacks() {
         // Greeks Calculation (for option contracts only)
         auto& greeksService = GreeksCalculationService::instance();
         if (greeksService.isEnabled() && data->ltp > 0) {
-            greeksService.onPriceUpdate(token, data->ltp, 4 /*BSEFO*/);
+            greeksService.onPriceUpdate(token, data->ltp, 12 /*BSEFO*/);
             // Also trigger updates for options where THIS token is the underlying
-            greeksService.onUnderlyingPriceUpdate(token, data->ltp, 4 /*BSEFO*/);
+            greeksService.onUnderlyingPriceUpdate(token, data->ltp, 12 /*BSEFO*/);
         }
 
         if (shouldEmitSignal(token)) {
@@ -660,7 +650,7 @@ void UdpBroadcastService::setupBseCmCallbacks() {
         // Greeks Calculation (Update for underlyings in Cash Market)
         auto& greeksService = GreeksCalculationService::instance();
         if (greeksService.isEnabled() && data->ltp > 0) {
-            greeksService.onUnderlyingPriceUpdate(token, data->ltp, 3 /*BSECM*/);
+            greeksService.onUnderlyingPriceUpdate(token, data->ltp, 11 /*BSECM*/);
         }
 
         if (shouldEmitSignal(token)) {

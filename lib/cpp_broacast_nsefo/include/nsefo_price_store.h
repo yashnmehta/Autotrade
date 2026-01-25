@@ -163,8 +163,10 @@ public:
     
     void clear() {
         std::unique_lock lock(mutex_);
-        store_.clear();
-        store_.resize(ARRAY_SIZE);
+        for (auto* ptr : store_) {
+            delete ptr;
+        }
+        store_.assign(ARRAY_SIZE, nullptr);
         validTokenCount = 0;
     }
 
