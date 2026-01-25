@@ -41,6 +41,9 @@ public:
     bool isBatchModifyMode() const { return m_orderMode == BatchModifyOrder; }
     OrderMode orderMode() const { return m_orderMode; }
     int64_t originalOrderID() const { return m_originalOrderID; }
+    
+    void resetToNewOrderMode();        ///< Reset window to new order mode
+    void applyDefaultFocus();          ///< Set focus based on user preference
 
 signals:
     void orderSubmitted(const XTS::OrderParams &params);
@@ -60,8 +63,6 @@ protected:
     void loadBasePreferences();
     virtual void calculateDefaultPrice(const WindowContext &context) = 0;
     void setModifyMode(bool enabled);  ///< Configure UI for modify mode (disable immutable fields)
-    void resetToNewOrderMode();        ///< Reset window to new order mode
-    void applyDefaultFocus();          ///< Set focus based on user preference
 
     bool eventFilter(QObject *obj, QEvent *event) override;
     bool focusNextPrevChild(bool next) override;

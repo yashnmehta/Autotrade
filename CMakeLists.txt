@@ -191,6 +191,7 @@ set(CORE_WIDGET_SOURCES
     src/core/widgets/CustomOrderBook.cpp
     src/core/GlobalShortcuts.cpp
     src/core/GlobalConnections.cpp
+    src/core/WindowCacheManager.cpp
 )
 
 set(CORE_WIDGET_HEADERS
@@ -206,6 +207,7 @@ set(CORE_WIDGET_HEADERS
     include/core/widgets/CustomNetPosition.h
     include/core/widgets/CustomTradeBook.h
     include/core/widgets/CustomOrderBook.h
+    include/core/WindowCacheManager.h
 )
 
 # ========================================
@@ -663,6 +665,7 @@ if(WIN32 AND MINGW)
                 --no-translations
                 --no-system-d3d-compiler
                 --no-opengl-sw
+                --no-angle
                 "$<TARGET_FILE:TradingTerminal>"
             COMMENT "Running windeployqt to copy Qt DLLs..."
         )

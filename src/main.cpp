@@ -3,6 +3,7 @@
 #include "ui/LoginWindow.h"
 #include "services/LoginFlowService.h"
 #include "services/TradingDataService.h"
+#include "core/WindowCacheManager.h"
 #include "utils/ConfigLoader.h"
 #include "utils/FileLogger.h"  // File logging
 #include "utils/PreferencesManager.h" // Preferences
@@ -283,6 +284,9 @@ int main(int argc, char *argv[])
                                     if (!mainWindow->hasIndicesView()) {
                                         mainWindow->createIndicesView();
                                     }
+                                    
+                                    // Initialize window cache for fast Buy/Sell opening (~10ms)
+                                    WindowCacheManager::instance().initialize(mainWindow);
                                 });
                             });
                             
