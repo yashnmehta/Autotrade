@@ -262,6 +262,15 @@ bool MasterFileParser::parseNSEFO(const QVector<QStringRef> &fields,
       if (monthNum >= 1 && monthNum <= 12) {
         contract.expiryDate = day + months[monthNum] + year;
         contract.expiryDate_dt = QDate(year.toInt(), monthNum, day.toInt());
+        
+        // Calculate timeToExpiry: (expiry_date - trade_date) / 365.0
+        QDate today = QDate::currentDate();
+        if (contract.expiryDate_dt.isValid() && contract.expiryDate_dt >= today) {
+          int daysToExpiry = today.daysTo(contract.expiryDate_dt);
+          contract.timeToExpiry = daysToExpiry / 365.0;
+        } else {
+          contract.timeToExpiry = 0.0;  // Expired or invalid
+        }
       }
     }
   }
@@ -483,6 +492,15 @@ bool MasterFileParser::parseBSEFO(const QVector<QStringRef> &fields,
       if (monthNum >= 1 && monthNum <= 12) {
         contract.expiryDate = day + months[monthNum] + year;
         contract.expiryDate_dt = QDate(year.toInt(), monthNum, day.toInt());
+        
+        // Calculate timeToExpiry: (expiry_date - trade_date) / 365.0
+        QDate today = QDate::currentDate();
+        if (contract.expiryDate_dt.isValid() && contract.expiryDate_dt >= today) {
+          int daysToExpiry = today.daysTo(contract.expiryDate_dt);
+          contract.timeToExpiry = daysToExpiry / 365.0;
+        } else {
+          contract.timeToExpiry = 0.0;  // Expired or invalid
+        }
       }
     }
   }

@@ -98,6 +98,7 @@ struct ContractData {
     // ===== F&O SPECIFIC FIELDS =====
     QString expiryDate;             // Expiry date (DDMMMYYYY format, e.g., 26DEC2024)
     QDate expiryDate_dt;            // Parsed expiry date for sorting/comparison
+    double timeToExpiry;            // Pre-calculated time to expiry in years: (expiry_date - trade_date) / 365.0
     double strikePrice;             // Strike price (0 for futures, >0 for options)
     QString optionType;             // CE/PE/XX (Call/Put/NotApplicable)
     int64_t assetToken;             // Underlying asset token
@@ -131,6 +132,7 @@ struct ContractData {
         , tickSize(0.0)
         , priceBandHigh(0.0)
         , priceBandLow(0.0)
+        , timeToExpiry(0.0)
         , strikePrice(0.0)
         , assetToken(0)
         , ltp(0.0)
@@ -184,6 +186,7 @@ struct MasterContract {
     // F&O Specific (from field positions 14-18 in NSEFO/BSEFO)
     QString expiryDate;             // Field 16 (ISO format or DDMMMYYYY)
     QDate expiryDate_dt;            // Parsed expiry date
+    double timeToExpiry;            // Pre-calculated (expiry_date - trade_date) / 365.0 in years
     double strikePrice;             // Field 17
     int32_t optionType;             // Field 18 (1=CE, 2=PE, 3/4=XX)
     int64_t assetToken;             // Field 14 (underlying asset token)
@@ -198,6 +201,7 @@ struct MasterContract {
         , multiplier(0)
         , priceNumerator(0)
         , priceDenominator(0)
+        , timeToExpiry(0.0)
         , strikePrice(0.0)
         , optionType(0)
         , assetToken(0)
@@ -222,6 +226,7 @@ struct MasterContract {
         data.priceBandLow = priceBandLow;
         data.expiryDate = expiryDate;
         data.expiryDate_dt = expiryDate_dt;
+        data.timeToExpiry = timeToExpiry;
         data.strikePrice = strikePrice;
         data.assetToken = assetToken;
         data.instrumentType = instrumentType;

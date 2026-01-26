@@ -102,6 +102,9 @@ struct GreeksConfig {
     // Enable/disable the service
     bool enabled = true;
     
+    // Base price mode: "cash" (spot) or "future" (next expiry future)
+    QString basePriceMode = "cash";
+    
     GreeksConfig() = default;
 };
 

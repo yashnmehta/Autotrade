@@ -83,8 +83,6 @@ void GreeksCalculationService::loadConfiguration() {
       settings.value("illiquid_update_interval", 30).toInt();
   m_config.illiquidThresholdSec =
       settings.value("illiquid_threshold", 30).toInt();
-  m_config.basePriceMode =
-      settings.value("base_price_mode", "cash").toString().toLower();
 
   settings.endGroup();
 
@@ -116,107 +114,136 @@ GreeksResult GreeksCalculationService::calculateForToken(uint32_t token,
   result.exchangeSegment = exchangeSegment;
   result.calculationTimestamp = QDateTime::currentMSecsSinceEpoch();
 
-  // Debug: Log specific tokens for debugging (NSEFO: 58705, 58706, 49339 | NSECM: 26000)
-  bool shouldLog = false;
-  if (exchangeSegment == 2 && (token == 58705 || token == 58706 || token == 49339)) {
-    shouldLog = true;
-    qInfo() << "[GreeksDebug] calculateForToken Token:" << token
-            << "Seg:" << exchangeSegment << "Enabled:" << m_config.enabled;
-  } else if (exchangeSegment == 1 && token == 26000) {
-    shouldLog = true;
+  // Debug: Log every 50th calculation attempt
+  static int calcCount = 0;
+  bool shouldLog = (++calcCount % 50 == 1);
+  if (shouldLog) {
     qInfo() << "[GreeksDebug] calculateForToken Token:" << token
             << "Seg:" << exchangeSegment << "Enabled:" << m_config.enabled;
   }
 
-  // Step 1: Check if service is enabled
   if (!m_config.enabled) {
+    // qWarning() << "[GreeksDebug] Service disabled, skipping token:" << token;
     emit calculationFailed(token, exchangeSegment, "Service disabled");
     return result;
   }
 
-  // Step 2: Check repository manager
   if (!m_repoManager) {
     qWarning() << "[GreeksDebug] RepoManager null for token:" << token;
-    emit calculationFailed(token, exchangeSegment, "Repository manager not set");
+    emit calculationFailed(token, exchangeSegment,
+                           "Repository manager not set");
     return result;
   }
 
-  // Step 3: Get contract data
+  // Get contract data using unified API
+  // exchangeSegment: 2=NSEFO, 12=BSEFO
   const ContractData *contract =
       m_repoManager->getContractByToken(exchangeSegment, token);
 
   if (!contract) {
+    if (shouldLog) {
+      qWarning() << "[GreeksDebug] Contract not found for token:" << token
+                 << " Seg:" << exchangeSegment;
+    }
     emit calculationFailed(token, exchangeSegment, "Contract not found");
     return result;
   }
 
-  // Step 4: Check if it's an option
+  // Check if it's an option (Instrument Type 2 is usually Options in our
+  // system)
   if (!isOption(contract->instrumentType)) {
+    // Not an error, just not an option
+    if (shouldLog) {
+      qInfo() << "[GreeksDebug] Token" << token
+              << "is not an option (type:" << contract->instrumentType << ")";
+    }
     return result;
   }
 
-  // Step 5: Get option prices from price store
+  // Get option price from price store
   double optionPrice = 0.0;
+  if (exchangeSegment == 2) { // NSEFO
+    const auto *state = nsefo::g_nseFoPriceStore.getUnifiedState(token);
+    if (state)
+      optionPrice = state->ltp;
+  } else if (exchangeSegment == 12) { // BSEFO
+    const auto *state = bse::g_bseFoPriceStore.getUnifiedState(token);
+    if (state)
+      optionPrice = state->ltp;
+  }
+
+  // Get Bid/Ask prices for skew Calculation
   double bidPrice = 0.0;
   double askPrice = 0.0;
 
-  if (exchangeSegment == 2) { // NSEFO
-    const auto *state = nsefo::g_nseFoPriceStore.getUnifiedState(token);
-    if (state) {
-      optionPrice = state->ltp;
+  if (exchangeSegment == 2) {
+    if (auto state = nsefo::g_nseFoPriceStore.getUnifiedState(token)) {
       bidPrice = state->bids[0].price;
       askPrice = state->asks[0].price;
-      QString symbol = contract->symbol;
     }
-  } else if (exchangeSegment == 12) { // BSEFO
-    const auto *state = bse::g_bseFoPriceStore.getUnifiedState(token);
-    if (state) {
-      optionPrice = state->ltp;
+  } else if (exchangeSegment == 12) {
+    if (auto state = bse::g_bseFoPriceStore.getUnifiedState(token)) {
       bidPrice = state->bids[0].price;
       askPrice = state->asks[0].price;
     }
   }
 
   if (optionPrice <= 0 && bidPrice <= 0 && askPrice <= 0) {
+    if (shouldLog) {
+      qWarning() << "[GreeksDebug] FAIL: No market data for token:" << token
+                 << "OptPrice:" << optionPrice << "Bid:" << bidPrice
+                 << "Ask:" << askPrice;
+    }
     emit calculationFailed(token, exchangeSegment, "No market data available");
     return result;
   }
 
-  // Step 6: Get underlying price
-  double underlyingPrice = 0.0;
-
-  // Try future-based pricing if configured
-  if (m_config.basePriceMode == "future") {
-    uint32_t futureToken = m_repoManager->getNextExpiryFutureToken(contract->symbol, exchangeSegment);
-    if (futureToken > 0) {
-      underlyingPrice = getUnderlyingPrice(futureToken, exchangeSegment);
+  // Get underlying price
+  double underlyingPrice = getUnderlyingPrice(token, exchangeSegment);
+  if (underlyingPrice <= 0) {
+    if (shouldLog) {
+      qWarning() << "[GreeksDebug] FAIL: Underlying price <= 0 for token:"
+                 << token << " AssetToken:" << contract->assetToken;
     }
-  }
-
-  // Fallback to cash/spot pricing
-  if (underlyingPrice <= 0) {
-    QString assetToken = QString::number(contract->assetToken);
-    underlyingPrice = getUnderlyingPrice(assetToken, exchangeSegment);
-  }
-
-  if (underlyingPrice <= 0) {
-    emit calculationFailed(token, exchangeSegment, "Underlying price not available");
+    emit calculationFailed(token, exchangeSegment,
+                           "Underlying price not available");
     return result;
   }
 
-  // Step 7: Register underlying mapping
+  // Register mapping if new (for onUnderlyingPriceUpdate)
   if (!m_cache.contains(token) && contract->assetToken > 0) {
-    m_underlyingToOptions.insert(static_cast<uint32_t>(contract->assetToken), token);
+    m_underlyingToOptions.insert(static_cast<uint32_t>(contract->assetToken),
+                                 token);
   }
 
-  // Step 8: Get strike and expiry from contract
+  // Get strike and expiry from contract
   double strikePrice = contract->strikePrice;
   QString expiryDate = contract->expiryDate;
   bool isCall = (contract->optionType == "CE");
 
-  // Step 9: Get time to expiry (pre-calculated or fallback)
-  double T = contract->timeToExpiry;
+  // Calculate time to expiry
+  // Use pre-calculated timeToExpiry from master file for performance (if available)
+  // Otherwise calculate dynamically for intraday precision
+  double T = 0.0;
+  if (contract->timeToExpiry > 0.0) {
+    // Use pre-calculated value from master file (fast path)
+    // Note: This is calculated as (expiry_date - trade_date) / 365.0 during master parsing
+    T = contract->timeToExpiry;
+  } else if (contract->expiryDate_dt.isValid()) {
+    // Fallback: Calculate dynamically with trading days and intraday component (slow path)
+    T = calculateTimeToExpiry(contract->expiryDate_dt);
+  } else {
+    T = calculateTimeToExpiry(expiryDate);
+  }
 
+  if (T <= 0) {
+    if (shouldLog) {
+      qWarning() << "[GreeksDebug] FAIL: Time to expiry <= 0 for token:"
+                 << token << "Expiry:" << expiryDate << "T:" << T;
+    }
+    emit calculationFailed(token, exchangeSegment, "Option expired");
+    return result;
+  }
 
   // Store input values
   result.spotPrice = underlyingPrice;
@@ -224,57 +251,86 @@ GreeksResult GreeksCalculationService::calculateForToken(uint32_t token,
   result.timeToExpiry = T;
   result.optionPrice = optionPrice;
 
-  // Step 10: Calculate Implied Volatility
-  // Use cached IV as initial guess for faster convergence
-  double usedIV = 0.0;
-  double ivInitialGuess = m_config.ivInitialGuess;
-  
-  // Check if we have cached IV for this token
-  auto cachedIt = m_cache.find(token);
-  if (cachedIt != m_cache.end() && cachedIt.value().result.impliedVolatility > 0) {
-    ivInitialGuess = cachedIt.value().result.impliedVolatility;
-  }
+  // -------------------------------------------------------------
+  // 1. Calculate Implied Volatility (LTP IV) - Only on Option Trade
+  // -------------------------------------------------------------
+  // Check if we should use cached IV (if this was triggered by Spot/Timer, not
+  // Option Trade) We infer this: if cached price == current price, reuse cached
+  // IV
 
+  // why to use cached IV??
+  // even if option price is same, underlying price may have changed it will eventually change the IV
+  // but for now we keep this logic to reduce computation
+  //okay so if underlying price changes significantly but option price remains same
+  // we may have inaccurate IV and Greeks.
+  // lets remove this cache iv logic 
+  // double usedIV = 0.0;
+  // bool usingCachedIV = false;
+
+  // if (m_cache.contains(token)) {
+  //   const auto &entry = m_cache[token];
+  //   // If option price hasn't changed, keep using the Snapshot IV
+  //   if (std::abs(entry.lastPrice - optionPrice) < 0.0001 &&
+  //       entry.result.impliedVolatility > 0) {
+  //     usedIV = entry.result.impliedVolatility;
+  //     result.impliedVolatility = usedIV;
+  //     result.bidIV = entry.result.bidIV;
+  //     result.askIV = entry.result.askIV;
+  //     result.ivConverged = entry.result.ivConverged;
+  //     result.ivIterations = entry.result.ivIterations;
+  //     usingCachedIV = true;
+  //   }
+  // }
+
+  double usedIV = 0.0; 
+  //   // Calculate LTP IV  
   if (optionPrice > 0) {
     IVResult ivResult = IVCalculator::calculate(
         optionPrice, underlyingPrice, strikePrice, T, m_config.riskFreeRate,
-        isCall, ivInitialGuess, m_config.ivTolerance,
+        isCall, m_config.ivInitialGuess, m_config.ivTolerance,
         m_config.ivMaxIterations);
     usedIV = ivResult.impliedVolatility;
 
+    // Debug Log only if we have a valid IV
+    if (usedIV > 0.0001) {
+      // qInfo() << "[GreeksDebug] Calculated IV:" << usedIV << " for token:"
+      // << token;
+    } else {
+      // qWarning() << "[GreeksDebug] IV calc failed (0) for token:" << token;
+    }
     result.impliedVolatility = usedIV;
     result.ivConverged = ivResult.converged;
     result.ivIterations = ivResult.iterations;
   }
 
-  // Calculate Bid IV
-  if (bidPrice > 0) {
-    IVResult bidRes = IVCalculator::calculate(
-        bidPrice, underlyingPrice, strikePrice, T, m_config.riskFreeRate,
-        isCall, usedIV > 0 ? usedIV : m_config.ivInitialGuess);
-    result.bidIV = bidRes.impliedVolatility;
-  }
+    // Calculate Bid IV
+    if (bidPrice > 0) {
+      IVResult bidRes = IVCalculator::calculate(
+          bidPrice, underlyingPrice, strikePrice, T, m_config.riskFreeRate,
+          isCall, usedIV > 0 ? usedIV : m_config.ivInitialGuess);
+      result.bidIV = bidRes.impliedVolatility;
+    }
 
-  // Calculate Ask IV
-  if (askPrice > 0) {
-    IVResult askRes = IVCalculator::calculate(
-        askPrice, underlyingPrice, strikePrice, T, m_config.riskFreeRate,
-        isCall, usedIV > 0 ? usedIV : m_config.ivInitialGuess);
-    result.askIV = askRes.impliedVolatility;
-  }
-
-  if (!result.ivConverged) {
-    if (shouldLog) {
-      qDebug() << "[GreeksCalculationService] IV convergence failed for token:"
-               << token << "after" << result.ivIterations << "iterations";
+    // Calculate Ask IV
+    if (askPrice > 0) {
+      IVResult askRes = IVCalculator::calculate(
+          askPrice, underlyingPrice, strikePrice, T, m_config.riskFreeRate,
+          isCall, usedIV > 0 ? usedIV : m_config.ivInitialGuess);
+      result.askIV = askRes.impliedVolatility;
     }
   }
 
-  // Step 11: Calculate Greeks using Black-Scholes
+  if (!result.ivConverged && !usingCachedIV) {
+    qDebug() << "[GreeksCalculationService] IV convergence failed for token:"
+             << token << "after" << result.ivIterations << "iterations";
+  }
+
+  // Calculate Greeks using the calculated IV
   if (result.impliedVolatility > 0) {
     OptionGreeks greeks = GreeksCalculator::calculate(
         underlyingPrice, strikePrice, T, m_config.riskFreeRate,
-        usedIV, isCall);
+        usedIV, // Use the decided IV (Cached or New)
+        isCall);
 
     result.delta = greeks.delta;
     result.gamma = greeks.gamma;
@@ -284,17 +340,33 @@ GreeksResult GreeksCalculationService::calculateForToken(uint32_t token,
     result.theoreticalPrice = greeks.price;
   }
 
-  // Step 12: Update cache
+  // Update cache
   CacheEntry entry;
   entry.result = result;
   entry.lastCalculationTime = result.calculationTimestamp;
   entry.lastPrice = optionPrice;
   entry.lastUnderlyingPrice = underlyingPrice;
-  entry.lastTradeTimestamp = QDateTime::currentMSecsSinceEpoch();
+
+  // If calculating fresh IV, update Last Trade Timestamp
+  if (!usingCachedIV) {
+    entry.lastTradeTimestamp = QDateTime::currentMSecsSinceEpoch();
+  } else if (m_cache.contains(token)) {
+    // Preserve original trade timestamp
+    entry.lastTradeTimestamp = m_cache[token].lastTradeTimestamp;
+  }
 
   m_cache[token] = entry;
 
-  // Step 13: Emit signal
+  // Debug: Log successful calculation (first 10, then every 50th)
+  static int successCount = 0;
+  if (++successCount <= 10 || successCount % 50 == 0) {
+    qInfo() << "[GreeksDebug] SUCCESS! Token:" << token
+            << "IV:" << result.impliedVolatility << "Delta:" << result.delta
+            << "Gamma:" << result.gamma << "Spot:" << underlyingPrice
+            << "LTP:" << optionPrice;
+  }
+
+  // Emit signal
   emit greeksCalculated(token, exchangeSegment, result);
 
   return result;
@@ -334,25 +406,39 @@ void GreeksCalculationService::forceRecalculateAll() {
 
 void GreeksCalculationService::onPriceUpdate(uint32_t token, double ltp,
                                              int exchangeSegment) {
+  // Debug: Log every 100th call to avoid log spam
+  static int callCount = 0;
+  if (++callCount % 100 == 1) {
+    qInfo() << "[GreeksDebug] onPriceUpdate called. Token:" << token
+            << "LTP:" << ltp << "Seg:" << exchangeSegment
+            << "Enabled:" << m_config.enabled
+            << "AutoCalc:" << m_config.autoCalculate
+            << "RepoMgr:" << (m_repoManager != nullptr);
+  }
+
   if (!m_config.enabled || !m_config.autoCalculate) {
     return;
   }
 
+  // Check throttle
   auto it = m_cache.find(token);
   if (it != m_cache.end()) {
     int64_t now = QDateTime::currentMSecsSinceEpoch();
-    
-    // Check throttle and price change
-    if (now - it.value().lastCalculationTime < m_config.throttleMs) {
-      return;
+    int64_t elapsed = now - it.value().lastCalculationTime;
+
+    if (elapsed < m_config.throttleMs) {
+      return; // Throttled
     }
-    
-    double priceDiff = std::abs(ltp - it.value().lastPrice) / it.value().lastPrice;
+
+    // Check if price changed significantly (0.1%)
+    double priceDiff =
+        std::abs(ltp - it.value().lastPrice) / it.value().lastPrice;
     if (priceDiff < 0.001) {
-      return;
+      return; // No significant change
     }
   }
 
+  // Calculate Greeks
   calculateForToken(token, exchangeSegment);
 }
 
@@ -425,50 +511,90 @@ void GreeksCalculationService::onTimeTick() {
 
 double GreeksCalculationService::getUnderlyingPrice(uint32_t optionToken,
                                                     int exchangeSegment) {
+  // Debug: Log first 20 calls to trace issue
+  static int callCount = 0;
+  bool shouldLog = (++callCount <= 20);
+
   if (!m_repoManager) {
+    if (shouldLog)
+      qWarning() << "[GreeksDebug] getUnderlyingPrice: RepoManager is null";
     return 0.0;
   }
 
+  // Get contract data using unified API
   const ContractData *contract =
       m_repoManager->getContractByToken(exchangeSegment, optionToken);
 
   if (!contract) {
+    if (shouldLog)
+      qWarning()
+          << "[GreeksDebug] getUnderlyingPrice: Contract not found for token:"
+          << optionToken;
     return 0.0;
   }
 
+  // Get underlying token directly from contract (now properly parsed)
   int64_t underlyingToken = contract->assetToken;
 
-  // Look up by symbol for index options (e.g., NIFTY)
+  if (shouldLog) {
+    qInfo() << "[GreeksDebug] getUnderlyingPrice: Token:" << optionToken
+            << "Symbol:" << contract->name << "AssetToken:" << underlyingToken;
+  }
+
+  // If assetToken is invalid, look up by symbol name (for index options like
+  // NIFTY)
   if (underlyingToken <= 0 && !contract->name.isEmpty()) {
     underlyingToken = m_repoManager->getAssetTokenForSymbol(contract->name);
+    if (shouldLog) {
+      qInfo() << "[GreeksDebug] getUnderlyingPrice: Symbol lookup result for"
+              << contract->name << "=" << underlyingToken;
+    }
   }
 
   if (underlyingToken <= 0) {
+    if (shouldLog)
+      qWarning() << "[GreeksDebug] getUnderlyingPrice: No valid underlying "
+                    "token found";
     return 0.0;
   }
 
+  // For NSEFO: Use nsecm::getGenericLtp() which handles BOTH:
+  // - Regular equities (lookup in PriceStore)
+  // - Indices like NIFTY/BANKNIFTY (lookup in IndexStore via token mapping)
+
   if (exchangeSegment == 2) { // NSEFO
-    // Try futures price first
+    // First try futures price from NSEFO for stock options
     const auto *futureState = nsefo::g_nseFoPriceStore.getUnifiedState(
         static_cast<uint32_t>(underlyingToken));
     if (futureState && futureState->ltp > 0) {
+      if (shouldLog)
+        qInfo() << "[GreeksDebug] getUnderlyingPrice: Found NSEFO future price:"
+                << futureState->ltp;
       return futureState->ltp;
     }
 
-    // Fallback to spot price (handles equities and indices)
+    // Use getGenericLtp() - handles both equities AND indices
     double price = nsecm::getGenericLtp(static_cast<uint32_t>(underlyingToken));
     if (price > 0) {
+      if (shouldLog)
+        qInfo() << "[GreeksDebug] getUnderlyingPrice: Found via getGenericLtp:"
+                << price << "(token:" << underlyingToken << ")";
       return price;
     }
+
+      if (shouldLog) {
+      qWarning() << "[GreeksDebug] getUnderlyingPrice: No price for underlying:"
+                 << underlyingToken;
+    }
   } else if (exchangeSegment == 12) { // BSEFO
-    // Try futures first
+    // Get underlying from BSEFO
     const auto *futureState = bse::g_bseFoPriceStore.getUnifiedState(
         static_cast<uint32_t>(underlyingToken));
     if (futureState && futureState->ltp > 0) {
       return futureState->ltp;
     }
 
-    // Fallback to cash market
+    // Fall back to cash market from BSECM
     const auto *cashState = bse::g_bseCmPriceStore.getUnifiedState(
         static_cast<uint32_t>(underlyingToken));
     if (cashState && cashState->ltp > 0) {
@@ -479,7 +605,114 @@ double GreeksCalculationService::getUnderlyingPrice(uint32_t optionToken,
   return 0.0;
 }
 
+double
+GreeksCalculationService::calculateTimeToExpiry(const QString &expiryDate) {
+  // Parse expiry date (format: "27JAN2026" or "27-JAN-2026")
+  QDate expiry;
 
+  // Try different formats
+  expiry = QDate::fromString(expiryDate, "ddMMMyyyy");
+  if (!expiry.isValid()) {
+    expiry = QDate::fromString(expiryDate, "dd-MMM-yyyy");
+  }
+  if (!expiry.isValid()) {
+    expiry = QDate::fromString(expiryDate, "yyyy-MM-dd");
+  }
+
+  if (!expiry.isValid()) {
+    qWarning() << "[GreeksCalculationService] Failed to parse expiry date:"
+               << expiryDate;
+    return 0.0;
+  }
+
+  return calculateTimeToExpiry(expiry);
+}
+
+double
+GreeksCalculationService::calculateTimeToExpiry(const QDate &expiry) {
+  QDate today = QDate::currentDate();
+
+  if (expiry < today) {
+    return 0.0; // Expired
+  }
+
+  // Calculate trading days
+  int tradingDays = calculateTradingDays(today, expiry);
+
+  // Add intraday component
+  QTime now = QTime::currentTime();
+  QTime marketClose(15, 30, 0); // NSE closes at 3:30 PM
+
+  double intraDayFraction = 0.0;
+  if (now < marketClose) {
+    // Trading day not over
+    int secondsRemaining = now.secsTo(marketClose);
+    int tradingSeconds = 6.5 * 60 * 60; // 6.5 hours trading day
+    intraDayFraction = static_cast<double>(secondsRemaining) / (24 * 60 * 60); // As fraction of full day or trading day?
+    // Architecture document says: intraDayFraction = secondsRemaining / tradingSeconds
+    // Actually, BSE/NSE trading hours are 6h 15m usually (9:15 to 3:30)
+    // Let's use 6.25 hours = 22500 seconds.
+    // However, the original code used 6 hours.
+    
+    // For Greeks, T is typically (Days + TimeFrac)/252
+    if (tradingDays > 0) {
+      tradingDays--; // Don't double count today
+    }
+  }
+
+  // Convert to years (252 trading days per year in India)
+  double T = (tradingDays + intraDayFraction) / 252.0;
+
+  // Minimum time to avoid division by zero
+  return std::max(T, 0.0001);
+}
+
+int GreeksCalculationService::calculateTradingDays(const QDate &start,
+                                                   const QDate &end) {
+  int count = 0;
+  QDate current = start;
+
+  while (current <= end) {
+    if (isNSETradingDay(current)) {
+      count++;
+    }
+    current = current.addDays(1);
+  }
+
+  return count;
+}
+
+bool GreeksCalculationService::isNSETradingDay(const QDate &date) {
+  // Weekend check
+  int dayOfWeek = date.dayOfWeek();
+  if (dayOfWeek == Qt::Saturday || dayOfWeek == Qt::Sunday) {
+    return false;
+  }
+
+  // Holiday check
+  return !m_nseHolidays.contains(date);
+}
+
+void GreeksCalculationService::loadNSEHolidays() {
+  // NSE Holidays 2026 (update annually)
+  // These are approximate - should be loaded from a config file
+  m_nseHolidays = {
+      QDate(2026, 1, 26),  // Republic Day
+      QDate(2026, 3, 14),  // Holi
+      QDate(2026, 3, 30),  // Good Friday
+      QDate(2026, 4, 2),   // Ram Navami
+      QDate(2026, 4, 14),  // Dr. Ambedkar Jayanti
+      QDate(2026, 5, 1),   // Maharashtra Day
+      QDate(2026, 8, 15),  // Independence Day
+      QDate(2026, 8, 19),  // Janmashtami
+      QDate(2026, 10, 2),  // Gandhi Jayanti
+      QDate(2026, 10, 24), // Dussehra
+      QDate(2026, 11, 12), // Diwali
+      QDate(2026, 11, 13), // Diwali (Laxmi Pujan)
+      QDate(2026, 11, 14), // Diwali (Balipratipada)
+      QDate(2026, 12, 25), // Christmas
+  };
+}
 
 bool GreeksCalculationService::isOption(int instrumentType) {
   return instrumentType == 2; // 2 = Option in NSE/BSE
