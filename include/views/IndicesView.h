@@ -10,8 +10,9 @@
 #include "api/XTSTypes.h"
 #include "udp/UDPTypes.h"
 
-// Forward declaration
+// Forward declarations
 namespace UDP { struct IndexTick; }
+class RepositoryManager;
 
 // Data structure for index
 struct IndexData {
@@ -73,6 +74,8 @@ public:
 
     void updateIndex(const QString& name, double ltp, double change, double percentChange);
     void clear();
+    void initialize(RepositoryManager* repoManager);
+    void reloadSelectedIndices(const QStringList& selectedIndices);
 
 signals:
     void hideRequested();
@@ -90,6 +93,8 @@ private:
     IndicesModel *m_model;        // ✅ Model (efficient data storage)
     QHash<QString, IndexData> m_pendingUpdates;
     QTimer *m_updateTimer;
+    RepositoryManager* m_repoManager = nullptr;
+    QStringList m_selectedIndices;
 };
 
 #endif // INDICESVIEW_H

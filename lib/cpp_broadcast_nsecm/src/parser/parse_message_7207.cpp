@@ -1,12 +1,11 @@
 #include "../../include/nse_parsers.h"
 #include "../../include/nsecm_callback.h"
-#include "../../include/protocol.h"
 #include "../../include/nsecm_price_store.h" // Added
-#include <chrono>
+#include "../../include/protocol.h"
+#include <algorithm>
 #include <cstring>
-#include <iostream>
-#include <thread>
-#include <vector>
+#include <string>
+
 
 namespace nsecm {
 
@@ -18,6 +17,8 @@ void parse_message_7207(const MS_BCAST_INDICES *msg) {
   for (int i = 0; i < update.numRecords; i++) {
     const auto &rec = msg->indices[i];
     IndexData &data = update.indices[i];
+
+    // std::cout << "Index Name: " << rec.indexName << std::endl;
 
     // Copy name and null-terminate
     std::memcpy(data.name, rec.indexName, 21);
@@ -46,11 +47,13 @@ void parse_message_7207(const MS_BCAST_INDICES *msg) {
 
     // Update Unified Price Store if token is found
     std::string indexName(data.name);
+
     auto it = g_indexNameToToken.find(indexName);
     if (it != g_indexNameToToken.end()) {
-        uint32_t token = it->second;
-        g_nseCmPriceStore.updateTouchline(token, data.value, data.open, data.high, data.low, data.close, 
-                                        0, 0, 0, 0, data.percentChange, data.netChangeIndicator, 0, 0);
+      uint32_t token = it->second;
+      g_nseCmPriceStore.updateTouchline(
+          token, data.value, data.open, data.high, data.low, data.close, 0, 0,
+          0, 0, data.percentChange, data.netChangeIndicator, 0, 0);
     }
 
     // marketCapitalisation is a double - needs byte swap
@@ -61,7 +64,7 @@ void parse_message_7207(const MS_BCAST_INDICES *msg) {
 
     data.netChangeIndicator = rec.netChangeIndicator;
   }
-  
+
   MarketDataCallbackRegistry::instance().dispatchIndices(update);
 }
 

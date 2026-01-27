@@ -110,10 +110,12 @@ bool RepositoryManager::loadAll(const QString &mastersPath) {
       mastersDir = getMastersDirectory();
   }
 
-  // PHASE 1: Load NSE CM Index Master (Required)
+  // PHASE 1: Load NSE CM Index Master (Required) - Always load from MasterFiles
   qDebug() << "[RepositoryManager] [1/5] Loading NSE CM Index Master...";
-  if (!loadIndexMaster(mastersDir)) {
-    qWarning() << "[RepositoryManager] Failed to load index master from" << mastersDir;
+  QString indexMasterPath = QCoreApplication::applicationDirPath() + "/MasterFiles";
+  qDebug() << "[RepositoryManager] Loading index master from:" << indexMasterPath;
+  if (!loadIndexMaster(indexMasterPath)) {
+    qWarning() << "[RepositoryManager] Failed to load index master from" << indexMasterPath;
     // We continue, but some functionality might be limited (no indices)
   }
   
@@ -363,6 +365,10 @@ bool RepositoryManager::loadIndexMaster(const QString &mastersPath) {
     }
     
     return true;
+}
+
+const QHash<QString, int64_t>& RepositoryManager::getIndexNameTokenMap() const {
+    return m_indexNameTokenMap;
 }
 
 void RepositoryManager::updateIndexAssetTokens() {

@@ -166,7 +166,6 @@ GreeksResult GreeksCalculationService::calculateForToken(uint32_t token,
       optionPrice = state->ltp;
       bidPrice = state->bids[0].price;
       askPrice = state->asks[0].price;
-      QString symbol = contract->symbol;
     }
   } else if (exchangeSegment == 12) { // BSEFO
     const auto *state = bse::g_bseFoPriceStore.getUnifiedState(token);
@@ -187,16 +186,18 @@ GreeksResult GreeksCalculationService::calculateForToken(uint32_t token,
 
   // Try future-based pricing if configured
   if (m_config.basePriceMode == "future") {
-    uint32_t futureToken = m_repoManager->getNextExpiryFutureToken(contract->symbol, exchangeSegment);
+    // Get future token for the underlying symbol
+    uint32_t futureToken = 0;
+    // TODO: Implement getNextExpiryFutureToken in RepositoryManager
+    // futureToken = m_repoManager->getNextExpiryFutureToken(contract->name, exchangeSegment);
     if (futureToken > 0) {
       underlyingPrice = getUnderlyingPrice(futureToken, exchangeSegment);
     }
   }
 
   // Fallback to cash/spot pricing
-  if (underlyingPrice <= 0) {
-    QString assetToken = QString::number(contract->assetToken);
-    underlyingPrice = getUnderlyingPrice(assetToken, exchangeSegment);
+  if (underlyingPrice <= 0 && contract->assetToken > 0) {
+    underlyingPrice = getUnderlyingPrice(static_cast<uint32_t>(contract->assetToken), exchangeSegment);
   }
 
   if (underlyingPrice <= 0) {
@@ -512,4 +513,10 @@ bool GreeksCalculationService::shouldRecalculate(
   }
 
   return true;
+}
+
+void GreeksCalculationService::loadNSEHolidays() {
+  // TODO: Load NSE market holidays from file or API
+  // For now, this is a stub implementation
+  qDebug() << "[GreeksCalculation] loadNSEHolidays() - stub implementation";
 }

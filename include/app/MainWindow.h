@@ -21,6 +21,7 @@ class QDockWidget;
 class QAction;
 class XTSInteractiveClient;
 class IndicesView; // Forward declaration
+class AllIndicesWindow; // Forward declaration
 struct InstrumentData;
 
 /**
@@ -149,10 +150,12 @@ private:
     // Indices View
     QDockWidget *m_indicesDock;
     IndicesView *m_indicesView;
+    AllIndicesWindow *m_allIndicesWindow;
 
     QAction *m_statusBarAction;
     QAction *m_infoBarAction;
     QAction *m_indicesViewAction; // New actionBar;
+    QAction *m_allIndicesAction;
     ScripBar *m_scripBar;
     QToolBar *m_scripToolBar;
     

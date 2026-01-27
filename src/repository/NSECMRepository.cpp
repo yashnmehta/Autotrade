@@ -3,6 +3,8 @@
 #include <QDebug>
 #include <QFile>
 #include <QTextStream>
+#include <QThread>
+#include <QCoreApplication>
 #include <fstream>
 #include <sstream>
 #include <string>
@@ -136,8 +138,6 @@ bool NSECMRepository::loadMasterFile(const QString &filename) {
 }
 
 bool NSECMRepository::loadProcessedCSV(const QString &filename) {
-  QWriteLocker locker(&m_mutex);
-
   // Native C++ file I/O (10x faster than QFile/QTextStream)
   std::ifstream file(filename.toStdString(), std::ios::binary);
   if (!file.is_open()) {
@@ -146,7 +146,10 @@ bool NSECMRepository::loadProcessedCSV(const QString &filename) {
     return false;
   }
 
-  prepareForLoad();
+  {
+    QWriteLocker locker(&m_mutex);
+    prepareForLoad();
+  }
 
   std::string line;
   line.reserve(2048);
@@ -159,7 +162,14 @@ bool NSECMRepository::loadProcessedCSV(const QString &filename) {
   int lineCount = 0;
   while (std::getline(file, line)) {
     lineCount++;
-    if (lineCount % 1000 == 0) qDebug() << "[NSECM] Loaded lines:" << lineCount;
+    
+    // Progress update every 1000 lines WITHOUT holding lock
+    if (lineCount % 1000 == 0) {
+      qDebug() << "[NSECM] Loaded lines:" << lineCount;
+      // Process events to allow UI updates and signals
+      QCoreApplication::processEvents();
+    }
+    
     if (line.empty()) {
       continue;
     }
@@ -198,13 +208,26 @@ bool NSECMRepository::loadProcessedCSV(const QString &filename) {
     contract.priceBandLow = fields[9].toDouble();
     contract.instrumentType = fields[fields.size() - 1].toInt();
 
-    addContractInternal(contract, [](const QString &s) { return s; });
+    // Lock only for adding contract (minimal critical section)
+    {
+      QWriteLocker locker(&m_mutex);
+      addContractInternal(contract, [](const QString &s) { return s; });
+    }
   }
 
   file.close();
-  finalizeLoad();
+  
+  qDebug() << "[NSECM] CSV reading complete. Total lines processed:" << lineCount;
+  qDebug() << "[NSECM] Contracts added during parsing:" << m_contractCount;
+  
+  {
+    QWriteLocker locker(&m_mutex);
+    qDebug() << "[NSECM] Before finalizeLoad, m_contractCount =" << m_contractCount;
+    finalizeLoad();
+    qDebug() << "[NSECM] After finalizeLoad, m_contractCount =" << m_contractCount;
+  }
 
-  qDebug() << "NSE CM Repository loaded from CSV:" << m_contractCount
+  qDebug() << "[NSECM] Repository loaded from CSV:" << m_contractCount
            << "contracts";
   return m_loaded;
 }
@@ -628,9 +651,8 @@ void NSECMRepository::appendContracts(const QVector<ContractData>& contracts) {
 }
 
 void NSECMRepository::buildIndexNameMap() {
-    // Note: Mutex is already locked if called from finalizeLoad
-    // but we use a locker to be safe if called externally
-    QWriteLocker lock(&m_mutex);
+    // NOTE: Caller must already hold mutex lock (called from finalizeLoad)
+    // DO NOT lock here - would cause deadlock!
     
     m_indexNameToToken.clear();
     for (int32_t i = 0; i < m_contractCount; ++i) {

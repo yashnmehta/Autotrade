@@ -108,6 +108,12 @@ public:
   bool loadIndexMaster(const QString &mastersPath);
   
   /**
+   * @brief Get the index name to token map
+   * @return Hash map of index names to their tokens
+   */
+  const QHash<QString, int64_t>& getIndexNameTokenMap() const;
+  
+  /**
    * @brief Resolve asset tokens for index derivatives (where field 14 = -1)
    * 
    * Index options and futures have UnderlyingInstrumentId = -1 in the master file.

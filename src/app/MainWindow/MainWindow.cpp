@@ -28,7 +28,8 @@
 MainWindow::MainWindow(QWidget *parent)
     : CustomMainWindow(parent), m_xtsMarketDataClient(nullptr),
       m_xtsInteractiveClient(nullptr), m_tradingDataService(nullptr),
-      m_configLoader(nullptr), m_indicesDock(nullptr), m_indicesView(nullptr) {
+      m_configLoader(nullptr), m_indicesDock(nullptr), m_indicesView(nullptr),
+      m_allIndicesWindow(nullptr) {
   setTitle("Trading Terminal");
   resize(1600, 900);
   setMinimumSize(800, 600);

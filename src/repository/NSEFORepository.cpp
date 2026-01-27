@@ -3,6 +3,8 @@
 #include <QDebug>
 #include <QFile>
 #include <QTextStream>
+#include <QThread>
+#include <QCoreApplication>
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -286,6 +288,10 @@ bool NSEFORepository::loadProcessedCSV(const QString &filename) {
     lineCount++;
     if (lineCount % 10000 == 0) {
       qDebug() << "[NSEFO] Loaded lines:" << lineCount;
+      // Unlock briefly to allow progress signals, then relock
+      locker.unlock();
+      QCoreApplication::processEvents();
+      locker.relock();
     }
     if (line.empty() || line[0] == '\r') {
       continue;
