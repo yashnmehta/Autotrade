@@ -134,7 +134,10 @@ void SellWindow::onSubmitClicked() {
     }
 
     emit orderSubmitted(params);
-    close();
+    // Close parent MDI window to ensure clean closure
+    QWidget *p = parentWidget();
+    while (p && !p->inherits("CustomMDISubWindow")) p = p->parentWidget();
+    if (p) p->close();
 }
 
 

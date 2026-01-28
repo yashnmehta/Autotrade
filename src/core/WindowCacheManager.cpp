@@ -64,6 +64,14 @@ void WindowCacheManager::createCachedWindows()
     mdiArea->addWindow(m_cachedBuyMdiWindow);
     m_cachedBuyMdiWindow->hide();
     
+    // Connect signals to MainWindow (Crucial for cached windows!)
+    if (m_mainWindow && m_cachedBuyWindow) {
+        QObject::connect(m_cachedBuyWindow, &BaseOrderWindow::orderSubmitted, 
+                        m_mainWindow, &MainWindow::placeOrder);
+        QObject::connect(m_cachedBuyWindow, &BaseOrderWindow::orderModificationSubmitted, 
+                        m_mainWindow, &MainWindow::modifyOrder);
+    }
+    
     // Windows are pre-initialized, don't need reset on first show
     m_buyWindowNeedsReset = false;
     
@@ -78,6 +86,14 @@ void WindowCacheManager::createCachedWindows()
     m_cachedSellMdiWindow->resize(1220, 200);
     mdiArea->addWindow(m_cachedSellMdiWindow);
     m_cachedSellMdiWindow->hide();
+    
+    // Connect signals to MainWindow (Crucial for cached windows!)
+    if (m_mainWindow && m_cachedSellWindow) {
+        QObject::connect(m_cachedSellWindow, &BaseOrderWindow::orderSubmitted, 
+                        m_mainWindow, &MainWindow::placeOrder);
+        QObject::connect(m_cachedSellWindow, &BaseOrderWindow::orderModificationSubmitted, 
+                        m_mainWindow, &MainWindow::modifyOrder);
+    }
     
     // Windows are pre-initialized, don't need reset on first show
     m_sellWindowNeedsReset = false;
@@ -177,6 +193,7 @@ bool WindowCacheManager::showBuyWindow(const WindowContext* context)
     
     // Show and activate
     m_cachedBuyMdiWindow->show();
+    if (m_cachedBuyWindow) m_cachedBuyWindow->show(); // <--- ADD THIS
     m_cachedBuyMdiWindow->raise();  // Bring to front
     m_cachedBuyMdiWindow->activateWindow();
     
@@ -282,6 +299,7 @@ bool WindowCacheManager::showSellWindow(const WindowContext* context)
     
     // Show and activate
     m_cachedSellMdiWindow->show();
+    if (m_cachedSellWindow) m_cachedSellWindow->show(); // <--- ADD THIS
     m_cachedSellMdiWindow->raise();  // Bring to front
     m_cachedSellMdiWindow->activateWindow();
     

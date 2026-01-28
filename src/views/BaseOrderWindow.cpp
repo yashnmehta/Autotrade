@@ -635,8 +635,11 @@ void BaseOrderWindow::keyPressEvent(QKeyEvent *event) {
             p = p->parentWidget();
         }
         close();
+    } else if (event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter) {
+        // Trigger submit when Enter is pressed
+        qDebug() << "[BaseOrderWindow] Enter key pressed - triggering submit";
+        onSubmitClicked();
     }
-    // Note: Enter key removed - use Submit button or Ctrl+Enter if needed
     else QWidget::keyPressEvent(event);
 }
 
