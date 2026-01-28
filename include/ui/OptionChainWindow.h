@@ -201,6 +201,7 @@ private:
     QString m_currentSymbol;
     QString m_currentExpiry;
     double m_atmStrike;
+    int m_exchangeSegment;  // Current exchange segment (2=NSEFO, 12=BSEFO)
     int m_selectedCallRow;
     int m_selectedPutRow;
     

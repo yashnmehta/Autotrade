@@ -205,11 +205,11 @@ void IndicesView::onIndexReceived(const UDP::IndexTick &tick) {
          upperName == "NIFTY50") &&
         !upperName.contains("ARBITRAGE") && !upperName.contains("FUTURES") &&
         !upperName.contains("ALPHA")) {
-      name = "NIFTY 50";
+      name = "Nifty 50";
     } else if (upperName.contains("NIFTY BANK") ||
                upperName.contains("BANKNIFTY") ||
                upperName.contains("BANK NIFTY")) {
-      name = "BANKNIFTY";
+      name = "Nifty Bank";
     }
     // Keep other indices with their original names (Nifty200 Alpha 30, etc.)
   }
@@ -241,7 +241,7 @@ void IndicesView::onIndexReceived(const UDP::IndexTick &tick) {
       //          << "Val:" << tick.value;
     }
     updateIndex(name, tick.value, tick.change, tick.changePercent);
-  } else if (name == "NIFTY 50" || name == "BANKNIFTY" || name == "SENSEX") {
+  } else if (name == "Nifty 50" || name == "Nifty Bank" || name == "SENSEX") {
     updateIndex(name, tick.value, tick.change, tick.changePercent);
   }
 }

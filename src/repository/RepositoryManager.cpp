@@ -38,7 +38,9 @@ RepositoryManager::RepositoryManager() : QObject(nullptr), m_loaded(false) {
   m_bsecm = std::make_unique<BSECMRepository>();
 }
 
-RepositoryManager::~RepositoryManager() = default;
+RepositoryManager::~RepositoryManager() {
+    // Explicit destructor body to ensure symbol emission and proper cleanup
+}
 
 QString RepositoryManager::getMastersDirectory() {
   QString appDir = QCoreApplication::applicationDirPath();
@@ -367,7 +369,7 @@ bool RepositoryManager::loadIndexMaster(const QString &mastersPath) {
     return true;
 }
 
-const QHash<QString, int64_t>& RepositoryManager::getIndexNameTokenMap() const {
+const QHash<QString, qint64>& RepositoryManager::getIndexNameTokenMap() const {
     return m_indexNameTokenMap;
 }
 
@@ -1174,7 +1176,7 @@ void RepositoryManager::initializeDistributedStores() {
   // NSE CM: Pre-populate hash map with contract master data
   if (m_nsecm && m_nsecm->isLoaded()) {
     // Pass index name to token map to the broadcast library for unified price store
-    QHash<QString, int64_t> indexMap = m_nsecm->getIndexNameTokenMap();
+    QHash<QString, qint64> indexMap = m_nsecm->getIndexNameTokenMap();
     std::unordered_map<std::string, uint32_t> stdIndexMap;
     for (auto it = indexMap.begin(); it != indexMap.end(); ++it) {
         stdIndexMap[it.key().toStdString()] = static_cast<uint32_t>(it.value());

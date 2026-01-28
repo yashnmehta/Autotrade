@@ -108,7 +108,7 @@ OptionChainWindow::OptionChainWindow(QWidget *parent)
       m_titleLabel(nullptr), m_callTable(nullptr), m_strikeTable(nullptr),
       m_putTable(nullptr), m_callModel(nullptr), m_strikeModel(nullptr),
       m_putModel(nullptr), m_callDelegate(nullptr), m_putDelegate(nullptr),
-      m_atmStrike(0.0), m_selectedCallRow(-1), m_selectedPutRow(-1) {
+      m_atmStrike(0.0), m_exchangeSegment(2), m_selectedCallRow(-1), m_selectedPutRow(-1) {
   setupUI();
   setupModels();
   setupConnections();
@@ -421,6 +421,10 @@ void OptionChainWindow::setupConnections() {
               ->setText(QString::number(data.callVega, 'f', 2));
           m_callModel->item(row, CALL_THETA)
               ->setText(QString::number(data.callTheta, 'f', 2));
+          
+          qDebug() << "[OptionChainWindow] Greeks updated for CALL" << token 
+                   << "Strike:" << strike << "IV:" << data.callIV 
+                   << "Delta:" << data.callDelta;
         } else {
           data.putIV = result.impliedVolatility;
           data.putBidIV = result.bidIV;
@@ -444,6 +448,10 @@ void OptionChainWindow::setupConnections() {
               ->setText(QString::number(data.putVega, 'f', 2));
           m_putModel->item(row, PUT_THETA)
               ->setText(QString::number(data.putTheta, 'f', 2));
+          
+          qDebug() << "[OptionChainWindow] Greeks updated for PUT" << token 
+                   << "Strike:" << strike << "IV:" << data.putIV 
+                   << "Delta:" << data.putDelta;
         }
       });
 }
@@ -790,6 +798,9 @@ void OptionChainWindow::refreshData() {
     contracts = repo->getOptionChain("BSE", symbol);
     exchangeSegment = 12; // BSEFO
   }
+  
+  // Store exchange segment for Greeks calculation
+  m_exchangeSegment = exchangeSegment;
 
   // Filter and Group
   QMap<double, ContractData> callContracts;
@@ -1023,6 +1034,10 @@ void OptionChainWindow::refreshData() {
 
   // Initial color update
   updateTableColors();
+  
+  qDebug() << "[OptionChainWindow] Loaded" << m_strikeData.size() 
+           << "strikes for" << m_currentSymbol << m_currentExpiry;
+  qDebug() << "[OptionChainWindow] Greeks will be calculated on tick updates";
 }
 
 WindowContext OptionChainWindow::getSelectedContext() const {
@@ -1157,6 +1172,15 @@ void OptionChainWindow::onTickUpdate(const UDP::MarketTick &tick) {
 
   // Trigger visual update
   updateStrikeData(strike, data);
+  
+  // Debug log tick updates (only for ATM strikes to avoid spam)
+  if (std::abs(strike - m_atmStrike) < 200) {  // Within 200 points of ATM
+    qDebug() << "[OptionChainWindow] Tick update: Token:" << tick.token 
+             << "Strike:" << strike << "LTP:" << tick.ltp;
+  }
+  
+  // Trigger Greeks recalculation on price update
+  GreeksCalculationService::instance().onPriceUpdate(tick.token, tick.ltp, m_exchangeSegment);
 }
 
 void OptionChainWindow::populateSymbols() {
