@@ -31,14 +31,28 @@ BuyWindow::~BuyWindow() {
 }
 
 void BuyWindow::onSubmitClicked() {
-    if (!m_leQty || !m_leRate) return;
+    qDebug() << "============================================";
+    qDebug() << "[BuyWindow] Submit button clicked!";
+    qDebug() << "  Window visible:" << isVisible();
+    qDebug() << "  Parent window visible:" << (parentWidget() ? parentWidget()->isVisible() : false);
+    
+    if (!m_leQty || !m_leRate) {
+        qDebug() << "[BuyWindow] ERROR: Quantity or Rate field is NULL!";
+        return;
+    }
     
     int quantity = m_leQty->text().toInt();
     double price = m_leRate->text().toDouble();
+    qDebug() << "  Quantity:" << quantity << "Price:" << price;
+    qDebug() << "  Order Type:" << (m_cbOrdType ? m_cbOrdType->currentText() : "NULL");
+    
     if (quantity <= 0 || (m_cbOrdType->currentText() == "Limit" && price <= 0)) {
+        qDebug() << "[BuyWindow] Invalid quantity or price - showing warning";
         QMessageBox::warning(this, "Buy Order", "Invalid quantity or price");
         return;
     }
+    
+    qDebug() << "[BuyWindow] Validation passed, proceeding with order submission...";
 
     // Handle modification mode
     if (isModifyMode() || isBatchModifyMode()) {

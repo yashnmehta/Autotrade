@@ -42,7 +42,7 @@ public:
     OrderMode orderMode() const { return m_orderMode; }
     int64_t originalOrderID() const { return m_originalOrderID; }
     
-    void resetToNewOrderMode();        ///< Reset window to new order mode
+    void resetToNewOrderMode(bool fastMode = false);  ///< Reset window to new order mode (fastMode skips UI updates for hidden windows)
     void applyDefaultFocus();          ///< Set focus based on user preference
 
 signals:
@@ -63,10 +63,12 @@ protected:
     void loadBasePreferences();
     virtual void calculateDefaultPrice(const WindowContext &context) = 0;
     void setModifyMode(bool enabled);  ///< Configure UI for modify mode (disable immutable fields)
+    void cacheLineEdits();            ///< Cache all line edits for fast clearing
 
     bool eventFilter(QObject *obj, QEvent *event) override;
     bool focusNextPrevChild(bool next) override;
     void keyPressEvent(QKeyEvent *event) override;
+    void showEvent(QShowEvent *event) override;
     void closeEvent(QCloseEvent *event) override;
 
     WindowContext m_context;
@@ -77,6 +79,9 @@ protected:
     int64_t m_originalOrderID = 0;          ///< AppOrderID of order being modified
     XTS::Order m_originalOrder;              ///< Full order data for modification
     QVector<XTS::Order> m_batchOrders;       ///< List of orders for batch modification
+    
+    // Performance optimization: cached line edits for fast clearing
+    QList<QLineEdit*> m_cachedLineEdits;
 
     // Shared widgets
     QComboBox *m_cbEx;

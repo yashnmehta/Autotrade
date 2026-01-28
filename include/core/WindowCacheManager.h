@@ -47,6 +47,22 @@ public:
      * @return true if cached window was shown, false if cache not available
      */
     bool showSellWindow(const WindowContext* context = nullptr);
+    
+    /**
+     * @brief Mark Buy window as needing reset (called when user closes it)
+     */
+    void markBuyWindowClosed() { 
+        m_buyWindowNeedsReset = true;
+        m_lastBuyToken = -1;  // Clear cached token
+    }
+    
+    /**
+     * @brief Mark Sell window as needing reset (called when user closes it)
+     */
+    void markSellWindowClosed() { 
+        m_sellWindowNeedsReset = true;
+        m_lastSellToken = -1;  // Clear cached token
+    }
 
 private:
     WindowCacheManager();
@@ -66,6 +82,14 @@ private:
     CustomMDISubWindow* m_cachedSellMdiWindow = nullptr;
     BuyWindow* m_cachedBuyWindow = nullptr;
     SellWindow* m_cachedSellWindow = nullptr;
+    
+    // State tracking for smart reset
+    bool m_buyWindowNeedsReset = true;   ///< True if Buy window was closed (needs reset on next show)
+    bool m_sellWindowNeedsReset = true;  ///< True if Sell window was closed (needs reset on next show)
+    
+    // Cached context to avoid reloading same data
+    int m_lastBuyToken = -1;     ///< Last token loaded in Buy window
+    int m_lastSellToken = -1;    ///< Last token loaded in Sell window
 };
 
 #endif // WINDOWCACHEMANAGER_H

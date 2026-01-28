@@ -2,6 +2,7 @@
 #include "core/widgets/CustomTitleBar.h"
 #include "core/widgets/CustomMDIArea.h"
 #include "core/widgets/MDITaskBar.h"
+#include "core/WindowCacheManager.h"
 #include <QMouseEvent>
 #include <QCloseEvent>
 #include <QContextMenuEvent>
@@ -184,13 +185,26 @@ void CustomMDISubWindow::closeEvent(QCloseEvent *event)
     if (m_isCached) {
         qDebug() << "[MDISubWindow] Cached window - hiding instead of closing";
         
-        // Save position for Buy/Sell order windows
+        // Save position for Buy/Sell order windows (only if in visible area!)
         if (m_windowType == "BuyWindow" || m_windowType == "SellWindow") {
-            QSettings settings("TradingCompany", "TradingTerminal");
             QPoint windowPos = geometry().topLeft();  // Use geometry() which gives correct position
-            settings.setValue("orderwindow/last_x", windowPos.x());
-            settings.setValue("orderwindow/last_y", windowPos.y());
-            qDebug() << "[MDISubWindow] Saved position:" << windowPos;
+            
+            // Only save if window is NOT off-screen (avoid saving -10000,-10000)
+            if (windowPos.x() >= -1000 && windowPos.y() >= -1000) {
+                QSettings settings("TradingCompany", "TradingTerminal");
+                settings.setValue("orderwindow/last_x", windowPos.x());
+                settings.setValue("orderwindow/last_y", windowPos.y());
+                qDebug() << "[MDISubWindow] Saved position:" << windowPos;
+            } else {
+                qDebug() << "[MDISubWindow] Skipping save - window is off-screen:" << windowPos;
+            }
+            
+            // Notify WindowCacheManager that this window was closed (needs reset on next show)
+            if (m_windowType == "BuyWindow") {
+                WindowCacheManager::instance().markBuyWindowClosed();
+            } else if (m_windowType == "SellWindow") {
+                WindowCacheManager::instance().markSellWindowClosed();
+            }
         }
         
         event->ignore();  // Prevent actual close

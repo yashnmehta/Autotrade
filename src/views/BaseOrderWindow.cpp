@@ -41,6 +41,7 @@ void BaseOrderWindow::setupBaseUI(const QString& uiFile) {
     populateBaseComboBoxes();
     setupBaseConnections();
     loadBasePreferences();
+    cacheLineEdits();  // Cache line edits for fast clearing
 }
 
 void BaseOrderWindow::findBaseWidgets() {
@@ -87,8 +88,14 @@ void BaseOrderWindow::setupBaseConnections() {
         connect(m_cbOrdType, QOverload<const QString &>::of(&QComboBox::currentTextChanged),
                 this, &BaseOrderWindow::onOrderTypeChanged);
     }
-    if (m_leQty) m_leQty->installEventFilter(this);
-    if (m_leRate) m_leRate->installEventFilter(this);
+    if (m_leQty) {
+        m_leQty->installEventFilter(this);
+        qDebug() << "[BaseOrderWindow] Installed event filter on Quantity field:" << m_leQty;
+    }
+    if (m_leRate) {
+        m_leRate->installEventFilter(this);
+        qDebug() << "[BaseOrderWindow] Installed event filter on Price field:" << m_leRate;
+    }
 }
 
 void BaseOrderWindow::populateBaseComboBoxes() {
@@ -128,6 +135,15 @@ void BaseOrderWindow::loadBasePreferences() {
     }
 }
 
+void BaseOrderWindow::cacheLineEdits() {
+    // Cache all line edits once for fast clearing
+    m_cachedLineEdits.clear();
+    if (m_formWidget) {
+        m_cachedLineEdits = m_formWidget->findChildren<QLineEdit*>();
+    }
+    qDebug() << "[BaseOrderWindow] Cached" << m_cachedLineEdits.size() << "line edits for fast clearing";
+}
+
 void BaseOrderWindow::applyDefaultFocus() {
     PreferencesManager &prefs = PreferencesManager::instance();
     PreferencesManager::FocusField focusField = prefs.getOrderWindowFocusField();
@@ -159,15 +175,24 @@ void BaseOrderWindow::applyDefaultFocus() {
     
     if (targetWidget) {
         targetWidget->setFocus();
-        // Select all text if it's a line edit for easier replacement
+        // Position cursor at end and deselect for immediate editing
         QLineEdit* le = qobject_cast<QLineEdit*>(targetWidget);
-        if (le) le->selectAll();
+        if (le) {
+            // Position cursor at the end of the text for immediate typing
+            le->deselect();
+            le->setCursorPosition(le->text().length());
+            qDebug() << "[BaseOrderWindow] Applied focus to:" << targetWidget->objectName() << "Value:" << le->text() << "Cursor at end, ready for editing";
+        }
+    } else {
+        qDebug() << "[BaseOrderWindow] WARNING: No target widget found for focus!";
     }
 }
 
 void BaseOrderWindow::onClearClicked() {
-    QList<QLineEdit*> edits = findChildren<QLineEdit*>();
-    for (auto e : edits) e->clear();
+    // Use cached line edits for fast clearing (avoid expensive findChildren call)
+    for (auto e : m_cachedLineEdits) {
+        e->clear();
+    }
     if (m_cbOrdType) m_cbOrdType->setCurrentIndex(0);
 }
 
@@ -222,8 +247,9 @@ void BaseOrderWindow::loadFromContext(const WindowContext &context) {
         m_leQty->setText(QString::number(qty));
     }
     
-    // Set focus based on user preference
-    applyDefaultFocus();
+    // NOTE: Focus is applied asynchronously by WindowCacheManager after window is shown
+    // Applying it here causes black screen rendering issues
+    
     if (m_cbExp) {
         m_cbExp->clear();
         if (!context.expiry.isEmpty()) {
@@ -399,12 +425,23 @@ void BaseOrderWindow::setModifyMode(bool enabled) {
     }
 }
 
-void BaseOrderWindow::resetToNewOrderMode() {
+void BaseOrderWindow::resetToNewOrderMode(bool fastMode) {
     m_orderMode = NewOrder;
     m_originalOrderID = 0;
     m_originalOrder = XTS::Order();
     m_batchOrders.clear();
     
+    if (fastMode) {
+        // Fast path for cached hidden windows - skip expensive UI updates
+        // Just clear data, UI will be updated when window is shown
+        for (auto e : m_cachedLineEdits) {
+            e->clear();
+        }
+        if (m_cbOrdType) m_cbOrdType->setCurrentIndex(0);
+        return;
+    }
+    
+    // Full reset path for visible windows
     // Re-enable all fields
     setModifyMode(false);
     
@@ -422,46 +459,64 @@ void BaseOrderWindow::resetToNewOrderMode() {
 }
 
 bool BaseOrderWindow::eventFilter(QObject *obj, QEvent *event) {
-    if (obj == m_leQty && event->type() == QEvent::KeyPress) {
+    if (event->type() == QEvent::KeyPress) {
         QKeyEvent *keyEvent = static_cast<QKeyEvent*>(event);
-        if (keyEvent->key() == Qt::Key_Up || keyEvent->key() == Qt::Key_Down) {
-            bool ok;
-            int currentQty = m_leQty->text().toInt(&ok);
-            if (!ok) currentQty = 0;
+        
+        // Handle Quantity field arrow keys
+        if (obj == m_leQty) {
+            if (keyEvent->key() == Qt::Key_Up || keyEvent->key() == Qt::Key_Down) {
+                qDebug() << "[BaseOrderWindow] Arrow key pressed in Quantity field:" << (keyEvent->key() == Qt::Key_Up ? "UP" : "DOWN");
+                
+                bool ok;
+                int currentQty = m_leQty->text().toInt(&ok);
+                if (!ok) currentQty = 0;
 
-            int lotSize = m_context.lotSize > 0 ? m_context.lotSize : 1;
+                int lotSize = m_context.lotSize > 0 ? m_context.lotSize : 1;
+                qDebug() << "  Current Qty:" << currentQty << "Lot Size:" << lotSize;
 
-            if (keyEvent->key() == Qt::Key_Up) {
-                currentQty += lotSize;
-            } else {
-                currentQty -= lotSize;
-                if (currentQty < lotSize) currentQty = lotSize;
+                if (keyEvent->key() == Qt::Key_Up) {
+                    currentQty += lotSize;
+                } else {
+                    currentQty -= lotSize;
+                    if (currentQty < lotSize) currentQty = lotSize;
+                }
+
+                m_leQty->setText(QString::number(currentQty));
+                qDebug() << "  New Qty:" << currentQty;
+                return true;  // Event handled, don't pass to default handler
             }
-
-            m_leQty->setText(QString::number(currentQty));
-            return true;
+            // Let all other keys pass through to QLineEdit for normal typing
+            return QWidget::eventFilter(obj, event);
         }
-    } else if (obj == m_leRate && event->type() == QEvent::KeyPress) {
-        QKeyEvent *keyEvent = static_cast<QKeyEvent*>(event);
-        if (keyEvent->key() == Qt::Key_Up || keyEvent->key() == Qt::Key_Down) {
-            bool ok;
-            double currentPrice = m_leRate->text().toDouble(&ok);
-            if (!ok) currentPrice = 0.0;
+        
+        // Handle Price field arrow keys
+        else if (obj == m_leRate) {
+            if (keyEvent->key() == Qt::Key_Up || keyEvent->key() == Qt::Key_Down) {
+                qDebug() << "[BaseOrderWindow] Arrow key pressed in Price field:" << (keyEvent->key() == Qt::Key_Up ? "UP" : "DOWN");
+                
+                bool ok;
+                double currentPrice = m_leRate->text().toDouble(&ok);
+                if (!ok) currentPrice = 0.0;
 
-            double tickSize = m_context.tickSize > 0 ? m_context.tickSize : 0.05;
+                double tickSize = m_context.tickSize > 0 ? m_context.tickSize : 0.05;
+                qDebug() << "  Current Price:" << currentPrice << "Tick Size:" << tickSize;
 
-            if (keyEvent->key() == Qt::Key_Up) {
-                currentPrice += tickSize;
-            } else {
-                currentPrice -= tickSize;
-                if (currentPrice < tickSize) currentPrice = tickSize;
+                if (keyEvent->key() == Qt::Key_Up) {
+                    currentPrice += tickSize;
+                } else {
+                    currentPrice -= tickSize;
+                    if (currentPrice < tickSize) currentPrice = tickSize;
+                }
+                
+                // Snap to tick size
+                if (tickSize > 0) currentPrice = std::round(currentPrice / tickSize) * tickSize;
+
+                m_leRate->setText(QString::number(currentPrice, 'f', 2));
+                qDebug() << "  New Price:" << currentPrice;
+                return true;  // Event handled, don't pass to default handler
             }
-            
-            // Snap to tick size
-            if (tickSize > 0) currentPrice = std::round(currentPrice / tickSize) * tickSize;
-
-            m_leRate->setText(QString::number(currentPrice, 'f', 2));
-            return true;
+            // Let all other keys pass through to QLineEdit for normal typing
+            return QWidget::eventFilter(obj, event);
         }
     }
     return QWidget::eventFilter(obj, event);
@@ -472,7 +527,7 @@ bool BaseOrderWindow::focusNextPrevChild(bool next) {
     
     if (next) {
         // Forward navigation (Tab): Extended path
-        // Total Qty → Price → Pro/CLI → Order Type → Validity → User Remarks → Submit
+        // Total Qty → Price → Pro/CLI → Product → Validity → User Remarks → Submit
         QList<QWidget*> forwardWidgets;
         
         if (m_leQty && m_leQty->isEnabled()) forwardWidgets << m_leQty;
@@ -485,14 +540,37 @@ bool BaseOrderWindow::focusNextPrevChild(bool next) {
         
         if (!forwardWidgets.isEmpty()) {
             int idx = forwardWidgets.indexOf(curr);
+            
+            qDebug() << "[BaseOrderWindow] Tab pressed. Current widget:" 
+                     << (curr ? curr->objectName() : "NULL") 
+                     << "Found at index:" << idx 
+                     << "Total widgets:" << forwardWidgets.size();
+            
             if (idx != -1) {
-                // In our custom forward path, cycle through
+                // Found current widget - move to next in sequence
                 int nextIdx = (idx + 1) % forwardWidgets.size();
-                forwardWidgets[nextIdx]->setFocus();
+                QWidget* nextWidget = forwardWidgets[nextIdx];
+                nextWidget->setFocus();
                 
-                QLineEdit *le = qobject_cast<QLineEdit*>(forwardWidgets[nextIdx]);
-                if (le) le->selectAll();
+                qDebug() << "[BaseOrderWindow] Moving to widget:" << nextWidget->objectName();
                 
+                QLineEdit *le = qobject_cast<QLineEdit*>(nextWidget);
+                if (le) {
+                    le->deselect();
+                    le->setCursorPosition(le->text().length());
+                }
+                
+                return true;
+            } else if (curr == nullptr || !this->isAncestorOf(curr)) {
+                // No focus or focus outside this window - set to first widget
+                qDebug() << "[BaseOrderWindow] Focus outside window, setting to first widget:" 
+                         << forwardWidgets[0]->objectName();
+                forwardWidgets[0]->setFocus();
+                QLineEdit *le = qobject_cast<QLineEdit*>(forwardWidgets[0]);
+                if (le) {
+                    le->deselect();
+                    le->setCursorPosition(le->text().length());
+                }
                 return true;
             }
         }
@@ -529,7 +607,10 @@ bool BaseOrderWindow::focusNextPrevChild(bool next) {
                     backwardWidgets[nextIdx]->setFocus();
                     
                     QLineEdit *le = qobject_cast<QLineEdit*>(backwardWidgets[nextIdx]);
-                    if (le) le->selectAll();
+                    if (le) {
+                        le->deselect();
+                        le->setCursorPosition(le->text().length());
+                    }
                     
                     return true;
                 }
@@ -555,8 +636,16 @@ void BaseOrderWindow::keyPressEvent(QKeyEvent *event) {
         }
         close();
     }
-    else if (event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter) onSubmitClicked();
+    // Note: Enter key removed - use Submit button or Ctrl+Enter if needed
     else QWidget::keyPressEvent(event);
+}
+
+void BaseOrderWindow::showEvent(QShowEvent *event) {
+    QWidget::showEvent(event);
+    
+    // Apply focus immediately when window is shown
+    // This ensures the field is ready for immediate editing with visible cursor
+    applyDefaultFocus();
 }
 
 void BaseOrderWindow::closeEvent(QCloseEvent *event) {
