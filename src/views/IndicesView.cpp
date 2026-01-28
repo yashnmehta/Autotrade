@@ -235,10 +235,10 @@ void IndicesView::onIndexReceived(const UDP::IndexTick &tick) {
 
   // Update (will be queued and batched)
   if (tick.exchangeSegment == UDP::ExchangeSegment::NSECM) {
-    if (name.contains("NIFTY 50", Qt::CaseInsensitive)) {
-      qDebug() << "[IndicesView] NSECM Update:" << name
-               << "Input:" << QString::fromLatin1(tick.name)
-               << "Val:" << tick.value;
+    if (name == "Nifty 50" || name == "Nifty Bank") {
+      // qDebug() << "[IndicesView] NSECM Update:" << name
+      //          << "Input:" << QString::fromLatin1(tick.name)
+      //          << "Val:" << tick.value;
     }
     updateIndex(name, tick.value, tick.change, tick.changePercent);
   } else if (name == "NIFTY 50" || name == "BANKNIFTY" || name == "SENSEX") {
