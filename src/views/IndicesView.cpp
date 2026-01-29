@@ -1,7 +1,9 @@
 #include "views/IndicesView.h"
 #include "repository/RepositoryManager.h"
+#include <QAction>
 #include <QDebug>
 #include <QHeaderView>
+#include <QMenu>
 #include <QSettings>
 #include <QVBoxLayout>
 
@@ -150,7 +152,52 @@ void IndicesView::setupUI() {
       "QTableView::item:selected { background-color: #e5f3ff; color: #000000; "
       "}");
 
+  // Enable custom context menu
+  m_view->setContextMenuPolicy(Qt::CustomContextMenu);
+  connect(m_view, &QTableView::customContextMenuRequested, this,
+          &IndicesView::showContextMenu);
+
   layout->addWidget(m_view);
+}
+
+void IndicesView::showContextMenu(const QPoint &pos) {
+  QMenu contextMenu(tr("Context Menu"), this);
+  QAction *removeAction = contextMenu.addAction("Remove Index");
+
+  // Check if an item is selected
+  QModelIndex index = m_view->indexAt(pos);
+  if (!index.isValid()) {
+    removeAction->setEnabled(false);
+  }
+
+  connect(removeAction, &QAction::triggered, this, [this, index]() {
+    if (index.isValid()) {
+      // Get the name from the model (column 0)
+      QString name =
+          m_model
+              ->data(m_model->index(index.row(), IndicesModel::COL_NAME),
+                     Qt::DisplayRole)
+              .toString();
+      removeIndex(name);
+    }
+  });
+
+  contextMenu.exec(m_view->mapToGlobal(pos));
+}
+
+void IndicesView::removeIndex(const QString &name) {
+  if (name.isEmpty())
+    return;
+
+  // 1. Remove from selected list
+  m_selectedIndices.removeAll(name);
+
+  // 2. Persist to settings
+  QSettings settings("TradingCompany", "TradingTerminal");
+  settings.setValue("indices/selected", m_selectedIndices);
+
+  // 3. Reload view (easiest way to cleanup pending updates and model rows)
+  reloadSelectedIndices(m_selectedIndices);
 }
 
 void IndicesView::updateIndex(const QString &name, double ltp, double change,
@@ -194,28 +241,39 @@ void IndicesView::onIndexReceived(const UDP::IndexTick &tick) {
       return;
   }
 
-  // For NSE, standardize names (case-insensitive matching)
-  QString upperName = name.toUpper();
-
-  // NSE: Normalize to standard names (exact match only to avoid matching "Nifty
-  // 50 Arbitrage", etc.)
+  // For NSE, standardize names (case-insensitive matching against selected
+  // list)
   if (tick.exchangeSegment == UDP::ExchangeSegment::NSECM) {
-    // Only match exact "NIFTY 50" or "NIFTY", not "NIFTY 50 Arbitrage"
-    if ((upperName == "NIFTY 50" || upperName == "NIFTY" ||
-         upperName == "NIFTY50") &&
-        !upperName.contains("ARBITRAGE") && !upperName.contains("FUTURES") &&
-        !upperName.contains("ALPHA")) {
-      name = "NIFTY 50";
-    } else if (upperName.contains("NIFTY BANK") ||
-               upperName.contains("BANKNIFTY") ||
-               upperName.contains("BANK NIFTY")) {
-      name = "BANKNIFTY";
+    // 1. Try to find a case-insensitive match in our selected list
+    // This solves the "NIFTY 50" (UDP) vs "Nifty 50" (Settings) mismatch
+    bool found = false;
+    for (const QString &selected : m_selectedIndices) {
+      if (selected.compare(name, Qt::CaseInsensitive) == 0) {
+        name = selected; // Use the display name from settings
+        found = true;
+        break;
+      }
     }
-    // Keep other indices with their original names (Nifty200 Alpha 30, etc.)
+
+    // 2. If not found in selected list, do basic normalization logic (fallback)
+    if (!found) {
+      QString upperName = name.toUpper();
+      if ((upperName == "NIFTY 50" || upperName == "NIFTY" ||
+           upperName == "NIFTY50") &&
+          !upperName.contains("ARBITRAGE") && !upperName.contains("FUTURES") &&
+          !upperName.contains("ALPHA")) {
+        name = "NIFTY 50";
+      } else if (upperName.contains("NIFTY BANK") ||
+                 upperName.contains("BANKNIFTY") ||
+                 upperName.contains("BANK NIFTY")) {
+        name = "BANKNIFTY";
+      }
+    }
   }
   // BSE: Prevent Nifty/BankNifty conflict by prefixing
   else if (tick.exchangeSegment == UDP::ExchangeSegment::BSECM ||
            tick.exchangeSegment == UDP::ExchangeSegment::BSEFO) {
+    QString upperName = name.toUpper();
     if (upperName == "NIFTY 50" || upperName == "NIFTY" ||
         upperName.contains("NIFTY 50")) {
       name = "BSE NIFTY 50";
@@ -230,18 +288,10 @@ void IndicesView::onIndexReceived(const UDP::IndexTick &tick) {
     }
   }
 
-  // Debug output
-  // qDebug() << "[IndicesView] Received tick:" << name << "Val:" << tick.value;
-
   // Update (will be queued and batched)
-  if (tick.exchangeSegment == UDP::ExchangeSegment::NSECM) {
-    if (name.contains("NIFTY 50", Qt::CaseInsensitive)) {
-      qDebug() << "[IndicesView] NSECM Update:" << name
-               << "Input:" << QString::fromLatin1(tick.name)
-               << "Val:" << tick.value;
-    }
-    updateIndex(name, tick.value, tick.change, tick.changePercent);
-  } else if (name == "NIFTY 50" || name == "BANKNIFTY" || name == "SENSEX") {
+  // Only update if it's in our selected list (or special defaults)
+  if (m_selectedIndices.contains(name) || name == "NIFTY 50" ||
+      name == "BANKNIFTY" || name == "SENSEX") {
     updateIndex(name, tick.value, tick.change, tick.changePercent);
   }
 }
