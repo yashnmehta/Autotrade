@@ -17,6 +17,7 @@
 #include "repository/RepositoryManager.h"
 #include <QDebug>
 #include <QStatusBar>
+#include <QDateTime> // Added for performance logging
 #include "core/WindowCacheManager.h"
 
 
@@ -101,6 +102,10 @@ void MainWindow::createMarketWatch()
 
 void MainWindow::createBuyWindow()
 {
+    static int f1Counter = 0;
+    f1Counter++;
+    qDebug() << "[PERF] [F1_PRESS] #" << f1Counter << " START Time:" << QDateTime::currentMSecsSinceEpoch();
+
     // Try cache first for fast opening (~10ms instead of ~400ms)
     MarketWatchWindow *activeMarketWatch = getActiveMarketWatch();
     WindowContext context;
@@ -184,10 +189,9 @@ void MainWindow::createBuyWindow()
     }
     
     // Save position when window is moved (connection auto-disconnects when window is destroyed)
+    // Save position when window is moved (connection auto-disconnects when window is destroyed)
     connect(window, &CustomMDISubWindow::windowMoved, window, [](const QPoint &pos) {
-        QSettings s("TradingCompany", "TradingTerminal");
-        s.setValue("orderwindow/last_x", pos.x());
-        s.setValue("orderwindow/last_y", pos.y());
+        WindowCacheManager::instance().saveOrderWindowPosition(pos);
     }, Qt::UniqueConnection);
     
     window->activateWindow();
@@ -195,6 +199,10 @@ void MainWindow::createBuyWindow()
 
 void MainWindow::createSellWindow()
 {
+    static int f2Counter = 0;
+    f2Counter++;
+    qDebug() << "[PERF] [F2_PRESS] #" << f2Counter << " START Time:" << QDateTime::currentMSecsSinceEpoch();
+
     // Try cache first for fast opening (~10ms instead of ~400ms)
     MarketWatchWindow *activeMarketWatch = getActiveMarketWatch();
     WindowContext context;

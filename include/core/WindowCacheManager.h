@@ -2,6 +2,7 @@
 #define WINDOWCACHEMANAGER_H
 
 #include <QObject>
+#include <QPoint>
 
 class MainWindow;
 class CustomMDISubWindow;
@@ -64,6 +65,12 @@ public:
         m_lastSellToken = -1;  // Clear cached token
     }
 
+    /**
+     * @brief Save the current order window position to memory and lazily to disk
+     * @param pos The new position
+     */
+    void saveOrderWindowPosition(const QPoint& pos);
+
 private:
     WindowCacheManager();
     ~WindowCacheManager();
@@ -90,6 +97,10 @@ private:
     // Cached context to avoid reloading same data
     int m_lastBuyToken = -1;     ///< Last token loaded in Buy window
     int m_lastSellToken = -1;    ///< Last token loaded in Sell window
+
+    // In-memory cache for window position (avoids slow QSettings read on every F1/F2)
+    QPoint m_lastOrderWindowPos;
+    bool m_hasSavedPosition = false;
 };
 
 #endif // WINDOWCACHEMANAGER_H

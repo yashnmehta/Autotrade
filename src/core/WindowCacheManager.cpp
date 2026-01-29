@@ -9,6 +9,7 @@
 #include <QSettings>
 #include <QElapsedTimer>
 #include <QTimer>
+#include <QDateTime> // Added for performance logging
 
 WindowCacheManager& WindowCacheManager::instance()
 {
@@ -43,6 +44,19 @@ void WindowCacheManager::initialize(MainWindow* mainWindow)
     
     m_initialized = true;
     qDebug() << "[WindowCacheManager] ✓ Window cache initialized successfully";
+
+    // Pre-load saved position to avoid disk I/O on hotkey press
+    QSettings settings("TradingCompany", "TradingTerminal");
+    if (settings.contains("orderwindow/last_x") && settings.contains("orderwindow/last_y")) {
+        int x = settings.value("orderwindow/last_x").toInt();
+        int y = settings.value("orderwindow/last_y").toInt();
+        m_lastOrderWindowPos = QPoint(x, y);
+        m_hasSavedPosition = true;
+        qDebug() << "[WindowCacheManager] Pre-loaded window position:" << m_lastOrderWindowPos;
+    } else {
+        m_hasSavedPosition = false;
+        qDebug() << "[WindowCacheManager] No saved position found (will use default)";
+    }
 }
 
 void WindowCacheManager::createCachedWindows()
@@ -117,6 +131,10 @@ void WindowCacheManager::resetSellWindow()
 
 bool WindowCacheManager::showBuyWindow(const WindowContext* context)
 {
+    static int cacheHitCounter = 0;
+    cacheHitCounter++;
+    qDebug() << "[PERF] [CACHE_SHOW_BUY] #" << cacheHitCounter << " START Time:" << QDateTime::currentMSecsSinceEpoch();
+
     QElapsedTimer timer;
     timer.start();
     
@@ -136,24 +154,21 @@ bool WindowCacheManager::showBuyWindow(const WindowContext* context)
     qint64 t2 = timer.elapsed();
     
     // ALWAYS restore position FIRST (critical for off-screen strategy)
-    QSettings settings("TradingCompany", "TradingTerminal");
-    if (settings.contains("orderwindow/last_x") && settings.contains("orderwindow/last_y")) {
-        int x = settings.value("orderwindow/last_x").toInt();
-        int y = settings.value("orderwindow/last_y").toInt();
-        qDebug() << "[WindowCacheManager] Restoring saved position:" << QPoint(x, y);
-        
+    // OPTIMIZATION: Use in-memory cache instead of QSettings disk read
+    if (m_hasSavedPosition) {
         // Sanity check: if position is off-screen, use default instead
-        if (x < -1000 || y < -1000) {
-            qWarning() << "[WindowCacheManager] Saved position is off-screen! Using default position instead.";
+        if (m_lastOrderWindowPos.x() < -1000 || m_lastOrderWindowPos.y() < -1000) {
             auto mdiArea = m_mainWindow->mdiArea();
             if (mdiArea) {
                 QSize mdiSize = mdiArea->size();
-                x = mdiSize.width() - 1220 - 20;
-                y = mdiSize.height() - 200 - 20;
-                qDebug() << "[WindowCacheManager] Default position:" << QPoint(x, y);
+                int x = mdiSize.width() - 1220 - 20;
+                int y = mdiSize.height() - 200 - 20;
+                m_cachedBuyMdiWindow->move(x, y);
+                // Don't update cache here, let user move it
             }
+        } else {
+            m_cachedBuyMdiWindow->move(m_lastOrderWindowPos);
         }
-        m_cachedBuyMdiWindow->move(x, y);
     } else {
         // Default position: bottom-right
         auto mdiArea = m_mainWindow->mdiArea();
@@ -161,7 +176,7 @@ bool WindowCacheManager::showBuyWindow(const WindowContext* context)
             QSize mdiSize = mdiArea->size();
             int x = mdiSize.width() - 1220 - 20;
             int y = mdiSize.height() - 200 - 20;
-            qDebug() << "[WindowCacheManager] Using default position:" << QPoint(x, y);
+            // qDebug() << "[WindowCacheManager] Using default position:" << QPoint(x, y);
             m_cachedBuyMdiWindow->move(x, y);
         }
     }
@@ -223,6 +238,10 @@ bool WindowCacheManager::showBuyWindow(const WindowContext* context)
 
 bool WindowCacheManager::showSellWindow(const WindowContext* context)
 {
+    static int cacheHitCounter = 0;
+    cacheHitCounter++;
+    qDebug() << "[PERF] [CACHE_SHOW_SELL] #" << cacheHitCounter << " START Time:" << QDateTime::currentMSecsSinceEpoch();
+
     QElapsedTimer timer;
     timer.start();
     
@@ -242,24 +261,20 @@ bool WindowCacheManager::showSellWindow(const WindowContext* context)
     qint64 t2 = timer.elapsed();
     
     // ALWAYS restore position FIRST (critical for off-screen strategy)
-    QSettings settings("TradingCompany", "TradingTerminal");
-    if (settings.contains("orderwindow/last_x") && settings.contains("orderwindow/last_y")) {
-        int x = settings.value("orderwindow/last_x").toInt();
-        int y = settings.value("orderwindow/last_y").toInt();
-        qDebug() << "[WindowCacheManager] Restoring saved position:" << QPoint(x, y);
-        
+    // OPTIMIZATION: Use in-memory cache instead of QSettings disk read
+    if (m_hasSavedPosition) {
         // Sanity check: if position is off-screen, use default instead
-        if (x < -1000 || y < -1000) {
-            qWarning() << "[WindowCacheManager] Saved position is off-screen! Using default position instead.";
+        if (m_lastOrderWindowPos.x() < -1000 || m_lastOrderWindowPos.y() < -1000) {
             auto mdiArea = m_mainWindow->mdiArea();
             if (mdiArea) {
                 QSize mdiSize = mdiArea->size();
-                x = mdiSize.width() - 1220 - 20;
-                y = mdiSize.height() - 200 - 20;
-                qDebug() << "[WindowCacheManager] Default position:" << QPoint(x, y);
+                int x = mdiSize.width() - 1220 - 20;
+                int y = mdiSize.height() - 200 - 20;
+                m_cachedSellMdiWindow->move(x, y);
             }
+        } else {
+            m_cachedSellMdiWindow->move(m_lastOrderWindowPos);
         }
-        m_cachedSellMdiWindow->move(x, y);
     } else {
         // Default position: bottom-right
         auto mdiArea = m_mainWindow->mdiArea();
@@ -267,7 +282,7 @@ bool WindowCacheManager::showSellWindow(const WindowContext* context)
             QSize mdiSize = mdiArea->size();
             int x = mdiSize.width() - 1220 - 20;
             int y = mdiSize.height() - 200 - 20;
-            qDebug() << "[WindowCacheManager] Using default position:" << QPoint(x, y);
+            // qDebug() << "[WindowCacheManager] Using default position:" << QPoint(x, y);
             m_cachedSellMdiWindow->move(x, y);
         }
     }
@@ -325,4 +340,17 @@ bool WindowCacheManager::showSellWindow(const WindowContext* context)
     qDebug() << "  TOTAL:" << totalTime << "ms";
     
     return true;
+}
+
+void WindowCacheManager::saveOrderWindowPosition(const QPoint& pos)
+{
+    qDebug() << "[WindowCacheManager] Caching new position:" << pos;
+    // Update memory cache immediately
+    m_lastOrderWindowPos = pos;
+    m_hasSavedPosition = true;
+    
+    // Save to disk (can be lazy, but QSettings is safely reentrant)
+    QSettings s("TradingCompany", "TradingTerminal");
+    s.setValue("orderwindow/last_x", pos.x());
+    s.setValue("orderwindow/last_y", pos.y());
 }
