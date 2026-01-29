@@ -288,9 +288,14 @@ void IndicesView::onIndexReceived(const UDP::IndexTick &tick) {
   }
 
   // Update (will be queued and batched)
-  // Only update if it's in our selected list (or special defaults)
-  if (m_selectedIndices.contains(name) || name == "Nifty 50" ||
-      name == "Nifty Bank" || name == "SENSEX") {
+  if (tick.exchangeSegment == UDP::ExchangeSegment::NSECM) {
+    if (name == "Nifty 50" || name == "Nifty Bank") {
+      // qDebug() << "[IndicesView] NSECM Update:" << name
+      //          << "Input:" << QString::fromLatin1(tick.name)
+      //          << "Val:" << tick.value;
+    }
+    updateIndex(name, tick.value, tick.change, tick.changePercent);
+  } else if (name == "Nifty 50" || name == "Nifty Bank" || name == "SENSEX") {
     updateIndex(name, tick.value, tick.change, tick.changePercent);
   }
 }
