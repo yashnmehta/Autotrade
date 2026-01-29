@@ -101,6 +101,10 @@ private:
     // In-memory cache for window position (avoids slow QSettings read on every F1/F2)
     QPoint m_lastOrderWindowPos;
     bool m_hasSavedPosition = false;
+
+    // Event coalescing: track pending window activation to cancel stale requests
+    enum class PendingWindow { None, Buy, Sell };
+    PendingWindow m_pendingActivation = PendingWindow::None;
 };
 
 #endif // WINDOWCACHEMANAGER_H

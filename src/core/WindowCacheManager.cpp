@@ -206,18 +206,27 @@ bool WindowCacheManager::showBuyWindow(const WindowContext* context)
     
     qint64 t4 = timer.elapsed();
     
-    // Show and activate
+    // EVENT COALESCING: Cancel pending Sell activation if user switched to Buy
+    m_pendingActivation = PendingWindow::Buy;
+    
+    // Show immediately (fast, gives instant visual feedback)
     m_cachedBuyMdiWindow->show();
-    if (m_cachedBuyWindow) m_cachedBuyWindow->show(); // <--- ADD THIS
-    m_cachedBuyMdiWindow->raise();  // Bring to front
-    m_cachedBuyMdiWindow->activateWindow();
+    if (m_cachedBuyWindow) m_cachedBuyWindow->show();
     
     qint64 t5 = timer.elapsed();
     
-    // Apply focus asynchronously to avoid blocking window show
-    QTimer::singleShot(0, m_cachedBuyWindow, [this]() {
-        if (m_cachedBuyWindow) {
-            m_cachedBuyWindow->applyDefaultFocus();
+    // Defer raise/activate to next event loop iteration (prevents queue buildup)
+    QTimer::singleShot(0, this, [this]() {
+        // Only activate if Buy is still the pending window (not canceled by F2)
+        if (m_pendingActivation == PendingWindow::Buy && m_cachedBuyMdiWindow) {
+            m_cachedBuyMdiWindow->raise();
+            m_cachedBuyMdiWindow->activateWindow();
+            m_pendingActivation = PendingWindow::None;
+            
+            // Apply focus after activation
+            if (m_cachedBuyWindow) {
+                m_cachedBuyWindow->applyDefaultFocus();
+            }
         }
     });
     
@@ -312,18 +321,27 @@ bool WindowCacheManager::showSellWindow(const WindowContext* context)
     
     qint64 t4 = timer.elapsed();
     
-    // Show and activate
+    // EVENT COALESCING: Cancel pending Buy activation if user switched to Sell
+    m_pendingActivation = PendingWindow::Sell;
+    
+    // Show immediately (fast, gives instant visual feedback)
     m_cachedSellMdiWindow->show();
-    if (m_cachedSellWindow) m_cachedSellWindow->show(); // <--- ADD THIS
-    m_cachedSellMdiWindow->raise();  // Bring to front
-    m_cachedSellMdiWindow->activateWindow();
+    if (m_cachedSellWindow) m_cachedSellWindow->show();
     
     qint64 t5 = timer.elapsed();
     
-    // Apply focus asynchronously to avoid blocking window show
-    QTimer::singleShot(0, m_cachedSellWindow, [this]() {
-        if (m_cachedSellWindow) {
-            m_cachedSellWindow->applyDefaultFocus();
+    // Defer raise/activate to next event loop iteration (prevents queue buildup)
+    QTimer::singleShot(0, this, [this]() {
+        // Only activate if Sell is still the pending window (not canceled by F1)
+        if (m_pendingActivation == PendingWindow::Sell && m_cachedSellMdiWindow) {
+            m_cachedSellMdiWindow->raise();
+            m_cachedSellMdiWindow->activateWindow();
+            m_pendingActivation = PendingWindow::None;
+            
+            // Apply focus after activation
+            if (m_cachedSellWindow) {
+                m_cachedSellWindow->applyDefaultFocus();
+            }
         }
     });
     
