@@ -111,7 +111,7 @@ public:
    * @brief Get the index name to token map
    * @return Hash map of index names to their tokens
    */
-  const QHash<QString, int64_t>& getIndexNameTokenMap() const;
+  const QHash<QString, qint64>& getIndexNameTokenMap() const;
   
   /**
    * @brief Resolve asset tokens for index derivatives (where field 14 = -1)
@@ -413,8 +413,11 @@ signals:
   void repositoryLoaded();
 
 private:
-  RepositoryManager();
+public:
   ~RepositoryManager();
+
+private:
+  RepositoryManager();
   
   // Thread safety for concurrent access (protects all public getters)
   mutable QReadWriteLock m_repositoryLock;
@@ -469,7 +472,7 @@ private:
   // Symbol -> asset token (for cash price lookup)
   QHash<QString, int64_t> m_symbolToAssetToken;
   // Index Name -> Token (Loaded from nse_cm_index_master.csv)
-  QHash<QString, int64_t> m_indexNameTokenMap;
+  QHash<QString, qint64> m_indexNameTokenMap;
   // Key: "SYMBOL|EXPIRY" -> future token (for future price lookup when cash not
   // available)
   QHash<QString, int64_t> m_symbolExpiryFutureToken;

@@ -7,7 +7,6 @@
 #include <QSettings>
 #include <QVBoxLayout>
 
-
 // ========== IndicesModel Implementation ==========
 
 QVariant IndicesModel::data(const QModelIndex &index, int role) const {
@@ -262,11 +261,11 @@ void IndicesView::onIndexReceived(const UDP::IndexTick &tick) {
            upperName == "NIFTY50") &&
           !upperName.contains("ARBITRAGE") && !upperName.contains("FUTURES") &&
           !upperName.contains("ALPHA")) {
-        name = "NIFTY 50";
+        name = "Nifty 50";
       } else if (upperName.contains("NIFTY BANK") ||
                  upperName.contains("BANKNIFTY") ||
                  upperName.contains("BANK NIFTY")) {
-        name = "BANKNIFTY";
+        name = "Nifty Bank";
       }
     }
   }
@@ -290,8 +289,8 @@ void IndicesView::onIndexReceived(const UDP::IndexTick &tick) {
 
   // Update (will be queued and batched)
   // Only update if it's in our selected list (or special defaults)
-  if (m_selectedIndices.contains(name) || name == "NIFTY 50" ||
-      name == "BANKNIFTY" || name == "SENSEX") {
+  if (m_selectedIndices.contains(name) || name == "Nifty 50" ||
+      name == "Nifty Bank" || name == "SENSEX") {
     updateIndex(name, tick.value, tick.change, tick.changePercent);
   }
 }

@@ -663,7 +663,7 @@ void NSECMRepository::buildIndexNameMap() {
     qDebug() << "Built index name map with" << m_indexNameToToken.size() << "entries";
 }
 
-QHash<QString, int64_t> NSECMRepository::getIndexNameTokenMap() const {
+QHash<QString, qint64> NSECMRepository::getIndexNameTokenMap() const {
     QReadLocker lock(&m_mutex);
     return m_indexNameToToken;
 }
