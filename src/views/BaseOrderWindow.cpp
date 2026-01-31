@@ -502,8 +502,30 @@ bool BaseOrderWindow::eventFilter(QObject *obj, QEvent *event) {
     if (event->type() == QEvent::KeyPress) {
         QKeyEvent *keyEvent = static_cast<QKeyEvent*>(event);
         
-        // Handle Quantity field arrow keys
+        // Handle Quantity field
         if (obj == m_leQty) {
+            // Intercept +/- keys BEFORE validator processes them
+            // These keys switch between Buy/Sell windows
+            if (keyEvent->key() == Qt::Key_Plus || keyEvent->key() == Qt::Key_Minus) {
+                qDebug() << "[BaseOrderWindow] +/- key pressed in Quantity field - switching window";
+                
+                // Find MainWindow and call its methods directly
+                QWidget *topLevel = window();
+                while (topLevel && !topLevel->inherits("MainWindow")) {
+                    topLevel = topLevel->parentWidget();
+                }
+                
+                if (topLevel) {
+                    if (keyEvent->key() == Qt::Key_Plus) {
+                        QMetaObject::invokeMethod(topLevel, "createBuyWindow");
+                    } else {
+                        QMetaObject::invokeMethod(topLevel, "createSellWindow");
+                    }
+                }
+                
+                return true;  // Block the key from reaching the QLineEdit
+            }
+            
             if (keyEvent->key() == Qt::Key_Up || keyEvent->key() == Qt::Key_Down) {
                 qDebug() << "[BaseOrderWindow] Arrow key pressed in Quantity field:" << (keyEvent->key() == Qt::Key_Up ? "UP" : "DOWN");
                 
@@ -529,8 +551,29 @@ bool BaseOrderWindow::eventFilter(QObject *obj, QEvent *event) {
             return QWidget::eventFilter(obj, event);
         }
         
-        // Handle Price field arrow keys
+        // Handle Price field
         else if (obj == m_leRate) {
+            // Intercept +/- keys BEFORE validator processes them
+            if (keyEvent->key() == Qt::Key_Plus || keyEvent->key() == Qt::Key_Minus) {
+                qDebug() << "[BaseOrderWindow] +/- key pressed in Price field - switching window";
+                
+                // Find MainWindow and call its methods directly
+                QWidget *topLevel = window();
+                while (topLevel && !topLevel->inherits("MainWindow")) {
+                    topLevel = topLevel->parentWidget();
+                }
+                
+                if (topLevel) {
+                    if (keyEvent->key() == Qt::Key_Plus) {
+                        QMetaObject::invokeMethod(topLevel, "createBuyWindow");
+                    } else {
+                        QMetaObject::invokeMethod(topLevel, "createSellWindow");
+                    }
+                }
+                
+                return true;  // Block the key from reaching the QLineEdit
+            }
+            
             if (keyEvent->key() == Qt::Key_Up || keyEvent->key() == Qt::Key_Down) {
                 qDebug() << "[BaseOrderWindow] Arrow key pressed in Price field:" << (keyEvent->key() == Qt::Key_Up ? "UP" : "DOWN");
                 

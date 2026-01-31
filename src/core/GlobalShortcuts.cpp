@@ -60,13 +60,24 @@ public:
 // --- MAIN WINDOW SHORTCUTS ---
 void setupMainWindowShortcuts(MainWindow* window) {
     if (!window) return;
-    // Buy Window: F1 or + key
-    new QShortcut(QKeySequence(Qt::Key_F1), window, SLOT(createBuyWindow()));
-    new QShortcut(QKeySequence(Qt::Key_Plus), window, SLOT(createBuyWindow()));
     
-    // Sell Window: F2 or - key
-    new QShortcut(QKeySequence(Qt::Key_F2), window, SLOT(createSellWindow()));
-    new QShortcut(QKeySequence(Qt::Key_Minus), window, SLOT(createSellWindow()));
+    // Buy Window: F1 or + key
+    // Use ApplicationShortcut to work even when input fields have focus
+    QShortcut *buyF1 = new QShortcut(QKeySequence(Qt::Key_F1), window, SLOT(createBuyWindow()));
+    buyF1->setContext(Qt::ApplicationShortcut);
+    
+    QShortcut *buyPlus = new QShortcut(QKeySequence(Qt::Key_Plus), window, SLOT(createBuyWindow()));
+    buyPlus->setContext(Qt::ApplicationShortcut);
+    
+    // Sell Window: F2 or - key  
+    // Use ApplicationShortcut to work even when input fields have focus
+    QShortcut *sellF2 = new QShortcut(QKeySequence(Qt::Key_F2), window, SLOT(createSellWindow()));
+    sellF2->setContext(Qt::ApplicationShortcut);
+    
+    QShortcut *sellMinus = new QShortcut(QKeySequence(Qt::Key_Minus), window, SLOT(createSellWindow()));
+    sellMinus->setContext(Qt::ApplicationShortcut);
+    
+    qDebug() << "[GlobalShortcuts] Buy/Sell shortcuts configured with ApplicationShortcut context";
     
     new QShortcut(QKeySequence("Ctrl+M"), window, SLOT(createMarketWatch()));
     new QShortcut(QKeySequence("Ctrl+S"), window, SLOT(focusScripBar()));
