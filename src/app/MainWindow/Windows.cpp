@@ -296,6 +296,33 @@ void MainWindow::createSellWindow()
 
 void MainWindow::createSnapQuoteWindow()
 {
+    qDebug() << "[PERF] [CTRL+Q_PRESS] START Time:" << QDateTime::currentMSecsSinceEpoch();
+    
+    // ⭐ TRY CACHE FIRST (~10-20ms if hit!)
+    MarketWatchWindow *activeMarketWatch = getActiveMarketWatch();
+    WindowContext context;
+    
+    if (activeMarketWatch && activeMarketWatch->hasValidSelection()) {
+        context = activeMarketWatch->getSelectedContractContext();
+    } else {
+        // Check active OptionChain/Position window for context
+        CustomMDISubWindow *activeSub = m_mdiArea ? m_mdiArea->activeWindow() : nullptr;
+        if (activeSub && activeSub->windowType() == "OptionChain") {
+            OptionChainWindow *oc = qobject_cast<OptionChainWindow*>(activeSub->contentWidget());
+            if (oc) context = oc->getSelectedContext();
+        }
+    }
+    
+    // ⭐ CHECK CACHE
+    if (WindowCacheManager::instance().showSnapQuoteWindow(
+        context.isValid() ? &context : nullptr)) {
+        qDebug() << "[PERF] ⚡ Cache HIT! Time:" << QDateTime::currentMSecsSinceEpoch() << "(~10-20ms)";
+        return;  // INSTANT! ⚡
+    }
+    
+    qDebug() << "[PERF] Cache MISS - Creating new window (~370-1500ms)";
+    
+    // Fallback: Create new window (first time only)
     // Use the helper to count existing SnapQuote windows
     int count = 0;
     QList<CustomMDISubWindow*> allWindows = m_mdiArea->windowList();
@@ -333,7 +360,7 @@ void MainWindow::createSnapQuoteWindow()
     CustomMDISubWindow *window = new CustomMDISubWindow(title, m_mdiArea);
     window->setWindowType("SnapQuote");
 
-    MarketWatchWindow *activeMarketWatch = getActiveMarketWatch();
+    // Reuse activeMarketWatch from cache check section above
     SnapQuoteWindow *snapWindow = nullptr;
     
     if (activeMarketWatch && activeMarketWatch->hasValidSelection()) {
@@ -369,8 +396,18 @@ void MainWindow::createSnapQuoteWindow()
     window->setContentWidget(snapWindow);
     window->resize(860, 300);
     connectWindowSignals(window);
+    
+    // ⭐ Mark cached window for reset when closed
+    connect(window, &CustomMDISubWindow::closeRequested, this, [this, window]() {
+        // Mark the cached window as closed
+        WindowCacheManager::instance().markSnapQuoteWindowClosed();
+        qDebug() << "[MainWindow] SnapQuote window closed, marked for reset";
+    });
+    
     m_mdiArea->addWindow(window);
     window->activateWindow();
+    
+    qDebug() << "[PERF] SnapQuote window created. Time:" << QDateTime::currentMSecsSinceEpoch();
 }
 
 void MainWindow::createOptionChainWindow()

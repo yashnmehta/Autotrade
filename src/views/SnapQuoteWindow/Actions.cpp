@@ -1,12 +1,15 @@
 #include "views/SnapQuoteWindow.h"
 #include "api/XTSMarketDataClient.h"
 #include "repository/RepositoryManager.h"
+#include "data/PriceStoreGateway.h"  // ⚡ Common GStore function
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QDebug>
 #include <QComboBox>
 #include <QLineEdit>
 #include <QLabel>
+#include <QLocale>
+#include <QDateTime>
 
 void SnapQuoteWindow::onRefreshClicked()
 {
@@ -107,7 +110,7 @@ void SnapQuoteWindow::onScripSelected(const InstrumentData &data)
     fetchQuote();
 }
 
-void SnapQuoteWindow::loadFromContext(const WindowContext &context)
+void SnapQuoteWindow::loadFromContext(const WindowContext &context, bool fetchFromAPI)
 {
     if (!context.isValid()) return;
     m_context = context; // Save the context!
@@ -134,7 +137,18 @@ void SnapQuoteWindow::loadFromContext(const WindowContext &context)
         m_scripBar->setScripDetails(data);
     }
 
-    fetchQuote();
+    // ⚡ OPTIMIZATION: Skip XTS API call when using cached window
+    // Data will come from UDP broadcast (GStore) instead
+    if (fetchFromAPI) {
+        fetchQuote();  // Only fetch from API on first open
+    } else {
+        qDebug() << "[SnapQuoteWindow] Skipping API call - loading from GStore for token:" << m_token;
+        // Load data from GStore instead of making API call
+        if (!loadFromGStore()) {
+            qDebug() << "[SnapQuoteWindow] ⚠️ Token not in GStore, fetching from API as fallback";
+            fetchQuote();  // Fallback to API if not in GStore
+        }
+    }
 }
 
 void SnapQuoteWindow::setLTPIndicator(bool isUp)
@@ -150,4 +164,70 @@ void SnapQuoteWindow::setChangeColor(double change)
     if (m_lbPercentChange) {
         m_lbPercentChange->setStyleSheet(change >= 0 ? "color: #2ECC71;" : "color: #E74C3C;");
     }
+}
+
+// ⚡ Load data from GStore (common function used by MarketWatch, OptionChain, etc.)
+bool SnapQuoteWindow::loadFromGStore()
+{
+    if (m_token <= 0 || m_exchange.isEmpty()) {
+        return false;
+    }
+    
+    // Convert exchange string to segment ID (same as MarketWatch does)
+    int segment = 1; // Default to NSECM
+    if (m_exchange == "NSEFO") segment = 2;
+    else if (m_exchange == "NSECM") segment = 1;
+    else if (m_exchange == "BSEFO") segment = 12;
+    else if (m_exchange == "BSECM") segment = 11;
+    
+    // ⚡ USE COMMON GSTORE FUNCTION (< 1ms!)
+    // Same function MarketWatch, OptionChain use - no duplication!
+    const auto* data = MarketData::PriceStoreGateway::instance()
+                       .getUnifiedState(segment, m_token);
+    
+    if (!data || data->ltp <= 0) {
+        qDebug() << "[SnapQuoteWindow] Token" << m_token << "not in GStore or no LTP";
+        return false;
+    }
+    
+    qDebug() << "[SnapQuoteWindow] ⚡ Loaded from GStore: token" << m_token 
+             << "LTP:" << data->ltp << "(< 1ms!)";
+    
+    // Update all UI fields from GStore data
+    // 1. LTP Section
+    if (m_lbLTPPrice) m_lbLTPPrice->setText(QString::number(data->ltp, 'f', 2));
+    if (m_lbLTPQty) m_lbLTPQty->setText(QLocale().toString((int)data->lastTradeQty));
+    if (m_lbLTPTime && data->lastTradeTime > 0) {
+        QDateTime dt = QDateTime::fromSecsSinceEpoch(data->lastTradeTime);
+        m_lbLTPTime->setText(dt.toString("HH:mm:ss"));
+    }
+    setLTPIndicator(data->ltp >= data->close);
+    
+    // 2. OHLC Panel
+    if (m_lbOpen) m_lbOpen->setText(QString::number(data->open, 'f', 2));
+    if (m_lbHigh) m_lbHigh->setText(QString::number(data->high, 'f', 2));
+    if (m_lbLow) m_lbLow->setText(QString::number(data->low, 'f', 2));
+    if (m_lbClose) m_lbClose->setText(QString::number(data->close, 'f', 2));
+    
+    // 3. Statistics
+    if (m_lbVolume) m_lbVolume->setText(QLocale().toString(static_cast<qint64>(data->volume)));
+    if (m_lbATP) m_lbATP->setText(QString::number(data->avgPrice, 'f', 2));
+    if (m_lbPercentChange && data->close > 0) {
+        double pct = ((data->ltp - data->close) / data->close) * 100.0;
+        m_lbPercentChange->setText(QString::number(pct, 'f', 2) + "%");
+        setChangeColor(pct);
+    }
+    if (m_lbOI) m_lbOI->setText(QLocale().toString(static_cast<qint64>(data->openInterest)));
+    
+    // 4. Market Depth (5 levels) - using existing update functions
+    for (int i = 0; i < 5; i++) {
+        updateBidDepth(i + 1, data->bids[i].quantity, data->bids[i].price, data->bids[i].orders);
+        updateAskDepth(i + 1, data->asks[i].price, data->asks[i].quantity, data->asks[i].orders);
+    }
+    
+    // 5. Totals
+    if (m_lbTotalBuyers) m_lbTotalBuyers->setText(QLocale().toString(static_cast<qint64>(data->totalBuyQty)));
+    if (m_lbTotalSellers) m_lbTotalSellers->setText(QLocale().toString(static_cast<qint64>(data->totalSellQty)));
+    
+    return true;  // Successfully loaded from GStore!
 }

@@ -31,7 +31,7 @@ public:
                         int token, const QString &instType, const QString &symbol);
     
     // Context-aware loading
-    void loadFromContext(const WindowContext &context);
+    void loadFromContext(const WindowContext &context, bool fetchFromAPI = true);
     // Return last loaded context
     WindowContext getContext() const { return m_context; }
     
@@ -77,6 +77,9 @@ private:
     void populateComboBoxes();
     void setupConnections();
     void setupKeyboardShortcuts();
+    
+    // ⚡ Load data from GStore (common function - < 1ms!)
+    bool loadFromGStore();
 
 private:
     // UI widgets loaded from .ui file

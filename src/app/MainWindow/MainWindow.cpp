@@ -22,6 +22,7 @@
 #include "views/MarketWatchWindow.h" // Needed for getActiveMarketWatch cast
 #include "views/IndicesView.h"
 #include "services/ATMWatchManager.h"
+#include "core/WindowCacheManager.h"
 
 MainWindow::MainWindow(QWidget *parent)
     : CustomMainWindow(parent)
@@ -89,6 +90,9 @@ void MainWindow::setXTSClients(XTSMarketDataClient *mdClient, XTSInteractiveClie
     if (m_scripBar && m_xtsMarketDataClient) {
         m_scripBar->setXTSClient(m_xtsMarketDataClient);
     }
+    
+    // Set XTS client for cached SnapQuote window
+    WindowCacheManager::instance().setXTSClientForSnapQuote(m_xtsMarketDataClient);
 }
 
 void MainWindow::setTradingDataService(TradingDataService *service) {
