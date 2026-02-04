@@ -18,6 +18,8 @@
 #include <QDockWidget>
 #include <QMessageBox>
 #include <QInputDialog>
+#include <QElapsedTimer>
+#include <QDateTime>
 #include "core/widgets/CustomMDISubWindow.h" // Needed for window iteration
 #include "views/CustomizeDialog.h"
 
@@ -499,20 +501,35 @@ void MainWindow::manageWorkspaces() {
 
 void MainWindow::createIndicesView()
 {
+    // ⏱️ PERFORMANCE LOG: Track IndicesView creation time
+    QElapsedTimer indicesTimer;
+    indicesTimer.start();
+    qint64 startTime = QDateTime::currentMSecsSinceEpoch();
+    
+    qDebug() << "========================================";
+    qDebug() << "[PERF] [INDICES_CREATE] START";
+    qDebug() << "  Timestamp:" << startTime;
+    qDebug() << "========================================";
+    
     // ✅ DEFERRED CREATION: This is now called ONLY after login completes
     // Create standalone tool window (subwindow to main app)
     // Parented to this so it closes with app, Qt::Tool makes it a lightweight floating window
+    qint64 t0 = indicesTimer.elapsed();
     m_indicesView = new IndicesView(this);
+    qint64 t1 = indicesTimer.elapsed();
+    
     m_indicesView->setWindowTitle("Indices");
     // ✅ FIX: Removed WindowStaysOnTopHint - now only stays with parent app, not over other apps
     m_indicesView->setWindowFlags(Qt::Tool | Qt::WindowCloseButtonHint); 
     
     // Set initial size
     m_indicesView->resize(400, 120);
+    qint64 t2 = indicesTimer.elapsed();
     
     // ✅ Thread-Safe: Use QueuedConnection since UDP callbacks are on background threads
     connect(&UdpBroadcastService::instance(), &UdpBroadcastService::udpIndexReceived, 
             m_indicesView, &IndicesView::onIndexReceived, Qt::QueuedConnection);
+    qint64 t3 = indicesTimer.elapsed();
     
     // Restore position if saved
     // For now, position relative to main window
@@ -520,6 +537,7 @@ void MainWindow::createIndicesView()
 
     // Check user preference for visibility
     bool indicesVisible = QSettings("TradingCompany", "TradingTerminal").value("mainwindow/indices_visible", true).toBool();
+    qint64 t4 = indicesTimer.elapsed();
     
     // Update action state
     if (m_indicesViewAction) {
@@ -552,10 +570,25 @@ void MainWindow::createIndicesView()
             // DON'T save preference here - keep it as true for next launch
         });
     }
+    qint64 t5 = indicesTimer.elapsed();
     
     // Show if user preference was enabled
     if (indicesVisible) {
         m_indicesView->show();
         m_indicesView->raise();
     }
+    qint64 t6 = indicesTimer.elapsed();
+    
+    qint64 totalTime = indicesTimer.elapsed();
+    qDebug() << "========================================";
+    qDebug() << "[PERF] [INDICES_CREATE] COMPLETE";
+    qDebug() << "  TOTAL TIME:" << totalTime << "ms";
+    qDebug() << "  Breakdown:";
+    qDebug() << "    - Create IndicesView widget:" << (t1-t0) << "ms";
+    qDebug() << "    - Set window properties:" << (t2-t1) << "ms";
+    qDebug() << "    - Connect UDP signal:" << (t3-t2) << "ms";
+    qDebug() << "    - Load visibility preference:" << (t4-t3) << "ms";
+    qDebug() << "    - Setup action connections:" << (t5-t4) << "ms";
+    qDebug() << "    - Show window (if enabled):" << (t6-t5) << "ms";
+    qDebug() << "========================================";
 }

@@ -304,14 +304,17 @@ set(VIEW_HEADERS
 # ========================================
 # DATA LAYER - Zero-Copy Shared Memory Stores
 # ✅ Distributed PriceStore Gateway
+# ✅ SymbolCacheManager - Shared symbol caching (NEW)
 # ========================================
 set(DATA_SOURCES
     src/data/PriceStoreGateway.cpp
+    src/data/SymbolCacheManager.cpp
 )
 
 set(DATA_HEADERS
     include/data/PriceStoreGateway.h
     include/data/UnifiedPriceState.h
+    include/data/SymbolCacheManager.h
 )
 
 # ========================================

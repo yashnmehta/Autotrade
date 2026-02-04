@@ -30,6 +30,16 @@ WindowCacheManager::~WindowCacheManager()
 
 void WindowCacheManager::initialize(MainWindow* mainWindow)
 {
+    // ⏱️ PERFORMANCE LOG: Track WindowCacheManager initialization CPU usage
+    QElapsedTimer initTimer;
+    initTimer.start();
+    qint64 startTime = QDateTime::currentMSecsSinceEpoch();
+    
+    qDebug() << "========================================";
+    qDebug() << "[PERF] [WINDOW_CACHE_INIT] START";
+    qDebug() << "  Timestamp:" << startTime;
+    qDebug() << "========================================";
+    
     if (m_initialized) {
         qDebug() << "[WindowCacheManager] Already initialized";
         return;
@@ -43,7 +53,10 @@ void WindowCacheManager::initialize(MainWindow* mainWindow)
     m_mainWindow = mainWindow;
     
     qDebug() << "[WindowCacheManager] Initializing window cache...";
+    qint64 t0 = initTimer.elapsed();
+    
     createCachedWindows();
+    qint64 t1 = initTimer.elapsed();
     
     m_initialized = true;
     qDebug() << "[WindowCacheManager] ✓ Window cache initialized successfully";
@@ -60,10 +73,27 @@ void WindowCacheManager::initialize(MainWindow* mainWindow)
         m_hasSavedPosition = false;
         qDebug() << "[WindowCacheManager] No saved position found (will use default)";
     }
+    qint64 t2 = initTimer.elapsed();
+    
+    qint64 totalTime = initTimer.elapsed();
+    qDebug() << "========================================";
+    qDebug() << "[PERF] [WINDOW_CACHE_INIT] COMPLETE";
+    qDebug() << "  TOTAL TIME:" << totalTime << "ms";
+    qDebug() << "  Breakdown:";
+    qDebug() << "    - Pre-setup:" << t0 << "ms";
+    qDebug() << "    - Create cached windows (Buy/Sell/3xSnapQuote):" << (t1-t0) << "ms";
+    qDebug() << "    - Load window position:" << (t2-t1) << "ms";
+    qDebug() << "========================================";
 }
 
 void WindowCacheManager::createCachedWindows()
 {
+    // ⏱️ PERFORMANCE LOG: Track per-window creation time
+    QElapsedTimer windowTimer;
+    windowTimer.start();
+    
+    qDebug() << "[PERF] [CACHE_CREATE] Starting window pre-creation...";
+    
     if (!m_mainWindow || !m_mainWindow->mdiArea()) {
         qWarning() << "[WindowCacheManager] Cannot create cached windows: MDI area not ready";
         return;
@@ -72,6 +102,7 @@ void WindowCacheManager::createCachedWindows()
     auto mdiArea = m_mainWindow->mdiArea();
     
     // Pre-create Buy Window
+    qint64 buyStart = windowTimer.elapsed();
     m_cachedBuyMdiWindow = new CustomMDISubWindow("Buy Order", mdiArea);
     m_cachedBuyMdiWindow->setWindowType("BuyWindow");
     m_cachedBuyMdiWindow->setCached(true);  // Mark as cached window
@@ -96,9 +127,11 @@ void WindowCacheManager::createCachedWindows()
     // Windows are pre-initialized, don't need reset on first show
     m_buyWindowNeedsReset = false;
     
-    qDebug() << "[WindowCacheManager] Buy window pre-created";
+    qint64 buyTime = windowTimer.elapsed() - buyStart;
+    qDebug() << "[PERF] [CACHE_CREATE] Buy window created in" << buyTime << "ms";
     
     // Pre-create Sell Window
+    qint64 sellStart = windowTimer.elapsed();
     m_cachedSellMdiWindow = new CustomMDISubWindow("Sell Order", mdiArea);
     m_cachedSellMdiWindow->setWindowType("SellWindow");
     m_cachedSellMdiWindow->setCached(true);  // Mark as cached window
@@ -123,10 +156,14 @@ void WindowCacheManager::createCachedWindows()
     // Windows are pre-initialized, don't need reset on first show
     m_sellWindowNeedsReset = false;
     
-    qDebug() << "[WindowCacheManager] Sell window pre-created";
+    qint64 sellTime = windowTimer.elapsed() - sellStart;
+    qDebug() << "[PERF] [CACHE_CREATE] Sell window created in" << sellTime << "ms";
     
     // ⚡ Pre-create 3 SnapQuote Windows for multi-window support
+    qint64 snapStart = windowTimer.elapsed();
     for (int i = 0; i < MAX_SNAPQUOTE_WINDOWS; i++) {
+        qint64 singleSnapStart = windowTimer.elapsed();
+        
         SnapQuoteWindowEntry entry;
         
         QString title = QString("Snap Quote %1").arg(i + 1);
@@ -158,10 +195,18 @@ void WindowCacheManager::createCachedWindows()
         
         m_snapQuoteWindows.append(entry);
         
-        qDebug() << "[WindowCacheManager] SnapQuote window" << (i+1) << "pre-created and connected to UDP";
+        qint64 singleSnapTime = windowTimer.elapsed() - singleSnapStart;
+        qDebug() << "[PERF] [CACHE_CREATE] SnapQuote window" << (i+1) << "created in" << singleSnapTime << "ms";
     }
     
-    qDebug() << "[WindowCacheManager] ✓ All" << MAX_SNAPQUOTE_WINDOWS << "SnapQuote windows pre-created";
+    qint64 totalSnapTime = windowTimer.elapsed() - snapStart;
+    qint64 totalTime = windowTimer.elapsed();
+    
+    qDebug() << "[PERF] [CACHE_CREATE] ✓ All" << MAX_SNAPQUOTE_WINDOWS << "SnapQuote windows created in" << totalSnapTime << "ms";
+    qDebug() << "[PERF] [CACHE_CREATE] TOTAL window creation time:" << totalTime << "ms";
+    qDebug() << "  - Buy:" << buyTime << "ms";
+    qDebug() << "  - Sell:" << sellTime << "ms";
+    qDebug() << "  - 3x SnapQuote:" << totalSnapTime << "ms";
 }
 
 void WindowCacheManager::setXTSClientForSnapQuote(XTSMarketDataClient *client)

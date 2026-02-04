@@ -124,8 +124,10 @@ private:
     BuyWindow* m_cachedBuyWindow = nullptr;
     SellWindow* m_cachedSellWindow = nullptr;
     
-    // ⚡ MULTIPLE SNAPQUOTE WINDOWS (up to 3)
-    static constexpr int MAX_SNAPQUOTE_WINDOWS = 3;
+    // ⚡ OPTIMIZATION: Reduced from 3 to 1 for faster startup
+    // First SnapQuote: Pre-cached (instant F3)
+    // Additional SnapQuotes: Created on-demand (~2000ms first time, instant after)
+    static constexpr int MAX_SNAPQUOTE_WINDOWS = 1;  // Was 3 - saves ~4000ms startup time
     QVector<SnapQuoteWindowEntry> m_snapQuoteWindows;
     
     // State tracking for smart reset

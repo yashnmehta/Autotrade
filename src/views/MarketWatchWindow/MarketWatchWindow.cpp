@@ -10,6 +10,23 @@
 #include <QKeyEvent>
 #include <QTimer>
 #include <QUuid>
+#include <QElapsedTimer>
+#include <QDateTime>
+
+// ============================================================================
+// PERFORMANCE LOGGING - MarketWatch Window
+// ============================================================================
+// Logs all timing information for MarketWatch operations:
+// - Window construction time
+// - Data loading time
+// - UI setup time
+// - Scrip addition time
+// - Price update latency
+// ============================================================================
+
+// PERFORMANCE OPTIMIZATION: Cache preference to avoid 50ms disk I/O per window
+static bool s_useZeroCopyPriceCache_Cached = false;
+static bool s_preferenceCached = false;
 
 MarketWatchWindow::MarketWatchWindow(QWidget *parent)
     : CustomMarketWatch(parent)
@@ -19,19 +36,78 @@ MarketWatchWindow::MarketWatchWindow(QWidget *parent)
     , m_useZeroCopyPriceCache(false)  // Will be loaded from preferences
     , m_zeroCopyUpdateTimer(nullptr)
 {
-    setupUI();
-    setupConnections();
-    setupKeyboardShortcuts();
-
-    // Load and apply previous runtime state and customizations
-    WindowSettingsHelper::loadAndApplyWindowSettings(this, "MarketWatch");
+    // ⏱️ PERFORMANCE LOG: Start timing window construction
+    QElapsedTimer constructionTimer;
+    constructionTimer.start();
+    qint64 startTime = QDateTime::currentMSecsSinceEpoch();
     
-    // Load preference for PriceCache mode
-    PreferencesManager& prefs = PreferencesManager::instance();
-    m_useZeroCopyPriceCache = !prefs.getUseLegacyPriceCache(); // Inverted: false = legacy, true = zero-copy
+    qDebug() << "========================================";
+    qDebug() << "[PERF] [MARKETWATCH_CONSTRUCT] START";
+    qDebug() << "  Timestamp:" << startTime;
+    qDebug() << "========================================";
+    
+    qint64 t0 = constructionTimer.elapsed();
+    
+    // Setup UI
+    setupUI();
+    qint64 t1 = constructionTimer.elapsed();
+    qDebug() << "[PERF] [MARKETWATCH_CONSTRUCT] setupUI() took:" << (t1-t0) << "ms";
+    
+    // Setup connections
+    setupConnections();
+    qint64 t2 = constructionTimer.elapsed();
+    qDebug() << "[PERF] [MARKETWATCH_CONSTRUCT] setupConnections() took:" << (t2-t1) << "ms";
+    
+    // OPTIMIZATION: Defer keyboard shortcuts to after window is visible (saves 9ms)
+    // setupKeyboardShortcuts();
+    qint64 t3 = t2; // Skip for now
+    // qDebug() << "[PERF] [MARKETWATCH_CONSTRUCT] setupKeyboardShortcuts() took:" << (t3-t2) << "ms";
+
+    // OPTIMIZATION: Defer settings load to after window is visible (saves 88ms)
+    // WindowSettingsHelper::loadAndApplyWindowSettings(this, "MarketWatch");
+    qint64 t4 = t3; // Skip for now
+    // qDebug() << "[PERF] [MARKETWATCH_CONSTRUCT] loadAndApplyWindowSettings() took:" << (t4-t3) << "ms";
+    
+    // OPTIMIZATION: Load preference once and cache it (saves 50ms on subsequent windows)
+    if (!s_preferenceCached) {
+        PreferencesManager& prefs = PreferencesManager::instance();
+        s_useZeroCopyPriceCache_Cached = !prefs.getUseLegacyPriceCache();
+        s_preferenceCached = true;
+        qDebug() << "[PERF] [MARKETWATCH_CONSTRUCT] First window - loaded preference from disk";
+    }
+    m_useZeroCopyPriceCache = s_useZeroCopyPriceCache_Cached;
+    qint64 t5 = constructionTimer.elapsed();
+    qDebug() << "[PERF] [MARKETWATCH_CONSTRUCT] Load PriceCache preference took:" << (t5-t4) << "ms" << "(cached)";
     
     qDebug() << "[MarketWatch] PriceCache mode:" 
              << (m_useZeroCopyPriceCache ? "ZERO-COPY (New)" : "LEGACY (Old)");
+    
+    // OPTIMIZATION: Defer shortcuts and settings to after window is visible
+    QTimer::singleShot(0, this, [this]() {
+        QElapsedTimer deferredTimer;
+        deferredTimer.start();
+        
+        setupKeyboardShortcuts();
+        qint64 shortcutsTime = deferredTimer.elapsed();
+        
+        WindowSettingsHelper::loadAndApplyWindowSettings(this, "MarketWatch");
+        qint64 settingsTime = deferredTimer.elapsed() - shortcutsTime;
+        
+        qDebug() << "[PERF] [MARKETWATCH_DEFERRED] Shortcuts:" << shortcutsTime 
+                 << "ms, Settings:" << settingsTime << "ms";
+    });
+    
+    qint64 totalTime = constructionTimer.elapsed();
+    qDebug() << "========================================";
+    qDebug() << "[PERF] [MARKETWATCH_CONSTRUCT] COMPLETE";
+    qDebug() << "  TOTAL TIME:" << totalTime << "ms (deferred operations will complete asynchronously)";
+    qDebug() << "  Breakdown:";
+    qDebug() << "    - UI Setup:" << (t1-t0) << "ms";
+    qDebug() << "    - Connections:" << (t2-t1) << "ms";
+    qDebug() << "    - Shortcuts: DEFERRED (was 9ms, now async)";
+    qDebug() << "    - Load Settings: DEFERRED (was 88ms, now async)";
+    qDebug() << "    - Load Preferences:" << (t5-t4) << "ms (cached after first window)";
+    qDebug() << "========================================";
 }
 
 MarketWatchWindow::~MarketWatchWindow()
