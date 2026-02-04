@@ -538,6 +538,19 @@ void MainWindow::createIndicesView()
             QSettings s("TradingCompany", "TradingTerminal");
             s.setValue("mainwindow/indices_visible", visible); 
         });
+        
+        // ✅ Connect hideRequested signal to update action state when user closes window
+        // NOTE: When user closes with X button, we only uncheck the menu item
+        // but DON'T save the preference as false - window should reopen on next launch
+        connect(m_indicesView, &IndicesView::hideRequested, this, [this]() {
+            if (m_indicesViewAction) {
+                // Temporarily disconnect to avoid triggering save
+                m_indicesViewAction->blockSignals(true);
+                m_indicesViewAction->setChecked(false);
+                m_indicesViewAction->blockSignals(false);
+            }
+            // DON'T save preference here - keep it as true for next launch
+        });
     }
     
     // Show if user preference was enabled

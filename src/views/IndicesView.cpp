@@ -2,6 +2,11 @@
 #include <QVBoxLayout>
 #include <QHeaderView>
 #include <QDebug>
+#include <QSettings>
+#include <QCloseEvent>
+#include <QMoveEvent>
+#include <QApplication>
+#include <QScreen>
 
 // ========== IndicesModel Implementation ==========
 
@@ -110,6 +115,9 @@ IndicesView::IndicesView(QWidget *parent)
     updateIndex("NIFTY 50", 22500.00, 111.94, 0.50);
     updateIndex("BANKNIFTY", 48000.00, -120.30, -0.25);
     updateIndex("SENSEX", 74000.00, 200.00, 0.27);
+    
+    // ✅ Load saved position or set default to top-right corner
+    loadPosition();
 }
 
 IndicesView::~IndicesView()
@@ -216,4 +224,95 @@ void IndicesView::clear()
 {
     m_model->clear();
     m_pendingUpdates.clear();
+}
+
+void IndicesView::loadPosition()
+{
+    QSettings settings("TradingCompany", "TradingTerminal");
+    
+    // Check if we have a saved position
+    if (settings.contains("indicesview/pos_x") && settings.contains("indicesview/pos_y")) {
+        int x = settings.value("indicesview/pos_x").toInt();
+        int y = settings.value("indicesview/pos_y").toInt();
+        
+        // ✅ Validate position is on-screen
+        QScreen *screen = QApplication::primaryScreen();
+        if (screen) {
+            QRect screenGeometry = screen->availableGeometry();
+            
+            // Make sure window is within screen bounds
+            if (x < screenGeometry.x()) x = screenGeometry.x();
+            if (y < screenGeometry.y()) y = screenGeometry.y();
+            if (x + width() > screenGeometry.right()) x = screenGeometry.right() - width();
+            if (y + height() > screenGeometry.bottom()) y = screenGeometry.bottom() - height();
+            
+            move(x, y);
+            qDebug() << "[IndicesView] Restored position:" << QPoint(x, y);
+            return;
+        }
+    }
+    
+    // ✅ No saved position - default to TOP-RIGHT corner
+    if (parentWidget()) {
+        // Position relative to parent (MainWindow)
+        QWidget *parent = parentWidget();
+        int x = parent->x() + parent->width() - width() - 20;  // 20px margin from right edge
+        int y = parent->y() + 50;  // 50px from top
+        
+        // Make sure it's on-screen
+        QScreen *screen = QApplication::primaryScreen();
+        if (screen) {
+            QRect screenGeometry = screen->availableGeometry();
+            if (x + width() > screenGeometry.right()) {
+                x = screenGeometry.right() - width() - 20;
+            }
+            if (y < screenGeometry.y()) {
+                y = screenGeometry.y() + 50;
+            }
+        }
+        
+        move(x, y);
+        qDebug() << "[IndicesView] Default position (top-right):" << QPoint(x, y);
+    }
+}
+
+void IndicesView::savePosition()
+{
+    QSettings settings("TradingCompany", "TradingTerminal");
+    settings.setValue("indicesview/pos_x", x());
+    settings.setValue("indicesview/pos_y", y());
+    qDebug() << "[IndicesView] Saved position:" << pos();
+}
+
+void IndicesView::closeEvent(QCloseEvent *event)
+{
+    // ✅ Save position when window is closed
+    savePosition();
+    
+    // ✅ When user closes with X button:
+    // - Hide the window temporarily
+    // - Uncheck the menu action
+    // - But DON'T save preference as false (keep it true for next launch)
+    emit hideRequested();
+    
+    // Just hide, don't actually close
+    hide();
+    event->ignore();
+}
+
+void IndicesView::moveEvent(QMoveEvent *event)
+{
+    // ✅ Save position whenever window is moved
+    QWidget::moveEvent(event);
+    
+    // Debounce saves - only save if position has stabilized
+    static QTimer *saveTimer = nullptr;
+    if (!saveTimer) {
+        saveTimer = new QTimer(this);
+        saveTimer->setSingleShot(true);
+        saveTimer->setInterval(500);  // Save 500ms after user stops dragging
+        connect(saveTimer, &QTimer::timeout, this, &IndicesView::savePosition);
+    }
+    
+    saveTimer->start();
 }
