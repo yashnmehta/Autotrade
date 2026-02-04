@@ -273,6 +273,12 @@ public:
   int64_t getAssetTokenForSymbol(const QString &symbol) const;
   int64_t getFutureTokenForSymbolExpiry(const QString &symbol,
                                         const QString &expiry) const;
+
+  /**
+   * @brief Get nearest expiry future token for a symbol
+   */
+  uint32_t getNextExpiryFutureToken(const QString &symbol,
+                                    int exchangeSegment) const;
   
   /**
    * @brief Get underlying price (LTP) using unified logic (Cash -> Future fallback)

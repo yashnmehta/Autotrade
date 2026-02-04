@@ -2,7 +2,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 # Find Qt5
-find_package(Qt5 REQUIRED COMPONENTS Core Network)
+find_package(Qt5 REQUIRED COMPONENTS Core Network Concurrent Widgets)
 
 # Enable automoc for Qt meta-object compilation
 set(CMAKE_AUTOMOC ON)
@@ -100,11 +100,13 @@ add_executable(benchmark_repository_filters
     ${NSEFO_SOURCES}
     ${NSECM_SOURCES}
     ${COMMON_LZO_SOURCES}
+    ../src/data/SymbolCacheManager.cpp
     ../include/repository/RepositoryManager.h
     ../include/services/MasterLoaderWorker.h
     ../include/utils/PreferencesManager.h
     ../include/services/MasterDataState.h
     ../include/utils/ConfigLoader.h
+    ../include/data/SymbolCacheManager.h
 )
 
 target_include_directories(benchmark_repository_filters PRIVATE
@@ -124,6 +126,7 @@ target_link_libraries(benchmark_repository_filters
     Qt5::Core
     Qt5::Network
     Qt5::Concurrent
+    Qt5::Widgets
     cpp_broadcast_bsefo
     ${LZO_LIBRARIES}
 )
@@ -156,11 +159,13 @@ add_executable(simple_load_test
     ${NSEFO_SOURCES}
     ${NSECM_SOURCES}
     ${COMMON_LZO_SOURCES}
+    ../src/data/SymbolCacheManager.cpp
     ../include/repository/RepositoryManager.h
     ../include/services/MasterLoaderWorker.h
     ../include/utils/PreferencesManager.h
     ../include/services/MasterDataState.h
     ../include/utils/ConfigLoader.h
+    ../include/data/SymbolCacheManager.h
 )
 
 target_include_directories(simple_load_test PRIVATE
@@ -176,6 +181,7 @@ target_link_libraries(simple_load_test
     Qt5::Core
     Qt5::Network
     Qt5::Concurrent
+    Qt5::Widgets
     cpp_broadcast_bsefo
     Threads::Threads
     ${LZO_LIBRARIES}

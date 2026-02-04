@@ -1695,6 +1695,15 @@ RepositoryManager::getFutureTokenForSymbolExpiry(const QString &symbol,
   return m_symbolExpiryFutureToken.value(key, 0);
 }
 
+uint32_t RepositoryManager::getNextExpiryFutureToken(const QString &symbol,
+                                                     int exchangeSegment) const {
+  QString nearestExpiry = getCurrentExpiry(symbol);
+  if (nearestExpiry.isEmpty()) {
+    return 0;
+  }
+  return static_cast<uint32_t>(getFutureTokenForSymbolExpiry(symbol, nearestExpiry));
+}
+
 double RepositoryManager::getUnderlyingPrice(const QString &symbol, const QString &expiry) const {
   std::shared_lock lock(m_expiryCacheMutex);
 
