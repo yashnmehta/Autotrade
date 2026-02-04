@@ -133,6 +133,7 @@ bool NSECMRepository::loadMasterFile(const QString &filename) {
   }
 
   file.close();
+  locker.unlock();
   finalizeLoad();
   return m_loaded;
 }
@@ -565,6 +566,7 @@ void NSECMRepository::prepareForLoad() {
 }
 
 void NSECMRepository::finalizeLoad() {
+  QWriteLocker locker(&m_mutex);
   m_loaded = (m_contractCount > 0);
   
   // Build index name map for indices

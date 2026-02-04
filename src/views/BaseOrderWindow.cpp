@@ -90,17 +90,31 @@ void BaseOrderWindow::setupBaseConnections() {
     }
     if (m_leQty) {
         m_leQty->installEventFilter(this);
-        qDebug() << "[BaseOrderWindow] Installed event filter on Quantity field:" << m_leQty;
+        // Only allow integers, range 0 to 10M
+        m_leQty->setValidator(new QIntValidator(0, 10000000, this));
+        qDebug() << "[BaseOrderWindow] Installed event filter and validator on Quantity field";
+    }
+    if (m_leDiscloseQty) {
+        m_leDiscloseQty->setValidator(new QIntValidator(0, 10000000, this));
     }
     if (m_leRate) {
         m_leRate->installEventFilter(this);
-        qDebug() << "[BaseOrderWindow] Installed event filter on Price field:" << m_leRate;
+        // Allow decimals with 2 decimal places, range 0 to 10M
+        QDoubleValidator *priceValidator = new QDoubleValidator(0.0, 10000000.0, 2, this);
+        priceValidator->setNotation(QDoubleValidator::StandardNotation);
+        m_leRate->setValidator(priceValidator);
+        qDebug() << "[BaseOrderWindow] Installed event filter and validator on Price field";
+    }
+    if (m_leTrigPrice) {
+        QDoubleValidator *trigValidator = new QDoubleValidator(0.0, 10000000.0, 2, this);
+        trigValidator->setNotation(QDoubleValidator::StandardNotation);
+        m_leTrigPrice->setValidator(trigValidator);
     }
 }
 
 void BaseOrderWindow::populateBaseComboBoxes() {
     if (m_cbEx) m_cbEx->addItems({"NSECM", "NSEFO", "NSECD", "BSECM", "BSEFO", "BSECD", "MCXFO"});
-    if (m_cbInstrName) m_cbInstrName->addItems({"FUTIDX", "FUTSTK", "OPTIDX", "OPTSTK"});
+    if (m_cbInstrName) m_cbInstrName->addItems({"FUTIDX", "FUTSTK", "OPTIDX", "OPTSTK", "EQ"});
     if (m_cbOrdType) m_cbOrdType->addItems({"Limit", "Market", "StopLimit", "StopMarket"});
     if (m_cbOrderType2) m_cbOrderType2->addItems({"CarryForward", "DELIVERY", "INTRADAY"});
     if (m_cbOptType) m_cbOptType->addItems({"CE", "PE"});
@@ -242,6 +256,32 @@ void BaseOrderWindow::loadFromContext(const WindowContext &context) {
     m_context = context;
     setScripDetails(context.exchange, context.token, context.symbol);
     if (m_leInsType) m_leInsType->setText(context.instrumentType);
+    
+    // Set Instrument Type dropdown if available
+    if (m_cbInstrName) {
+        // "EQ" might not be in the list by default if list only has derivatives
+        // But we should try to find it or add it
+        QString typeToCheck = context.instrumentType;
+        if (typeToCheck == "EQUITY") typeToCheck = "EQ"; 
+        
+        int idx = m_cbInstrName->findText(typeToCheck, Qt::MatchFixedString);
+        if (idx == -1 && typeToCheck == "EQ") {
+             // Maybe it's "EQUITY" in the list?
+             idx = m_cbInstrName->findText("EQUITY", Qt::MatchFixedString);
+        }
+        
+        if (idx >= 0) {
+            m_cbInstrName->setCurrentIndex(idx);
+        } else {
+            // If not found (e.g. EQ), add it temporarily or set it
+            if (m_cbInstrName->isEditable()) {
+                m_cbInstrName->setEditText(context.instrumentType);
+            } else {
+                 // Try to force selection or log warning
+                 qDebug() << "[BaseOrderWindow] Instrument Type" << context.instrumentType << "not found in dropdown";
+            }
+        }
+    }
     if (m_leQty) {
         int qty = context.lotSize > 0 ? context.lotSize : 1;
         m_leQty->setText(QString::number(qty));
@@ -462,8 +502,30 @@ bool BaseOrderWindow::eventFilter(QObject *obj, QEvent *event) {
     if (event->type() == QEvent::KeyPress) {
         QKeyEvent *keyEvent = static_cast<QKeyEvent*>(event);
         
-        // Handle Quantity field arrow keys
+        // Handle Quantity field
         if (obj == m_leQty) {
+            // Intercept +/- keys BEFORE validator processes them
+            // These keys switch between Buy/Sell windows
+            if (keyEvent->key() == Qt::Key_Plus || keyEvent->key() == Qt::Key_Minus) {
+                qDebug() << "[BaseOrderWindow] +/- key pressed in Quantity field - switching window";
+                
+                // Find MainWindow and call its methods directly
+                QWidget *topLevel = window();
+                while (topLevel && !topLevel->inherits("MainWindow")) {
+                    topLevel = topLevel->parentWidget();
+                }
+                
+                if (topLevel) {
+                    if (keyEvent->key() == Qt::Key_Plus) {
+                        QMetaObject::invokeMethod(topLevel, "createBuyWindow");
+                    } else {
+                        QMetaObject::invokeMethod(topLevel, "createSellWindow");
+                    }
+                }
+                
+                return true;  // Block the key from reaching the QLineEdit
+            }
+            
             if (keyEvent->key() == Qt::Key_Up || keyEvent->key() == Qt::Key_Down) {
                 qDebug() << "[BaseOrderWindow] Arrow key pressed in Quantity field:" << (keyEvent->key() == Qt::Key_Up ? "UP" : "DOWN");
                 
@@ -489,8 +551,29 @@ bool BaseOrderWindow::eventFilter(QObject *obj, QEvent *event) {
             return QWidget::eventFilter(obj, event);
         }
         
-        // Handle Price field arrow keys
+        // Handle Price field
         else if (obj == m_leRate) {
+            // Intercept +/- keys BEFORE validator processes them
+            if (keyEvent->key() == Qt::Key_Plus || keyEvent->key() == Qt::Key_Minus) {
+                qDebug() << "[BaseOrderWindow] +/- key pressed in Price field - switching window";
+                
+                // Find MainWindow and call its methods directly
+                QWidget *topLevel = window();
+                while (topLevel && !topLevel->inherits("MainWindow")) {
+                    topLevel = topLevel->parentWidget();
+                }
+                
+                if (topLevel) {
+                    if (keyEvent->key() == Qt::Key_Plus) {
+                        QMetaObject::invokeMethod(topLevel, "createBuyWindow");
+                    } else {
+                        QMetaObject::invokeMethod(topLevel, "createSellWindow");
+                    }
+                }
+                
+                return true;  // Block the key from reaching the QLineEdit
+            }
+            
             if (keyEvent->key() == Qt::Key_Up || keyEvent->key() == Qt::Key_Down) {
                 qDebug() << "[BaseOrderWindow] Arrow key pressed in Price field:" << (keyEvent->key() == Qt::Key_Up ? "UP" : "DOWN");
                 

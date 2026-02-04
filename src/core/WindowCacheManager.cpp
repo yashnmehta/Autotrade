@@ -4,11 +4,15 @@
 #include "core/widgets/CustomMDISubWindow.h"
 #include "views/BuyWindow.h"
 #include "views/SellWindow.h"
+#include "views/SnapQuoteWindow.h"
+#include "api/XTSMarketDataClient.h"
 #include "models/WindowContext.h"
+#include "services/UdpBroadcastService.h"  // ⚡ For real-time UDP updates
 #include <QDebug>
 #include <QSettings>
 #include <QElapsedTimer>
 #include <QTimer>
+#include <QDateTime> // Added for performance logging
 
 WindowCacheManager& WindowCacheManager::instance()
 {
@@ -26,6 +30,16 @@ WindowCacheManager::~WindowCacheManager()
 
 void WindowCacheManager::initialize(MainWindow* mainWindow)
 {
+    // ⏱️ PERFORMANCE LOG: Track WindowCacheManager initialization CPU usage
+    QElapsedTimer initTimer;
+    initTimer.start();
+    qint64 startTime = QDateTime::currentMSecsSinceEpoch();
+    
+    qDebug() << "========================================";
+    qDebug() << "[PERF] [WINDOW_CACHE_INIT] START";
+    qDebug() << "  Timestamp:" << startTime;
+    qDebug() << "========================================";
+    
     if (m_initialized) {
         qDebug() << "[WindowCacheManager] Already initialized";
         return;
@@ -39,14 +53,47 @@ void WindowCacheManager::initialize(MainWindow* mainWindow)
     m_mainWindow = mainWindow;
     
     qDebug() << "[WindowCacheManager] Initializing window cache...";
+    qint64 t0 = initTimer.elapsed();
+    
     createCachedWindows();
+    qint64 t1 = initTimer.elapsed();
     
     m_initialized = true;
     qDebug() << "[WindowCacheManager] ✓ Window cache initialized successfully";
+
+    // Pre-load saved position to avoid disk I/O on hotkey press
+    QSettings settings("TradingCompany", "TradingTerminal");
+    if (settings.contains("orderwindow/last_x") && settings.contains("orderwindow/last_y")) {
+        int x = settings.value("orderwindow/last_x").toInt();
+        int y = settings.value("orderwindow/last_y").toInt();
+        m_lastOrderWindowPos = QPoint(x, y);
+        m_hasSavedPosition = true;
+        qDebug() << "[WindowCacheManager] Pre-loaded window position:" << m_lastOrderWindowPos;
+    } else {
+        m_hasSavedPosition = false;
+        qDebug() << "[WindowCacheManager] No saved position found (will use default)";
+    }
+    qint64 t2 = initTimer.elapsed();
+    
+    qint64 totalTime = initTimer.elapsed();
+    qDebug() << "========================================";
+    qDebug() << "[PERF] [WINDOW_CACHE_INIT] COMPLETE";
+    qDebug() << "  TOTAL TIME:" << totalTime << "ms";
+    qDebug() << "  Breakdown:";
+    qDebug() << "    - Pre-setup:" << t0 << "ms";
+    qDebug() << "    - Create cached windows (Buy/Sell/3xSnapQuote):" << (t1-t0) << "ms";
+    qDebug() << "    - Load window position:" << (t2-t1) << "ms";
+    qDebug() << "========================================";
 }
 
 void WindowCacheManager::createCachedWindows()
 {
+    // ⏱️ PERFORMANCE LOG: Track per-window creation time
+    QElapsedTimer windowTimer;
+    windowTimer.start();
+    
+    qDebug() << "[PERF] [CACHE_CREATE] Starting window pre-creation...";
+    
     if (!m_mainWindow || !m_mainWindow->mdiArea()) {
         qWarning() << "[WindowCacheManager] Cannot create cached windows: MDI area not ready";
         return;
@@ -55,6 +102,7 @@ void WindowCacheManager::createCachedWindows()
     auto mdiArea = m_mainWindow->mdiArea();
     
     // Pre-create Buy Window
+    qint64 buyStart = windowTimer.elapsed();
     m_cachedBuyMdiWindow = new CustomMDISubWindow("Buy Order", mdiArea);
     m_cachedBuyMdiWindow->setWindowType("BuyWindow");
     m_cachedBuyMdiWindow->setCached(true);  // Mark as cached window
@@ -62,7 +110,11 @@ void WindowCacheManager::createCachedWindows()
     m_cachedBuyMdiWindow->setContentWidget(m_cachedBuyWindow);
     m_cachedBuyMdiWindow->resize(1220, 200);
     mdiArea->addWindow(m_cachedBuyMdiWindow);
-    m_cachedBuyMdiWindow->hide();
+    
+    // ⚡ CRITICAL: Show off-screen immediately (not hide!) for instant first show
+    m_cachedBuyMdiWindow->show();
+    m_cachedBuyMdiWindow->move(-10000, -10000);
+    m_cachedBuyMdiWindow->lower();
     
     // Connect signals to MainWindow (Crucial for cached windows!)
     if (m_mainWindow && m_cachedBuyWindow) {
@@ -75,9 +127,11 @@ void WindowCacheManager::createCachedWindows()
     // Windows are pre-initialized, don't need reset on first show
     m_buyWindowNeedsReset = false;
     
-    qDebug() << "[WindowCacheManager] Buy window pre-created";
+    qint64 buyTime = windowTimer.elapsed() - buyStart;
+    qDebug() << "[PERF] [CACHE_CREATE] Buy window created in" << buyTime << "ms";
     
     // Pre-create Sell Window
+    qint64 sellStart = windowTimer.elapsed();
     m_cachedSellMdiWindow = new CustomMDISubWindow("Sell Order", mdiArea);
     m_cachedSellMdiWindow->setWindowType("SellWindow");
     m_cachedSellMdiWindow->setCached(true);  // Mark as cached window
@@ -85,7 +139,11 @@ void WindowCacheManager::createCachedWindows()
     m_cachedSellMdiWindow->setContentWidget(m_cachedSellWindow);
     m_cachedSellMdiWindow->resize(1220, 200);
     mdiArea->addWindow(m_cachedSellMdiWindow);
-    m_cachedSellMdiWindow->hide();
+    
+    // ⚡ CRITICAL: Show off-screen immediately (not hide!) for instant first show
+    m_cachedSellMdiWindow->show();
+    m_cachedSellMdiWindow->move(-10000, -10000);
+    m_cachedSellMdiWindow->lower();
     
     // Connect signals to MainWindow (Crucial for cached windows!)
     if (m_mainWindow && m_cachedSellWindow) {
@@ -98,7 +156,75 @@ void WindowCacheManager::createCachedWindows()
     // Windows are pre-initialized, don't need reset on first show
     m_sellWindowNeedsReset = false;
     
-    qDebug() << "[WindowCacheManager] Sell window pre-created";
+    qint64 sellTime = windowTimer.elapsed() - sellStart;
+    qDebug() << "[PERF] [CACHE_CREATE] Sell window created in" << sellTime << "ms";
+    
+    // ⚡ Pre-create 3 SnapQuote Windows for multi-window support
+    qint64 snapStart = windowTimer.elapsed();
+    for (int i = 0; i < MAX_SNAPQUOTE_WINDOWS; i++) {
+        qint64 singleSnapStart = windowTimer.elapsed();
+        
+        SnapQuoteWindowEntry entry;
+        
+        QString title = QString("Snap Quote %1").arg(i + 1);
+        entry.mdiWindow = new CustomMDISubWindow(title, mdiArea);
+        entry.mdiWindow->setWindowType("SnapQuote");
+        entry.mdiWindow->setCached(true);  // Mark as cached window
+        entry.mdiWindow->setProperty("snapQuoteIndex", i);  // Store index for close tracking
+        
+        entry.window = new SnapQuoteWindow(entry.mdiWindow);
+        
+        // ⚡ CRITICAL: Set ScripBar to DisplayMode for instant setScripDetails() (<1ms)
+        // SnapQuote only needs to display the selected scrip, not search
+        entry.window->setScripBarDisplayMode(true);
+        
+        entry.mdiWindow->setContentWidget(entry.window);
+        entry.mdiWindow->resize(860, 300);
+        mdiArea->addWindow(entry.mdiWindow);
+        
+        // ⚡ CRITICAL: Show off-screen immediately (not hide!) for instant first show
+        // This ensures even the FIRST user-triggered show is instant (< 20ms)!
+        entry.mdiWindow->show();
+        entry.mdiWindow->move(-10000 - (i * 100), -10000);  // Stagger positions
+        entry.mdiWindow->lower();
+        
+        // ⚡ Connect to UDP broadcast service for real-time updates
+        QObject::connect(&UdpBroadcastService::instance(), &UdpBroadcastService::udpTickReceived,
+                        entry.window, &SnapQuoteWindow::onTickUpdate);
+        
+        // Initialize entry metadata
+        entry.needsReset = false;  // Windows are pre-initialized
+        entry.isVisible = false;
+        entry.lastToken = -1;
+        entry.lastUsedTime = QDateTime::currentDateTime().addSecs(-i);  // Stagger times for initial LRU order
+        
+        m_snapQuoteWindows.append(entry);
+        
+        qint64 singleSnapTime = windowTimer.elapsed() - singleSnapStart;
+        qDebug() << "[PERF] [CACHE_CREATE] SnapQuote window" << (i+1) << "created in" << singleSnapTime << "ms";
+    }
+    
+    qint64 totalSnapTime = windowTimer.elapsed() - snapStart;
+    qint64 totalTime = windowTimer.elapsed();
+    
+    qDebug() << "[PERF] [CACHE_CREATE] ✓ All" << MAX_SNAPQUOTE_WINDOWS << "SnapQuote windows created in" << totalSnapTime << "ms";
+    qDebug() << "[PERF] [CACHE_CREATE] TOTAL window creation time:" << totalTime << "ms";
+    qDebug() << "  - Buy:" << buyTime << "ms";
+    qDebug() << "  - Sell:" << sellTime << "ms";
+    qDebug() << "  - 3x SnapQuote:" << totalSnapTime << "ms";
+}
+
+void WindowCacheManager::setXTSClientForSnapQuote(XTSMarketDataClient *client)
+{
+    if (!client) return;
+    
+    for (int i = 0; i < m_snapQuoteWindows.size(); i++) {
+        if (m_snapQuoteWindows[i].window) {
+            m_snapQuoteWindows[i].window->setXTSClient(client);
+        }
+    }
+    
+    qDebug() << "[WindowCacheManager] XTS client set for all" << m_snapQuoteWindows.size() << "cached SnapQuote windows";
 }
 
 void WindowCacheManager::resetBuyWindow()
@@ -115,8 +241,46 @@ void WindowCacheManager::resetSellWindow()
     }
 }
 
+void WindowCacheManager::resetSnapQuoteWindow(int index)
+{
+    if (index >= 0 && index < m_snapQuoteWindows.size()) {
+        if (m_snapQuoteWindows[index].window) {
+            // Clear the previous scrip details
+            m_snapQuoteWindows[index].window->setScripDetails("", "", 0, "", "");
+            m_snapQuoteWindows[index].lastToken = -1;
+            m_snapQuoteWindows[index].needsReset = true;
+        }
+    }
+}
+
+int WindowCacheManager::findLeastRecentlyUsedSnapQuoteWindow()
+{
+    if (m_snapQuoteWindows.isEmpty()) {
+        return -1;
+    }
+    
+    int lruIndex = 0;
+    QDateTime oldestTime = m_snapQuoteWindows[0].lastUsedTime;
+    
+    for (int i = 1; i < m_snapQuoteWindows.size(); i++) {
+        if (m_snapQuoteWindows[i].lastUsedTime < oldestTime) {
+            oldestTime = m_snapQuoteWindows[i].lastUsedTime;
+            lruIndex = i;
+        }
+    }
+    
+    qDebug() << "[WindowCacheManager] LRU window index:" << lruIndex 
+             << "lastUsed:" << oldestTime.toString("hh:mm:ss");
+    
+    return lruIndex;
+}
+
 bool WindowCacheManager::showBuyWindow(const WindowContext* context)
 {
+    static int cacheHitCounter = 0;
+    cacheHitCounter++;
+    qDebug() << "[PERF] [CACHE_SHOW_BUY] #" << cacheHitCounter << " START Time:" << QDateTime::currentMSecsSinceEpoch();
+
     QElapsedTimer timer;
     timer.start();
     
@@ -136,24 +300,21 @@ bool WindowCacheManager::showBuyWindow(const WindowContext* context)
     qint64 t2 = timer.elapsed();
     
     // ALWAYS restore position FIRST (critical for off-screen strategy)
-    QSettings settings("TradingCompany", "TradingTerminal");
-    if (settings.contains("orderwindow/last_x") && settings.contains("orderwindow/last_y")) {
-        int x = settings.value("orderwindow/last_x").toInt();
-        int y = settings.value("orderwindow/last_y").toInt();
-        qDebug() << "[WindowCacheManager] Restoring saved position:" << QPoint(x, y);
-        
+    // OPTIMIZATION: Use in-memory cache instead of QSettings disk read
+    if (m_hasSavedPosition) {
         // Sanity check: if position is off-screen, use default instead
-        if (x < -1000 || y < -1000) {
-            qWarning() << "[WindowCacheManager] Saved position is off-screen! Using default position instead.";
+        if (m_lastOrderWindowPos.x() < -1000 || m_lastOrderWindowPos.y() < -1000) {
             auto mdiArea = m_mainWindow->mdiArea();
             if (mdiArea) {
                 QSize mdiSize = mdiArea->size();
-                x = mdiSize.width() - 1220 - 20;
-                y = mdiSize.height() - 200 - 20;
-                qDebug() << "[WindowCacheManager] Default position:" << QPoint(x, y);
+                int x = mdiSize.width() - 1220 - 20;
+                int y = mdiSize.height() - 200 - 20;
+                m_cachedBuyMdiWindow->move(x, y);
+                // Don't update cache here, let user move it
             }
+        } else {
+            m_cachedBuyMdiWindow->move(m_lastOrderWindowPos);
         }
-        m_cachedBuyMdiWindow->move(x, y);
     } else {
         // Default position: bottom-right
         auto mdiArea = m_mainWindow->mdiArea();
@@ -161,7 +322,7 @@ bool WindowCacheManager::showBuyWindow(const WindowContext* context)
             QSize mdiSize = mdiArea->size();
             int x = mdiSize.width() - 1220 - 20;
             int y = mdiSize.height() - 200 - 20;
-            qDebug() << "[WindowCacheManager] Using default position:" << QPoint(x, y);
+            // qDebug() << "[WindowCacheManager] Using default position:" << QPoint(x, y);
             m_cachedBuyMdiWindow->move(x, y);
         }
     }
@@ -191,18 +352,27 @@ bool WindowCacheManager::showBuyWindow(const WindowContext* context)
     
     qint64 t4 = timer.elapsed();
     
-    // Show and activate
+    // EVENT COALESCING: Cancel pending Sell activation if user switched to Buy
+    m_pendingActivation = PendingWindow::Buy;
+    
+    // Show immediately (fast, gives instant visual feedback)
     m_cachedBuyMdiWindow->show();
-    if (m_cachedBuyWindow) m_cachedBuyWindow->show(); // <--- ADD THIS
-    m_cachedBuyMdiWindow->raise();  // Bring to front
-    m_cachedBuyMdiWindow->activateWindow();
+    if (m_cachedBuyWindow) m_cachedBuyWindow->show();
     
     qint64 t5 = timer.elapsed();
     
-    // Apply focus asynchronously to avoid blocking window show
-    QTimer::singleShot(0, m_cachedBuyWindow, [this]() {
-        if (m_cachedBuyWindow) {
-            m_cachedBuyWindow->applyDefaultFocus();
+    // Defer raise/activate to next event loop iteration (prevents queue buildup)
+    QTimer::singleShot(0, this, [this]() {
+        // Only activate if Buy is still the pending window (not canceled by F2)
+        if (m_pendingActivation == PendingWindow::Buy && m_cachedBuyMdiWindow) {
+            m_cachedBuyMdiWindow->raise();
+            m_cachedBuyMdiWindow->activateWindow();
+            m_pendingActivation = PendingWindow::None;
+            
+            // Apply focus after activation
+            if (m_cachedBuyWindow) {
+                m_cachedBuyWindow->applyDefaultFocus();
+            }
         }
     });
     
@@ -223,6 +393,10 @@ bool WindowCacheManager::showBuyWindow(const WindowContext* context)
 
 bool WindowCacheManager::showSellWindow(const WindowContext* context)
 {
+    static int cacheHitCounter = 0;
+    cacheHitCounter++;
+    qDebug() << "[PERF] [CACHE_SHOW_SELL] #" << cacheHitCounter << " START Time:" << QDateTime::currentMSecsSinceEpoch();
+
     QElapsedTimer timer;
     timer.start();
     
@@ -242,24 +416,20 @@ bool WindowCacheManager::showSellWindow(const WindowContext* context)
     qint64 t2 = timer.elapsed();
     
     // ALWAYS restore position FIRST (critical for off-screen strategy)
-    QSettings settings("TradingCompany", "TradingTerminal");
-    if (settings.contains("orderwindow/last_x") && settings.contains("orderwindow/last_y")) {
-        int x = settings.value("orderwindow/last_x").toInt();
-        int y = settings.value("orderwindow/last_y").toInt();
-        qDebug() << "[WindowCacheManager] Restoring saved position:" << QPoint(x, y);
-        
+    // OPTIMIZATION: Use in-memory cache instead of QSettings disk read
+    if (m_hasSavedPosition) {
         // Sanity check: if position is off-screen, use default instead
-        if (x < -1000 || y < -1000) {
-            qWarning() << "[WindowCacheManager] Saved position is off-screen! Using default position instead.";
+        if (m_lastOrderWindowPos.x() < -1000 || m_lastOrderWindowPos.y() < -1000) {
             auto mdiArea = m_mainWindow->mdiArea();
             if (mdiArea) {
                 QSize mdiSize = mdiArea->size();
-                x = mdiSize.width() - 1220 - 20;
-                y = mdiSize.height() - 200 - 20;
-                qDebug() << "[WindowCacheManager] Default position:" << QPoint(x, y);
+                int x = mdiSize.width() - 1220 - 20;
+                int y = mdiSize.height() - 200 - 20;
+                m_cachedSellMdiWindow->move(x, y);
             }
+        } else {
+            m_cachedSellMdiWindow->move(m_lastOrderWindowPos);
         }
-        m_cachedSellMdiWindow->move(x, y);
     } else {
         // Default position: bottom-right
         auto mdiArea = m_mainWindow->mdiArea();
@@ -267,7 +437,7 @@ bool WindowCacheManager::showSellWindow(const WindowContext* context)
             QSize mdiSize = mdiArea->size();
             int x = mdiSize.width() - 1220 - 20;
             int y = mdiSize.height() - 200 - 20;
-            qDebug() << "[WindowCacheManager] Using default position:" << QPoint(x, y);
+            // qDebug() << "[WindowCacheManager] Using default position:" << QPoint(x, y);
             m_cachedSellMdiWindow->move(x, y);
         }
     }
@@ -297,18 +467,27 @@ bool WindowCacheManager::showSellWindow(const WindowContext* context)
     
     qint64 t4 = timer.elapsed();
     
-    // Show and activate
+    // EVENT COALESCING: Cancel pending Buy activation if user switched to Sell
+    m_pendingActivation = PendingWindow::Sell;
+    
+    // Show immediately (fast, gives instant visual feedback)
     m_cachedSellMdiWindow->show();
-    if (m_cachedSellWindow) m_cachedSellWindow->show(); // <--- ADD THIS
-    m_cachedSellMdiWindow->raise();  // Bring to front
-    m_cachedSellMdiWindow->activateWindow();
+    if (m_cachedSellWindow) m_cachedSellWindow->show();
     
     qint64 t5 = timer.elapsed();
     
-    // Apply focus asynchronously to avoid blocking window show
-    QTimer::singleShot(0, m_cachedSellWindow, [this]() {
-        if (m_cachedSellWindow) {
-            m_cachedSellWindow->applyDefaultFocus();
+    // Defer raise/activate to next event loop iteration (prevents queue buildup)
+    QTimer::singleShot(0, this, [this]() {
+        // Only activate if Sell is still the pending window (not canceled by F1)
+        if (m_pendingActivation == PendingWindow::Sell && m_cachedSellMdiWindow) {
+            m_cachedSellMdiWindow->raise();
+            m_cachedSellMdiWindow->activateWindow();
+            m_pendingActivation = PendingWindow::None;
+            
+            // Apply focus after activation
+            if (m_cachedSellWindow) {
+                m_cachedSellWindow->applyDefaultFocus();
+            }
         }
     });
     
@@ -325,4 +504,164 @@ bool WindowCacheManager::showSellWindow(const WindowContext* context)
     qDebug() << "  TOTAL:" << totalTime << "ms";
     
     return true;
+}
+
+bool WindowCacheManager::showSnapQuoteWindow(const WindowContext* context)
+{
+    static int cacheHitCounter = 0;
+    cacheHitCounter++;
+    qDebug() << "[PERF] [CACHE_SHOW_SNAPQUOTE] #" << cacheHitCounter << " START Time:" << QDateTime::currentMSecsSinceEpoch();
+
+    QElapsedTimer timer;
+    timer.start();
+    
+    if (!m_initialized || m_snapQuoteWindows.isEmpty()) {
+        qDebug() << "[WindowCacheManager] SnapQuote window cache not available";
+        return false;
+    }
+    
+    if (!context || !context->isValid()) {
+        qDebug() << "[WindowCacheManager] Invalid context provided";
+        return false;
+    }
+    
+    int requestedToken = context->token;
+    int selectedIndex = -1;
+    
+    // ⚡ STEP 1: Check if token is already displayed in any window (reuse same window)
+    for (int i = 0; i < m_snapQuoteWindows.size(); i++) {
+        if (m_snapQuoteWindows[i].lastToken == requestedToken && m_snapQuoteWindows[i].isVisible) {
+            selectedIndex = i;
+            qDebug() << "[WindowCacheManager] Token" << requestedToken << "already in window" << (i+1) << "- reusing";
+            break;
+        }
+    }
+    
+    // ⚡ STEP 2: If not found, look for first unused window (not yet visible)
+    if (selectedIndex == -1) {
+        for (int i = 0; i < m_snapQuoteWindows.size(); i++) {
+            if (!m_snapQuoteWindows[i].isVisible) {
+                selectedIndex = i;
+                qDebug() << "[WindowCacheManager] Using unused window" << (i+1);
+                break;
+            }
+        }
+    }
+    
+    // ⚡ STEP 3: All windows in use - find LRU
+    if (selectedIndex == -1) {
+        selectedIndex = findLeastRecentlyUsedSnapQuoteWindow();
+        qDebug() << "[WindowCacheManager] All" << MAX_SNAPQUOTE_WINDOWS << "windows in use - reusing LRU window" << (selectedIndex+1);
+    }
+    
+    if (selectedIndex == -1) {
+        qWarning() << "[WindowCacheManager] Failed to select SnapQuote window!";
+        return false;
+    }
+    
+    auto& entry = m_snapQuoteWindows[selectedIndex];
+    
+    qint64 t1 = timer.elapsed();
+    
+    // Position window (cascade windows with offset)
+    auto mdiArea = m_mainWindow->mdiArea();
+    if (mdiArea) {
+        QSize mdiSize = mdiArea->size();
+        int x = (mdiSize.width() - 860) / 2 + (selectedIndex * 30);  // Cascade offset
+        int y = (mdiSize.height() - 300) / 2 + (selectedIndex * 30);
+        entry.mdiWindow->move(x, y);
+    }
+    
+    qint64 t2 = timer.elapsed();
+    
+    // Smart context loading: only reload if context changed or window needs reset
+    if (entry.needsReset || requestedToken != entry.lastToken) {
+        // Context changed OR window was closed - need to reload
+        // ⚡ Pass false to skip XTS API call - use GStore data instead (MUCH faster!)
+        entry.window->loadFromContext(*context, false);
+        entry.lastToken = requestedToken;
+        entry.needsReset = false;
+        qDebug() << "[WindowCacheManager] Loaded NEW context for SnapQuote token:" << requestedToken << "(no API call)";
+    } else {
+        // Same context, window still has data - skip expensive reload!
+        qDebug() << "[WindowCacheManager] Skipping reload - same SnapQuote token:" << requestedToken;
+    }
+    
+    qint64 t3 = timer.elapsed();
+    
+    // Update LRU timestamp BEFORE showing (critical for next LRU calculation)
+    entry.lastUsedTime = QDateTime::currentDateTime();
+    entry.isVisible = true;
+    
+    qint64 t4 = timer.elapsed();
+    
+    // ⚡ ULTRA-FAST PATH: Keep window visible, just reposition (no show/hide overhead!)
+    bool wasHidden = !entry.mdiWindow->isVisible();
+    
+    if (wasHidden) {
+        // First time showing after hide() - need to call show() once
+        entry.mdiWindow->show();
+        if (entry.window) entry.window->show();
+        qDebug() << "[WindowCacheManager] ⚡ Window" << (selectedIndex+1) << "was hidden, calling show()";
+    } else {
+        // Already visible (just repositioned)
+        qDebug() << "[WindowCacheManager] ⚡ Window" << (selectedIndex+1) << "already visible, instant reposition!";
+    }
+    
+    qint64 t5 = timer.elapsed();
+    
+    // ⚡ Defer raise/activate to next event loop (ensures proper focus)
+    QTimer::singleShot(0, this, [this, selectedIndex]() {
+        if (selectedIndex >= 0 && selectedIndex < m_snapQuoteWindows.size()) {
+            auto& e = m_snapQuoteWindows[selectedIndex];
+            if (e.mdiWindow) {
+                e.mdiWindow->raise();
+                e.mdiWindow->activateWindow();
+                
+                // Set focus to content widget for keyboard input
+                if (e.window) {
+                    e.window->setFocus();
+                    e.window->activateWindow();
+                }
+            }
+        }
+    });
+    
+    qint64 totalTime = timer.elapsed();
+    
+    qDebug() << "[WindowCacheManager] ⚡ SnapQuote window" << (selectedIndex+1) << "shown from cache";
+    qDebug() << "[WindowCacheManager] Timing breakdown:";
+    qDebug() << "  Window selection:" << t1 << "ms";
+    qDebug() << "  Position restore:" << (t2-t1) << "ms";
+    qDebug() << "  Load context/reset (⚡ ScripBar deferred):" << (t3-t2) << "ms";
+    qDebug() << "  Update LRU timestamp:" << (t4-t3) << "ms";
+    qDebug() << "  Show/raise/activate:" << (t5-t4) << "ms" << (wasHidden ? " (show() called)" : " (instant!)");
+    qDebug() << "  TOTAL:" << totalTime << "ms (⚡ Target: 10-20ms)";
+    
+    return true;
+}
+
+void WindowCacheManager::markSnapQuoteWindowClosed(int windowIndex)
+{
+    if (windowIndex >= 0 && windowIndex < m_snapQuoteWindows.size()) {
+        auto& entry = m_snapQuoteWindows[windowIndex];
+        entry.isVisible = false;
+        entry.needsReset = true;
+        entry.lastToken = -1;
+        
+        qDebug() << "[WindowCacheManager] SnapQuote window" << (windowIndex+1) << "marked as closed (available for reuse)";
+    }
+}
+
+void WindowCacheManager::saveOrderWindowPosition(const QPoint& pos)
+{
+    qDebug() << "[WindowCacheManager] Caching new position:" << pos;
+    // Update memory cache immediately
+    m_lastOrderWindowPos = pos;
+    m_hasSavedPosition = true;
+    
+    // Save to disk (can be lazy, but QSettings is safely reentrant)
+    QSettings s("TradingCompany", "TradingTerminal");
+    s.setValue("orderwindow/last_x", pos.x());
+    s.setValue("orderwindow/last_y", pos.y());
 }

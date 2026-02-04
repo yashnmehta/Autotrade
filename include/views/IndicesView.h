@@ -90,8 +90,14 @@ public slots:
 private slots:
   void processPendingUpdates();
 
+protected:
+    void closeEvent(QCloseEvent *event) override;
+    void moveEvent(QMoveEvent *event) override;
+
 private:
-  void setupUI();
+    void setupUI();
+    void loadPosition();
+    void savePosition();
 
   QTableView *m_view;    // ✅ View (no item overhead)
   IndicesModel *m_model; // ✅ Model (efficient data storage)

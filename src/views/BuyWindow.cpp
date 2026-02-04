@@ -159,7 +159,7 @@ void BuyWindow::calculateDefaultPrice(const WindowContext &context) {
 }
 
 void BuyWindow::keyPressEvent(QKeyEvent *event) {
-    if (event->key() == Qt::Key_F2) {
+    if (event->key() == Qt::Key_F2 || event->key() == Qt::Key_Minus) {
         if (m_context.isValid()) emit requestSellWithContext(m_context);
         close();
     } else {
