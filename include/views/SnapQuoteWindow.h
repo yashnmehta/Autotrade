@@ -73,6 +73,10 @@ signals:
     void refreshRequested(const QString &exchange, int token);
     void closed();
 
+protected:
+    // ⚡ Override showEvent to defer expensive ScripBar population
+    void showEvent(QShowEvent *event) override;
+
 private:
     void populateComboBoxes();
     void setupConnections();
@@ -142,6 +146,10 @@ private:
     // Total counts
     QLabel *m_lbTotalBuyers;
     QLabel *m_lbTotalSellers;
+
+    // ⚡ Performance optimization: defer expensive ScripBar population
+    bool m_needsScripBarUpdate = false;
+    InstrumentData m_pendingScripData;
 
     void initUI();
 };

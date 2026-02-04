@@ -399,9 +399,10 @@ void MainWindow::createSnapQuoteWindow()
     
     // ⭐ Mark cached window for reset when closed
     connect(window, &CustomMDISubWindow::closeRequested, this, [this, window]() {
-        // Mark the cached window as closed
-        WindowCacheManager::instance().markSnapQuoteWindowClosed();
-        qDebug() << "[MainWindow] SnapQuote window closed, marked for reset";
+        // NOTE: This is legacy code path - cached windows handle this differently
+        // Pass 0 as a placeholder (this window is not part of the cache pool)
+        WindowCacheManager::instance().markSnapQuoteWindowClosed(0);
+        qDebug() << "[MainWindow] SnapQuote window closed (legacy path), marked for reset";
     });
     
     m_mdiArea->addWindow(window);
