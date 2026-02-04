@@ -288,14 +288,13 @@ void IndicesView::onIndexReceived(const UDP::IndexTick &tick) {
   }
 
   // Update (will be queued and batched)
-  if (tick.exchangeSegment == UDP::ExchangeSegment::NSECM) {
-    if (name == "Nifty 50" || name == "Nifty Bank") {
-      // qDebug() << "[IndicesView] NSECM Update:" << name
-      //          << "Input:" << QString::fromLatin1(tick.name)
-      //          << "Val:" << tick.value;
-    }
+  // FIX: Only update if it is in the user's selected list.
+  // This prevents Removed indices from reappearing when a UDP tick arrives.
+  if (m_selectedIndices.contains(name)) {
     updateIndex(name, tick.value, tick.change, tick.changePercent);
-  } else if (name == "Nifty 50" || name == "Nifty Bank" || name == "SENSEX") {
+  } else if (name == "SENSEX" && m_selectedIndices.contains("SENSEX")) {
+    // Special case for SENSEX if needed, but the general check above should
+    // cover it if SENSEX is in the list.
     updateIndex(name, tick.value, tick.change, tick.changePercent);
   }
 }
