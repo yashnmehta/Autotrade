@@ -140,8 +140,13 @@ void MasterLoaderWorker::run()
                 return;
             }
             
+            // Emit progress updates during loading
+            emit loadingProgress(20, "Loading NSE CM...");
+            
             // This operation is thread-safe as RepositoryManager uses internal locking
             bool success = repo->loadAll(mastersDir);
+            
+            emit loadingProgress(80, "Building caches...");
             
             if (isCancelled()) {
                 emit loadingFailed("Operation cancelled");

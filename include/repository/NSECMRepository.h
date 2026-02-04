@@ -175,7 +175,7 @@ public:
   /**
    * @brief Get index name to token mapping
    */
-  QHash<QString, int64_t> getIndexNameTokenMap() const;
+  QHash<QString, qint64> getIndexNameTokenMap() const;
   
   /**
    * @brief Build index name to token mapping after load
@@ -240,7 +240,7 @@ private:
   mutable QReadWriteLock m_mutex;
   
   // Index name -> Token mapping for indices
-  QHash<QString, int64_t> m_indexNameToToken;
+  QHash<QString, qint64> m_indexNameToToken;
 };
 
 #endif // NSECM_REPOSITORY_H

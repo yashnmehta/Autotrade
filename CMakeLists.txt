@@ -277,6 +277,7 @@ set(VIEW_SOURCES
     src/views/PreferenceDialog/PreferencesPortfolioTab.cpp
     src/views/CustomizeDialog.cpp
     src/views/IndicesView.cpp
+    src/views/AllIndicesWindow.cpp
 )
 
 set(VIEW_HEADERS
@@ -299,6 +300,7 @@ set(VIEW_HEADERS
     include/views/PreferencesPortfolioTab.h
     include/views/CustomizeDialog.h
     include/views/IndicesView.h
+    include/views/AllIndicesWindow.h
 )
 
 # ========================================

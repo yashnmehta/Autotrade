@@ -39,7 +39,9 @@ RepositoryManager::RepositoryManager() : QObject(nullptr), m_loaded(false) {
   m_bsecm = std::make_unique<BSECMRepository>();
 }
 
-RepositoryManager::~RepositoryManager() = default;
+RepositoryManager::~RepositoryManager() {
+    // Explicit destructor body to ensure symbol emission and proper cleanup
+}
 
 QString RepositoryManager::getMastersDirectory() {
   QString appDir = QCoreApplication::applicationDirPath();
@@ -111,10 +113,12 @@ bool RepositoryManager::loadAll(const QString &mastersPath) {
       mastersDir = getMastersDirectory();
   }
 
-  // PHASE 1: Load NSE CM Index Master (Required)
+  // PHASE 1: Load NSE CM Index Master (Required) - Always load from MasterFiles
   qDebug() << "[RepositoryManager] [1/5] Loading NSE CM Index Master...";
-  if (!loadIndexMaster(mastersDir)) {
-    qWarning() << "[RepositoryManager] Failed to load index master from" << mastersDir;
+  QString indexMasterPath = QCoreApplication::applicationDirPath() + "/MasterFiles";
+  qDebug() << "[RepositoryManager] Loading index master from:" << indexMasterPath;
+  if (!loadIndexMaster(indexMasterPath)) {
+    qWarning() << "[RepositoryManager] Failed to load index master from" << indexMasterPath;
     // We continue, but some functionality might be limited (no indices)
   }
   
@@ -364,6 +368,10 @@ bool RepositoryManager::loadIndexMaster(const QString &mastersPath) {
     }
     
     return true;
+}
+
+const QHash<QString, qint64>& RepositoryManager::getIndexNameTokenMap() const {
+    return m_indexNameTokenMap;
 }
 
 void RepositoryManager::updateIndexAssetTokens() {
@@ -1180,7 +1188,7 @@ void RepositoryManager::initializeDistributedStores() {
   // NSE CM: Pre-populate hash map with contract master data
   if (m_nsecm && m_nsecm->isLoaded()) {
     // Pass index name to token map to the broadcast library for unified price store
-    QHash<QString, int64_t> indexMap = m_nsecm->getIndexNameTokenMap();
+    QHash<QString, qint64> indexMap = m_nsecm->getIndexNameTokenMap();
     std::unordered_map<std::string, uint32_t> stdIndexMap;
     for (auto it = indexMap.begin(); it != indexMap.end(); ++it) {
         stdIndexMap[it.key().toStdString()] = static_cast<uint32_t>(it.value());

@@ -5,6 +5,8 @@
 #include "app/ScripBar.h"
 #include "views/PreferenceDialog.h"
 #include "views/IndicesView.h"
+#include "views/AllIndicesWindow.h"
+#include "repository/RepositoryManager.h"
 #include <QMenuBar>
 #include <QToolBar>
 #include <QStatusBar>
@@ -207,6 +209,16 @@ void MainWindow::createMenuBar()
     m_indicesViewAction->setChecked(true);
     connect(m_indicesViewAction, &QAction::toggled, this, [this](bool visible)
             { if (m_indicesDock) m_indicesDock->setVisible(visible); });
+    
+    m_allIndicesAction = viewMenu->addAction("&All Indices...");
+    m_allIndicesAction->setCheckable(false);
+    connect(m_allIndicesAction, &QAction::triggered, this, [this]() {
+        if (m_allIndicesWindow) {
+            m_allIndicesWindow->show();
+            m_allIndicesWindow->raise();
+            m_allIndicesWindow->activateWindow();
+        }
+    });
             
     viewMenu->addSeparator();
     QAction *resetLayoutAction = viewMenu->addAction("Reset &Layout");
@@ -530,6 +542,28 @@ void MainWindow::createIndicesView()
     connect(&UdpBroadcastService::instance(), &UdpBroadcastService::udpIndexReceived, 
             m_indicesView, &IndicesView::onIndexReceived, Qt::QueuedConnection);
     qint64 t3 = indicesTimer.elapsed();
+    
+    // ✅ Initialize with repository data to pre-populate index names
+    if (RepositoryManager::getInstance()) {
+        m_indicesView->initialize(RepositoryManager::getInstance());
+    }
+    
+    // Create All Indices Window
+    m_allIndicesWindow = new AllIndicesWindow(this);
+    if (RepositoryManager::getInstance()) {
+        m_allIndicesWindow->initialize(RepositoryManager::getInstance());
+        // Load current selection
+        QSettings settings("TradingCompany", "TradingTerminal");
+        QStringList selected = settings.value("indices/selected").toStringList();
+        m_allIndicesWindow->setSelectedIndices(selected);
+    }
+    
+    // Connect selection changes from All Indices to Indices View
+    connect(m_allIndicesWindow, &AllIndicesWindow::selectionChanged, this, [this](const QStringList& selected) {
+        if (m_indicesView) {
+            m_indicesView->reloadSelectedIndices(selected);
+        }
+    });
     
     // Restore position if saved
     // For now, position relative to main window
