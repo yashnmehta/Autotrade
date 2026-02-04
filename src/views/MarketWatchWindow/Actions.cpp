@@ -13,6 +13,8 @@
 #include <QDebug>
 #include <QFileDialog>
 #include <QMessageBox>
+#include <QElapsedTimer>
+#include <QDateTime>
 #include <algorithm>
 #include <QJsonDocument>
 #include <QJsonArray>
@@ -107,8 +109,26 @@ bool MarketWatchWindow::addScrip(const QString &symbol, const QString &exchange,
 
 bool MarketWatchWindow::addScripFromContract(const ScripData &contractData)
 {
-    if (contractData.token <= 0) return false;
-    if (hasDuplicate(contractData.token)) return false;
+    // ⏱️ PERFORMANCE LOG: Start timing scrip addition
+    static int addScripCounter = 0;
+    addScripCounter++;
+    QElapsedTimer addScripTimer;
+    addScripTimer.start();
+    qint64 startTime = QDateTime::currentMSecsSinceEpoch();
+    
+    qDebug() << "[PERF] [MW_ADD_SCRIP] #" << addScripCounter << "START - Token:" << contractData.token 
+             << "Symbol:" << contractData.symbol;
+    
+    if (contractData.token <= 0) {
+        qDebug() << "[PERF] [MW_ADD_SCRIP] #" << addScripCounter << "FAILED - Invalid token:" << contractData.token;
+        return false;
+    }
+    if (hasDuplicate(contractData.token)) {
+        qDebug() << "[PERF] [MW_ADD_SCRIP] #" << addScripCounter << "FAILED - Duplicate token:" << contractData.token;
+        return false;
+    }
+    
+    qint64 t0 = addScripTimer.elapsed();
     
     ScripData scrip = contractData;
     
@@ -123,11 +143,14 @@ bool MarketWatchWindow::addScripFromContract(const ScripData &contractData)
             if (scrip.close <= 0) scrip.close = contract->prevClose;
         }
     }
+    qint64 t1 = addScripTimer.elapsed();
     
     int newRow = m_model->rowCount();
     m_model->addScrip(scrip);
+    qint64 t2 = addScripTimer.elapsed();
     
     TokenSubscriptionManager::instance()->subscribe(scrip.exchange, scrip.token);
+    qint64 t3 = addScripTimer.elapsed();
     
     // Subscribe to UDP ticks (new) - Convert exchange string to segment
     UDP::ExchangeSegment segment = UDP::ExchangeSegment::NSECM;  // default
@@ -136,6 +159,7 @@ bool MarketWatchWindow::addScripFromContract(const ScripData &contractData)
     else if (scrip.exchange == "BSEFO") segment = UDP::ExchangeSegment::BSEFO;
     else if (scrip.exchange == "BSECM") segment = UDP::ExchangeSegment::BSECM;
     FeedHandler::instance().subscribeUDP(segment, scrip.token, this, &MarketWatchWindow::onUdpTickUpdate);
+    qint64 t4 = addScripTimer.elapsed();
     
     // Initial Load from Distributed Store
     if (m_useZeroCopyPriceCache) {
@@ -163,11 +187,26 @@ bool MarketWatchWindow::addScripFromContract(const ScripData &contractData)
             }
         }
     }
+    qint64 t5 = addScripTimer.elapsed();
     
     m_tokenAddressBook->addCompositeToken(scrip.exchange, "", scrip.token, newRow);
     m_tokenAddressBook->addIntKeyToken(static_cast<int>(segment), scrip.token, newRow);
+    qint64 t6 = addScripTimer.elapsed();
     
     emit scripAdded(scrip.symbol, scrip.exchange, scrip.token);
+    
+    qint64 totalTime = addScripTimer.elapsed();
+    qDebug() << "[PERF] [MW_ADD_SCRIP] #" << addScripCounter << "COMPLETE - Token:" << contractData.token;
+    qDebug() << "  TOTAL TIME:" << totalTime << "ms";
+    qDebug() << "  Breakdown:";
+    qDebug() << "    - Validation:" << t0 << "ms";
+    qDebug() << "    - Enrich from repo:" << (t1-t0) << "ms";
+    qDebug() << "    - Add to model:" << (t2-t1) << "ms";
+    qDebug() << "    - Token subscription:" << (t3-t2) << "ms";
+    qDebug() << "    - UDP subscription:" << (t4-t3) << "ms";
+    qDebug() << "    - Load initial data:" << (t5-t4) << "ms";
+    qDebug() << "    - Address book update:" << (t6-t5) << "ms";
+    
     return true;
 }
 

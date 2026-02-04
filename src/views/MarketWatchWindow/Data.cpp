@@ -2,6 +2,9 @@
 #include "models/TokenAddressBook.h"
 #include "utils/LatencyTracker.h"
 #include "repository/RepositoryManager.h"
+#include <QElapsedTimer>
+#include <QDateTime>
+#include <QDebug>
 #include <iostream>
 
 void MarketWatchWindow::updatePrice(int token, double ltp, double change, double changePercent)
@@ -190,13 +193,44 @@ void MarketWatchWindow::onTickUpdate(const XTS::Tick& tick)
 // NEW: UDP-specific tick handler with cleaner semantics
 void MarketWatchWindow::onUdpTickUpdate(const UDP::MarketTick& tick)
 {
+    // ⏱️ PERFORMANCE LOG: Start timing tick update processing
+    static int tickCounter = 0;
+    static int detailedLogCounter = 0;
+    tickCounter++;
+    bool shouldLogDetailed = (detailedLogCounter < 50); // Log first 50 ticks in detail
+    
+    QElapsedTimer tickTimer;
+    if (shouldLogDetailed) {
+        tickTimer.start();
+    }
+    
     int token = tick.token;
     int64_t timestampModelStart = LatencyTracker::now();
+    
+    if (shouldLogDetailed) {
+        detailedLogCounter++;
+        qDebug() << "[PERF] [MW_TICK_UPDATE] #" << tickCounter << "START - Token:" << token 
+                 << "Segment:" << static_cast<int>(tick.exchangeSegment)
+                 << "LTP:" << tick.ltp;
+    }
+    
+    qint64 t0 = shouldLogDetailed ? tickTimer.elapsed() : 0;
     
     // Use optimized int64 composite key lookup
     QList<int> rows = m_tokenAddressBook->getRowsForIntKey(static_cast<int>(tick.exchangeSegment), token);
     
-    if (rows.isEmpty()) return;
+    qint64 t1 = shouldLogDetailed ? tickTimer.elapsed() : 0;
+    
+    if (rows.isEmpty()) {
+        if (shouldLogDetailed) {
+            qDebug() << "[PERF] [MW_TICK_UPDATE] #" << tickCounter << "NO ROWS - Token:" << token;
+        }
+        return;
+    }
+    
+    if (shouldLogDetailed) {
+        qDebug() << "[PERF] [MW_TICK_UPDATE] #" << tickCounter << "Found" << rows.size() << "row(s)";
+    }
 
     // Debug logging for BSE tokens
     if (tick.exchangeSegment == UDP::ExchangeSegment::BSEFO || 
@@ -211,6 +245,8 @@ void MarketWatchWindow::onUdpTickUpdate(const UDP::MarketTick& tick)
             //          << "Row:" << row;
         }
     }
+    
+    qint64 t2 = shouldLogDetailed ? tickTimer.elapsed() : 0;
     
     // 1. Update LTP and OHLC if LTP is present
     if (tick.ltp > 0) {
@@ -241,6 +277,8 @@ void MarketWatchWindow::onUdpTickUpdate(const UDP::MarketTick& tick)
         }
     }
     
+    qint64 t3 = shouldLogDetailed ? tickTimer.elapsed() : 0;
+    
     // 2. Update LTQ if present
     if (tick.ltq > 0) {
         for (int row : rows) {
@@ -262,6 +300,8 @@ void MarketWatchWindow::onUdpTickUpdate(const UDP::MarketTick& tick)
         }
     }
     
+    qint64 t4 = shouldLogDetailed ? tickTimer.elapsed() : 0;
+    
     // 5. Update Bid/Ask from 5-level depth (best bid/ask from level 0)
     if (tick.bids[0].price > 0 || tick.asks[0].price > 0) {
         for (int row : rows) {
@@ -269,6 +309,8 @@ void MarketWatchWindow::onUdpTickUpdate(const UDP::MarketTick& tick)
             m_model->updateBidAskQuantities(row, (int)tick.bids[0].quantity, (int)tick.asks[0].quantity);
         }
     }
+    
+    qint64 t5 = shouldLogDetailed ? tickTimer.elapsed() : 0;
     
     // 6. Update Total Buy/Sell Qty (aggregated from 5 levels)
     if (tick.totalBidQty > 0 || tick.totalAskQty > 0) {
@@ -288,9 +330,26 @@ void MarketWatchWindow::onUdpTickUpdate(const UDP::MarketTick& tick)
         }
     }
     
+    qint64 t6 = shouldLogDetailed ? tickTimer.elapsed() : 0;
+    
     int64_t timestampModelEnd = LatencyTracker::now();
     
-    // Latency tracking
+    qint64 totalTime = shouldLogDetailed ? tickTimer.elapsed() : 0;
+    
+    if (shouldLogDetailed) {
+        qDebug() << "[PERF] [MW_TICK_UPDATE] #" << tickCounter << "COMPLETE - Token:" << token;
+        qDebug() << "  TOTAL TIME:" << totalTime << "ms";
+        qDebug() << "  Breakdown:";
+        qDebug() << "    - Initial setup:" << t0 << "ms";
+        qDebug() << "    - Row lookup:" << (t1-t0) << "ms";
+        qDebug() << "    - BSE logging check:" << (t2-t1) << "ms";
+        qDebug() << "    - LTP + OHLC update:" << (t3-t2) << "ms";
+        qDebug() << "    - LTQ/ATP/Volume update:" << (t4-t3) << "ms";
+        qDebug() << "    - Bid/Ask update:" << (t5-t4) << "ms";
+        qDebug() << "    - Total Qty + OI update:" << (t6-t5) << "ms";
+    }
+    
+    // Latency tracking (every 100th tick for summary stats)
     if (tick.refNo > 0 && tick.timestampUdpRecv > 0) {
         LatencyTracker::recordLatency(
             tick.timestampUdpRecv,
@@ -301,6 +360,11 @@ void MarketWatchWindow::onUdpTickUpdate(const UDP::MarketTick& tick)
             timestampModelStart,
             timestampModelEnd
         );
+    }
+    
+    // Log summary every 100 ticks
+    if (tickCounter % 100 == 0) {
+        qDebug() << "[PERF] [MW_TICK_UPDATE] Processed" << tickCounter << "ticks total";
     }
 }
 

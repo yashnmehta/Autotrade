@@ -31,14 +31,28 @@ SellWindow::~SellWindow() {
 }
 
 void SellWindow::onSubmitClicked() {
-    if (!m_leQty || !m_leRate) return;
+    qDebug() << "============================================";
+    qDebug() << "[SellWindow] Submit button clicked!";
+    qDebug() << "  Window visible:" << isVisible();
+    qDebug() << "  Parent window visible:" << (parentWidget() ? parentWidget()->isVisible() : false);
+    
+    if (!m_leQty || !m_leRate) {
+        qDebug() << "[SellWindow] ERROR: Quantity or Rate field is NULL!";
+        return;
+    }
     
     int quantity = m_leQty->text().toInt();
     double price = m_leRate->text().toDouble();
+    qDebug() << "  Quantity:" << quantity << "Price:" << price;
+    qDebug() << "  Order Type:" << (m_cbOrdType ? m_cbOrdType->currentText() : "NULL");
+    
     if (quantity <= 0 || (m_cbOrdType->currentText() == "Limit" && price <= 0)) {
+        qDebug() << "[SellWindow] Invalid quantity or price - showing warning";
         QMessageBox::warning(this, "Sell Order", "Invalid quantity or price");
         return;
     }
+    
+    qDebug() << "[SellWindow] Validation passed, proceeding with order submission...";
 
     // Handle modification mode
     if (isModifyMode() || isBatchModifyMode()) {
@@ -120,7 +134,10 @@ void SellWindow::onSubmitClicked() {
     }
 
     emit orderSubmitted(params);
-    close();
+    // Close parent MDI window to ensure clean closure
+    QWidget *p = parentWidget();
+    while (p && !p->inherits("CustomMDISubWindow")) p = p->parentWidget();
+    if (p) p->close();
 }
 
 
@@ -136,7 +153,7 @@ void SellWindow::calculateDefaultPrice(const WindowContext &context) {
 }
 
 void SellWindow::keyPressEvent(QKeyEvent *event) {
-    if (event->key() == Qt::Key_F2) {
+    if (event->key() == Qt::Key_F1 || event->key() == Qt::Key_Plus) {
         if (m_context.isValid()) emit requestBuyWithContext(m_context);
         close();
     } else {

@@ -31,7 +31,7 @@ public:
                         int token, const QString &instType, const QString &symbol);
     
     // Context-aware loading
-    void loadFromContext(const WindowContext &context);
+    void loadFromContext(const WindowContext &context, bool fetchFromAPI = true);
     // Return last loaded context
     WindowContext getContext() const { return m_context; }
     
@@ -73,10 +73,17 @@ signals:
     void refreshRequested(const QString &exchange, int token);
     void closed();
 
+protected:
+    // ⚡ Override showEvent to defer expensive ScripBar population
+    void showEvent(QShowEvent *event) override;
+
 private:
     void populateComboBoxes();
     void setupConnections();
     void setupKeyboardShortcuts();
+    
+    // ⚡ Load data from GStore (common function - < 1ms!)
+    bool loadFromGStore();
 
 private:
     // UI widgets loaded from .ui file
@@ -139,6 +146,10 @@ private:
     // Total counts
     QLabel *m_lbTotalBuyers;
     QLabel *m_lbTotalSellers;
+
+    // ⚡ Performance optimization: defer expensive ScripBar population
+    bool m_needsScripBarUpdate = false;
+    InstrumentData m_pendingScripData;
 
     void initUI();
 };
