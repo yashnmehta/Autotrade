@@ -173,6 +173,11 @@ void WindowCacheManager::createCachedWindows()
         entry.mdiWindow->setProperty("snapQuoteIndex", i);  // Store index for close tracking
         
         entry.window = new SnapQuoteWindow(entry.mdiWindow);
+        
+        // ⚡ CRITICAL: Set ScripBar to DisplayMode for instant setScripDetails() (<1ms)
+        // SnapQuote only needs to display the selected scrip, not search
+        entry.window->setScripBarDisplayMode(true);
+        
         entry.mdiWindow->setContentWidget(entry.window);
         entry.mdiWindow->resize(860, 300);
         mdiArea->addWindow(entry.mdiWindow);

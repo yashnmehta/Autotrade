@@ -131,6 +131,7 @@ bool NSECMRepository::loadMasterFile(const QString &filename) {
   }
 
   file.close();
+  locker.unlock();
   finalizeLoad();
   return m_loaded;
 }
@@ -202,6 +203,7 @@ bool NSECMRepository::loadProcessedCSV(const QString &filename) {
   }
 
   file.close();
+  locker.unlock();
   finalizeLoad();
 
   qDebug() << "NSE CM Repository loaded from CSV:" << m_contractCount
@@ -542,6 +544,7 @@ void NSECMRepository::prepareForLoad() {
 }
 
 void NSECMRepository::finalizeLoad() {
+  QWriteLocker locker(&m_mutex);
   m_loaded = (m_contractCount > 0);
   
   // Build index name map for indices
@@ -628,10 +631,7 @@ void NSECMRepository::appendContracts(const QVector<ContractData>& contracts) {
 }
 
 void NSECMRepository::buildIndexNameMap() {
-    // Note: Mutex is already locked if called from finalizeLoad
-    // but we use a locker to be safe if called externally
-    QWriteLocker lock(&m_mutex);
-    
+    // Note: Mutex must be locked by caller
     m_indexNameToToken.clear();
     for (int32_t i = 0; i < m_contractCount; ++i) {
         if (m_series[i] == "INDEX") {

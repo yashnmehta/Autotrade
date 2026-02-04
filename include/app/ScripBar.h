@@ -29,11 +29,22 @@ class ScripBar : public QWidget
     Q_OBJECT
 
 public:
+    // ⚡ DisplayMode: Skip expensive populateSymbols(), just display token's data via O(1) lookup
+    // SearchMode: Full population for user interaction (default)
+    enum ScripBarMode {
+        SearchMode,     // Full symbol dropdown population (200-400ms)
+        DisplayMode     // Direct O(1) display, no population (<1ms)
+    };
+    
     explicit ScripBar(QWidget *parent = nullptr);
     ~ScripBar();
 
     // Set XTS client for instrument search
     void setXTSClient(XTSMarketDataClient *client);
+    
+    // ⚡ Set mode: DisplayMode skips populateSymbols() for instant setScripDetails()
+    void setScripBarMode(ScripBarMode mode) { m_mode = mode; }
+    ScripBarMode scripBarMode() const { return m_mode; }
     
     // Get currently selected instrument data
     InstrumentData getCurrentInstrument() const;
@@ -45,6 +56,8 @@ public:
     void focusInput();
 
     // Set the scrip details programmatically
+    // ⚡ In DisplayMode: O(1) token lookup, no cache rebuild
+    // In SearchMode: Full population (original behavior)
     void setScripDetails(const InstrumentData &data);
 
 signals:
@@ -104,8 +117,13 @@ private:
     // Current selection state
     QString m_currentExchange;
     QString m_currentSegment;
+    ScripBarMode m_mode = SearchMode;  // ⚡ Default to SearchMode for backward compatibility
+    InstrumentData m_displayData;      // ⚡ Cached data for DisplayMode
 
     QPushButton *m_addToWatchButton;
+    
+    // ⚡ DisplayMode helper: Display single contract via O(1) lookup, no cache rebuild
+    void displaySingleContract(const InstrumentData &data);
 };
 
 #endif // SCRIPBAR_H

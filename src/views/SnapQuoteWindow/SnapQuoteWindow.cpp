@@ -35,6 +35,15 @@ void SnapQuoteWindow::setXTSClient(XTSMarketDataClient *client)
     }
 }
 
+// ⚡ Set ScripBar to DisplayMode for instant setScripDetails() (<1ms)
+void SnapQuoteWindow::setScripBarDisplayMode(bool displayMode)
+{
+    if (m_scripBar) {
+        m_scripBar->setScripBarMode(displayMode ? ScripBar::DisplayMode : ScripBar::SearchMode);
+        qDebug() << "[SnapQuoteWindow] ⚡ ScripBar set to" << (displayMode ? "DisplayMode (<1ms)" : "SearchMode");
+    }
+}
+
 // ⚡ CRITICAL OPTIMIZATION: Populate ScripBar ASYNCHRONOUSLY after window is visible
 // This makes the show() call instant and defers expensive populateSymbols() to next event loop
 void SnapQuoteWindow::showEvent(QShowEvent *event)

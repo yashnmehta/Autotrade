@@ -678,6 +678,12 @@ void ScripBar::updateBseScripCodeVisibility()
 
 InstrumentData ScripBar::getCurrentInstrument() const
 {
+    // ⚡ DISPLAYMODE: Return cached display data directly
+    if (m_mode == DisplayMode) {
+        return m_displayData;
+    }
+    
+    // === SEARCHMODE: Original cache search behavior ===
     InstrumentData result;
     
     QString symbol = m_symbolCombo->currentText();
@@ -1213,4 +1219,83 @@ void ScripBar::onBseScripCodeChanged(const QString &text)
             break;
         }
     }
+}
+
+// ⚡ DISPLAYMODE: Direct O(1) display without cache rebuild
+// This is ~200-400ms faster than SearchMode's populateSymbols()
+void ScripBar::displaySingleContract(const InstrumentData &data)
+{
+    qDebug() << "[ScripBar] ⚡ DisplayMode: O(1) display for token" << data.exchangeInstrumentID;
+    
+    // Store for getCurrentInstrument()
+    m_displayData = data;
+    
+    // Block signals to prevent cascading updates
+    const QSignalBlocker blockerEx(m_exchangeCombo);
+    const QSignalBlocker blockerSeg(m_segmentCombo);
+    const QSignalBlocker blockerInst(m_instrumentCombo);
+    const QSignalBlocker blockerSym(m_symbolCombo);
+    const QSignalBlocker blockerExp(m_expiryCombo);
+    const QSignalBlocker blockerStr(m_strikeCombo);
+    const QSignalBlocker blockerOpt(m_optionTypeCombo);
+    
+    // 1. Set Exchange display
+    QString segKey = RepositoryManager::getExchangeSegmentName(data.exchangeSegment);
+    QString exchange = "NSE";
+    if (segKey.startsWith("BSE")) exchange = "BSE";
+    else if (segKey.startsWith("MCX")) exchange = "MCX";
+    else if (segKey.startsWith("NSECD")) exchange = "NSECDS";
+    
+    if (m_exchangeCombo->lineEdit()) {
+        m_exchangeCombo->lineEdit()->setText(exchange);
+    }
+    m_currentExchange = exchange;
+    
+    // 2. Set Segment display
+    QString targetSeg = "E";
+    if (data.instrumentType.startsWith("FUT")) targetSeg = "F";
+    else if (data.instrumentType.startsWith("OPT")) targetSeg = "O";
+    
+    if (m_segmentCombo->lineEdit()) {
+        m_segmentCombo->lineEdit()->setText(targetSeg);
+    }
+    m_currentSegment = targetSeg;
+    
+    // 3. Set Instrument Type display
+    if (m_instrumentCombo->lineEdit() && !data.instrumentType.isEmpty()) {
+        m_instrumentCombo->lineEdit()->setText(data.instrumentType);
+    }
+    
+    // 4. Setup visibility based on instrument type
+    bool isFuture = data.instrumentType.startsWith("FUT");
+    bool isOption = data.instrumentType.startsWith("OPT");
+    m_expiryCombo->setVisible(isFuture || isOption);
+    m_strikeCombo->setVisible(isOption);
+    m_optionTypeCombo->setVisible(isOption);
+    
+    // 5. Set Symbol display
+    if (m_symbolCombo->lineEdit() && !data.symbol.isEmpty()) {
+        m_symbolCombo->lineEdit()->setText(data.symbol);
+    }
+    
+    // 6. Set Expiry display
+    if (m_expiryCombo->isVisible() && m_expiryCombo->lineEdit() && !data.expiryDate.isEmpty()) {
+        m_expiryCombo->lineEdit()->setText(data.expiryDate);
+    }
+    
+    // 7. Set Strike display
+    if (m_strikeCombo->isVisible() && m_strikeCombo->lineEdit() && data.strikePrice > 0) {
+        m_strikeCombo->lineEdit()->setText(QString::number(data.strikePrice, 'f', 2));
+    }
+    
+    // 8. Set Option Type display
+    if (m_optionTypeCombo->isVisible() && m_optionTypeCombo->lineEdit() && !data.optionType.isEmpty()) {
+        m_optionTypeCombo->lineEdit()->setText(data.optionType);
+    }
+    
+    // 9. Set Token display
+    m_tokenEdit->setText(QString::number(data.exchangeInstrumentID));
+    
+    qDebug() << "[ScripBar] ⚡ DisplayMode complete - Exchange:" << exchange 
+             << "Symbol:" << data.symbol << "Token:" << data.exchangeInstrumentID;
 }

@@ -38,6 +38,9 @@ public:
     // Set XTS client for market data
     void setXTSClient(XTSMarketDataClient *client);
     
+    // ⚡ Set ScripBar to DisplayMode for instant setScripDetails() (<1ms)
+    void setScripBarDisplayMode(bool displayMode);
+    
     // Fetch current quote from API
     void fetchQuote();
     
