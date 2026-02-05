@@ -127,25 +127,28 @@ public:
    * @param series Series type (OPTSTK, OPTIDX, FUTSTK, FUTIDX)
    * @return Vector of matching contracts
    */
-  QVector<ContractData> getContractsBySeries(const QString &series) const;
+  virtual QVector<ContractData>
+  getContractsBySeries(const QString &series) const;
 
   /**
    * @brief Get contracts by underlying symbol
    * @param symbol Underlying name (e.g., NIFTY, BANKNIFTY)
    * @return Vector of matching contracts
    */
-  QVector<ContractData> getContractsBySymbol(const QString &symbol) const;
+  virtual QVector<ContractData>
+  getContractsBySymbol(const QString &symbol) const;
 
   /**
    * @brief Get contracts by underlying symbol and expiry
    * @param symbol Underlying name (e.g., NIFTY, BANKNIFTY)
    * @param expiry Expiry date string (e.g., 27JAN2026)
-   * @param instrumentType Filter by instrument type (-1=all, 1=future, 2=option)
+   * @param instrumentType Filter by instrument type (-1=all, 1=future,
+   * 2=option)
    * @return Vector of matching contracts
    */
-  virtual QVector<ContractData> getContractsBySymbolAndExpiry(const QString &symbol,
-                                                              const QString &expiry,
-                                                              int instrumentType = -1) const;
+  virtual QVector<ContractData>
+  getContractsBySymbolAndExpiry(const QString &symbol, const QString &expiry,
+                                int instrumentType = -1) const;
 
   /**
    * @brief Get asset token by underlying symbol
@@ -162,7 +165,6 @@ public:
   void updateAssetToken(int64_t token, int64_t assetToken);
 
   // ===== UPDATE METHODS =====
-
 
   // ===== METADATA =====
 

@@ -10,7 +10,6 @@
 #include <QFile>
 #include <QTextStream>
 
-
 LoginFlowService::LoginFlowService(QObject *parent)
     : QObject(parent), m_mdClient(nullptr), m_iaClient(nullptr),
       m_tradingDataService(nullptr), m_masterLoader(nullptr),
@@ -65,12 +64,8 @@ void LoginFlowService::startMastersPhase() {
   // Phase 3: Check shared state and handle masters accordingly
   MasterDataState *masterState = MasterDataState::getInstance();
 
-  
-
   QString mastersDir = RepositoryManager::getMastersDirectory();
-  
-  
-  
+
   QDir().mkpath(mastersDir);
 
   // Check if splash screen is still loading masters
@@ -420,8 +415,11 @@ void LoginFlowService::continueLoginAfterMasters() {
       m_mdClient, &XTSMarketDataClient::wsConnectionStatusChanged, this,
       [this](bool success, const QString &message) {
         if (!success) {
-          // Non-fatal: log warning but continue
+          // If connection failed, report error but don't proceed to Phase 5
           qWarning() << "[LoginFlow] WebSocket connection failed:" << message;
+          updateStatus("websocket_error",
+                       QString("WebSocket error: %1").arg(message), 85);
+          return; // STOP HERE
         }
 
         updateStatus("websocket", "Real-time connection established", 90);

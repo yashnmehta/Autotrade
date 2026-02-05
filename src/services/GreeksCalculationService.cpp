@@ -44,8 +44,9 @@ GreeksCalculationService::~GreeksCalculationService() {
 
 void GreeksCalculationService::initialize(const GreeksConfig &config) {
   m_config = config;
-  qInfo() << "[GreeksDebug] Initializing Service. Enabled:" << m_config.enabled
-          << " RiskFree:" << m_config.riskFreeRate;
+  // qInfo() << "[GreeksDebug] Initializing Service. Enabled:" <<
+  // m_config.enabled
+  //        << " RiskFree:" << m_config.riskFreeRate;
 
   // Start time tick timer
   if (m_config.enabled && m_config.timeTickIntervalSec > 0) {
@@ -58,10 +59,10 @@ void GreeksCalculationService::initialize(const GreeksConfig &config) {
                                  1000); // in ms
   }
 
-  qDebug() << "[GreeksCalculationService] Initialized with:"
+  /* qDebug() << "[GreeksCalculationService] Initialized with:"
            << "riskFreeRate=" << m_config.riskFreeRate
            << "autoCalculate=" << m_config.autoCalculate
-           << "throttleMs=" << m_config.throttleMs;
+           << "throttleMs=" << m_config.throttleMs; */
 
   emit configurationChanged();
 }
@@ -89,7 +90,8 @@ void GreeksCalculationService::loadConfiguration() {
 
   settings.endGroup();
 
-  qDebug() << "[GreeksCalculationService] Configuration loaded from config.ini";
+  // qDebug() << "[GreeksCalculationService] Configuration loaded from
+  // config.ini";
 
   // Apply configuration
   initialize(m_config);
@@ -102,7 +104,8 @@ void GreeksCalculationService::setRepositoryManager(
 
 void GreeksCalculationService::setRiskFreeRate(double rate) {
   m_config.riskFreeRate = rate;
-  qDebug() << "[GreeksCalculationService] Risk-free rate updated to:" << rate;
+  // qDebug() << "[GreeksCalculationService] Risk-free rate updated to:" <<
+  // rate;
   emit configurationChanged();
 }
 
@@ -120,7 +123,7 @@ GreeksResult GreeksCalculationService::calculateForToken(uint32_t token,
   // Debug: Log specific tokens for debugging (NSEFO: 58705, 58706, 49339 |
   // NSECM: 26000)
   bool shouldLog = false;
-  if (exchangeSegment == 2 &&
+  /* if (exchangeSegment == 2 &&
       (token == 58705 || token == 58706 || token == 49339)) {
     shouldLog = true;
     qInfo() << "[GreeksDebug] calculateForToken Token:" << token
@@ -129,18 +132,18 @@ GreeksResult GreeksCalculationService::calculateForToken(uint32_t token,
     shouldLog = true;
     qInfo() << "[GreeksDebug] calculateForToken Token:" << token
             << "Seg:" << exchangeSegment << "Enabled:" << m_config.enabled;
-  }
+  } */
 
   // Step 1: Check if service is enabled
   if (!m_config.enabled) {
-    qDebug() << "[GreeksDebug] Service disabled for token:" << token;
+    // qDebug() << "[GreeksDebug] Service disabled for token:" << token;
     emit calculationFailed(token, exchangeSegment, "Service disabled");
     return result;
   }
 
   // Step 2: Check repository manager
   if (!m_repoManager) {
-    qDebug() << "[GreeksDebug] RepoManager null for token:" << token;
+    // qDebug() << "[GreeksDebug] RepoManager null for token:" << token;
     emit calculationFailed(token, exchangeSegment,
                            "Repository manager not set");
     return result;
@@ -158,8 +161,8 @@ GreeksResult GreeksCalculationService::calculateForToken(uint32_t token,
 
   // Step 4: Check if it's an option
   if (!isOption(contract->instrumentType)) {
-    qDebug() << "[GreeksDebug] Not an option, token:" << token
-             << "type:" << contract->instrumentType;
+    /* qDebug() << "[GreeksDebug] Not an option, token:" << token
+             << "type:" << contract->instrumentType; */
     return result;
   }
 

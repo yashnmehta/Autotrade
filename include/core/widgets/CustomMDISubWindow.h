@@ -1,10 +1,11 @@
 #ifndef CUSTOMMDISUBWINDOW_H
 #define CUSTOMMDISUBWINDOW_H
 
-#include <QWidget>
-#include <QVBoxLayout>
-#include <QPoint>
 #include <QCloseEvent>
+#include <QPoint>
+#include <QVBoxLayout>
+#include <QWidget>
+
 
 class CustomTitleBar;
 
@@ -21,91 +22,92 @@ class CustomTitleBar;
  * - Manual drag/resize implementation
  * - Parent is CustomMDIArea (for clipping/stacking)
  */
-class CustomMDISubWindow : public QWidget
-{
-    Q_OBJECT
+class CustomMDISubWindow : public QWidget {
+  Q_OBJECT
 
 public:
-    explicit CustomMDISubWindow(const QString &title, QWidget *parent = nullptr);
-    ~CustomMDISubWindow();
+  explicit CustomMDISubWindow(const QString &title, QWidget *parent = nullptr);
+  ~CustomMDISubWindow();
 
-    void setContentWidget(QWidget *widget);
-    QWidget *contentWidget() const { return m_contentWidget; }
+  void setContentWidget(QWidget *widget);
+  QWidget *contentWidget() const { return m_contentWidget; }
 
-    void setTitle(const QString &title);
-    QString title() const;
+  void setTitle(const QString &title);
+  QString title() const;
 
-    // Active/inactive visual state (titlebar contrast)
-    void setActive(bool active);
+  // Active/inactive visual state (titlebar contrast)
+  void setActive(bool active);
 
-    // Window Type (for workspace save/load)
-    void setWindowType(const QString &type) { m_windowType = type; }
-    QString windowType() const { return m_windowType; }
+  // Window Type (for workspace save/load)
+  void setWindowType(const QString &type) { m_windowType = type; }
+  QString windowType() const { return m_windowType; }
 
-    // Window State
-    bool isMinimized() const { return m_isMinimized; }
-    bool isMaximized() const { return m_isMaximized; }
+  // Window State
+  bool isMinimized() const { return m_isMinimized; }
+  bool isMaximized() const { return m_isMaximized; }
 
-    void minimize();
-    void restore();
-    void maximize();
+  void minimize();
+  void restore();
+  void maximize();
 
-    // Pinning
-    void setPinned(bool pinned);
-    bool isPinned() const { return m_isPinned; }
-    
-    // Cached Window Management (for WindowCacheManager)
-    void setCached(bool cached) { m_isCached = cached; }
-    bool isCached() const { return m_isCached; }
+  // Pinning
+  void setPinned(bool pinned);
+  bool isPinned() const { return m_isPinned; }
 
-    // Title Bar Visibility
-    void updateTitleBarVisibility();
+  // Cached Window Management (for WindowCacheManager)
+  void setCached(bool cached) { m_isCached = cached; }
+  bool isCached() const { return m_isCached; }
+
+  // Title Bar Visibility
+  Q_INVOKABLE void updateTitleBarVisibility();
 
 signals:
-    void closeRequested();
-    void minimizeRequested();
-    void maximizeRequested();
-    void windowActivated();
-    void customizeRequested();
-    void windowMoved(const QPoint &pos);  // Emitted when window is moved
+  void closeRequested();
+  void minimizeRequested();
+  void maximizeRequested();
+  void windowActivated();
+  void customizeRequested();
+  void windowMoved(const QPoint &pos); // Emitted when window is moved
 
 protected:
-    void mousePressEvent(QMouseEvent *event) override;
-    void mouseMoveEvent(QMouseEvent *event) override;
-    void mouseReleaseEvent(QMouseEvent *event) override;
-    void keyPressEvent(QKeyEvent *event) override;
-    void focusInEvent(QFocusEvent *event) override;
-    void closeEvent(QCloseEvent *event) override;
-    void contextMenuEvent(QContextMenuEvent *event) override;
-    bool eventFilter(QObject *watched, QEvent *event) override;
-    void paintEvent(QPaintEvent *event) override;  // Manual border painting for Linux
+  void mousePressEvent(QMouseEvent *event) override;
+  void mouseMoveEvent(QMouseEvent *event) override;
+  void mouseReleaseEvent(QMouseEvent *event) override;
+  void keyPressEvent(QKeyEvent *event) override;
+  void focusInEvent(QFocusEvent *event) override;
+  void closeEvent(QCloseEvent *event) override;
+  void contextMenuEvent(QContextMenuEvent *event) override;
+  bool eventFilter(QObject *watched, QEvent *event) override;
+  void
+  paintEvent(QPaintEvent *event) override; // Manual border painting for Linux
 
 private:
-    void setupResizeHandles();
-    bool isOnResizeBorder(const QPoint &pos, Qt::Edges &edges) const;
-    void updateCursor(const QPoint &pos);
+  void setupResizeHandles();
+  bool isOnResizeBorder(const QPoint &pos, Qt::Edges &edges) const;
+  void updateCursor(const QPoint &pos);
 
-    CustomTitleBar *m_titleBar;
-    QWidget *m_contentWidget;
-    QVBoxLayout *m_mainLayout;
-    QVBoxLayout *m_contentLayout;
-    QString m_windowType; // For workspace persistence
+  CustomTitleBar *m_titleBar;
+  QWidget *m_contentWidget;
+  QVBoxLayout *m_mainLayout;
+  QVBoxLayout *m_contentLayout;
+  QString m_windowType; // For workspace persistence
 
-    // Window State
-    bool m_isMinimized;
-    bool m_isMaximized;
-    bool m_isPinned;
-    bool m_isCached;        // Flag for cached windows (don't destroy on close)
-    QRect m_normalGeometry; // For restoring from maximize
+  // Window State
+  bool m_isMinimized;
+  bool m_isMaximized;
+  bool m_isPinned;
+  bool m_isCached;        // Flag for cached windows (don't destroy on close)
+  QRect m_normalGeometry; // For restoring from maximize
 
-    // Dragging/Resizing (Native C++)
-    bool m_isDragging;
-    bool m_isResizing;
-    QPoint m_dragStartPos;
-    QRect m_dragStartGeometry;
-    Qt::Edges m_resizeEdges;
+  // Dragging/Resizing (Native C++)
+  bool m_isDragging;
+  bool m_isResizing;
+  QPoint m_dragStartPos;
+  QRect m_dragStartGeometry;
+  Qt::Edges m_resizeEdges;
 
-    static constexpr int RESIZE_BORDER_WIDTH = 8;  // Increased for easier hit detection and margin support
+  static constexpr int RESIZE_BORDER_WIDTH =
+      8; // Increased for easier hit detection and margin support
 };
 
 #endif // CUSTOMMDISUBWINDOW_H

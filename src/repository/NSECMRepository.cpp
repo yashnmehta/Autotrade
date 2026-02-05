@@ -1,67 +1,66 @@
 #include "repository/NSECMRepository.h"
 #include "repository/MasterFileParser.h"
+#include <QCoreApplication>
 #include <QDebug>
 #include <QFile>
 #include <QTextStream>
 #include <QThread>
-#include <QCoreApplication>
 #include <fstream>
+#include <iostream>
 #include <sstream>
 #include <string>
-#include <iostream>
+
 
 // Helper function to remove surrounding quotes from field values
 static QString trimQuotes(const QStringRef &str) {
-    QStringRef trimmed = str.trimmed();
-    if (trimmed.startsWith('"') && trimmed.endsWith('"') && trimmed.length() >= 2) {
-        return trimmed.mid(1, trimmed.length() - 2).toString();
-    }
-    return trimmed.toString();
+  QStringRef trimmed = str.trimmed();
+  if (trimmed.startsWith('"') && trimmed.endsWith('"') &&
+      trimmed.length() >= 2) {
+    return trimmed.mid(1, trimmed.length() - 2).toString();
+  }
+  return trimmed.toString();
 }
 
-NSECMRepository::NSECMRepository()
-    : m_contractCount(0)
-    , m_loaded(false)
-{
-}
+NSECMRepository::NSECMRepository() : m_contractCount(0), m_loaded(false) {}
 
 NSECMRepository::~NSECMRepository() = default;
 
 void NSECMRepository::allocateArrays(int32_t count) {
-    // Token tracking
-    m_token.resize(count);
-    
-    // Security Master Data (4 fields)
-    m_name.resize(count);
-    m_displayName.resize(count);
-    m_description.resize(count);
-    m_series.resize(count);
-    
-    // Trading Parameters (3 fields)
-    m_lotSize.resize(count);
-    m_tickSize.resize(count);
-    m_freezeQty.resize(count);
-    
-    // Price Bands (2 fields)
-    m_priceBandHigh.resize(count);
-    m_priceBandLow.resize(count);
-    
-    // Live Market Data (7 fields)
-    m_ltp.resize(count);
-    m_open.resize(count);
-    m_high.resize(count);
-    m_low.resize(count);
-    m_close.resize(count);
-    m_prevClose.resize(count);
-    m_volume.resize(count);
-    
-    // WebSocket-only fields
-    m_bidPrice.resize(count);
-    m_askPrice.resize(count);
+  // Token tracking
+  m_token.resize(count);
+
+  // Security Master Data (4 fields)
+  m_name.resize(count);
+  m_displayName.resize(count);
+  m_description.resize(count);
+  m_series.resize(count);
+
+  // Trading Parameters (3 fields)
+  m_lotSize.resize(count);
+  m_tickSize.resize(count);
+  m_freezeQty.resize(count);
+
+  // Price Bands (2 fields)
+  m_priceBandHigh.resize(count);
+  m_priceBandLow.resize(count);
+
+  // Live Market Data (7 fields)
+  m_ltp.resize(count);
+  m_open.resize(count);
+  m_high.resize(count);
+  m_low.resize(count);
+  m_close.resize(count);
+  m_prevClose.resize(count);
+  m_volume.resize(count);
+
+  // WebSocket-only fields
+  m_bidPrice.resize(count);
+  m_askPrice.resize(count);
 }
 
-void NSECMRepository::addContractInternal(const MasterContract &contract, 
-                                        std::function<QString(const QString &)> intern) {
+void NSECMRepository::addContractInternal(
+    const MasterContract &contract,
+    std::function<QString(const QString &)> intern) {
   int32_t idx = m_contractCount;
   m_tokenToIndex.insert(contract.exchangeInstrumentID, idx);
 
@@ -163,14 +162,14 @@ bool NSECMRepository::loadProcessedCSV(const QString &filename) {
   int lineCount = 0;
   while (std::getline(file, line)) {
     lineCount++;
-    
+
     // Progress update every 1000 lines WITHOUT holding lock
     if (lineCount % 1000 == 0) {
       qDebug() << "[NSECM] Loaded lines:" << lineCount;
       // Process events to allow UI updates and signals
       QCoreApplication::processEvents();
     }
-    
+
     if (line.empty()) {
       continue;
     }
@@ -217,16 +216,16 @@ bool NSECMRepository::loadProcessedCSV(const QString &filename) {
   }
 
   file.close();
-  
-  qDebug() << "[NSECM] CSV reading complete. Total lines processed:" << lineCount;
+
+  qDebug() << "[NSECM] CSV reading complete. Total lines processed:"
+           << lineCount;
   qDebug() << "[NSECM] Contracts added during parsing:" << m_contractCount;
-  
-  {
-    QWriteLocker locker(&m_mutex);
-    qDebug() << "[NSECM] Before finalizeLoad, m_contractCount =" << m_contractCount;
-    finalizeLoad();
-    qDebug() << "[NSECM] After finalizeLoad, m_contractCount =" << m_contractCount;
-  }
+
+  qDebug() << "[NSECM] Before finalizeLoad, m_contractCount ="
+           << m_contractCount;
+  finalizeLoad();
+  qDebug() << "[NSECM] After finalizeLoad, m_contractCount ="
+           << m_contractCount;
 
   qDebug() << "[NSECM] Repository loaded from CSV:" << m_contractCount
            << "contracts";
@@ -234,268 +233,273 @@ bool NSECMRepository::loadProcessedCSV(const QString &filename) {
 }
 
 int32_t NSECMRepository::getIndex(int64_t token) const {
-    auto it = m_tokenToIndex.find(token);
-    if (it != m_tokenToIndex.end()) {
-        return it.value();
-    }
-    return -1;
+  auto it = m_tokenToIndex.find(token);
+  if (it != m_tokenToIndex.end()) {
+    return it.value();
+  }
+  return -1;
 }
 
-const ContractData* NSECMRepository::getContract(int64_t token) const {
-    QReadLocker locker(&m_mutex);
-    
-    int32_t idx = getIndex(token);
-    if (idx < 0) {
-        return nullptr;
-    }
-    
-    // Create temporary ContractData from arrays
-    static thread_local ContractData tempContract;
-    tempContract.exchangeInstrumentID = token;
-    tempContract.name = m_name[idx];
-    tempContract.displayName = m_displayName[idx];
-    tempContract.description = m_description[idx];
-    tempContract.series = m_series[idx];
-    tempContract.lotSize = m_lotSize[idx];
-    tempContract.tickSize = m_tickSize[idx];
-    tempContract.freezeQty = m_freezeQty[idx];
-    tempContract.priceBandHigh = m_priceBandHigh[idx];
-    tempContract.priceBandLow = m_priceBandLow[idx];
-    tempContract.ltp = m_ltp[idx];
-    tempContract.open = m_open[idx];
-    tempContract.high = m_high[idx];
-    tempContract.low = m_low[idx];
-    tempContract.close = m_close[idx];
-    tempContract.prevClose = m_prevClose[idx];
-    tempContract.volume = m_volume[idx];
-    tempContract.bidPrice = m_bidPrice[idx];
-    tempContract.askPrice = m_askPrice[idx];
-    
-    return &tempContract;
+const ContractData *NSECMRepository::getContract(int64_t token) const {
+  QReadLocker locker(&m_mutex);
+
+  int32_t idx = getIndex(token);
+  if (idx < 0) {
+    return nullptr;
+  }
+
+  // Create temporary ContractData from arrays
+  static thread_local ContractData tempContract;
+  tempContract.exchangeInstrumentID = token;
+  tempContract.name = m_name[idx];
+  tempContract.displayName = m_displayName[idx];
+  tempContract.description = m_description[idx];
+  tempContract.series = m_series[idx];
+  tempContract.lotSize = m_lotSize[idx];
+  tempContract.tickSize = m_tickSize[idx];
+  tempContract.freezeQty = m_freezeQty[idx];
+  tempContract.priceBandHigh = m_priceBandHigh[idx];
+  tempContract.priceBandLow = m_priceBandLow[idx];
+  tempContract.ltp = m_ltp[idx];
+  tempContract.open = m_open[idx];
+  tempContract.high = m_high[idx];
+  tempContract.low = m_low[idx];
+  tempContract.close = m_close[idx];
+  tempContract.prevClose = m_prevClose[idx];
+  tempContract.volume = m_volume[idx];
+  tempContract.bidPrice = m_bidPrice[idx];
+  tempContract.askPrice = m_askPrice[idx];
+
+  return &tempContract;
 }
 
 bool NSECMRepository::hasContract(int64_t token) const {
-    QReadLocker locker(&m_mutex);
-    return m_tokenToIndex.contains(token);
+  QReadLocker locker(&m_mutex);
+  return m_tokenToIndex.contains(token);
 }
 
-void NSECMRepository::updateLiveData(int64_t token, double ltp, int64_t volume) {
-    QWriteLocker locker(&m_mutex);
-    
-    int32_t idx = getIndex(token);
-    if (idx >= 0) {
-        m_ltp[idx] = ltp;
-        m_volume[idx] = volume;
-    }
+void NSECMRepository::updateLiveData(int64_t token, double ltp,
+                                     int64_t volume) {
+  QWriteLocker locker(&m_mutex);
+
+  int32_t idx = getIndex(token);
+  if (idx >= 0) {
+    m_ltp[idx] = ltp;
+    m_volume[idx] = volume;
+  }
 }
 
-void NSECMRepository::updateBidAsk(int64_t token, double bidPrice, double askPrice) {
-    QWriteLocker locker(&m_mutex);
-    
-    int32_t idx = getIndex(token);
-    if (idx >= 0) {
-        m_bidPrice[idx] = bidPrice;
-        m_askPrice[idx] = askPrice;
-    }
+void NSECMRepository::updateBidAsk(int64_t token, double bidPrice,
+                                   double askPrice) {
+  QWriteLocker locker(&m_mutex);
+
+  int32_t idx = getIndex(token);
+  if (idx >= 0) {
+    m_bidPrice[idx] = bidPrice;
+    m_askPrice[idx] = askPrice;
+  }
 }
 
-void NSECMRepository::updateOHLC(int64_t token, double open, double high, double low, double close) {
-    QWriteLocker locker(&m_mutex);
-    
-    int32_t idx = getIndex(token);
-    if (idx >= 0) {
-        m_open[idx] = open;
-        m_high[idx] = high;
-        m_low[idx] = low;
-        m_close[idx] = close;
-    }
+void NSECMRepository::updateOHLC(int64_t token, double open, double high,
+                                 double low, double close) {
+  QWriteLocker locker(&m_mutex);
+
+  int32_t idx = getIndex(token);
+  if (idx >= 0) {
+    m_open[idx] = open;
+    m_high[idx] = high;
+    m_low[idx] = low;
+    m_close[idx] = close;
+  }
 }
 
 QVector<ContractData> NSECMRepository::getAllContracts() const {
-    QReadLocker locker(&m_mutex);
-    
-    QVector<ContractData> contracts;
-    contracts.reserve(m_contractCount);
-    
-    for (int32_t idx = 0; idx < m_contractCount; ++idx) {
-        ContractData contract;
-        contract.exchangeInstrumentID = m_token[idx];
-        contract.name = m_name[idx];
-        contract.displayName = m_displayName[idx];
-        contract.description = m_description[idx];
-        contract.series = m_series[idx];
-        contract.lotSize = m_lotSize[idx];
-        contract.tickSize = m_tickSize[idx];
-        contract.freezeQty = m_freezeQty[idx];
-        contract.priceBandHigh = m_priceBandHigh[idx];
-        contract.priceBandLow = m_priceBandLow[idx];
-        contract.ltp = m_ltp[idx];
-        contract.volume = m_volume[idx];
-        
-        contracts.append(contract);
-    }
-    
-    return contracts;
+  QReadLocker locker(&m_mutex);
+
+  QVector<ContractData> contracts;
+  contracts.reserve(m_contractCount);
+
+  for (int32_t idx = 0; idx < m_contractCount; ++idx) {
+    ContractData contract;
+    contract.exchangeInstrumentID = m_token[idx];
+    contract.name = m_name[idx];
+    contract.displayName = m_displayName[idx];
+    contract.description = m_description[idx];
+    contract.series = m_series[idx];
+    contract.lotSize = m_lotSize[idx];
+    contract.tickSize = m_tickSize[idx];
+    contract.freezeQty = m_freezeQty[idx];
+    contract.priceBandHigh = m_priceBandHigh[idx];
+    contract.priceBandLow = m_priceBandLow[idx];
+    contract.ltp = m_ltp[idx];
+    contract.volume = m_volume[idx];
+
+    contracts.append(contract);
+  }
+
+  return contracts;
 }
 
-QVector<ContractData> NSECMRepository::getContractsBySeries(const QString& series) const {
-    QReadLocker locker(&m_mutex);
-    
-    QVector<ContractData> contracts;
-    
-    for (int32_t idx = 0; idx < m_contractCount; ++idx) {
-        // If series is empty, return all contracts (used for equity search across all series)
-        // Otherwise, match exact series
-        if (series.isEmpty() || m_series[idx] == series) {
-            ContractData contract;
-            contract.exchangeInstrumentID = m_token[idx];
-            contract.name = m_name[idx];
-            contract.displayName = m_displayName[idx];
-            contract.series = m_series[idx];
-            contract.lotSize = m_lotSize[idx];
-            
-            contracts.append(contract);
-        }
+QVector<ContractData>
+NSECMRepository::getContractsBySeries(const QString &series) const {
+  QReadLocker locker(&m_mutex);
+
+  QVector<ContractData> contracts;
+
+  for (int32_t idx = 0; idx < m_contractCount; ++idx) {
+    // If series is empty, return all contracts (used for equity search across
+    // all series) Otherwise, match exact series
+    if (series.isEmpty() || m_series[idx] == series) {
+      ContractData contract;
+      contract.exchangeInstrumentID = m_token[idx];
+      contract.name = m_name[idx];
+      contract.displayName = m_displayName[idx];
+      contract.series = m_series[idx];
+      contract.lotSize = m_lotSize[idx];
+
+      contracts.append(contract);
     }
-    
-    return contracts;
+  }
+
+  return contracts;
 }
 
-QVector<ContractData> NSECMRepository::getContractsBySymbol(const QString& symbol) const {
-    QReadLocker locker(&m_mutex);
-    
-    QVector<ContractData> contracts;
-    
-    for (int32_t idx = 0; idx < m_contractCount; ++idx) {
-        if (m_name[idx] == symbol) {
-            ContractData contract;
-            contract.exchangeInstrumentID = m_token[idx];
-            contract.name = m_name[idx];
-            contract.displayName = m_displayName[idx];
-            contract.series = m_series[idx];
-            contract.lotSize = m_lotSize[idx];
-            
-            contracts.append(contract);
-        }
+QVector<ContractData>
+NSECMRepository::getContractsBySymbol(const QString &symbol) const {
+  QReadLocker locker(&m_mutex);
+
+  QVector<ContractData> contracts;
+
+  for (int32_t idx = 0; idx < m_contractCount; ++idx) {
+    if (m_name[idx] == symbol) {
+      ContractData contract;
+      contract.exchangeInstrumentID = m_token[idx];
+      contract.name = m_name[idx];
+      contract.displayName = m_displayName[idx];
+      contract.series = m_series[idx];
+      contract.lotSize = m_lotSize[idx];
+
+      contracts.append(contract);
     }
-    
-    return contracts;
+  }
+
+  return contracts;
 }
 
-bool NSECMRepository::loadFromContracts(const QVector<MasterContract>& contracts) {
-    if (contracts.isEmpty()) {
-        qWarning() << "NSE CM Repository: No contracts to load";
-        return false;
+bool NSECMRepository::loadFromContracts(
+    const QVector<MasterContract> &contracts) {
+  if (contracts.isEmpty()) {
+    qWarning() << "NSE CM Repository: No contracts to load";
+    return false;
+  }
+
+  QWriteLocker locker(&m_mutex);
+
+  // Clear existing data - MUST clear all arrays!
+  m_tokenToIndex.clear();
+  m_contractCount = 0;
+
+  // Clear all parallel arrays to avoid stale data
+  m_token.clear();
+  m_name.clear();
+  m_displayName.clear();
+  m_description.clear();
+  m_series.clear();
+  m_lotSize.clear();
+  m_tickSize.clear();
+  m_freezeQty.clear();
+  m_priceBandHigh.clear();
+  m_priceBandLow.clear();
+  m_ltp.clear();
+  m_open.clear();
+  m_high.clear();
+  m_low.clear();
+  m_close.clear();
+  m_prevClose.clear();
+  m_volume.clear();
+  m_bidPrice.clear();
+  m_askPrice.clear();
+
+  // Pre-allocate for efficiency
+  const int32_t expectedSize = contracts.size();
+  m_token.reserve(expectedSize);
+  m_name.reserve(expectedSize);
+  m_displayName.reserve(expectedSize);
+  m_description.reserve(expectedSize);
+  m_series.reserve(expectedSize);
+  m_lotSize.reserve(expectedSize);
+  m_tickSize.reserve(expectedSize);
+  m_priceBandHigh.reserve(expectedSize);
+  m_priceBandLow.reserve(expectedSize);
+  m_tokenToIndex.reserve(expectedSize);
+
+  // Load contracts directly from QVector
+  for (const MasterContract &contract : contracts) {
+    if (contract.exchange != "NSECM") {
+      continue; // Skip non-NSECM contracts
     }
 
-    QWriteLocker locker(&m_mutex);
-    
-    // Clear existing data - MUST clear all arrays!
-    m_tokenToIndex.clear();
-    m_contractCount = 0;
-    
-    // Clear all parallel arrays to avoid stale data
-    m_token.clear();
-    m_name.clear();
-    m_displayName.clear();
-    m_description.clear();
-    m_series.clear();
-    m_lotSize.clear();
-    m_tickSize.clear();
-    m_freezeQty.clear();
-    m_priceBandHigh.clear();
-    m_priceBandLow.clear();
-    m_ltp.clear();
-    m_open.clear();
-    m_high.clear();
-    m_low.clear();
-    m_close.clear();
-    m_prevClose.clear();
-    m_volume.clear();
-    m_bidPrice.clear();
-    m_askPrice.clear();
-    
-    // Pre-allocate for efficiency
-    const int32_t expectedSize = contracts.size();
-    m_token.reserve(expectedSize);
-    m_name.reserve(expectedSize);
-    m_displayName.reserve(expectedSize);
-    m_description.reserve(expectedSize);
-    m_series.reserve(expectedSize);
-    m_lotSize.reserve(expectedSize);
-    m_tickSize.reserve(expectedSize);
-    m_priceBandHigh.reserve(expectedSize);
-    m_priceBandLow.reserve(expectedSize);
-    m_tokenToIndex.reserve(expectedSize);
-    
-    // Load contracts directly from QVector
-    for (const MasterContract& contract : contracts) {
-        if (contract.exchange != "NSECM") {
-            continue;  // Skip non-NSECM contracts
-        }
-        
-        // Add to parallel arrays
-        m_token.push_back(contract.exchangeInstrumentID);
-        m_name.push_back(contract.name);
-        m_displayName.push_back(contract.displayName);
-        m_description.push_back(contract.description);
-        m_series.push_back(contract.series);
-        m_lotSize.push_back(contract.lotSize);
-        m_tickSize.push_back(contract.tickSize);
-        m_priceBandHigh.push_back(contract.freezeQty);  // Map from existing field
-        m_priceBandLow.push_back(0);  // Not in master file
-        
-        // Initialize live data arrays
-        m_ltp.push_back(0.0);
-        m_open.push_back(0.0);
-        m_high.push_back(0.0);
-        m_low.push_back(0.0);
-        m_close.push_back(0.0);
-        m_prevClose.push_back(0.0);
-        m_volume.push_back(0);
-        
-        // Add to token index
-        m_tokenToIndex.insert(contract.exchangeInstrumentID, m_contractCount);
-        m_contractCount++;
-    }
-    
-    m_loaded = (m_contractCount > 0);
-    
-    qDebug() << "NSE CM Repository loaded from contracts:" << m_contractCount << "contracts";
-    return m_contractCount > 0;
+    // Add to parallel arrays
+    m_token.push_back(contract.exchangeInstrumentID);
+    m_name.push_back(contract.name);
+    m_displayName.push_back(contract.displayName);
+    m_description.push_back(contract.description);
+    m_series.push_back(contract.series);
+    m_lotSize.push_back(contract.lotSize);
+    m_tickSize.push_back(contract.tickSize);
+    m_priceBandHigh.push_back(contract.freezeQty); // Map from existing field
+    m_priceBandLow.push_back(0);                   // Not in master file
+
+    // Initialize live data arrays
+    m_ltp.push_back(0.0);
+    m_open.push_back(0.0);
+    m_high.push_back(0.0);
+    m_low.push_back(0.0);
+    m_close.push_back(0.0);
+    m_prevClose.push_back(0.0);
+    m_volume.push_back(0);
+
+    // Add to token index
+    m_tokenToIndex.insert(contract.exchangeInstrumentID, m_contractCount);
+    m_contractCount++;
+  }
+
+  m_loaded = (m_contractCount > 0);
+
+  qDebug() << "NSE CM Repository loaded from contracts:" << m_contractCount
+           << "contracts";
+  return m_contractCount > 0;
 }
 
-bool NSECMRepository::saveProcessedCSV(const QString& filename) const {
-    QReadLocker locker(&m_mutex);
-    
-    QFile file(filename);
-    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-        qWarning() << "Failed to open file for writing:" << filename;
-        return false;
-    }
-    
-    QTextStream out(&file);
-    
-    // Write header
-    out << "Token,Symbol,DisplayName,Description,Series,LotSize,TickSize,PriceBandHigh,PriceBandLow,LTP,Open,High,Low,Close,PrevClose,Volume\n";
-    
-    // Write all contracts
-    for (int32_t idx = 0; idx < m_contractCount; ++idx) {
-        out << m_token[idx] << ","
-            << m_name[idx] << ","
-            << m_displayName[idx] << ","
-            << m_description[idx] << ","
-            << m_series[idx] << ","
-            << m_lotSize[idx] << ","
-            << m_tickSize[idx] << ","
-            << m_priceBandHigh[idx] << ","
-            << m_priceBandLow[idx] << ",";
-        out << "0,0,0,0,0,0,0\n";  // Live data not persisted
-    }
-    
-    file.close();
-    qDebug() << "NSE CM Repository saved to CSV:" << filename << m_contractCount << "contracts";
-    return true;
+bool NSECMRepository::saveProcessedCSV(const QString &filename) const {
+  QReadLocker locker(&m_mutex);
+
+  QFile file(filename);
+  if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+    qWarning() << "Failed to open file for writing:" << filename;
+    return false;
+  }
+
+  QTextStream out(&file);
+
+  // Write header
+  out << "Token,Symbol,DisplayName,Description,Series,LotSize,TickSize,"
+         "PriceBandHigh,PriceBandLow,LTP,Open,High,Low,Close,PrevClose,"
+         "Volume\n";
+
+  // Write all contracts
+  for (int32_t idx = 0; idx < m_contractCount; ++idx) {
+    out << m_token[idx] << "," << m_name[idx] << "," << m_displayName[idx]
+        << "," << m_description[idx] << "," << m_series[idx] << ","
+        << m_lotSize[idx] << "," << m_tickSize[idx] << ","
+        << m_priceBandHigh[idx] << "," << m_priceBandLow[idx] << ",";
+    out << "0,0,0,0,0,0,0\n"; // Live data not persisted
+  }
+
+  file.close();
+  qDebug() << "NSE CM Repository saved to CSV:" << filename << m_contractCount
+           << "contracts";
+  return true;
 }
 
 void NSECMRepository::forEachContract(
@@ -522,7 +526,7 @@ void NSECMRepository::forEachContract(
     data.volume = m_volume[i];
     data.bidPrice = m_bidPrice[i];
     data.askPrice = m_askPrice[i];
-    
+
     // Default F&O fields for EQ
     data.expiryDate = "";
     data.strikePrice = 0.0;
@@ -568,7 +572,7 @@ void NSECMRepository::prepareForLoad() {
 void NSECMRepository::finalizeLoad() {
   QWriteLocker locker(&m_mutex);
   m_loaded = (m_contractCount > 0);
-  
+
   // Build index name map for indices
   buildIndexNameMap();
 
@@ -605,67 +609,69 @@ void NSECMRepository::addContract(
   addContractInternal(contract, intern);
 }
 
-void NSECMRepository::appendContracts(const QVector<ContractData>& contracts) {
-    QWriteLocker lock(&m_mutex);
-    
-    for (const ContractData& contract : contracts) {
-        if (m_tokenToIndex.contains(contract.exchangeInstrumentID)) {
-            continue; // Skip duplicates
-        }
-        
-        int32_t idx = m_contractCount;
-        
-        m_token.append(contract.exchangeInstrumentID);
-        m_name.append(contract.name);
-        m_displayName.append(contract.displayName);
-        m_description.append(contract.description);
-        m_series.append(contract.series);
-        
-        m_lotSize.append(contract.lotSize);
-        m_tickSize.append(contract.tickSize);
-        m_freezeQty.append(contract.freezeQty);
-        
-        m_priceBandHigh.append(contract.priceBandHigh);
-        m_priceBandLow.append(contract.priceBandLow);
-        
-        // Initialize dynamic fields to 0
-        m_ltp.append(0.0);
-        m_open.append(0.0);
-        m_high.append(0.0);
-        m_low.append(0.0);
-        m_close.append(0.0);
-        m_prevClose.append(0.0);
-        m_volume.append(0);
-        
-        m_bidPrice.append(0.0);
-        m_askPrice.append(0.0);
-        
-        m_tokenToIndex.insert(contract.exchangeInstrumentID, idx);
-        m_contractCount++;
-        
-        // For indices, also map name -> token
-        if (contract.series == "INDEX") {
-            m_indexNameToToken[contract.name] = contract.exchangeInstrumentID;
-        }
+void NSECMRepository::appendContracts(const QVector<ContractData> &contracts) {
+  QWriteLocker lock(&m_mutex);
+
+  for (const ContractData &contract : contracts) {
+    if (m_tokenToIndex.contains(contract.exchangeInstrumentID)) {
+      continue; // Skip duplicates
     }
-    
-    qDebug() << "Appended" << contracts.size() << "contracts to NSECM. Total:" << m_contractCount;
+
+    int32_t idx = m_contractCount;
+
+    m_token.append(contract.exchangeInstrumentID);
+    m_name.append(contract.name);
+    m_displayName.append(contract.displayName);
+    m_description.append(contract.description);
+    m_series.append(contract.series);
+
+    m_lotSize.append(contract.lotSize);
+    m_tickSize.append(contract.tickSize);
+    m_freezeQty.append(contract.freezeQty);
+
+    m_priceBandHigh.append(contract.priceBandHigh);
+    m_priceBandLow.append(contract.priceBandLow);
+
+    // Initialize dynamic fields to 0
+    m_ltp.append(0.0);
+    m_open.append(0.0);
+    m_high.append(0.0);
+    m_low.append(0.0);
+    m_close.append(0.0);
+    m_prevClose.append(0.0);
+    m_volume.append(0);
+
+    m_bidPrice.append(0.0);
+    m_askPrice.append(0.0);
+
+    m_tokenToIndex.insert(contract.exchangeInstrumentID, idx);
+    m_contractCount++;
+
+    // For indices, also map name -> token
+    if (contract.series == "INDEX") {
+      m_indexNameToToken[contract.name] = contract.exchangeInstrumentID;
+    }
+  }
+
+  qDebug() << "Appended" << contracts.size()
+           << "contracts to NSECM. Total:" << m_contractCount;
 }
 
 void NSECMRepository::buildIndexNameMap() {
-    // NOTE: Caller must already hold mutex lock (called from finalizeLoad)
-    // DO NOT lock here - would cause deadlock!
-    
-    m_indexNameToToken.clear();
-    for (int32_t i = 0; i < m_contractCount; ++i) {
-        if (m_series[i] == "INDEX") {
-            m_indexNameToToken[m_name[i]] = m_token[i];
-        }
+  // NOTE: Caller must already hold mutex lock (called from finalizeLoad)
+  // DO NOT lock here - would cause deadlock!
+
+  m_indexNameToToken.clear();
+  for (int32_t i = 0; i < m_contractCount; ++i) {
+    if (m_series[i] == "INDEX") {
+      m_indexNameToToken[m_name[i]] = m_token[i];
     }
-    qDebug() << "Built index name map with" << m_indexNameToToken.size() << "entries";
+  }
+  qDebug() << "Built index name map with" << m_indexNameToToken.size()
+           << "entries";
 }
 
 QHash<QString, qint64> NSECMRepository::getIndexNameTokenMap() const {
-    QReadLocker lock(&m_mutex);
-    return m_indexNameToToken;
+  QReadLocker lock(&m_mutex);
+  return m_indexNameToToken;
 }

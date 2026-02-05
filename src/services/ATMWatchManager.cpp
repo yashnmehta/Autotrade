@@ -27,11 +27,11 @@ ATMWatchManager::ATMWatchManager(QObject *parent) : QObject(parent) {
           [this]() { QtConcurrent::run([this]() { calculateAll(); }); });
 
   // If masters are already loaded, trigger immediate calculation
-  if (MasterDataState::getInstance()->areMastersLoaded()) {
+  /* if (MasterDataState::getInstance()->areMastersLoaded()) {
     qDebug() << "[ATMWatch] Masters already loaded, triggering immediate "
                 "calculation";
     QtConcurrent::run([this]() { calculateAll(); });
-  }
+  } */
 }
 
 void ATMWatchManager::addWatch(const QString &symbol, const QString &expiry,
@@ -62,8 +62,8 @@ void ATMWatchManager::addWatchesBatch(
     }
   }
 
-  qDebug() << "[ATMWatch] Added" << configs.size()
-           << "watches in batch, triggering calculation...";
+  /* qDebug() << "[ATMWatch] Added" << configs.size()
+           << "watches in batch, triggering calculation..."; */
 
   // Trigger ONE calculation for all watches
   QtConcurrent::run([this]() { calculateAll(); });
@@ -92,7 +92,7 @@ ATMWatchManager::getATMInfo(const QString &symbol) const {
 }
 
 void ATMWatchManager::onMinuteTimer() {
-  qDebug() << "[ATMWatch] Running periodic ATM calculation...";
+  // qDebug() << "[ATMWatch] Running periodic ATM calculation...";
   QtConcurrent::run([this]() { calculateAll(); });
 }
 
@@ -106,10 +106,9 @@ void ATMWatchManager::calculateAll() {
   int successCount = 0;
   int failCount = 0;
 
-
   for (auto it = m_configs.begin(); it != m_configs.end(); ++it) {
     const auto &config = it.value();
-    
+
     // Initialize or get existing info
     ATMInfo &info = m_results[config.symbol];
     info.symbol = config.symbol;
@@ -131,7 +130,8 @@ void ATMWatchManager::calculateAll() {
     // If still no valid base price, we can't calculate ATM strike
     if (basePrice <= 0) {
       if (config.symbol == "NIFTY") {
-          qDebug() << "[ATMWatch] ERROR: NIFTY base price is 0 for expiry:" << config.expiry;
+        qDebug() << "[ATMWatch] ERROR: NIFTY base price is 0 for expiry:"
+                 << config.expiry;
       }
       failCount++;
       continue;
@@ -159,8 +159,10 @@ void ATMWatchManager::calculateAll() {
     }
   }
 
-  qDebug() << "[ATMWatch] Calculation complete:" << successCount << "succeeded,"
-           << failCount << "failed out of" << m_configs.size() << "symbols. Results size:" << m_results.size();
+  /* qDebug() << "[ATMWatch] Calculation complete:" << successCount <<
+     "succeeded,"
+           << failCount << "failed out of" << m_configs.size() << "symbols.
+     Results size:" << m_results.size(); */
 
   emit atmUpdated();
 }
