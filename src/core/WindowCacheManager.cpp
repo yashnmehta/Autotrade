@@ -1,6 +1,7 @@
 #include "core/WindowCacheManager.h"
 #include "api/XTSMarketDataClient.h"
 #include "app/MainWindow.h"
+#include "core/WindowConstants.h"
 #include "core/widgets/CustomMDIArea.h"
 #include "core/widgets/CustomMDISubWindow.h"
 #include "models/WindowContext.h"
@@ -13,6 +14,7 @@
 #include <QElapsedTimer>
 #include <QSettings>
 #include <QTimer>
+
 
 WindowCacheManager &WindowCacheManager::instance() {
   static WindowCacheManager instance;
@@ -111,7 +113,8 @@ void WindowCacheManager::createCachedWindows() {
 
   // ⚡ CRITICAL: Show off-screen immediately (not hide!) for instant first show
   m_cachedBuyMdiWindow->show();
-  m_cachedBuyMdiWindow->move(-10000, -10000);
+  m_cachedBuyMdiWindow->move(WindowConstants::OFF_SCREEN_X,
+                             WindowConstants::OFF_SCREEN_Y);
   m_cachedBuyMdiWindow->lower();
 
   // Connect signals to MainWindow (Crucial for cached windows!)
@@ -141,7 +144,8 @@ void WindowCacheManager::createCachedWindows() {
 
   // ⚡ CRITICAL: Show off-screen immediately (not hide!) for instant first show
   m_cachedSellMdiWindow->show();
-  m_cachedSellMdiWindow->move(-10000, -10000);
+  m_cachedSellMdiWindow->move(WindowConstants::OFF_SCREEN_X,
+                              WindowConstants::OFF_SCREEN_Y);
   m_cachedSellMdiWindow->lower();
 
   // Connect signals to MainWindow (Crucial for cached windows!)
@@ -187,7 +191,8 @@ void WindowCacheManager::createCachedWindows() {
     // ⚡ CRITICAL: Show off-screen immediately (not hide!) for instant first
     // show This ensures even the FIRST user-triggered show is instant (< 20ms)!
     entry.mdiWindow->show();
-    entry.mdiWindow->move(-10000 - (i * 100), -10000); // Stagger positions
+    entry.mdiWindow->move(WindowConstants::OFF_SCREEN_X - (i * 100),
+                          WindowConstants::OFF_SCREEN_Y); // Stagger positions
     entry.mdiWindow->lower();
 
     // ⚡ Connect to UDP broadcast service for real-time updates
