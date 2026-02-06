@@ -1,5 +1,6 @@
 #include "repository/BSEFORepository.h"
 #include "repository/MasterFileParser.h"
+#include "utils/DateUtils.h"
 #include <QDebug>
 #include <QFile>
 #include <QTextStream>
@@ -104,7 +105,25 @@ bool BSEFORepository::loadProcessedCSV(const QString &filename) {
     contract.series = trimQuotes(fields[4]);
     contract.lotSize = fields[5].toInt();
     contract.tickSize = fields[6].toDouble();
-    contract.expiryDate = trimQuotes(fields[7]);
+
+    // ✅ Parse expiry date to DDMMMYYYY format + QDate
+    QString rawExpiryDate = trimQuotes(fields[7]);
+    QString parsedDate;
+    QDate parsedQDate;
+    double timeToExpiry;
+
+    if (DateUtils::parseExpiryDate(rawExpiryDate, parsedDate, parsedQDate,
+                                   timeToExpiry)) {
+      contract.expiryDate = parsedDate;     // DDMMMYYYY format
+      contract.expiryDate_dt = parsedQDate; // QDate for sorting
+      contract.timeToExpiry = timeToExpiry; // For Greeks calculation
+    } else {
+      // Parsing failed - use raw value as fallback
+      contract.expiryDate = rawExpiryDate;
+      contract.expiryDate_dt = QDate();
+      contract.timeToExpiry = 0.0;
+    }
+
     contract.strikePrice = fields[8].toDouble();
     contract.instrumentType = fields[fields.size() - 1].toInt();
 

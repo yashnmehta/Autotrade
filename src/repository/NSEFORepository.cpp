@@ -1,10 +1,10 @@
 #include "repository/NSEFORepository.h"
 #include "repository/MasterFileParser.h"
+#include <QCoreApplication>
 #include <QDebug>
 #include <QFile>
 #include <QTextStream>
 #include <QThread>
-#include <QCoreApplication>
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -87,9 +87,12 @@ void NSEFORepository::allocateArrays() {
 
   // Live Market Data (REMOVED)
 
-  // F&O Specific (4 fields)
+  // F&O Specific (9 fields - with typed columns)
   m_expiryDate.resize(ARRAY_SIZE);
+  m_expiryDate_dt.resize(ARRAY_SIZE); // QDate for fast sorting
   m_strikePrice.resize(ARRAY_SIZE);
+  m_strikePrice_fl.resize(ARRAY_SIZE); // float for memory efficiency
+  m_timeToExpiry.resize(ARRAY_SIZE);   // Pre-calculated for Greeks
   m_optionType.resize(ARRAY_SIZE);
   m_assetToken.resize(ARRAY_SIZE);
   m_instrumentType.resize(ARRAY_SIZE);
@@ -275,11 +278,10 @@ bool NSEFORepository::loadProcessedCSV(const QString &filename) {
   int32_t loadedCount = 0;
   int32_t spreadLoadedCount = 0;
 
-
   // String Interning Pool - DISABLED for CSV loading (causes O(n²) slowdown)
   // QSet<QString> stringPool;
   auto internString = [](const QString &str) -> QString {
-    return str;  // No interning - just return the string as-is
+    return str; // No interning - just return the string as-is
   };
 
   QString qLine;
@@ -298,7 +300,6 @@ bool NSEFORepository::loadProcessedCSV(const QString &filename) {
     }
 
     qLine = QString::fromStdString(line);
-
 
     // Optimized manual split using midRef to avoid heap allocations
     QVector<QStringRef> fields;
@@ -336,12 +337,12 @@ bool NSEFORepository::loadProcessedCSV(const QString &filename) {
       m_strikePrice[idx] = fields[8].toDouble();
       m_optionType[idx] = internString(trimQuotes(fields[9])); // CE/PE/XX
       m_assetToken[idx] = fields[11].toLongLong();
-      
+
       // Only update symbol map if this symbol hasn't been seen yet
       if (!m_symbolToAssetToken.contains(m_name[idx])) {
         m_symbolToAssetToken[m_name[idx]] = m_assetToken[idx];
       }
-      
+
       m_freezeQty[idx] = fields[12].toInt();
       m_priceBandHigh[idx] = fields[13].toDouble();
       m_priceBandLow[idx] = fields[14].toDouble();
@@ -373,10 +374,10 @@ bool NSEFORepository::loadProcessedCSV(const QString &filename) {
   }
   qDebug() << "Loaded lines:" << lineCount;
   qDebug() << "outside while loop";
-  
+
   qDebug() << "Closing file...";
   file.close();
-  
+
   qDebug() << "Setting counters...";
   m_regularCount = loadedCount;
   m_spreadCount = spreadLoadedCount;
@@ -530,7 +531,9 @@ QVector<ContractData> NSEFORepository::getAllContracts() const {
       contract.priceBandHigh = m_priceBandHigh[idx];
       contract.priceBandLow = m_priceBandLow[idx];
       contract.expiryDate = m_expiryDate[idx];
+      contract.expiryDate_dt = m_expiryDate_dt[idx]; // QDate
       contract.strikePrice = m_strikePrice[idx];
+      contract.timeToExpiry = m_timeToExpiry[idx]; // Pre-calculated
       contract.optionType = m_optionType[idx];
       contract.assetToken = m_assetToken[idx];
       contract.instrumentType = m_instrumentType[idx];
@@ -605,10 +608,8 @@ NSEFORepository::getContractsBySymbol(const QString &symbol) const {
   return contracts;
 }
 
-QVector<ContractData>
-NSEFORepository::getContractsBySymbolAndExpiry(const QString &symbol,
-                                               const QString &expiry,
-                                               int instrumentType) const {
+QVector<ContractData> NSEFORepository::getContractsBySymbolAndExpiry(
+    const QString &symbol, const QString &expiry, int instrumentType) const {
   QVector<ContractData> contracts;
 
   // Search regular contracts
@@ -652,29 +653,29 @@ NSEFORepository::getContractsBySymbolAndExpiry(const QString &symbol,
 }
 
 void NSEFORepository::updateAssetToken(int64_t token, int64_t assetToken) {
-    if (isRegularContract(token)) {
-        int32_t idx = getArrayIndex(token);
-        int32_t stripeIdx = getStripeIndex(idx);
-        QWriteLocker locker(&m_mutexes[stripeIdx]);
-        if (m_valid[idx]) {
-            m_assetToken[idx] = assetToken;
-            
-            // Also update the symbolic map (using stripe 0 for map access)
-            if (stripeIdx != 0) {
-                m_mutexes[0].lockForWrite();
-                m_symbolToAssetToken[m_name[idx]] = assetToken;
-                m_mutexes[0].unlock();
-            } else {
-                m_symbolToAssetToken[m_name[idx]] = assetToken;
-            }
-        }
-    } else if (token >= SPREAD_THRESHOLD) {
-        QWriteLocker locker(&m_mutexes[0]);
-        auto it = m_spreadContracts.find(token);
-        if (it != m_spreadContracts.end()) {
-            it.value()->assetToken = assetToken;
-        }
+  if (isRegularContract(token)) {
+    int32_t idx = getArrayIndex(token);
+    int32_t stripeIdx = getStripeIndex(idx);
+    QWriteLocker locker(&m_mutexes[stripeIdx]);
+    if (m_valid[idx]) {
+      m_assetToken[idx] = assetToken;
+
+      // Also update the symbolic map (using stripe 0 for map access)
+      if (stripeIdx != 0) {
+        m_mutexes[0].lockForWrite();
+        m_symbolToAssetToken[m_name[idx]] = assetToken;
+        m_mutexes[0].unlock();
+      } else {
+        m_symbolToAssetToken[m_name[idx]] = assetToken;
+      }
     }
+  } else if (token >= SPREAD_THRESHOLD) {
+    QWriteLocker locker(&m_mutexes[0]);
+    auto it = m_spreadContracts.find(token);
+    if (it != m_spreadContracts.end()) {
+      it.value()->assetToken = assetToken;
+    }
+  }
 }
 
 bool NSEFORepository::loadFromContracts(
@@ -934,8 +935,14 @@ void NSEFORepository::addContract(
     m_freezeQty[idx] = contract.freezeQty;
     m_priceBandHigh[idx] = contract.priceBandHigh;
     m_priceBandLow[idx] = contract.priceBandLow;
+
+    // F&O Specific fields (with typed columns)
     m_expiryDate[idx] = intern(contract.expiryDate);
+    m_expiryDate_dt[idx] = contract.expiryDate_dt; // QDate for sorting
     m_strikePrice[idx] = contract.strikePrice;
+    m_strikePrice_fl[idx] =
+        static_cast<float>(contract.strikePrice); // float for efficiency
+    m_timeToExpiry[idx] = contract.timeToExpiry;  // Pre-calculated
     m_optionType[idx] = intern(optType);
     m_assetToken[idx] = contract.assetToken;
     m_instrumentType[idx] = contract.instrumentType;
