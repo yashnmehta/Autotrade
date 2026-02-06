@@ -195,6 +195,10 @@ bool MarketWatchWindow::addScripFromContract(const ScripData &contractData)
     
     emit scripAdded(scrip.symbol, scrip.exchange, scrip.token);
     
+    // Set focus to the newly added scrip
+    setFocusToToken(scrip.token);
+    qint64 t7 = addScripTimer.elapsed();
+    
     qint64 totalTime = addScripTimer.elapsed();
     qDebug() << "[PERF] [MW_ADD_SCRIP] #" << addScripCounter << "COMPLETE - Token:" << contractData.token;
     qDebug() << "  TOTAL TIME:" << totalTime << "ms";
@@ -206,6 +210,7 @@ bool MarketWatchWindow::addScripFromContract(const ScripData &contractData)
     qDebug() << "    - UDP subscription:" << (t4-t3) << "ms";
     qDebug() << "    - Load initial data:" << (t5-t4) << "ms";
     qDebug() << "    - Address book update:" << (t6-t5) << "ms";
+    qDebug() << "    - Set focus to scrip:" << (t7-t6) << "ms";
     
     return true;
 }
@@ -215,6 +220,13 @@ void MarketWatchWindow::removeScrip(int row)
     if (row < 0 || row >= m_model->rowCount()) return;
     const ScripData &scrip = m_model->getScripAt(row);
     if (!scrip.isBlankRow && scrip.isValid()) {
+        // Clear focus state if removing the focused scrip
+        if (scrip.token == m_lastFocusedToken) {
+            m_lastFocusedToken = -1;
+            m_lastFocusedSymbol.clear();
+            qDebug() << "[MarketWatch] Cleared focus state - removed focused scrip:" << scrip.symbol;
+        }
+        
         TokenSubscriptionManager::instance()->unsubscribe(scrip.exchange, scrip.token);
         
         // Unsubscribe from UDP ticks
@@ -248,6 +260,10 @@ void MarketWatchWindow::clearAll()
     }
     m_tokenAddressBook->clear();
     m_model->clearAll();
+    
+    // Clear focus state since all scrips are removed
+    m_lastFocusedToken = -1;
+    m_lastFocusedSymbol.clear();
 }
 
 void MarketWatchWindow::insertBlankRow(int position)

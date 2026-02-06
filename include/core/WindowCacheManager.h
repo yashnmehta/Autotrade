@@ -48,40 +48,37 @@ public:
   /**
    * @brief Show cached Buy window with optional context
    * @param context Window context (instrument details)
+   * @param initiatingWindow The window that is opening this Buy window (for focus restoration)
    * @return true if cached window was shown, false if cache not available
    */
-  CustomMDISubWindow *showBuyWindow(const WindowContext *context = nullptr);
+  CustomMDISubWindow *showBuyWindow(const WindowContext *context = nullptr, QWidget* initiatingWindow = nullptr);
 
   /**
    * @brief Show cached Sell window with optional context
    * @param context Window context (instrument details)
+   * @param initiatingWindow The window that is opening this Sell window (for focus restoration)
    * @return true if cached window was shown, false if cache not available
    */
-  CustomMDISubWindow *showSellWindow(const WindowContext *context = nullptr);
+  CustomMDISubWindow *showSellWindow(const WindowContext *context = nullptr, QWidget* initiatingWindow = nullptr);
 
   /**
    * @brief Show cached SnapQuote window with optional context
    * @param context Window context (instrument details)
+   * @param initiatingWindow The window that is opening this SnapQuote window (for focus restoration)
    * @return true if cached window was shown, false if cache not available
    */
   CustomMDISubWindow *
-  showSnapQuoteWindow(const WindowContext *context = nullptr);
+  showSnapQuoteWindow(const WindowContext *context = nullptr, QWidget* initiatingWindow = nullptr);
 
   /**
    * @brief Mark Buy window as needing reset (called when user closes it)
    */
-  void markBuyWindowClosed() {
-    m_buyWindowNeedsReset = true;
-    m_lastBuyToken = -1; // Clear cached token
-  }
+  void markBuyWindowClosed();
 
   /**
    * @brief Mark Sell window as needing reset (called when user closes it)
    */
-  void markSellWindowClosed() {
-    m_sellWindowNeedsReset = true;
-    m_lastSellToken = -1; // Clear cached token
-  }
+  void markSellWindowClosed();
 
   /**
    * @brief Mark SnapQuote window as needing reset (called when user closes it)

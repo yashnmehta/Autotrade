@@ -112,6 +112,17 @@ CustomMDISubWindow *MainWindow::createMarketWatch() {
 
   connectWindowSignals(window);
   qint64 t4 = mwTimer.elapsed();
+  
+  // Connect window activation to restore focus with a delay
+  connect(window, &CustomMDISubWindow::windowActivated, marketWatch, [marketWatch]() {
+    qDebug() << "[MainWindow] Market Watch window activated, scheduling focus restore";
+    // Use a timer to ensure the window is fully activated and ready
+    QTimer::singleShot(100, marketWatch, [marketWatch]() {
+      if (marketWatch->getModel() && marketWatch->getModel()->rowCount() > 0) {
+        marketWatch->restoreFocusedRow();
+      }
+    });
+  });
 
   // OPTIMIZATION: Batch MDI operations to reduce layout calculations (saves
   // ~50ms)
@@ -150,12 +161,21 @@ CustomMDISubWindow *MainWindow::createBuyWindow() {
 
   // Try cache first for fast opening (~10ms instead of ~400ms)
   MarketWatchWindow *activeMarketWatch = getActiveMarketWatch();
+  
+  // Store the focused row before opening Buy window
+  if (activeMarketWatch) {
+    activeMarketWatch->storeFocusedRow();
+  }
+  
   WindowContext context;
   if (activeMarketWatch && activeMarketWatch->hasValidSelection()) {
     context = activeMarketWatch->getSelectedContractContext();
   }
+  
+  // Pass the active MarketWatch as the initiating window for focus restoration
   CustomMDISubWindow *cached = WindowCacheManager::instance().showBuyWindow(
-      context.isValid() ? &context : nullptr);
+      context.isValid() ? &context : nullptr,
+      activeMarketWatch);  // Pass initiating window
   if (cached) {
     return cached; // Cache handled it
   }
@@ -260,12 +280,21 @@ CustomMDISubWindow *MainWindow::createSellWindow() {
 
   // Try cache first for fast opening (~10ms instead of ~400ms)
   MarketWatchWindow *activeMarketWatch = getActiveMarketWatch();
+  
+  // Store the focused row before opening Sell window
+  if (activeMarketWatch) {
+    activeMarketWatch->storeFocusedRow();
+  }
+  
   WindowContext context;
   if (activeMarketWatch && activeMarketWatch->hasValidSelection()) {
     context = activeMarketWatch->getSelectedContractContext();
   }
+  
+  // Pass the active MarketWatch as the initiating window for focus restoration
   CustomMDISubWindow *cached = WindowCacheManager::instance().showSellWindow(
-      context.isValid() ? &context : nullptr);
+      context.isValid() ? &context : nullptr,
+      activeMarketWatch);  // Pass initiating window
   if (cached) {
     return cached; // Cache handled it
   }
@@ -368,6 +397,12 @@ CustomMDISubWindow *MainWindow::createSnapQuoteWindow() {
 
   // ⭐ TRY CACHE FIRST (~10-20ms if hit!)
   MarketWatchWindow *activeMarketWatch = getActiveMarketWatch();
+  
+  // Store the focused row before opening Snap Quote window
+  if (activeMarketWatch) {
+    activeMarketWatch->storeFocusedRow();
+  }
+  
   WindowContext context;
 
   if (activeMarketWatch && activeMarketWatch->hasValidSelection()) {
@@ -387,7 +422,8 @@ CustomMDISubWindow *MainWindow::createSnapQuoteWindow() {
   // ⭐ CHECK CACHE
   CustomMDISubWindow *cached =
       WindowCacheManager::instance().showSnapQuoteWindow(
-          context.isValid() ? &context : nullptr);
+          context.isValid() ? &context : nullptr,
+          activeMarketWatch);  // Pass initiating window
   if (cached) {
     qDebug() << "[PERF] ⚡ Cache HIT! Time:"
              << QDateTime::currentMSecsSinceEpoch() << "(~10-20ms)";

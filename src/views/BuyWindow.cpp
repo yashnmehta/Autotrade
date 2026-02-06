@@ -4,6 +4,7 @@
 #include "utils/PreferencesManager.h"
 #include "utils/SoundManager.h"
 #include "utils/WindowSettingsHelper.h"
+#include "utils/WindowManager.h"
 #include "core/widgets/CustomMDISubWindow.h"
 #include <QMessageBox>
 #include <QDebug>
@@ -17,6 +18,10 @@ BuyWindow::BuyWindow(QWidget *parent)
 {
     setInstance(this);
     WindowSettingsHelper::loadAndApplyWindowSettings(this, "BuyWindow");
+    
+    // Register with WindowManager
+    WindowManager::instance().registerWindow(this, "Buy Window");
+    
     qDebug() << "[BuyWindow] Created";
 }
 
@@ -27,6 +32,9 @@ BuyWindow::BuyWindow(const WindowContext &context, QWidget *parent)
 }
 
 BuyWindow::~BuyWindow() {
+    // Unregister from WindowManager
+    WindowManager::instance().unregisterWindow(this);
+    
     if (s_instance == this) s_instance = nullptr;
 }
 
@@ -169,7 +177,18 @@ void BuyWindow::keyPressEvent(QKeyEvent *event) {
 
 void BuyWindow::closeEvent(QCloseEvent *event) {
     WindowSettingsHelper::saveWindowSettings(this, "BuyWindow");
+    
+    // Don't unregister from WindowManager here for cached windows
+    // The WindowCacheManager will handle the window lifecycle
+    
     BaseOrderWindow::closeEvent(event);
+}
+
+void BuyWindow::focusInEvent(QFocusEvent *event) {
+    BaseOrderWindow::focusInEvent(event);
+    
+    // Notify WindowManager that this window has gained focus
+    WindowManager::instance().bringToTop(this);
 }
 
 // Singleton Boilerplate

@@ -15,48 +15,555 @@
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <property name="spacing">
-    <number>6</number>
+    <number>10</number>
    </property>
    <property name="leftMargin">
-    <number>6</number>
+    <number>10</number>
    </property>
    <property name="topMargin">
-    <number>6</number>
+    <number>10</number>
    </property>
    <property name="rightMargin">
-    <number>6</number>
+    <number>10</number>
    </property>
    <property name="bottomMargin">
-    <number>6</number>
+    <number>10</number>
    </property>
    <item>
-    <widget class="QGroupBox" name="groupBox_workspace">
+    <widget class="QGroupBox" name="groupBox_workspaceSelection">
      <property name="title">
-      <string>Workspace Settings</string>
+      <string>Select Default Workspace</string>
      </property>
-     <layout class="QFormLayout" name="formLayout">
+     <layout class="QVBoxLayout" name="verticalLayout_workspace">
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout_workspace">
+        <item>
+         <widget class="QLabel" name="label_workstation">
+          <property name="text">
+           <string>Workspace / Workstation</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QComboBox" name="comboBox_workspace">
+          <property name="minimumWidth">
+           <number>200</number>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="pushButton_browseWorkspace">
+          <property name="text">
+           <string>Browse...</string>
+          </property>
+          <property name="maximumWidth">
+           <number>100</number>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="horizontalSpacer">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="checkBox_autoLockWorkstation">
+        <property name="text">
+         <string>Auto Lock Workstation</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout_autoLockTime">
+        <item>
+         <spacer name="horizontalSpacer_autolock">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeType">
+           <enum>QSizePolicy::Fixed</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>30</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+        <item>
+         <widget class="QSpinBox" name="spinBox_autoLockMinutes">
+          <property name="suffix">
+           <string> minutes</string>
+          </property>
+          <property name="minimum">
+           <number>1</number>
+          </property>
+          <property name="maximum">
+           <number>60</number>
+          </property>
+          <property name="value">
+           <number>0</number>
+          </property>
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="horizontalSpacer_autolock2">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QGroupBox" name="groupBox_stockWatch">
+     <property name="title">
+      <string>Stock Watch Sequence</string>
+     </property>
+     <layout class="QVBoxLayout" name="verticalLayout_stockWatch">
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout_stockWatch">
+        <item>
+         <widget class="QListWidget" name="listWidget_stockWatch">
+          <property name="maximumHeight">
+           <number>60</number>
+          </property>
+          <item>
+           <property name="text">
+            <string>NSE</string>
+           </property>
+          </item>
+         </widget>
+        </item>
+        <item>
+         <layout class="QVBoxLayout" name="verticalLayout_buttons">
+          <item>
+           <widget class="QPushButton" name="pushButton_moveUp">
+            <property name="text">
+             <string>Move Up</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="pushButton_moveDown">
+            <property name="text">
+             <string>Move Down</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <spacer name="verticalSpacer_buttons">
+            <property name="orientation">
+             <enum>Qt::Vertical</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>20</width>
+              <height>40</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <widget class="QPushButton" name="pushButton_restoreDefaults">
+          <property name="text">
+           <string>Restore Defaults</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QGroupBox" name="groupBox_marketWatch">
+     <property name="title">
+      <string>Market Watch</string>
+     </property>
+     <layout class="QFormLayout" name="formLayout_marketWatch">
       <property name="horizontalSpacing">
-       <number>10</number>
+       <number>15</number>
       </property>
       <property name="verticalSpacing">
        <number>10</number>
       </property>
       <item row="0" column="0">
-       <widget class="QLabel" name="label_defaultWorkspace">
+       <widget class="QLabel" name="label_doubleClick">
         <property name="text">
-         <string>Default Workspace on Login :</string>
+         <string>Double click on security :</string>
         </property>
        </widget>
       </item>
       <item row="0" column="1">
-       <widget class="QLineEdit" name="lineEdit_defaultWorkspace">
+       <layout class="QHBoxLayout" name="horizontalLayout_doubleClick">
+        <item>
+         <widget class="QRadioButton" name="radioButton_marketPicture">
+          <property name="text">
+           <string>Market Picture</string>
+          </property>
+          <property name="checked">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QRadioButton" name="radioButton_charts">
+          <property name="text">
+           <string>Charts</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QComboBox" name="comboBox_chartType">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+          <item>
+           <property name="text">
+            <string>Intraday Chart</string>
+           </property>
+          </item>
+         </widget>
+        </item>
+        <item>
+         <widget class="QRadioButton" name="radioButton_derivativeChain">
+          <property name="text">
+           <string>Derivative Chain</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="horizontalSpacer_doubleClick">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
+      </item>
+      <item row="1" column="0">
+       <widget class="QLabel" name="label_marketPictureChart">
         <property name="text">
-         <string>Default</string>
-        </property>
-        <property name="maximumWidth">
-         <number>200</number>
+         <string/>
         </property>
        </widget>
+      </item>
+      <item row="1" column="1">
+       <layout class="QHBoxLayout" name="horizontalLayout_marketPictureChart">
+        <item>
+         <widget class="QRadioButton" name="radioButton_marketPictureChart">
+          <property name="text">
+           <string>Market Picture/Chart</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QRadioButton" name="radioButton_orderEntry">
+          <property name="text">
+           <string>Order Entry</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="horizontalSpacer_marketPictureChart">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
+      </item>
+      <item row="2" column="0">
+       <widget class="QLabel" name="label_52WeekHighLow">
+        <property name="text">
+         <string>52 week high/low - Lifetime High/low</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="1">
+       <widget class="QLabel" name="label_selectColor">
+        <property name="text">
+         <string>Select Color for</string>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="0">
+       <widget class="QLabel" name="label_colorSelection">
+        <property name="text">
+         <string/>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="1">
+       <layout class="QHBoxLayout" name="horizontalLayout_color">
+        <item>
+         <widget class="QComboBox" name="comboBox_colorSelection">
+          <item>
+           <property name="text">
+            <string>Foreground</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>Background</string>
+           </property>
+          </item>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="pushButton_selectColor">
+          <property name="text">
+           <string/>
+          </property>
+          <property name="maximumWidth">
+           <number>30</number>
+          </property>
+          <property name="maximumHeight">
+           <number>25</number>
+          </property>
+          <property name="styleSheet">
+           <string>background-color: rgb(255, 255, 255);</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="horizontalSpacer_color">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QGroupBox" name="groupBox_general">
+     <property name="title">
+      <string>General Settings</string>
+     </property>
+     <layout class="QVBoxLayout" name="verticalLayout_general">
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout_showDateTime">
+        <item>
+         <widget class="QCheckBox" name="checkBox_showDateTime">
+          <property name="text">
+           <string>Show Date/Time</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="horizontalSpacer_showDateTime">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout_timeWithSeconds">
+        <item>
+         <spacer name="horizontalSpacer_timeIndent">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeType">
+           <enum>QSizePolicy::Fixed</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>30</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+        <item>
+         <widget class="QCheckBox" name="checkBox_timeWithSeconds">
+          <property name="text">
+           <string>Time with seconds</string>
+          </property>
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="horizontalSpacer_timeWithSeconds">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout_dprPriceFreeze">
+        <item>
+         <widget class="QLabel" name="label_dprPriceFreeze">
+          <property name="text">
+           <string>DPR Price Freeze</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QComboBox" name="comboBox_dprPriceFreeze">
+          <property name="maximumWidth">
+           <number>100</number>
+          </property>
+          <item>
+           <property name="text">
+            <string>8</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>5</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>10</string>
+           </property>
+          </item>
+         </widget>
+        </item>
+        <item>
+         <spacer name="horizontalSpacer_dprPriceFreeze">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="checkBox_askToSaveDevFile">
+        <property name="text">
+         <string>Ask To Save Dev File For Bulk Order</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QGroupBox" name="groupBox_columnProfile">
+     <property name="title">
+      <string>Column Profile</string>
+     </property>
+     <layout class="QVBoxLayout" name="verticalLayout_columnProfile">
+      <item>
+       <widget class="QLabel" name="label_openAllViews">
+        <property name="text">
+         <string>Open All Views with :</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout_columnProfile">
+        <item>
+         <widget class="QRadioButton" name="radioButton_allColumns">
+          <property name="text">
+           <string>All Columns</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QRadioButton" name="radioButton_defaultProfile">
+          <property name="text">
+           <string>Default Profile</string>
+          </property>
+          <property name="checked">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QRadioButton" name="radioButton_lastUsed">
+          <property name="text">
+           <string>Last Used</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="horizontalSpacer_columnProfile">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
       </item>
      </layout>
     </widget>
@@ -77,5 +584,24 @@
   </layout>
  </widget>
  <resources/>
- <connections/>
+ <connections>
+  <connection>
+   <sender>checkBox_showDateTime</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>checkBox_timeWithSeconds</receiver>
+   <slot>setEnabled(bool)</slot>
+  </connection>
+  <connection>
+   <sender>checkBox_autoLockWorkstation</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>spinBox_autoLockMinutes</receiver>
+   <slot>setEnabled(bool)</slot>
+  </connection>
+  <connection>
+   <sender>radioButton_charts</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>comboBox_chartType</receiver>
+   <slot>setEnabled(bool)</slot>
+  </connection>
+ </connections>
 </ui>

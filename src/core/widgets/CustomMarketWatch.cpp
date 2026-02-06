@@ -62,7 +62,7 @@ void CustomMarketWatch::applyDefaultStyling()
 {
     // Dark theme styling
     setAlternatingRowColors(false);
-    setShowGrid(true);
+    setShowGrid(false);
     setStyleSheet(
         "QTableView {"
         "    background-color: #1e1e1e;"

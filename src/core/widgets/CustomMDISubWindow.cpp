@@ -3,6 +3,7 @@
 #include "core/widgets/CustomMDIArea.h"
 #include "core/widgets/MDITaskBar.h"
 #include "core/WindowCacheManager.h"
+#include "utils/WindowManager.h"
 #include <QMouseEvent>
 #include <QCloseEvent>
 #include <QContextMenuEvent>
@@ -14,6 +15,7 @@
 #include <QPainterPath>
 #include <QSettings>
 #include <QDebug>
+#include <QTableView>
 
 CustomMDISubWindow::CustomMDISubWindow(const QString &title, QWidget *parent)
     : QWidget(parent),
@@ -222,6 +224,27 @@ void CustomMDISubWindow::closeEvent(QCloseEvent *event)
         move(-10000, -10000);
         lower();  // Send to back so it doesn't interfere
         qDebug() << "[MDISubWindow] ⚡ Moved off-screen (still visible, fast re-show!)";
+        
+        // Activate the initiating window (if any) to restore focus
+        QWidget* initiatingWindow = WindowManager::instance().getInitiatingWindow(this);
+        if (initiatingWindow) {
+            QTimer::singleShot(50, [initiatingWindow, this]() {
+                if (initiatingWindow && !initiatingWindow->isHidden()) {
+                    initiatingWindow->activateWindow();
+                    initiatingWindow->raise();
+                    
+                    // Find the table view inside MarketWatch and set focus on it for keyboard nav
+                    QTableView* tableView = initiatingWindow->findChild<QTableView*>();
+                    if (tableView) {
+                        tableView->setFocus(Qt::ActiveWindowFocusReason);
+                        qDebug() << "[MDISubWindow] ✓ Activated initiating window and set focus on table view";
+                    } else {
+                        initiatingWindow->setFocus(Qt::ActiveWindowFocusReason);
+                        qDebug() << "[MDISubWindow] ✓ Activated initiating window (no table view found)";
+                    }
+                }
+            });
+        }
         
         return;
     }
