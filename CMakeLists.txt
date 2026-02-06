@@ -442,6 +442,7 @@ set(UTILS_SOURCES
     src/utils/MemoryProfiler.cpp
     src/utils/PreferencesManager.cpp
     src/utils/SoundManager.cpp
+    src/utils/WindowManager.cpp
 )
 
 set(UTILS_HEADERS
@@ -450,6 +451,7 @@ set(UTILS_HEADERS
     include/utils/ConfigLoader.h
     include/utils/PreferencesManager.h
     include/utils/SoundManager.h
+    include/utils/WindowManager.h
     include/models/WindowContext.h
 )
 

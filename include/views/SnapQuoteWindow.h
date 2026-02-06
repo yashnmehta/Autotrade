@@ -79,6 +79,8 @@ signals:
 protected:
     // ⚡ Override showEvent to defer expensive ScripBar population
     void showEvent(QShowEvent *event) override;
+    void focusInEvent(QFocusEvent *event) override;
+    void closeEvent(QCloseEvent *event) override;
 
 private:
     void populateComboBoxes();

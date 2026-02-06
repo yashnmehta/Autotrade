@@ -6,6 +6,7 @@
 #include "core/widgets/CustomMDISubWindow.h"
 #include "models/WindowContext.h"
 #include "services/UdpBroadcastService.h" // ⚡ For real-time UDP updates
+#include "utils/WindowManager.h"
 #include "views/BuyWindow.h"
 #include "views/SellWindow.h"
 #include "views/SnapQuoteWindow.h"
@@ -287,7 +288,7 @@ int WindowCacheManager::findLeastRecentlyUsedSnapQuoteWindow() {
 }
 
 CustomMDISubWindow *
-WindowCacheManager::showBuyWindow(const WindowContext *context) {
+WindowCacheManager::showBuyWindow(const WindowContext *context, QWidget* initiatingWindow) {
   static int cacheHitCounter = 0;
   cacheHitCounter++;
   qDebug() << "[PERF] [CACHE_SHOW_BUY] #" << cacheHitCounter
@@ -299,6 +300,12 @@ WindowCacheManager::showBuyWindow(const WindowContext *context) {
   if (!m_initialized || !m_cachedBuyMdiWindow || !m_cachedBuyWindow) {
     qDebug() << "[WindowCacheManager] Buy window cache not available";
     return nullptr;
+  }
+  
+  // Register with WindowManager, passing the initiating window for focus restoration
+  if (initiatingWindow) {
+    WindowManager::instance().registerWindow(m_cachedBuyWindow, "Buy Window", initiatingWindow);
+    qDebug() << "[WindowCacheManager] Registered Buy window with initiating window";
   }
 
   qint64 t1 = timer.elapsed();
@@ -410,7 +417,7 @@ WindowCacheManager::showBuyWindow(const WindowContext *context) {
 }
 
 CustomMDISubWindow *
-WindowCacheManager::showSellWindow(const WindowContext *context) {
+WindowCacheManager::showSellWindow(const WindowContext *context, QWidget* initiatingWindow) {
   static int cacheHitCounter = 0;
   cacheHitCounter++;
   qDebug() << "[PERF] [CACHE_SHOW_SELL] #" << cacheHitCounter
@@ -422,6 +429,12 @@ WindowCacheManager::showSellWindow(const WindowContext *context) {
   if (!m_initialized || !m_cachedSellMdiWindow || !m_cachedSellWindow) {
     qDebug() << "[WindowCacheManager] Sell window cache not available";
     return nullptr;
+  }
+  
+  // Register with WindowManager, passing the initiating window for focus restoration
+  if (initiatingWindow) {
+    WindowManager::instance().registerWindow(m_cachedSellWindow, "Sell Window", initiatingWindow);
+    qDebug() << "[WindowCacheManager] Registered Sell window with initiating window";
   }
 
   qint64 t1 = timer.elapsed();
@@ -532,7 +545,7 @@ WindowCacheManager::showSellWindow(const WindowContext *context) {
 }
 
 CustomMDISubWindow *
-WindowCacheManager::showSnapQuoteWindow(const WindowContext *context) {
+WindowCacheManager::showSnapQuoteWindow(const WindowContext *context, QWidget* initiatingWindow) {
   static int cacheHitCounter = 0;
   cacheHitCounter++;
   qDebug() << "[PERF] [CACHE_SHOW_SNAPQUOTE] #" << cacheHitCounter
@@ -640,6 +653,13 @@ WindowCacheManager::showSnapQuoteWindow(const WindowContext *context) {
   // Update LRU timestamp BEFORE showing (critical for next LRU calculation)
   entry.lastUsedTime = QDateTime::currentDateTime();
   entry.isVisible = true;
+  
+  // Register with WindowManager, passing the initiating window for focus restoration
+  if (initiatingWindow && entry.window) {
+    QString windowName = QString("Window_%1").arg(reinterpret_cast<quintptr>(entry.window));
+    WindowManager::instance().registerWindow(entry.window, windowName, initiatingWindow);
+    qDebug() << "[WindowCacheManager] Registered SnapQuote window" << (selectedIndex + 1) << "with initiating window";
+  }
 
   qint64 t4 = timer.elapsed();
 
@@ -705,7 +725,36 @@ void WindowCacheManager::markSnapQuoteWindowClosed(int windowIndex) {
 
     qDebug() << "[WindowCacheManager] SnapQuote window" << (windowIndex + 1)
              << "marked as closed (available for reuse)";
+    
+    // Note: We don't unregister from WindowManager here because cached windows
+    // are not actually destroyed - just moved off-screen. The window remains
+    // in the stack for proper focus restoration when user closes it.
+    // Unregister only happens in the destructor when window is truly destroyed.
   }
+}
+
+  void WindowCacheManager::markBuyWindowClosed() {
+  m_buyWindowNeedsReset = true;
+  m_lastBuyToken = -1; // Clear cached token
+  
+  qDebug() << "[WindowCacheManager] Buy window marked as closed (available for reuse)";
+  
+  // Note: We don't unregister from WindowManager here because cached windows
+  // are not actually destroyed - just moved off-screen. The window remains
+  // in the stack for proper focus restoration when user closes it.
+  // Unregister only happens in the destructor when window is truly destroyed.
+}
+
+void WindowCacheManager::markSellWindowClosed() {
+  m_sellWindowNeedsReset = true;
+  m_lastSellToken = -1; // Clear cached token
+  
+  qDebug() << "[WindowCacheManager] Sell window marked as closed (available for reuse)";
+  
+  // Note: We don't unregister from WindowManager here because cached windows
+  // are not actually destroyed - just moved off-screen. The window remains
+  // in the stack for proper focus restoration when user closes it.
+  // Unregister only happens in the destructor when window is truly destroyed.
 }
 
 void WindowCacheManager::saveOrderWindowPosition(const QPoint &pos) {

@@ -1,6 +1,4 @@
 
-
-
 - Use Qt ONLY for UI, use native C++ for:
 - insted of using signal slot , we will use callbacks
 - optimising model.datachanged .emit
@@ -8,11 +6,6 @@
 - save master at download master 
 - load master at splash screen 
 - indow context initialization and preferences.
-
-
-
-
-
 
 
 i want to clarify that udp broadcast reader and xts market data socket are both different things, they have different use cases,
@@ -27,6 +20,3 @@ wether it is xts market data socket,interactive socket or any udp readers all sh
 
 
 
-
-
-market wa

@@ -139,6 +139,22 @@ public:
      */
     void setupZeroCopyMode();
     
+    /**
+     * @brief Store the currently focused row (before opening other windows)
+     */
+    void storeFocusedRow();
+    
+    /**
+     * @brief Restore focus to the previously stored row
+     */
+    void restoreFocusedRow();
+    
+    /**
+     * @brief Set focus to a specific row by token
+     * @param token Token ID of the scrip to focus on
+     */
+    void setFocusToToken(int token);
+    
     // === Price Update Operations ===
     
     /**
@@ -299,6 +315,11 @@ protected:
     void keyPressEvent(QKeyEvent *event) override;
     
     /**
+     * @brief Handle focus in events to restore last focused row
+     */
+    void focusInEvent(QFocusEvent *event) override;
+    
+    /**
      * @brief Override to provide token for drag-and-drop
      */
     int getTokenForRow(int sourceRow) const override;
@@ -331,6 +352,9 @@ private:
     void setupConnections();
     void setupKeyboardShortcuts();
     
+    // Helper method to find row by symbol
+    int findSymbolRow(const QString& symbol) const;
+    
     // Phase 2: FeedHandler callback for direct tick updates (legacy)
     void onTickUpdate(const XTS::Tick& tick);
     
@@ -342,6 +366,10 @@ private:
     MarketWatchModel *m_model;
     TokenAddressBook *m_tokenAddressBook;
     XTSMarketDataClient *m_xtsClient;  // For BSE quote API fallback
+    
+    // Focus Retention
+    int m_lastFocusedToken = -1;  // Stores the last focused token for focus restoration
+    QString m_lastFocusedSymbol;  // Stores the last focused symbol for fallback lookup
     
     // Zero-Copy Members
     bool m_useZeroCopyPriceCache = true; // Default to true

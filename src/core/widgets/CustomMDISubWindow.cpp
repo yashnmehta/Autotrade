@@ -1,9 +1,8 @@
-#include "core/widgets/CustomMDISubWindow.h"
-#include "core/WindowCacheManager.h"
 #include "core/WindowConstants.h"
 #include "core/widgets/CustomMDIArea.h"
 #include "core/widgets/CustomTitleBar.h"
 #include "core/widgets/MDITaskBar.h"
+#include "utils/WindowManager.h"
 #include <QApplication>
 #include <QCloseEvent>
 #include <QContextMenuEvent>
@@ -14,8 +13,8 @@
 #include <QPainter>
 #include <QPainterPath>
 #include <QSettings>
+#include <QTableView>
 #include <QTimer>
-
 
 CustomMDISubWindow::CustomMDISubWindow(const QString &title, QWidget *parent)
     : QWidget(parent), m_contentWidget(nullptr), m_isMinimized(false),
@@ -149,6 +148,116 @@ CustomMDISubWindow::CustomMDISubWindow(const QString &title, QWidget *parent)
 
   resize(800, 600);
   qDebug() << "[MDISubWindow] Created:" << title;
+}
+
+void CustomMDISubWindow::setActive(bool active) {
+  if (m_titleBar)
+    m_titleBar->setActive(active);
+
+  if (!m_isPinned) {
+    // Use a single style update to prevent flickering
+    QString borderColor = active ? "#007acc" : "#3e3e42";
+    setStyleSheet(QString("CustomMDISubWindow { "
+                          "   background-color: #1e1e1e; "
+                          "   border: 2px solid %1; "
+                          "}")
+                      .arg(borderColor));
+  }
+}
+
+CustomMDISubWindow::~CustomMDISubWindow() {
+  qDebug() << "CustomMDISubWindow destroyed:" << title();
+}
+void CustomMDISubWindow::closeEvent(QCloseEvent *event) {
+  qDebug() << "[MDISubWindow] closeEvent for" << title();
+
+  // If this is a cached window, move off-screen instead of hiding (MUCH faster
+  // on re-show!)
+  if (m_isCached) {
+    qDebug() << "[MDISubWindow] Cached window - moving off-screen instead of "
+                "closing";
+
+    // Save position for Buy/Sell order windows (only if in visible area!)
+    if (m_windowType == "BuyWindow" || m_windowType == "SellWindow") {
+      QPoint windowPos =
+          geometry().topLeft(); // Use geometry() which gives correct position
+
+      // Only save if window is NOT off-screen (avoid saving -10000,-10000)
+      if (windowPos.x() >= -1000 && windowPos.y() >= -1000) {
+        QSettings settings("TradingCompany", "TradingTerminal");
+        settings.setValue("orderwindow/last_x", windowPos.x());
+        settings.setValue("orderwindow/last_y", windowPos.y());
+        qDebug() << "[MDISubWindow] Saved position:" << windowPos;
+      } else {
+        qDebug() << "[MDISubWindow] Skipping save - window is off-screen:"
+                 << windowPos;
+      }
+
+      // Notify WindowCacheManager that this window was closed (needs reset on
+      // next show)
+      if (m_windowType == "BuyWindow") {
+        WindowCacheManager::instance().markBuyWindowClosed();
+      } else if (m_windowType == "SellWindow") {
+        WindowCacheManager::instance().markSellWindowClosed();
+      }
+    }
+
+    // Mark SnapQuote as needing reset if closed
+    if (m_windowType == "SnapQuote") {
+      // Get window index from property (set during creation)
+      int windowIndex = property("snapQuoteIndex").toInt();
+      WindowCacheManager::instance().markSnapQuoteWindowClosed(windowIndex);
+    }
+
+    event->ignore(); // Prevent actual close
+
+    // ⚡ CRITICAL OPTIMIZATION: Move off-screen instead of hide() (10x faster
+    // on re-show!) hide() forces expensive show() later with layout recalc,
+    // paint events, etc. Moving off-screen keeps window visible but invisible
+    // to user (instant repositioning!)
+    move(-10000, -10000);
+    lower(); // Send to back so it doesn't interfere
+    qDebug()
+        << "[MDISubWindow] ⚡ Moved off-screen (still visible, fast re-show!)";
+
+    // Activate the initiating window (if any) to restore focus
+    QWidget *initiatingWindow =
+        WindowManager::instance().getInitiatingWindow(this);
+    if (initiatingWindow) {
+      QTimer::singleShot(50, [initiatingWindow, this]() {
+        if (initiatingWindow && !initiatingWindow->isHidden()) {
+          initiatingWindow->activateWindow();
+          initiatingWindow->raise();
+
+          // Find the table view inside MarketWatch and set focus on it for
+          // keyboard nav
+          QTableView *tableView = initiatingWindow->findChild<QTableView *>();
+          if (tableView) {
+            tableView->setFocus(Qt::ActiveWindowFocusReason);
+            qDebug() << "[MDISubWindow] ✓ Activated initiating window and set "
+                        "focus on table view";
+          } else {
+            initiatingWindow->setFocus(Qt::ActiveWindowFocusReason);
+            qDebug() << "[MDISubWindow] ✓ Activated initiating window (no "
+                        "table view found)";
+          }
+        }
+      });
+    }
+
+    return;
+>>>>>>> origin/harshil_wip_branch
+  }
+});
+
+// Styling with VS Code-like borders
+setStyleSheet("CustomMDISubWindow { "
+              "   background-color: #1e1e1e; "
+              "   border: 2px solid #007acc; "
+              "}");
+
+resize(800, 600);
+qDebug() << "[MDISubWindow] Created:" << title;
 }
 
 void CustomMDISubWindow::setActive(bool active) {

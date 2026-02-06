@@ -1,4 +1,5 @@
 #include "views/SnapQuoteWindow.h"
+#include "utils/WindowManager.h"
 #include <QDebug>
 #include <QShowEvent>
 #include <QTimer>
@@ -7,6 +8,9 @@ SnapQuoteWindow::SnapQuoteWindow(QWidget *parent)
     : QWidget(parent), m_formWidget(nullptr), m_token(0), m_xtsClient(nullptr)
 {
     initUI();
+    
+    // Register with WindowManager
+    WindowManager::instance().registerWindow(this, windowTitle());
 }
 
 SnapQuoteWindow::SnapQuoteWindow(const WindowContext &context, QWidget *parent)
@@ -14,9 +18,15 @@ SnapQuoteWindow::SnapQuoteWindow(const WindowContext &context, QWidget *parent)
 {
     initUI();
     loadFromContext(context);
+    
+    // Register with WindowManager
+    WindowManager::instance().registerWindow(this, windowTitle());
 }
 
-SnapQuoteWindow::~SnapQuoteWindow() {}
+SnapQuoteWindow::~SnapQuoteWindow() {
+    // Unregister from WindowManager
+    WindowManager::instance().unregisterWindow(this);
+}
 
 void SnapQuoteWindow::setScripDetails(const QString &exchange, const QString &segment,
                                       int token, const QString &instType, const QString &symbol)
@@ -50,6 +60,9 @@ void SnapQuoteWindow::showEvent(QShowEvent *event)
 {
     QWidget::showEvent(event);
     
+    // Notify WindowManager that this window is now active
+    WindowManager::instance().bringToTop(this);
+    
     // ⚡ If we have pending ScripBar update, schedule it asynchronously (NON-BLOCKING!)
     if (m_needsScripBarUpdate && m_scripBar) {
         qDebug() << "[SnapQuoteWindow] ⚡ Scheduling async ScripBar update";
@@ -64,4 +77,21 @@ void SnapQuoteWindow::showEvent(QShowEvent *event)
             }
         });
     }
+}
+
+void SnapQuoteWindow::focusInEvent(QFocusEvent *event)
+{
+    QWidget::focusInEvent(event);
+    
+    // Notify WindowManager that this window has gained focus
+    WindowManager::instance().bringToTop(this);
+}
+
+void SnapQuoteWindow::closeEvent(QCloseEvent *event)
+{
+    // Don't unregister from WindowManager here for cached windows
+    // The WindowCacheManager will handle the window lifecycle
+    // Only unregister when actually being destroyed
+    
+    QWidget::closeEvent(event);
 }
