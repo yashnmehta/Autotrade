@@ -374,29 +374,8 @@ void GreeksCalculationService::onPriceUpdate(uint32_t token, double ltp,
     return;
   }
 
-  auto it = m_cache.find(token);
-  if (it != m_cache.end()) {
-    int64_t now = QDateTime::currentMSecsSinceEpoch();
-
-    // Check throttle and price change
-    if (now - it.value().lastCalculationTime < m_config.throttleMs) {
-      // qDebug() << "[GreeksService] THROTTLED: Token:" << token
-      //          << "Elapsed:" << (now - it.value().lastCalculationTime) <<
-      //          "ms";
-      return;
-    }
-
-    double priceDiff =
-        std::abs(ltp - it.value().lastPrice) / it.value().lastPrice;
-    if (priceDiff < 0.001) {
-      // qDebug() << "[GreeksService] PRICE_CHANGE_TOO_SMALL: Token:" << token
-      //          << "Diff:" << (priceDiff * 100) << "%";
-      return;
-    }
-  } else {
-    // qDebug() << "[GreeksService] Token not in cache (first time), will
-    // calculate:" << token;
-  }
+  // Throttling logic removed per user request - always calculate
+  // (Previous logic checked m_config.throttleMs and priceDiff)
 
   // qDebug() << "[GreeksService] CALLING calculateForToken for:" << token;
   calculateForToken(token, exchangeSegment);
@@ -531,30 +510,6 @@ bool GreeksCalculationService::isOption(int instrumentType) {
 
 bool GreeksCalculationService::shouldRecalculate(
     uint32_t token, double currentPrice, double currentUnderlyingPrice) {
-  auto it = m_cache.find(token);
-  if (it == m_cache.end()) {
-    return true; // Not cached, should calculate
-  }
-
-  int64_t now = QDateTime::currentMSecsSinceEpoch();
-  int64_t elapsed = now - it.value().lastCalculationTime;
-
-  // Time-based throttle
-  if (elapsed < m_config.throttleMs) {
-    return false;
-  }
-
-  // Price change threshold (0.1%)
-  double priceChange =
-      std::abs(currentPrice - it.value().lastPrice) / it.value().lastPrice;
-  double underlyingChange =
-      std::abs(currentUnderlyingPrice - it.value().lastUnderlyingPrice) /
-      it.value().lastUnderlyingPrice;
-
-  if (priceChange < 0.001 && underlyingChange < 0.001) {
-    return false; // No significant change
-  }
-
   return true;
 }
 
