@@ -1,8 +1,8 @@
 #include "repository/MasterFileParser.h"
 #include <QDebug>
 
-// Helper function to remove surrounding quotes from field values
-static QString trimQuotes(const QStringRef &str) {
+// Public utility: Remove surrounding quotes from field values
+QString MasterFileParser::trimQuotes(const QStringRef &str) {
   QStringRef trimmed = str.trimmed();
   if (trimmed.startsWith('"') && trimmed.endsWith('"') &&
       trimmed.length() >= 2) {
@@ -119,14 +119,15 @@ bool MasterFileParser::parseNSEFO(const QVector<QStringRef> &fields,
   //
   // ACTUAL DATA:
   // OPTIONS: 23 fields (includes all 22 + extra actualSymbol at end)
-  // FUTURES/SPREAD: 21 fields (OptionType field OMITTED entirely, not just empty)
+  // FUTURES/SPREAD: 21 fields (OptionType field OMITTED entirely, not just
+  // empty)
   //
-  // Field 14: UnderlyingInstrumentId (composite like 1100100007229, or -1 for indices)
-  // Field 15: UnderlyingIndexName (symbol name for options, empty for futures)
-  // Field 16: ContractExpiration (ISO: 2026-01-27T14:30:00)
-  // Field 17: StrikePrice (present in options, empty in futures)
-  // Field 18: OptionType (3=CE, 4=PE) - ONLY IN OPTIONS, omitted from futures
-  // Field 19/17: displayName (field 19 for options, field 17 for futures - shifted!)
+  // Field 14: UnderlyingInstrumentId (composite like 1100100007229, or -1 for
+  // indices) Field 15: UnderlyingIndexName (symbol name for options, empty for
+  // futures) Field 16: ContractExpiration (ISO: 2026-01-27T14:30:00) Field 17:
+  // StrikePrice (present in options, empty in futures) Field 18: OptionType
+  // (3=CE, 4=PE) - ONLY IN OPTIONS, omitted from futures Field 19/17:
+  // displayName (field 19 for options, field 17 for futures - shifted!)
 
   if (fields.size() < 17) {
     return false;
@@ -152,10 +153,10 @@ bool MasterFileParser::parseNSEFO(const QVector<QStringRef> &fields,
   contract.multiplier = fields[13].toInt();
 
   // Field 14: UnderlyingInstrumentId
-  // XTS returns composite tokens like 1100100007229 (11001 prefix + 00007229 token)
-  // or -1 for index instruments (need to lookup from index master)
+  // XTS returns composite tokens like 1100100007229 (11001 prefix + 00007229
+  // token) or -1 for index instruments (need to lookup from index master)
   int64_t underlyingInstrumentId = fields[14].toLongLong();
-  
+
   if (underlyingInstrumentId == -1) {
     // Index instrument - asset token needs to be resolved from index master
     // For now, mark as 0 (will be updated during post-processing)
@@ -183,7 +184,7 @@ bool MasterFileParser::parseNSEFO(const QVector<QStringRef> &fields,
     // Field 20: PriceNumerator
     // Field 21: PriceDenominator
     // Field 22: actualSymbol (extra field)
-    
+
     contract.strikePrice = fields[17].toDouble();
 
     // Handle OptionType being numeric or string (CE/PE)
@@ -217,11 +218,11 @@ bool MasterFileParser::parseNSEFO(const QVector<QStringRef> &fields,
     // Field 18: PriceNumerator (SHIFTED)
     // Field 19: PriceDenominator (SHIFTED)
     // Field 20: actualSymbol (extra field)
-    
+
     contract.strikePrice = 0.0;
     contract.optionType = 0;
     contract.displayName = trimQuotes(fields[17]);
-    
+
     if (fields.size() >= 20) {
       contract.priceNumerator = fields[18].toInt();
       contract.priceDenominator = fields[19].toInt();
@@ -262,14 +263,15 @@ bool MasterFileParser::parseNSEFO(const QVector<QStringRef> &fields,
       if (monthNum >= 1 && monthNum <= 12) {
         contract.expiryDate = day + months[monthNum] + year;
         contract.expiryDate_dt = QDate(year.toInt(), monthNum, day.toInt());
-        
+
         // Calculate timeToExpiry: (expiry_date - trade_date) / 365.0
         QDate today = QDate::currentDate();
-        if (contract.expiryDate_dt.isValid() && contract.expiryDate_dt >= today) {
+        if (contract.expiryDate_dt.isValid() &&
+            contract.expiryDate_dt >= today) {
           int daysToExpiry = today.daysTo(contract.expiryDate_dt);
           contract.timeToExpiry = daysToExpiry / 365.0;
         } else {
-          contract.timeToExpiry = 0.0;  // Expired or invalid
+          contract.timeToExpiry = 0.0; // Expired or invalid
         }
       }
     }
@@ -387,7 +389,7 @@ bool MasterFileParser::parseBSEFO(const QVector<QStringRef> &fields,
   // Field 14: UnderlyingInstrumentId
   // XTS returns composite tokens like 1100100007229 or -1 for index instruments
   int64_t underlyingInstrumentId = fields[14].toLongLong();
-  
+
   if (underlyingInstrumentId == -1) {
     // Index instrument - asset token needs to be resolved from index master
     contract.assetToken = 0;
@@ -413,7 +415,7 @@ bool MasterFileParser::parseBSEFO(const QVector<QStringRef> &fields,
     // Field 20: PriceNumerator
     // Field 21: PriceDenominator
     // Field 22: actualSymbol (extra field)
-    
+
     contract.strikePrice = fields[17].toDouble();
 
     // Handle OptionType being numeric or string (CE/PE)
@@ -447,11 +449,11 @@ bool MasterFileParser::parseBSEFO(const QVector<QStringRef> &fields,
     // Field 18: PriceNumerator (SHIFTED)
     // Field 19: PriceDenominator (SHIFTED)
     // Field 20: actualSymbol (extra field)
-    
+
     contract.strikePrice = 0.0;
     contract.optionType = 0;
     contract.displayName = trimQuotes(fields[17]);
-    
+
     if (fields.size() >= 20) {
       contract.priceNumerator = fields[18].toInt();
       contract.priceDenominator = fields[19].toInt();
@@ -492,14 +494,15 @@ bool MasterFileParser::parseBSEFO(const QVector<QStringRef> &fields,
       if (monthNum >= 1 && monthNum <= 12) {
         contract.expiryDate = day + months[monthNum] + year;
         contract.expiryDate_dt = QDate(year.toInt(), monthNum, day.toInt());
-        
+
         // Calculate timeToExpiry: (expiry_date - trade_date) / 365.0
         QDate today = QDate::currentDate();
-        if (contract.expiryDate_dt.isValid() && contract.expiryDate_dt >= today) {
+        if (contract.expiryDate_dt.isValid() &&
+            contract.expiryDate_dt >= today) {
           int daysToExpiry = today.daysTo(contract.expiryDate_dt);
           contract.timeToExpiry = daysToExpiry / 365.0;
         } else {
-          contract.timeToExpiry = 0.0;  // Expired or invalid
+          contract.timeToExpiry = 0.0; // Expired or invalid
         }
       }
     }

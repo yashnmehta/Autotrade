@@ -9,7 +9,6 @@
 #include <QVector>
 #include <QWidget>
 
-
 class XTSMarketDataClient;
 
 struct InstrumentData {
@@ -91,8 +90,9 @@ private:
 
   QString getCurrentExchange() const;
   QString getCurrentSegment() const;
-  int getCurrentExchangeSegmentCode() const;
-  QString mapInstrumentToSeries(const QString &instrument) const;
+  // ✅ Removed: getCurrentExchangeSegmentCode() - use
+  // RepositoryManager::getExchangeSegmentID() ✅ Removed:
+  // mapInstrumentToSeries() - use RepositoryManager::mapInstrumentToSeries()
 
   // Async search from XTS (future implementation)
   void searchInstrumentsAsync(const QString &searchText);

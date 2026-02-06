@@ -48,6 +48,26 @@ public:
   QVector<ContractData>
   getContractsBySymbol(const QString &symbol) const override;
 
+  /**
+   * @brief Get unique symbol names (optimized O(1) access to index keys)
+   * @param series Optional series filter ("OPTSTK", "FUTIDX", etc.)
+   * @return List of unique symbol names
+   *
+   * This is significantly faster than calling getAllContracts() and filtering,
+   * especially when no series filter is needed (direct key access).
+   */
+  QStringList getUniqueSymbols(const QString &series = QString()) const;
+
+  /**
+   * @brief Zero-copy iteration over all contracts
+   * @param callback Function to call for each contract
+   *
+   * Delegates to base class NSEFORepository::forEachContract()
+   * Provided for API consistency across all repository types.
+   */
+  void
+  forEachContract(std::function<void(const ContractData &)> callback) const;
+
 protected:
   // Multi-level indexes for O(1) lookups (store tokens, pre-sorted)
   QHash<QString, QVector<int64_t>>

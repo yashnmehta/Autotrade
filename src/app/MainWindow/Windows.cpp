@@ -1,6 +1,7 @@
 #include "app/MainWindow.h"
 #include "app/ScripBar.h"
 #include "core/WindowCacheManager.h"
+#include "core/WindowConstants.h"
 #include "core/widgets/CustomMDIArea.h"
 #include "core/widgets/CustomMDISubWindow.h"
 #include "data/PriceStoreGateway.h"
@@ -433,17 +434,18 @@ CustomMDISubWindow *MainWindow::createSnapQuoteWindow() {
   qDebug() << "[PERF] Cache MISS - Creating new window (~370-1500ms)";
 
   // Fallback: Create new window (first time only)
-  // Use the helper to count existing SnapQuote windows
+  // Count existing VISIBLE SnapQuote windows (exclude off-screen cached ones)
   int count = 0;
   QList<CustomMDISubWindow *> allWindows = m_mdiArea->windowList();
   for (auto win : allWindows) {
-    qDebug() << "[MainWindow] Checking window:" << win->title()
-             << "Type:" << win->windowType();
-    if (win->windowType() == "SnapQuote")
+    if (win->windowType() == "SnapQuote" &&
+        win->geometry().x() >= WindowConstants::VISIBLE_THRESHOLD_X) {
+      qDebug() << "[MainWindow] Visible SnapQuote:" << win->title();
       count++;
+    }
   }
 
-  qDebug() << "[MainWindow] Total Snap Quote windows found:" << count;
+  qDebug() << "[MainWindow] Visible Snap Quote windows:" << count;
 
   if (count >= WindowCacheManager::CACHED_SNAPQUOTE_COUNT) {
     if (m_statusBar)

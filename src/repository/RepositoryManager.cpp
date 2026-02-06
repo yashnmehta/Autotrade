@@ -1,5 +1,4 @@
 #include "repository/RepositoryManager.h"
-#include "data/SymbolCacheManager.h" // NEW: For shared symbol caching optimization
 #include "repository/MasterFileParser.h"
 #include <QCoreApplication>
 #include <QDate>
@@ -14,7 +13,6 @@
 #include <iostream>
 #include <string>
 #include <vector>
-
 
 // Include distributed price stores
 #include "bse_price_store.h"
@@ -650,14 +648,6 @@ bool RepositoryManager::loadCombinedMasterFile(const QString &filePath) {
     m_loaded = true;
   }
 
-  // ⚡ OPTIMIZATION: Initialize SymbolCacheManager after master data is loaded
-  // This pre-builds symbol caches (9000+ NSECM symbols) once during startup
-  // instead of each ScripBar loading them independently (4× redundant loads)
-  // Performance: Saves 3200ms CPU + 75% memory by eliminating redundant
-  // processing
-  qDebug() << "[RepositoryManager] Initializing SymbolCacheManager...";
-  SymbolCacheManager::instance().initialize();
-
   // Note: We don't save CSVs here because we just loaded from master.
   // The caller (loadAll) calls saveProcessedCSVs appropriately.
 
@@ -825,10 +815,6 @@ bool RepositoryManager::loadFromMemory(const QString &csvData) {
     m_loaded = true;
   }
 
-  // ⚡ OPTIMIZATION: Initialize SymbolCacheManager after master data is loaded
-  qDebug() << "[RepositoryManager] Initializing SymbolCacheManager...";
-  SymbolCacheManager::instance().initialize();
-
   return anyLoaded;
 }
 
@@ -941,6 +927,54 @@ RepositoryManager::getScrips(const QString &exchange, const QString &segment,
   }
 
   return QVector<ContractData>();
+}
+
+QStringList RepositoryManager::getUniqueSymbols(const QString &exchange,
+                                                const QString &segment,
+                                                const QString &series) const {
+  QReadLocker lock(&m_repositoryLock); // Thread-safe read access
+
+  QString segmentKey = getSegmentKey(exchange, segment);
+  QStringList uniqueSymbols;
+
+  // NSEFO: Use PreSorted repository's optimized getUniqueSymbols method
+  if (segmentKey == "NSEFO" && m_nsefo->isLoaded()) {
+    // Cast to PreSorted to access optimized method
+    const NSEFORepositoryPreSorted *preSorted =
+        dynamic_cast<const NSEFORepositoryPreSorted *>(m_nsefo.get());
+
+    if (preSorted) {
+      // Direct access to symbol index - much faster!
+      uniqueSymbols = preSorted->getUniqueSymbols(series);
+      // Already sorted by the method
+      return uniqueSymbols;
+    }
+  }
+  // NSECM: Extract unique symbols from name array
+  else if (segmentKey == "NSECM" && m_nsecm->isLoaded()) {
+    // Direct call to uniform API
+    uniqueSymbols = m_nsecm->getUniqueSymbols(series);
+    // Already sorted by the method
+    return uniqueSymbols;
+  }
+  // BSEFO
+  else if (segmentKey == "BSEFO" && m_bsefo->isLoaded()) {
+    // Direct call to uniform API
+    uniqueSymbols = m_bsefo->getUniqueSymbols(series);
+    // Already sorted by the method
+    return uniqueSymbols;
+  }
+  // BSECM
+  else if (segmentKey == "BSECM" && m_bsecm->isLoaded()) {
+    // Direct call to uniform API
+    uniqueSymbols = m_bsecm->getUniqueSymbols(series);
+    // Already sorted by the method
+    return uniqueSymbols;
+  }
+
+  // Fallback: empty list for unsupported segments
+  uniqueSymbols.sort();
+  return uniqueSymbols;
 }
 
 const ContractData *
@@ -1105,6 +1139,43 @@ int RepositoryManager::getExchangeSegmentID(const QString &exchange,
     return 12; // BSE F&O (F)
 
   return -1;
+}
+
+QString RepositoryManager::mapInstrumentToSeries(const QString &exchange,
+                                                 const QString &instrument) {
+  // Map UI instrument type to repository series filter
+  // The dropdown shows user-friendly names like "EQUITY", "FUTIDX", etc.
+  // But ContractData.series field contains actual series codes
+
+  if (instrument == "EQUITY") {
+    // For NSE CM, series is "EQ", "BE", "BZ", etc.
+    // For BSE CM, series is "A", "B", "X", "F", "G", etc. (NO "EQ"!)
+    // Return empty string to get ALL equity series
+    return ""; // Empty = get all series for this segment
+  }
+
+  // BSE F&O uses different series codes than NSE
+  if (exchange == "BSE") {
+    if (instrument == "FUTIDX")
+      return "IF"; // BSE Index Futures
+    if (instrument == "OPTIDX")
+      return "IO"; // BSE Index Options
+    // BSE doesn't have stock futures/options currently, but keep for future
+    if (instrument == "FUTSTK")
+      return "SF"; // BSE Stock Futures (if added)
+    if (instrument == "OPTSTK")
+      return "SO"; // BSE Stock Options (if added)
+  }
+
+  // For NSE F&O, the series field matches the instrument type
+  // FUTIDX → FUTIDX
+  // FUTSTK → FUTSTK
+  // OPTIDX → OPTIDX
+  // OPTSTK → OPTSTK
+  // FUTCUR → FUTCUR
+  // OPTCUR → OPTCUR
+
+  return instrument;
 }
 
 QString RepositoryManager::getExchangeSegmentName(int exchangeSegmentID) {

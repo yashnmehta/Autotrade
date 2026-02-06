@@ -91,6 +91,7 @@ add_executable(benchmark_repository_filters
     ../src/repository/RepositoryManager.cpp
     ../src/repository/NSEFORepositoryPreSorted.cpp
     ../src/repository/MasterFileParser.cpp
+    ../src/utils/DateUtils.cpp
     ../src/repository/Greeks.cpp
     ../src/utils/ConfigLoader.cpp
     ../src/utils/PreferencesManager.cpp
@@ -156,6 +157,7 @@ add_executable(simple_load_test
     ../src/services/MasterDataState.cpp
     ../src/services/MasterLoaderWorker.cpp
     ../src/repository/MasterFileParser.cpp
+    ../src/utils/DateUtils.cpp
     ${NSEFO_SOURCES}
     ${NSECM_SOURCES}
     ${COMMON_LZO_SOURCES}

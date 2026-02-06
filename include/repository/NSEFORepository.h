@@ -241,12 +241,15 @@ private:
   // Greeks (REMOVED - Use PriceStore)
   // Margin Data (REMOVED - Use PriceStore)
 
-  // F&O Specific (4 fields)
-  QVector<QString> m_expiryDate;
-  QVector<double> m_strikePrice;
-  QVector<QString> m_optionType;
-  QVector<int64_t> m_assetToken;
-  QVector<int32_t> m_instrumentType;
+  // F&O Specific (9 fields - with typed columns for performance)
+  QVector<QString> m_expiryDate; // String format (DDMMMYYYY, e.g., "26DEC2024")
+  QVector<QDate> m_expiryDate_dt;    // Parsed QDate for O(1) sorting/comparison
+  QVector<double> m_strikePrice;     // Double precision for calculations
+  QVector<float> m_strikePrice_fl;   // Float for memory-efficient sorting
+  QVector<double> m_timeToExpiry;    // Pre-calculated for Greeks (in years)
+  QVector<QString> m_optionType;     // CE/PE/FUT/XX
+  QVector<int64_t> m_assetToken;     // Underlying asset token
+  QVector<int32_t> m_instrumentType; // 1=Future, 2=Option, 4=Spread
 
   // Spread contracts storage (tokens > 10,000,000)
   QHash<int64_t, std::shared_ptr<ContractData>> m_spreadContracts;

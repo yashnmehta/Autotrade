@@ -1,5 +1,6 @@
 #include "repository/BSEFORepository.h"
 #include "repository/MasterFileParser.h"
+#include "utils/DateUtils.h"
 #include <QDebug>
 #include <QFile>
 #include <QTextStream>
@@ -10,7 +11,8 @@
 // Helper function to remove surrounding quotes from CSV field values
 static QString trimQuotes(const QStringRef &str) {
   QStringRef trimmed = str.trimmed();
-  if (trimmed.startsWith('"') && trimmed.endsWith('"') && trimmed.length() >= 2) {
+  if (trimmed.startsWith('"') && trimmed.endsWith('"') &&
+      trimmed.length() >= 2) {
     return trimmed.mid(1, trimmed.length() - 2).toString();
   }
   return trimmed.toString();
@@ -79,8 +81,9 @@ bool BSEFORepository::loadProcessedCSV(const QString &filename) {
   while (!in.atEnd()) {
     QString qLine = in.readLine();
     lineCount++;
-    if (lineCount % 1000 == 0) qDebug() << "[BSEFO] Loaded lines:" << lineCount;
-    
+    if (lineCount % 1000 == 0)
+      qDebug() << "[BSEFO] Loaded lines:" << lineCount;
+
     // Optimized split without QStringList
     QVector<QStringRef> fields;
     int start = 0;
@@ -102,7 +105,25 @@ bool BSEFORepository::loadProcessedCSV(const QString &filename) {
     contract.series = trimQuotes(fields[4]);
     contract.lotSize = fields[5].toInt();
     contract.tickSize = fields[6].toDouble();
-    contract.expiryDate = trimQuotes(fields[7]);
+
+    // ✅ Parse expiry date to DDMMMYYYY format + QDate
+    QString rawExpiryDate = trimQuotes(fields[7]);
+    QString parsedDate;
+    QDate parsedQDate;
+    double timeToExpiry;
+
+    if (DateUtils::parseExpiryDate(rawExpiryDate, parsedDate, parsedQDate,
+                                   timeToExpiry)) {
+      contract.expiryDate = parsedDate;     // DDMMMYYYY format
+      contract.expiryDate_dt = parsedQDate; // QDate for sorting
+      contract.timeToExpiry = timeToExpiry; // For Greeks calculation
+    } else {
+      // Parsing failed - use raw value as fallback
+      contract.expiryDate = rawExpiryDate;
+      contract.expiryDate_dt = QDate();
+      contract.timeToExpiry = 0.0;
+    }
+
     contract.strikePrice = fields[8].toDouble();
     contract.instrumentType = fields[fields.size() - 1].toInt();
 
@@ -121,7 +142,8 @@ bool BSEFORepository::loadProcessedCSV(const QString &filename) {
     }
 
     if (contract.instrumentType == 2 && contract.optionType == 0) {
-      qWarning() << "[BSEFORepo] Detected corrupted CSV. Forcing reload from master.";
+      qWarning()
+          << "[BSEFORepo] Detected corrupted CSV. Forcing reload from master.";
       file.close();
       return false;
     }
@@ -139,7 +161,7 @@ bool BSEFORepository::loadProcessedCSV(const QString &filename) {
 
 void BSEFORepository::finalizeLoad() {
   m_loaded = (m_contractCount > 0);
-  
+
   // Squeeze all parallel arrays
   m_token.squeeze();
   m_name.squeeze();
@@ -480,6 +502,38 @@ BSEFORepository::getContractsBySymbol(const QString &symbol) const {
   return contracts;
 }
 
+QStringList BSEFORepository::getUniqueSymbols(const QString &series) const {
+  QReadLocker locker(&m_mutex);
+
+  // For series filter, always compute fresh (rare use case)
+  if (!series.isEmpty()) {
+    QSet<QString> symbolSet;
+    for (int32_t idx = 0; idx < m_contractCount; ++idx) {
+      if (m_series[idx] == series && !m_name[idx].isEmpty()) {
+        symbolSet.insert(m_name[idx]);
+      }
+    }
+    QStringList symbols = symbolSet.values();
+    symbols.sort();
+    return symbols;
+  }
+
+  // For all symbols, use lazy cache (common use case - uniform pattern)
+  if (!m_symbolsCached) {
+    QSet<QString> symbolSet;
+    for (int32_t idx = 0; idx < m_contractCount; ++idx) {
+      if (!m_name[idx].isEmpty()) {
+        symbolSet.insert(m_name[idx]);
+      }
+    }
+    m_cachedUniqueSymbols = symbolSet.values();
+    m_cachedUniqueSymbols.sort();
+    m_symbolsCached = true;
+  }
+
+  return m_cachedUniqueSymbols;
+}
+
 void BSEFORepository::updateLiveData(int64_t token, double ltp, double open,
                                      double high, double low, double close,
                                      double prevClose, int64_t volume) {
@@ -551,18 +605,24 @@ void BSEFORepository::prepareForLoad() {
   m_bidPrice.clear();
   m_askPrice.clear();
 
+  // Invalidate cached symbols (lazy cache)
+  m_symbolsCached = false;
+  m_cachedUniqueSymbols.clear();
+
   m_loaded = false;
 }
 
-void BSEFORepository::addContract(const MasterContract &contract,
-                                  std::function<QString(const QString &)> internFunc) {
+void BSEFORepository::addContract(
+    const MasterContract &contract,
+    std::function<QString(const QString &)> internFunc) {
   QWriteLocker locker(&m_mutex);
   auto intern = internFunc ? internFunc : [](const QString &s) { return s; };
   addContractInternal(contract, intern);
 }
 
-void BSEFORepository::addContractInternal(const MasterContract &contract,
-                                        std::function<QString(const QString &)> intern) {
+void BSEFORepository::addContractInternal(
+    const MasterContract &contract,
+    std::function<QString(const QString &)> intern) {
   int32_t idx = m_contractCount;
   m_tokenToIndex.insert(contract.exchangeInstrumentID, idx);
 

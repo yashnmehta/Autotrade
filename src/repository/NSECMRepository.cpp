@@ -10,7 +10,6 @@
 #include <sstream>
 #include <string>
 
-
 // Helper function to remove surrounding quotes from field values
 static QString trimQuotes(const QStringRef &str) {
   QStringRef trimmed = str.trimmed();
@@ -386,6 +385,38 @@ NSECMRepository::getContractsBySymbol(const QString &symbol) const {
   return contracts;
 }
 
+QStringList NSECMRepository::getUniqueSymbols(const QString &series) const {
+  QReadLocker locker(&m_mutex);
+
+  // For series filter, always compute fresh (rare use case)
+  if (!series.isEmpty()) {
+    QSet<QString> symbolSet;
+    for (int32_t idx = 0; idx < m_contractCount; ++idx) {
+      if (m_series[idx] == series && !m_name[idx].isEmpty()) {
+        symbolSet.insert(m_name[idx]);
+      }
+    }
+    QStringList symbols = symbolSet.values();
+    symbols.sort();
+    return symbols;
+  }
+
+  // For all symbols, use lazy cache (common use case)
+  if (!m_symbolsCached) {
+    QSet<QString> symbolSet;
+    for (int32_t idx = 0; idx < m_contractCount; ++idx) {
+      if (!m_name[idx].isEmpty()) {
+        symbolSet.insert(m_name[idx]);
+      }
+    }
+    m_cachedUniqueSymbols = symbolSet.values();
+    m_cachedUniqueSymbols.sort();
+    m_symbolsCached = true;
+  }
+
+  return m_cachedUniqueSymbols;
+}
+
 bool NSECMRepository::loadFromContracts(
     const QVector<MasterContract> &contracts) {
   if (contracts.isEmpty()) {
@@ -565,6 +596,10 @@ void NSECMRepository::prepareForLoad() {
 
   m_bidPrice.clear();
   m_askPrice.clear();
+
+  // Invalidate cached symbols (lazy cache)
+  m_symbolsCached = false;
+  m_cachedUniqueSymbols.clear();
 
   m_loaded = false;
 }

@@ -6,13 +6,13 @@
 #include "ContractData.h"
 #include "NSECMRepository.h"
 #include "NSEFORepository.h"
-#include <QObject>
 #include <QHash>
 #include <QMap>
+#include <QObject>
+#include <QReadWriteLock>
 #include <QSet>
 #include <QString>
 #include <QVector>
-#include <QReadWriteLock>
 #include <memory>
 #include <shared_mutex>
 
@@ -101,28 +101,29 @@ public:
    * @param preferCSV If true, try CSV first before master file
    */
   bool loadBSECM(const QString &mastersPath, bool preferCSV = true);
-  
+
   /**
    * @brief Load NSE Index Master to populate Asset Tokens for Indices
    */
   bool loadIndexMaster(const QString &mastersPath);
-  
+
   /**
    * @brief Get the index name to token map
    * @return Hash map of index names to their tokens
    */
-  const QHash<QString, qint64>& getIndexNameTokenMap() const;
-  
+  const QHash<QString, qint64> &getIndexNameTokenMap() const;
+
   /**
    * @brief Resolve asset tokens for index derivatives (where field 14 = -1)
-   * 
-   * Index options and futures have UnderlyingInstrumentId = -1 in the master file.
-   * This function resolves them to actual index tokens by looking up the index
-   * master data loaded from nse_cm_index_master.csv.
-   * 
+   *
+   * Index options and futures have UnderlyingInstrumentId = -1 in the master
+   * file. This function resolves them to actual index tokens by looking up the
+   * index master data loaded from nse_cm_index_master.csv.
+   *
    * Must be called AFTER both NSECM and NSEFO repositories are loaded.
-   * 
-   * Impact: Without this, Greeks calculation fails for ~15,000 index option contracts.
+   *
+   * Impact: Without this, Greeks calculation fails for ~15,000 index option
+   * contracts.
    */
   void resolveIndexAssetTokens();
 
@@ -188,6 +189,25 @@ public:
   QVector<ContractData> getScrips(const QString &exchange,
                                   const QString &segment,
                                   const QString &series) const;
+
+  /**
+   * @brief Get unique symbol names for a segment (optimized for UI dropdowns)
+   * @param exchange Exchange name ("NSE" or "BSE")
+   * @param segment Segment type ("CM", "FO", etc.)
+   * @param series Series type (optional filter: "OPTSTK", "FUTIDX", "EQUITY",
+   * etc.)
+   * @return Sorted list of unique symbol names
+   *
+   * Performance:
+   * - NSEFO (PreSorted): O(N) where N = unique symbols (uses
+   * m_symbolIndex.keys())
+   * - NSECM: O(N) where N = total contracts (~2500, <1ms)
+   *
+   * This is significantly faster than getScrips() for populating UI dropdowns
+   * because it avoids creating ContractData copies for thousands of contracts.
+   */
+  QStringList getUniqueSymbols(const QString &exchange, const QString &segment,
+                               const QString &series = QString()) const;
 
   /**
    * @brief Get contract by token using exchange segment ID
@@ -285,19 +305,20 @@ public:
    */
   uint32_t getNextExpiryFutureToken(const QString &symbol,
                                     int exchangeSegment) const;
-  
+
   /**
-   * @brief Get underlying price (LTP) using unified logic (Cash -> Future fallback)
+   * @brief Get underlying price (LTP) using unified logic (Cash -> Future
+   * fallback)
    * @param symbol Symbol (e.g., "NIFTY")
    * @param expiry Expiry Date (e.g., "30JAN2025")
    * @return double LTP (0.0 if not found)
    */
   double getUnderlyingPrice(const QString &symbol, const QString &expiry) const;
-  
+
   QString getSymbolForFutureToken(int64_t token) const;
-  
+
   // Debug helper
-  void dumpFutureTokenMap(const QString& filepath) const;
+  void dumpFutureTokenMap(const QString &filepath) const;
 
   /**
    * @brief Get all contracts for a specific segment
@@ -337,7 +358,7 @@ public:
    * @brief Update asset tokens in NSEFO from index master mapping
    */
   void updateIndexAssetTokens();
-  
+
   // ===== STATISTICS =====
 
   /**
@@ -382,6 +403,24 @@ public:
                                   const QString &segment);
 
   /**
+   * @brief Map UI instrument type to repository series filter
+   * @param exchange Exchange name ("NSE" or "BSE")
+   * @param instrument UI instrument type ("EQUITY", "FUTIDX", "OPTIDX", etc.)
+   * @return Series filter for repository queries
+   *
+   * Maps user-friendly instrument names to actual series codes:
+   * - EQUITY → "" (empty = all equity series)
+   * - BSE FUTIDX → "IF" (Index Futures)
+   * - BSE OPTIDX → "IO" (Index Options)
+   * - NSE instruments → direct mapping (FUTIDX → FUTIDX)
+   *
+   * This centralizes exchange-specific mapping logic that was previously
+   * duplicated in UI components.
+   */
+  static QString mapInstrumentToSeries(const QString &exchange,
+                                       const QString &instrument);
+
+  /**
    * @brief Get exchange segment name from XTS segment ID
    * @param exchangeSegmentID XTS segment ID (1=NSECM, 2=NSEFO, etc.)
    * @return Segment name like "NSECM", "NSEFO", etc.
@@ -399,20 +438,20 @@ public:
    * @return Absolute path to Masters directory
    */
   static QString getMastersDirectory();
-  
+
 signals:
   void mastersLoaded();
-  void loadingError(const QString& title, const QStringList& details);
-  
+  void loadingError(const QString &title, const QStringList &details);
+
   /**
    * @brief Emitted when all repositories have been loaded and initialized
-   * 
+   *
    * This signal indicates that:
    * - Master files have been parsed
    * - Index master integrated
    * - Asset tokens resolved
    * - UDP mappings initialized
-   * 
+   *
    * UDP readers should wait for this signal before starting to avoid
    * race conditions with index name resolution.
    */
@@ -424,7 +463,7 @@ public:
 
 private:
   RepositoryManager();
-  
+
   // Thread safety for concurrent access (protects all public getters)
   mutable QReadWriteLock m_repositoryLock;
 
@@ -432,16 +471,20 @@ private:
    * @brief Build caches for efficient symbol/expiry/strike lookups.
    *
    * Strategy:
-   * 1. Iterates through all NSE FO contracts once during startup (in finalizeLoad()).
-   * 2. Populates m_symbolExpiryStrikes: Map of (Symbol|Expiry) -> sorted unique strikes.
-   * 3. Populates m_strikeToTokens: Map of (Symbol|Expiry|Strike) -> (CallToken, PutToken).
-   * 4. Populates m_symbolExpiryFutureToken: Map of (Symbol|Expiry) -> Future Token.
+   * 1. Iterates through all NSE FO contracts once during startup (in
+   * finalizeLoad()).
+   * 2. Populates m_symbolExpiryStrikes: Map of (Symbol|Expiry) -> sorted unique
+   * strikes.
+   * 3. Populates m_strikeToTokens: Map of (Symbol|Expiry|Strike) -> (CallToken,
+   * PutToken).
+   * 4. Populates m_symbolExpiryFutureToken: Map of (Symbol|Expiry) -> Future
+   * Token.
    * 5. Populates m_symbolToAssetToken: Map of Symbol -> Cash Asset Token.
    *
-   * This pre-computation moves the O(N) filtering cost to startup, enabling O(1) 
-   * lookups for real-time ATM Watch calculations and UI rendering. This keeps 
-   * the runtime loops extremamente lightweight (sub-microsecond lookups) even 
-   * with 100K+ contracts.
+   * This pre-computation moves the O(N) filtering cost to startup, enabling
+   * O(1) lookups for real-time ATM Watch calculations and UI rendering. This
+   * keeps the runtime loops extremamente lightweight (sub-microsecond lookups)
+   * even with 100K+ contracts.
    */
   void buildExpiryCache();
 
@@ -463,10 +506,10 @@ private:
   QHash<QString, QVector<QString>>
       m_expiryToSymbols; // "30JAN26" -> ["NIFTY", "BANKNIFTY", ...]
   QHash<QString, QString> m_symbolToCurrentExpiry; // "NIFTY" -> "30JAN26"
-  QSet<QString> m_optionSymbols;  // {"NIFTY", "BANKNIFTY", "RELIANCE", ...}
+  QSet<QString> m_optionSymbols; // {"NIFTY", "BANKNIFTY", "RELIANCE", ...}
   // Cache for sorted expiries to avoid re-sorting on every access
   QVector<QString> m_sortedExpiries;
-  
+
   // Temporary storage for index contracts before merging
   QVector<ContractData> m_indexContracts;
 
