@@ -80,10 +80,8 @@ void NSEFORepositoryPreSorted::buildIndexes() {
   m_symbolIndex.reserve(500); // ~200-300 unique symbols
   m_expiryIndex.reserve(100); // ~50-80 unique expiries
 
-  // Build indexes by getting all contracts from parent
-  QVector<ContractData> allContracts = getAllContracts();
-
-  for (const auto &contract : allContracts) {
+  // Build indexes using zero-copy iteration (avoids copying 100K contracts)
+  NSEFORepository::forEachContract([this](const ContractData &contract) {
     int64_t token = contract.exchangeInstrumentID;
 
     // Index by series
@@ -94,7 +92,7 @@ void NSEFORepositoryPreSorted::buildIndexes() {
 
     // Index by expiry
     m_expiryIndex[contract.expiryDate].append(token);
-  }
+  });
 
   // qDebug() << "[PreSorted] Sorting index arrays by date...";
   sortIndexArrays();
@@ -261,4 +259,42 @@ NSEFORepositoryPreSorted::getContractsBySymbol(const QString &symbol) const {
   }
 
   return results;
+}
+
+QStringList
+NSEFORepositoryPreSorted::getUniqueSymbols(const QString &series) const {
+  QStringList symbols;
+
+  if (series.isEmpty()) {
+    // No series filter: return all symbols from index (O(N) where N = unique
+    // symbols)
+    symbols = m_symbolIndex.keys();
+  } else {
+    // Series filter: use series index to get tokens, then extract unique
+    // symbols
+    auto it = m_seriesIndex.find(series);
+    if (it != m_seriesIndex.end()) {
+      const QVector<int64_t> &tokens = it.value();
+      QSet<QString> symbolSet;
+
+      for (int64_t token : tokens) {
+        const ContractData *contract = getContract(token);
+        if (contract && !contract->name.isEmpty()) {
+          symbolSet.insert(contract->name);
+        }
+      }
+
+      symbols = symbolSet.values();
+    }
+  }
+
+  // Sort alphabetically for UI consistency
+  symbols.sort();
+  return symbols;
+}
+
+void NSEFORepositoryPreSorted::forEachContract(
+    std::function<void(const ContractData &)> callback) const {
+  // Delegate to base class implementation for zero-copy iteration
+  NSEFORepository::forEachContract(callback);
 }

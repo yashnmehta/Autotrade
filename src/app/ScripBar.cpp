@@ -1,6 +1,5 @@
 #include "app/ScripBar.h"
 #include "api/XTSMarketDataClient.h"
-#include "data/SymbolCacheManager.h" // NEW: For shared symbol caching
 #include "repository/RepositoryManager.h"
 #include <QDebug>
 #include <QElapsedTimer> // For performance measurement
@@ -340,64 +339,14 @@ void ScripBar::populateInstruments(const QString &segment) {
 void ScripBar::populateSymbols(const QString &instrument) {
   m_symbolCombo->clearItems();
 
-  // ⚡ OPTIMIZATION: Use SymbolCacheManager for instant symbol access
-  // Before: Each ScripBar loaded 9000 symbols independently (~800ms each)
-  // After: All ScripBars share one pre-loaded cache (<1ms access)
+  // ⚡ OPTIMIZATION: Use RepositoryManager::getUniqueSymbols() directly
+  // This method has lazy caching built-in (0.02ms cached, 2-5ms first call)
+  // Much simpler than the old dual-cache system!
 
   QString exchange = getCurrentExchange();
   QString segment = getCurrentSegment();
-  QString seriesFilter = mapInstrumentToSeries(instrument);
-
-  /* qDebug() << "[ScripBar] ========== populateSymbols DEBUG ==========";
-  qDebug() << "[ScripBar] Using SymbolCacheManager for:" << exchange << segment
-           << "series:" << seriesFilter; */
-
-  QElapsedTimer perfTimer;
-  perfTimer.start();
-
-  // Try to get symbols from cache first
-  const QVector<InstrumentData> &cachedSymbols =
-      SymbolCacheManager::instance().getSymbols(exchange, segment,
-                                                seriesFilter);
-
-  if (!cachedSymbols.isEmpty()) {
-    /* qDebug() << "[ScripBar] ⚡ Cache HIT! Got" << cachedSymbols.size()
-             << "symbols in" << perfTimer.elapsed() << "ms"; */
-
-    // Use cached data directly - no need to rebuild
-    m_instrumentCache = cachedSymbols;
-
-    // Extract unique symbols for dropdown
-    QSet<QString> uniqueSymbols;
-    for (const InstrumentData &inst : cachedSymbols) {
-      if (!inst.symbol.isEmpty()) {
-        uniqueSymbols.insert(inst.symbol);
-      }
-    }
-
-    QStringList symbols = uniqueSymbols.values();
-    symbols.sort();
-
-    /* qDebug() << "[ScripBar] Found" << symbols.size()
-             << "unique symbols from cache";
-    qDebug() << "[ScripBar] Cache now has" << m_instrumentCache.size()
-             << "entries";
-    qDebug() << "[ScripBar] ============================================"; */
-
-    // Update UI
-    updateBseScripCodeVisibility();
-    m_symbolCombo->addItems(symbols);
-
-    if (m_symbolCombo->count() > 0) {
-      m_symbolCombo->setCurrentIndex(0);
-      onSymbolChanged(m_symbolCombo->currentText());
-    }
-    return;
-  }
-
-  // FALLBACK: Cache miss - use RepositoryManager directly (legacy path)
-  qWarning()
-      << "[ScripBar] Cache MISS - falling back to RepositoryManager (slower)";
+  QString seriesFilter =
+      RepositoryManager::mapInstrumentToSeries(exchange, instrument);
 
   RepositoryManager *repo = RepositoryManager::getInstance();
 
@@ -407,92 +356,26 @@ void ScripBar::populateSymbols(const QString &instrument) {
     return;
   }
 
-  qDebug() << "[ScripBar] Array-based search:" << exchange << segment
-           << "instrument:" << instrument << "-> series:" << seriesFilter;
+  QElapsedTimer perfTimer;
+  perfTimer.start();
 
-  // Get all scrips for this segment and series
-  QVector<ContractData> contracts =
-      repo->getScrips(exchange, segment, seriesFilter);
+  // Get unique symbols directly from RepositoryManager (fast, cached)
+  QStringList symbols = repo->getUniqueSymbols(exchange, segment, seriesFilter);
 
-  qDebug() << "[ScripBar] Found" << contracts.size()
-           << "contracts in local array";
+  qDebug() << "[ScripBar] Loaded" << symbols.size() << "symbols in"
+           << perfTimer.elapsed() << "ms";
 
-  // Debug: Show first 3 contracts from repository
-  if (contracts.size() > 0) {
-    qDebug() << "[ScripBar] First 3 contracts from repository:";
-    for (int i = 0; i < qMin(3, contracts.size()); i++) {
-      qDebug() << "  [" << i << "] Token:" << contracts[i].exchangeInstrumentID
-               << "Name:'" << contracts[i].name << "' Series:'"
-               << contracts[i].series << "'"
-               << "Expiry:'" << contracts[i].expiryDate
-               << "' Strike:" << contracts[i].strikePrice << "Opt:'"
-               << contracts[i].optionType << "'";
-    }
-  }
-
-  if (contracts.isEmpty()) {
-    qDebug() << "[ScripBar] ❌ NO contracts found - adding placeholder";
+  if (symbols.isEmpty()) {
+    qDebug() << "[ScripBar] No symbols found for" << exchange << segment
+             << "series:" << seriesFilter;
     m_symbolCombo->addItem("No instruments found");
     return;
   }
 
-  // Pre-allocate cache for better performance
-  m_instrumentCache.clear();
-  m_instrumentCache.reserve(contracts.size());
-
-  // Extract unique symbols and build cache in single pass
-  QSet<QString> uniqueSymbols;
-  int exchangeSegmentId =
-      RepositoryManager::getExchangeSegmentID(exchange, segment);
-
-  for (const ContractData &contract : contracts) {
-    // Filter out dummy/test symbols
-    QString upperName = contract.name.toUpper();
-    if (upperName.contains("DUMMY") || upperName.contains("TEST") ||
-        upperName == "SCRIP" || upperName.startsWith("ZZZ")) {
-      continue;
-    }
-
-    // FACT-BASED: Filter out spread contracts using instrumentType field (4 =
-    // Spread)
-    if (contract.instrumentType == 4) {
-      continue;
-    }
-
-    if (!contract.name.isEmpty()) {
-      uniqueSymbols.insert(contract.name);
-    }
-
-    InstrumentData inst;
-    inst.exchangeInstrumentID = contract.exchangeInstrumentID;
-    inst.name = contract.name;
-    inst.symbol = contract.name;
-    inst.series = contract.series;
-    inst.instrumentType = QString::number(
-        contract.instrumentType); // Store numeric instrumentType (1=Future,
-                                  // 2=Option, 4=Spread)
-    inst.expiryDate = contract.expiryDate;
-    inst.strikePrice = contract.strikePrice;
-    inst.optionType = contract.optionType;
-    inst.exchangeSegment = exchangeSegmentId;
-    inst.scripCode = contract.scripCode; // Store BSE scrip code
-    m_instrumentCache.append(inst);
-  }
-
-  // Convert to sorted list
-  QStringList symbols = uniqueSymbols.values();
-  symbols.sort();
-
-  qDebug() << "[ScripBar] Found" << symbols.size() << "unique symbols from"
-           << contracts.size() << "contracts";
-  qDebug() << "[ScripBar] Cache now has" << m_instrumentCache.size()
-           << "entries";
-  qDebug() << "[ScripBar] ============================================";
-
   // Update BSE scrip code visibility
   updateBseScripCodeVisibility();
 
-  // Populate combo box with all symbols at once (prevents UI freeze)
+  // Populate combo box
   m_symbolCombo->addItems(symbols);
 
   if (m_symbolCombo->count() > 0) {
@@ -644,6 +527,49 @@ void ScripBar::onInstrumentChanged(const QString &text) {
 }
 
 void ScripBar::onSymbolChanged(const QString &text) {
+  // ⚡ Lazy-load contract details for this symbol only
+  // This is much faster than loading all contracts upfront
+
+  QString exchange = getCurrentExchange();
+  QString segment = getCurrentSegment();
+  QString seriesFilter = RepositoryManager::mapInstrumentToSeries(
+      exchange, m_instrumentCombo->currentText());
+
+  RepositoryManager *repo = RepositoryManager::getInstance();
+
+  if (!repo->isLoaded()) {
+    return;
+  }
+
+  // Get all contracts for this symbol
+  QVector<ContractData> contracts =
+      repo->getScrips(exchange, segment, seriesFilter);
+
+  // Filter to only this symbol and build instrument cache
+  m_instrumentCache.clear();
+  int exchangeSegmentId =
+      RepositoryManager::getExchangeSegmentID(exchange, segment);
+
+  for (const ContractData &contract : contracts) {
+    if (contract.name == text) {
+      InstrumentData inst;
+      inst.exchangeInstrumentID = contract.exchangeInstrumentID;
+      inst.name = contract.name;
+      inst.symbol = contract.name;
+      inst.series = contract.series;
+      inst.instrumentType = QString::number(contract.instrumentType);
+      inst.expiryDate = contract.expiryDate;
+      inst.strikePrice = contract.strikePrice;
+      inst.optionType = contract.optionType;
+      inst.exchangeSegment = exchangeSegmentId;
+      inst.scripCode = contract.scripCode;
+      m_instrumentCache.append(inst);
+    }
+  }
+
+  qDebug() << "[ScripBar] Lazy-loaded" << m_instrumentCache.size()
+           << "contracts for symbol:" << text;
+
   populateExpiries(text);
   updateTokenDisplay();
 }
@@ -778,7 +704,8 @@ InstrumentData ScripBar::getCurrentInstrument() const {
   result.expiryDate = expiry;
   result.strikePrice = (strike != "N/A") ? strike.toDouble() : 0.0;
   result.optionType = optionType;
-  result.exchangeSegment = getCurrentExchangeSegmentCode();
+  result.exchangeSegment = RepositoryManager::getExchangeSegmentID(
+      getCurrentExchange(), getCurrentSegment());
   return result;
 }
 
@@ -979,81 +906,9 @@ QString ScripBar::getCurrentExchange() const { return m_currentExchange; }
 
 QString ScripBar::getCurrentSegment() const { return m_currentSegment; }
 
-int ScripBar::getCurrentExchangeSegmentCode() const {
-  // Map to XTS exchange segment codes
-  // Per reference: NSE F/O both map to NSEFO, NSECDS F/O both map to NSECD, MCX
-  // F/O both map to MCX
-  QString exchange = m_currentExchange;
-  QString segment = m_currentSegment;
-
-  // NSE mappings
-  if (exchange == "NSE") {
-    if (segment == "E")
-      return 1; // NSECM
-    if (segment == "F" || segment == "O" || segment == "D")
-      return 2; // NSEFO (F, O, D)
-  }
-
-  // NSECDS mappings
-  if (exchange == "NSECDS") {
-    if (segment == "F" || segment == "O")
-      return 13; // NSECD (both F and O)
-  }
-
-  // BSE mappings
-  if (exchange == "BSE") {
-    if (segment == "E")
-      return 11; // BSECM
-    if (segment == "F" || segment == "O")
-      return 12; // BSEFO
-  }
-
-  // MCX mappings
-  if (exchange == "MCX") {
-    if (segment == "F" || segment == "O")
-      return 51; // MCXFO (both F and O)
-  }
-
-  return 1; // Default to NSECM
-}
-
-QString ScripBar::mapInstrumentToSeries(const QString &instrument) const {
-  // Map dropdown instrument type to ContractData series field
-  // The dropdown shows user-friendly names like "EQUITY", "FUTIDX", etc.
-  // But ContractData.series field contains actual series codes like "EQ",
-  // "FUTIDX", etc.
-
-  if (instrument == "EQUITY") {
-    // For NSE CM, series is "EQ", "BE", "BZ", etc.
-    // For BSE CM, series is "A", "B", "X", "F", "G", etc. (NO "EQ"!)
-    // Return empty string to get ALL equity series (RepositoryManager will
-    // handle this)
-    return ""; // Empty = get all series for this segment
-  }
-
-  // BSE F&O uses different series codes than NSE
-  if (m_currentExchange == "BSE") {
-    if (instrument == "FUTIDX")
-      return "IF"; // BSE Index Futures
-    if (instrument == "OPTIDX")
-      return "IO"; // BSE Index Options
-    // BSE doesn't have stock futures/options currently, but keep for future
-    if (instrument == "FUTSTK")
-      return "SF"; // BSE Stock Futures (if added)
-    if (instrument == "OPTSTK")
-      return "SO"; // BSE Stock Options (if added)
-  }
-
-  // For NSE F&O, the series field matches the instrument type
-  // FUTIDX -> FUTIDX
-  // FUTSTK -> FUTSTK
-  // OPTIDX -> OPTIDX
-  // OPTSTK -> OPTSTK
-  // FUTCUR -> FUTCUR
-  // OPTCUR -> OPTCUR
-
-  return instrument;
-}
+// ✅ REMOVED: getCurrentExchangeSegmentCode() - now using
+// RepositoryManager::getExchangeSegmentID() ✅ REMOVED: mapInstrumentToSeries()
+// - now using RepositoryManager::mapInstrumentToSeries()
 
 void ScripBar::searchInstrumentsAsync(const QString &searchText) {
   if (!m_xtsClient || !m_xtsClient->isLoggedIn()) {
@@ -1061,7 +916,8 @@ void ScripBar::searchInstrumentsAsync(const QString &searchText) {
     return;
   }
 
-  int exchangeSegment = getCurrentExchangeSegmentCode();
+  int exchangeSegment = RepositoryManager::getExchangeSegmentID(
+      getCurrentExchange(), getCurrentSegment());
 
   // Connect to instruments received signal
   connect(

@@ -6,7 +6,7 @@
 
 /**
  * @brief Utility class for parsing master contract files
- * 
+ *
  * Master file formats:
  * - NSECM: Pipe-separated, ~17 fields
  * - NSEFO: Pipe-separated, ~19 fields (includes F&O specific data)
@@ -15,29 +15,42 @@
  */
 class MasterFileParser {
 public:
-    /**
-     * @brief Parse a single line from a master file
-     * @param line Raw line from file
-     * @param exchange Exchange segment (NSECM, NSEFO, BSECM, BSEFO)
-     * @param contract Output MasterContract
-     * @return true if parsed successfully
-     */
-    static bool parseLine(const QStringRef& line, const QString& exchange, 
-                         MasterContract& contract);
-    
+  /**
+   * @brief Parse a single line from a master file
+   * @param line Raw line from file
+   * @param exchange Exchange segment (NSECM, NSEFO, BSECM, BSEFO)
+   * @param contract Output MasterContract
+   * @return true if parsed successfully
+   */
+  static bool parseLine(const QStringRef &line, const QString &exchange,
+                        MasterContract &contract);
+
+  /**
+   * @brief Utility: Remove surrounding quotes from a string
+   * @param str String reference (possibly quoted)
+   * @return String without quotes
+   *
+   * Shared utility to avoid code duplication across repositories.
+   */
+  static QString trimQuotes(const QStringRef &str);
+
 private:
-    /**
-     * @brief Parse NSECM master line
-     */
-    static bool parseNSECM(const QVector<QStringRef>& fields, MasterContract& contract);
-    static bool parseNSEFO(const QVector<QStringRef>& fields, MasterContract& contract);
-    static bool parseBSECM(const QVector<QStringRef>& fields, MasterContract& contract);
-    static bool parseBSEFO(const QVector<QStringRef>& fields, MasterContract& contract);
-    
-    /**
-     * @brief Helper: Convert option type int to string
-     */
-    static QString convertOptionType(int32_t optionType);
+  /**
+   * @brief Parse NSECM master line
+   */
+  static bool parseNSECM(const QVector<QStringRef> &fields,
+                         MasterContract &contract);
+  static bool parseNSEFO(const QVector<QStringRef> &fields,
+                         MasterContract &contract);
+  static bool parseBSECM(const QVector<QStringRef> &fields,
+                         MasterContract &contract);
+  static bool parseBSEFO(const QVector<QStringRef> &fields,
+                         MasterContract &contract);
+
+  /**
+   * @brief Helper: Convert option type int to string
+   */
+  static QString convertOptionType(int32_t optionType);
 };
 
 #endif // MASTER_FILE_PARSER_H
