@@ -1842,10 +1842,10 @@ double RepositoryManager::getUnderlyingPrice(const QString &symbol,
     int64_t futureToken = m_symbolExpiryFutureToken.value(key, 0);
 
     if (futureToken > 0) {
-      auto *state = nsefo::g_nseFoPriceStore.getUnifiedState(
+      auto state = nsefo::g_nseFoPriceStore.getUnifiedSnapshot(
           static_cast<uint32_t>(futureToken));
-      if (state) {
-        price = state->ltp;
+      if (state.token != 0) {
+        price = state.ltp;
       }
     }
   }

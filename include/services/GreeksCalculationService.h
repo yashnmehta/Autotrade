@@ -105,6 +105,11 @@ struct GreeksConfig {
     // Base price mode: "cash" (spot) or "future" (next expiry future)
     QString basePriceMode = "cash";
     
+    // Calculate Greeks on every feed update (bypass throttling)
+    // When true: Greeks calculated on every option price update AND every underlying update
+    // When false: Uses hybrid throttling (immediate for liquid, timer for illiquid)
+    bool calculateOnEveryFeed = false;
+    
     GreeksConfig() = default;
 };
 

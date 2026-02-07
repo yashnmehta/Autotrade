@@ -80,7 +80,22 @@ public:
     }
     
     // Read Access
+    /**
+     * @deprecated Use getUnifiedSnapshot() for thread-safe access
+     */
     const UnifiedTokenState* getUnifiedState(int32_t token) const;
+    
+    /**
+     * @brief Get thread-safe snapshot copy of token state
+     * @return Copy of token state, guaranteed consistent under lock
+     * @note Returns empty state (token=0) if not found
+     */
+    [[nodiscard]] UnifiedTokenState getUnifiedSnapshot(int32_t token) const {
+        if (token < 0 || token >= (int32_t)tokenStates.size()) return UnifiedTokenState{};
+        std::shared_lock lock(mutex);
+        if (!tokenStates[token]) return UnifiedTokenState{};
+        return *tokenStates[token]; // Copy under lock - thread safe
+    }
     
     ~PriceStore();
     

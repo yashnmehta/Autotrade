@@ -138,6 +138,15 @@ signals:
     void subscriptionCountChanged(int token, size_t count);
     
     /**
+     * @brief Type-specific UDP tick signals for granular UI optimization
+     * These allow UI components to subscribe only to relevant event types
+     */
+    void depthUpdateReceived(const UDP::MarketTick& tick);      // Order book depth only (7208)
+    void tradeUpdateReceived(const UDP::MarketTick& tick);      // LTP, volume, OI changes (7202, 17202)
+    void touchlineUpdateReceived(const UDP::MarketTick& tick);  // BBO + basic stats (7200)
+    void marketWatchReceived(const UDP::MarketTick& tick);      // Comprehensive data (7201, 17201)
+    
+    /**
      * @brief Request price subscription from new PriceCache (zero-copy)
      * Emitted by subscribers (MarketWatch, OptionChain) to request subscription
      * Routed through: Subscriber → FeedHandler → MainWindow → PriceCache

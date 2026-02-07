@@ -81,8 +81,8 @@ static std::string trimRight(const std::string& s) {
 }
 
 double getGenericLtp(uint32_t token) {
-    auto* state = g_nseCmPriceStore.getUnifiedState(token);
-    return state ? state->ltp : 0.0;
+    auto state = g_nseCmPriceStore.getUnifiedSnapshot(token);
+    return (state.token != 0) ? state.ltp : 0.0;
 }
 
 } // namespace nsecm

@@ -30,16 +30,16 @@ public:
     void parsePacket(const uint8_t* buffer, size_t length, ParserStats& stats);
 
     // Callbacks
-    // Callbacks (Token only for Data)
-    using RecordCallback = std::function<void(uint32_t token)>;
-    using OpenInterestCallback = std::function<void(uint32_t token)>;
+    // Callbacks with exchange segment and message type
+    using RecordCallback = std::function<void(uint32_t token, int exchangeSegment, uint16_t messageType)>;
+    using OpenInterestCallback = std::function<void(uint32_t token, int exchangeSegment, uint16_t messageType)>;
     using SessionStateCallback = std::function<void(const DecodedSessionState&)>; // Keep low freq
-    using ClosePriceCallback = std::function<void(uint32_t token)>;
+    using ClosePriceCallback = std::function<void(uint32_t token, int exchangeSegment, uint16_t messageType)>;
     // New callback for Implied Volatility
-    using ImpliedVolatilityCallback = std::function<void(uint32_t token)>; 
+    using ImpliedVolatilityCallback = std::function<void(uint32_t token, int exchangeSegment, uint16_t messageType)>; 
     using RBICallback = std::function<void(const DecodedRBIReferenceRate&)>;
-    // Index Callback (Token only)
-    using IndexCallback = std::function<void(uint32_t token)>;
+    // Index Callback with exchange segment and message type
+    using IndexCallback = std::function<void(uint32_t token, int exchangeSegment, uint16_t messageType)>;
 
     void setRecordCallback(RecordCallback callback) { recordCallback_ = callback; }
     void setOpenInterestCallback(OpenInterestCallback callback) { oiCallback_ = callback; }
@@ -65,12 +65,12 @@ public:
 private:
     // Internal decoding methods
     void decodeMarketPicture(const uint8_t* buffer, size_t length, uint16_t msgType, ParserStats& stats);
-    void decodeOpenInterest(const uint8_t* buffer, size_t length, ParserStats& stats);
+    void decodeOpenInterest(const uint8_t* buffer, size_t length, uint16_t msgType, ParserStats& stats);
     void decodeSessionState(const uint8_t* buffer, size_t length, ParserStats& stats);
-    void decodeClosePrice(const uint8_t* buffer, size_t length, ParserStats& stats);
-    void decodeImpliedVolatility(const uint8_t* buffer, size_t length, ParserStats& stats);
+    void decodeClosePrice(const uint8_t* buffer, size_t length, uint16_t msgType, ParserStats& stats);
+    void decodeImpliedVolatility(const uint8_t* buffer, size_t length, uint16_t msgType, ParserStats& stats);
     void decodeRBIReferenceRate(const uint8_t* buffer, size_t length, ParserStats& stats);
-    void decodeIndex(const uint8_t* buffer, size_t length, ParserStats& stats);
+    void decodeIndex(const uint8_t* buffer, size_t length, uint16_t msgType, ParserStats& stats);
 
     RecordCallback recordCallback_;
     OpenInterestCallback oiCallback_;

@@ -1,10 +1,10 @@
 #include "core/widgets/CustomMDISubWindow.h"
 #include "core/WindowCacheManager.h"
-#include "utils/WindowManager.h"
 #include "core/WindowConstants.h"
 #include "core/widgets/CustomMDIArea.h"
 #include "core/widgets/CustomTitleBar.h"
 #include "core/widgets/MDITaskBar.h"
+#include "utils/WindowManager.h"
 #include <QApplication>
 #include <QCloseEvent>
 #include <QContextMenuEvent>

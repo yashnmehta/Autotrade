@@ -1,5 +1,6 @@
 #include "views/SnapQuoteWindow.h"
 #include "utils/WindowManager.h"
+#include "services/FeedHandler.h"
 #include <QDebug>
 #include <QShowEvent>
 #include <QTimer>
@@ -24,6 +25,9 @@ SnapQuoteWindow::SnapQuoteWindow(const WindowContext &context, QWidget *parent)
 }
 
 SnapQuoteWindow::~SnapQuoteWindow() {
+    // Unsubscribe from UDP feed
+    unsubscribeFromToken();
+    
     // Unregister from WindowManager
     WindowManager::instance().unregisterWindow(this);
 }
@@ -34,7 +38,41 @@ void SnapQuoteWindow::setScripDetails(const QString &exchange, const QString &se
     m_exchange = exchange;
     m_token = token;
     m_symbol = symbol;
+    
+    // Subscribe to new token (exchange segment inferred from exchange string)
+    int exchangeSegment = 2; // Default to NSEFO
+    if (exchange.contains("NSECM") || exchange == "NSE") exchangeSegment = 1;
+    else if (exchange.contains("NSEFO")) exchangeSegment = 2;
+    else if (exchange.contains("BSECM")) exchangeSegment = 11;
+    else if (exchange.contains("BSEFO")) exchangeSegment = 12;
+    
+    subscribeToToken(exchangeSegment, token);
     fetchQuote();
+}
+
+void SnapQuoteWindow::subscribeToToken(int exchangeSegment, int token) {
+    // Unsubscribe from previous token if any
+    if (m_subscribedToken > 0) {
+        FeedHandler::instance().unsubscribe(m_subscribedExchangeSegment, m_subscribedToken, this);
+        qDebug() << "[SnapQuote] Unsubscribed from token" << m_subscribedToken;
+    }
+    
+    // Subscribe to new token
+    if (token > 0) {
+        FeedHandler::instance().subscribe(exchangeSegment, token, this, &SnapQuoteWindow::onTickUpdate);
+        m_subscribedExchangeSegment = exchangeSegment;
+        m_subscribedToken = token;
+        qDebug() << "[SnapQuote] ✅ Subscribed to token" << token << "(segment" << exchangeSegment << ")";
+    }
+}
+
+void SnapQuoteWindow::unsubscribeFromToken() {
+    if (m_subscribedToken > 0) {
+        FeedHandler::instance().unsubscribe(m_subscribedExchangeSegment, m_subscribedToken, this);
+        qDebug() << "[SnapQuote] Unsubscribed from token" << m_subscribedToken;
+        m_subscribedToken = 0;
+        m_subscribedExchangeSegment = 0;
+    }
 }
 
 void SnapQuoteWindow::setXTSClient(XTSMarketDataClient *client)

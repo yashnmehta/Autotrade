@@ -681,8 +681,10 @@ InstrumentData ScripBar::getCurrentInstrument() const {
       return inst;
 
     if (isFuture) {
+      // Filter out spread contracts (instrumentType == 4)
+      // Note: instrumentType is stored as string representation of int: 1=Future, 2=Option, 4=Spread
       if ((expiry == "N/A" || inst.expiryDate == expiry) &&
-          !inst.name.contains("SPD")) {
+          inst.instrumentType != "4") {
         return inst;
       }
     }
@@ -751,7 +753,9 @@ void ScripBar::updateTokenDisplay() {
     }
 
     if (isFuture) {
-      if (inst.expiryDate == expiry && !inst.name.contains("SPD")) {
+      // Filter out spread contracts (instrumentType == 4)
+      // Note: instrumentType is stored as string representation of int: 1=Future, 2=Option, 4=Spread
+      if (inst.expiryDate == expiry && inst.instrumentType != "4") {
         m_tokenEdit->setText(QString::number(inst.exchangeInstrumentID));
         return;
       }

@@ -87,6 +87,8 @@ void GreeksCalculationService::loadConfiguration() {
       settings.value("illiquid_threshold", 30).toInt();
   m_config.basePriceMode =
       settings.value("base_price_mode", "cash").toString().toLower();
+  m_config.calculateOnEveryFeed =
+      settings.value("calculate_on_every_feed", false).toBool();
 
   settings.endGroup();
 
@@ -172,18 +174,18 @@ GreeksResult GreeksCalculationService::calculateForToken(uint32_t token,
   double askPrice = 0.0;
 
   if (exchangeSegment == 2) { // NSEFO
-    const auto *state = nsefo::g_nseFoPriceStore.getUnifiedState(token);
-    if (state) {
-      optionPrice = state->ltp;
-      bidPrice = state->bids[0].price;
-      askPrice = state->asks[0].price;
+    auto state = nsefo::g_nseFoPriceStore.getUnifiedSnapshot(token);
+    if (state.token != 0) {
+      optionPrice = state.ltp;
+      bidPrice = state.bids[0].price;
+      askPrice = state.asks[0].price;
     }
   } else if (exchangeSegment == 12) { // BSEFO
-    const auto *state = bse::g_bseFoPriceStore.getUnifiedState(token);
-    if (state) {
-      optionPrice = state->ltp;
-      bidPrice = state->bids[0].price;
-      askPrice = state->asks[0].price;
+    auto state = bse::g_bseFoPriceStore.getUnifiedSnapshot(token);
+    if (state.token != 0) {
+      optionPrice = state.ltp;
+      bidPrice = state.bids[0].price;
+      askPrice = state.asks[0].price;
     }
   }
 
@@ -374,29 +376,8 @@ void GreeksCalculationService::onPriceUpdate(uint32_t token, double ltp,
     return;
   }
 
-  auto it = m_cache.find(token);
-  if (it != m_cache.end()) {
-    int64_t now = QDateTime::currentMSecsSinceEpoch();
-
-    // Check throttle and price change
-    if (now - it.value().lastCalculationTime < m_config.throttleMs) {
-      // qDebug() << "[GreeksService] THROTTLED: Token:" << token
-      //          << "Elapsed:" << (now - it.value().lastCalculationTime) <<
-      //          "ms";
-      return;
-    }
-
-    double priceDiff =
-        std::abs(ltp - it.value().lastPrice) / it.value().lastPrice;
-    if (priceDiff < 0.001) {
-      // qDebug() << "[GreeksService] PRICE_CHANGE_TOO_SMALL: Token:" << token
-      //          << "Diff:" << (priceDiff * 100) << "%";
-      return;
-    }
-  } else {
-    // qDebug() << "[GreeksService] Token not in cache (first time), will
-    // calculate:" << token;
-  }
+  // Throttling logic removed per user request - always calculate
+  // (Previous logic checked m_config.throttleMs and priceDiff)
 
   // qDebug() << "[GreeksService] CALLING calculateForToken for:" << token;
   calculateForToken(token, exchangeSegment);
@@ -412,14 +393,24 @@ void GreeksCalculationService::onUnderlyingPriceUpdate(uint32_t underlyingToken,
   QList<uint32_t> optionTokens = m_underlyingToOptions.values(underlyingToken);
   int64_t now = QDateTime::currentMSecsSinceEpoch();
 
+  // If calculateOnEveryFeed is enabled, force immediate calculation for ALL options
+  if (m_config.calculateOnEveryFeed) {
+    for (uint32_t token : optionTokens) {
+      auto it = m_cache.find(token);
+      if (it != m_cache.end()) {
+        calculateForToken(token, it.value().result.exchangeSegment);
+      }
+    }
+    return;
+  }
+
+  // HYBRID THROTTLING LOGIC (when calculateOnEveryFeed = false)
+  // 1. If Liquid (Traded recently): Update immediately
+  // 2. If Illiquid: Skip (will be caught by processIlliquidUpdates timer)
   for (uint32_t token : optionTokens) {
     // We need the exchange segment to calculate
     auto it = m_cache.find(token);
     if (it != m_cache.end()) {
-
-      // HYBRID THROTTLING LOGIC
-      // 1. If Liquid (Traded recently): Update immediately
-      // 2. If Illiquid: Skip (will be caught by processIlliquidUpdates timer)
 
       int64_t lastTradeTime = it.value().lastTradeTimestamp;
       int64_t timeSinceTrade = now - lastTradeTime;
@@ -495,10 +486,10 @@ double GreeksCalculationService::getUnderlyingPrice(uint32_t optionToken,
 
   if (exchangeSegment == 2) { // NSEFO
     // Try futures price first
-    const auto *futureState = nsefo::g_nseFoPriceStore.getUnifiedState(
+    auto futureState = nsefo::g_nseFoPriceStore.getUnifiedSnapshot(
         static_cast<uint32_t>(underlyingToken));
-    if (futureState && futureState->ltp > 0) {
-      return futureState->ltp;
+    if (futureState.token != 0 && futureState.ltp > 0) {
+      return futureState.ltp;
     }
 
     // Fallback to spot price (handles equities and indices)
@@ -508,17 +499,17 @@ double GreeksCalculationService::getUnderlyingPrice(uint32_t optionToken,
     }
   } else if (exchangeSegment == 12) { // BSEFO
     // Try futures first
-    const auto *futureState = bse::g_bseFoPriceStore.getUnifiedState(
+    auto futureState = bse::g_bseFoPriceStore.getUnifiedSnapshot(
         static_cast<uint32_t>(underlyingToken));
-    if (futureState && futureState->ltp > 0) {
-      return futureState->ltp;
+    if (futureState.token != 0 && futureState.ltp > 0) {
+      return futureState.ltp;
     }
 
     // Fallback to cash market
-    const auto *cashState = bse::g_bseCmPriceStore.getUnifiedState(
+    auto cashState = bse::g_bseCmPriceStore.getUnifiedSnapshot(
         static_cast<uint32_t>(underlyingToken));
-    if (cashState && cashState->ltp > 0) {
-      return cashState->ltp;
+    if (cashState.token != 0 && cashState.ltp > 0) {
+      return cashState.ltp;
     }
   }
 
@@ -531,30 +522,6 @@ bool GreeksCalculationService::isOption(int instrumentType) {
 
 bool GreeksCalculationService::shouldRecalculate(
     uint32_t token, double currentPrice, double currentUnderlyingPrice) {
-  auto it = m_cache.find(token);
-  if (it == m_cache.end()) {
-    return true; // Not cached, should calculate
-  }
-
-  int64_t now = QDateTime::currentMSecsSinceEpoch();
-  int64_t elapsed = now - it.value().lastCalculationTime;
-
-  // Time-based throttle
-  if (elapsed < m_config.throttleMs) {
-    return false;
-  }
-
-  // Price change threshold (0.1%)
-  double priceChange =
-      std::abs(currentPrice - it.value().lastPrice) / it.value().lastPrice;
-  double underlyingChange =
-      std::abs(currentUnderlyingPrice - it.value().lastUnderlyingPrice) /
-      it.value().lastUnderlyingPrice;
-
-  if (priceChange < 0.001 && underlyingChange < 0.001) {
-    return false; // No significant change
-  }
-
   return true;
 }
 

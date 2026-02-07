@@ -203,9 +203,9 @@ double ATMWatchManager::fetchBasePrice(const ATMConfig &config) {
     for (const auto &c : contracts) {
       // instrumentType 1 = Future
       if (c.instrumentType == 1 && c.expiryDate == config.expiry) {
-        auto *state = nsefo::g_nseFoPriceStore.getUnifiedState(
+        auto state = nsefo::g_nseFoPriceStore.getUnifiedSnapshot(
             static_cast<uint32_t>(c.exchangeInstrumentID));
-        return state ? state->ltp : 0.0;
+        return (state.token != 0) ? state.ltp : 0.0;
       }
     }
 
