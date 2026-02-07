@@ -81,6 +81,23 @@ public:
   void updateImpliedVolatility(uint32_t token, int64_t iv, uint64_t timestamp);
 
   /**
+   * @brief Update Greeks fields (from GreeksCalculationService)
+   * @param token Token ID
+   * @param iv Implied Volatility (IV)
+   * @param bidIV Bid IV
+   * @param askIV Ask IV
+   * @param delta Delta
+   * @param gamma Gamma
+   * @param vega Vega (per 1% change)
+   * @param theta Theta (daily decay)
+   * @param theoreticalPrice Theoretical option price
+   * @param timestamp Calculation timestamp
+   */
+  void updateGreeks(uint32_t token, double iv, double bidIV, double askIV,
+                   double delta, double gamma, double vega, double theta,
+                   double theoreticalPrice, int64_t timestamp);
+
+  /**
    * @brief Initialize Token from Master (Thread-Safe)
    */
   void initializeToken(uint32_t token, const char *symbol, const char *name,

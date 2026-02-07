@@ -12,7 +12,6 @@
 #include <QLocale>
 #include <QTimer>
 
-
 void SnapQuoteWindow::onRefreshClicked() {
   emit refreshRequested(m_exchange, m_token);
   fetchQuote();
@@ -57,7 +56,7 @@ void SnapQuoteWindow::fetchQuote() {
 
 void SnapQuoteWindow::onScripSelected(const InstrumentData &data) {
   m_token = data.exchangeInstrumentID;
-  
+
   // Subscribe to new token via FeedHandler
   subscribeToToken(data.exchangeSegment, m_token);
 
@@ -143,13 +142,17 @@ void SnapQuoteWindow::loadFromContext(const WindowContext &context,
   m_token = context.token;
   m_exchange = context.exchange;
   m_symbol = context.symbol;
-  
+
   // Subscribe to token (infer segment from exchange string)
   int exchangeSegment = 2; // Default NSEFO
-  if (m_exchange.contains("NSECM") || m_exchange == "NSE") exchangeSegment = 1;
-  else if (m_exchange.contains("NSEFO")) exchangeSegment = 2;
-  else if (m_exchange.contains("BSECM")) exchangeSegment = 11;
-  else if (m_exchange.contains("BSEFO")) exchangeSegment = 12;
+  if (m_exchange.contains("NSECM") || m_exchange == "NSE")
+    exchangeSegment = 1;
+  else if (m_exchange.contains("NSEFO"))
+    exchangeSegment = 2;
+  else if (m_exchange.contains("BSECM"))
+    exchangeSegment = 11;
+  else if (m_exchange.contains("BSEFO"))
+    exchangeSegment = 12;
   subscribeToToken(exchangeSegment, m_token);
 
   // ⚡ CRITICAL OPTIMIZATION: Defer expensive ScripBar population until window
@@ -251,71 +254,70 @@ bool SnapQuoteWindow::loadFromGStore() {
   else if (m_exchange == "BSECM")
     segment = 11;
 
-  // ⚡ USE COMMON GSTORE FUNCTION (< 1ms!)
+  // ⚡ USE COMMON GSTORE FUNCTION (<1ms!) - THREAD SAFE SNAPSHOT
   // Same function MarketWatch, OptionChain use - no duplication!
-  const auto *data = MarketData::PriceStoreGateway::instance().getUnifiedState(
+  auto data = MarketData::PriceStoreGateway::instance().getUnifiedSnapshot(
       segment, m_token);
 
-  if (!data || data->ltp <= 0) {
+  if (data.token == 0 || data.ltp <= 0) {
     qDebug() << "[SnapQuoteWindow] Token" << m_token
              << "not in GStore or no LTP";
     return false;
   }
 
   qDebug() << "[SnapQuoteWindow] ⚡ Loaded from GStore: token" << m_token
-           << "LTP:" << data->ltp << "(< 1ms!)";
+           << "LTP:" << data.ltp << "(<1ms!)";
 
   // Update all UI fields from GStore data
   // 1. LTP Section
   if (m_lbLTPPrice)
-    m_lbLTPPrice->setText(QString::number(data->ltp, 'f', 2));
+    m_lbLTPPrice->setText(QString::number(data.ltp, 'f', 2));
   if (m_lbLTPQty)
-    m_lbLTPQty->setText(QLocale().toString((int)data->lastTradeQty));
-  if (m_lbLTPTime && data->lastTradeTime > 0) {
-    QDateTime dt = QDateTime::fromSecsSinceEpoch(data->lastTradeTime);
+    m_lbLTPQty->setText(QLocale().toString((int)data.lastTradeQty));
+  if (m_lbLTPTime && data.lastTradeTime > 0) {
+    QDateTime dt = QDateTime::fromSecsSinceEpoch(data.lastTradeTime);
     m_lbLTPTime->setText(dt.toString("HH:mm:ss"));
   }
-  setLTPIndicator(data->ltp >= data->close);
+  setLTPIndicator(data.ltp >= data.close);
 
   // 2. OHLC Panel
   if (m_lbOpen)
-    m_lbOpen->setText(QString::number(data->open, 'f', 2));
+    m_lbOpen->setText(QString::number(data.open, 'f', 2));
   if (m_lbHigh)
-    m_lbHigh->setText(QString::number(data->high, 'f', 2));
+    m_lbHigh->setText(QString::number(data.high, 'f', 2));
   if (m_lbLow)
-    m_lbLow->setText(QString::number(data->low, 'f', 2));
+    m_lbLow->setText(QString::number(data.low, 'f', 2));
   if (m_lbClose)
-    m_lbClose->setText(QString::number(data->close, 'f', 2));
+    m_lbClose->setText(QString::number(data.close, 'f', 2));
 
   // 3. Statistics
   if (m_lbVolume)
-    m_lbVolume->setText(QLocale().toString(static_cast<qint64>(data->volume)));
+    m_lbVolume->setText(QLocale().toString(static_cast<qint64>(data.volume)));
   if (m_lbATP)
-    m_lbATP->setText(QString::number(data->avgPrice, 'f', 2));
-  if (m_lbPercentChange && data->close > 0) {
-    double pct = ((data->ltp - data->close) / data->close) * 100.0;
+    m_lbATP->setText(QString::number(data.avgPrice, 'f', 2));
+  if (m_lbPercentChange && data.close > 0) {
+    double pct = ((data.ltp - data.close) / data.close) * 100.0;
     m_lbPercentChange->setText(QString::number(pct, 'f', 2) + "%");
     setChangeColor(pct);
   }
   if (m_lbOI)
-    m_lbOI->setText(
-        QLocale().toString(static_cast<qint64>(data->openInterest)));
+    m_lbOI->setText(QLocale().toString(static_cast<qint64>(data.openInterest)));
 
   // 4. Market Depth (5 levels) - using existing update functions
   for (int i = 0; i < 5; i++) {
-    updateBidDepth(i + 1, data->bids[i].quantity, data->bids[i].price,
-                   data->bids[i].orders);
-    updateAskDepth(i + 1, data->asks[i].price, data->asks[i].quantity,
-                   data->asks[i].orders);
+    updateBidDepth(i + 1, data.bids[i].quantity, data.bids[i].price,
+                   data.bids[i].orders);
+    updateAskDepth(i + 1, data.asks[i].price, data.asks[i].quantity,
+                   data.asks[i].orders);
   }
 
   // 5. Totals
   if (m_lbTotalBuyers)
     m_lbTotalBuyers->setText(
-        QLocale().toString(static_cast<qint64>(data->totalBuyQty)));
+        QLocale().toString(static_cast<qint64>(data.totalBuyQty)));
   if (m_lbTotalSellers)
     m_lbTotalSellers->setText(
-        QLocale().toString(static_cast<qint64>(data->totalSellQty)));
+        QLocale().toString(static_cast<qint64>(data.totalSellQty)));
 
   return true; // Successfully loaded from GStore!
 }

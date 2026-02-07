@@ -123,6 +123,29 @@ void PriceStore::updateImpliedVolatility(uint32_t token, int64_t iv, uint64_t ti
     state.isUpdated = true;
 }
 
+void PriceStore::updateGreeks(uint32_t token, double iv, double bidIV, double askIV,
+                              double delta, double gamma, double vega, double theta,
+                              double theoreticalPrice, int64_t timestamp) {
+    if (token >= tokenStates.size()) return;
+    
+    std::unique_lock<std::shared_mutex> lock(mutex);
+    if (!tokenStates[token]) return;
+    UnifiedTokenState& state = *tokenStates[token];
+    
+    state.impliedVolatility = iv;
+    state.bidIV = bidIV;
+    state.askIV = askIV;
+    state.delta = delta;
+    state.gamma = gamma;
+    state.vega = vega;
+    state.theta = theta;
+    state.theoreticalPrice = theoreticalPrice;
+    state.greeksCalculated = true;
+    state.lastGreeksUpdateTime = timestamp;
+    state.lastPacketTimestamp = timestamp;
+    state.isUpdated = true;
+}
+
 void PriceStore::initializeToken(uint32_t token, const char* symbol, const char* name, const char* scripCode,
                                 const char* series, int32_t lot, double strike, const char* optType, const char* expiry,
                                 int32_t assetToken, int32_t instType, double tick) {

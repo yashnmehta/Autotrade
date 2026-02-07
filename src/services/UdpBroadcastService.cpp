@@ -19,7 +19,9 @@
 namespace {
 
 // Convert NSE FO Unified State to UDP::MarketTick
-UDP::MarketTick convertNseFoUnified(const nsefo::UnifiedTokenState &data, UDP::UpdateType updateType = UDP::UpdateType::FULL_SNAPSHOT) {
+UDP::MarketTick convertNseFoUnified(
+    const nsefo::UnifiedTokenState &data,
+    UDP::UpdateType updateType = UDP::UpdateType::FULL_SNAPSHOT) {
   UDP::MarketTick tick(UDP::ExchangeSegment::NSEFO, data.token);
   tick.ltp = data.ltp;
   tick.ltq = data.lastTradeQty;
@@ -48,11 +50,11 @@ UDP::MarketTick convertNseFoUnified(const nsefo::UnifiedTokenState &data, UDP::U
   tick.timestampParsed = data.lastPacketTimestamp;
   tick.timestampEmitted = LatencyTracker::now();
   tick.messageType = 7200;
-  
+
   // Set update type and valid flags
   tick.updateType = updateType;
   tick.validFlags = UDP::VALID_ALL; // Unified state has all fields
-  
+
   return tick;
 }
 
@@ -79,7 +81,9 @@ UDP::MarketTick convertNseFoDepth(const nsefo::MarketDepthData &data) {
 }
 
 // Convert NSE CM Unified State to UDP::MarketTick
-UDP::MarketTick convertNseCmUnified(const nsecm::UnifiedTokenState &data, UDP::UpdateType updateType = UDP::UpdateType::FULL_SNAPSHOT) {
+UDP::MarketTick convertNseCmUnified(
+    const nsecm::UnifiedTokenState &data,
+    UDP::UpdateType updateType = UDP::UpdateType::FULL_SNAPSHOT) {
   UDP::MarketTick tick(UDP::ExchangeSegment::NSECM, data.token);
   tick.ltp = data.ltp;
   tick.ltq = data.lastTradeQty;
@@ -106,10 +110,10 @@ UDP::MarketTick convertNseCmUnified(const nsecm::UnifiedTokenState &data, UDP::U
   tick.timestampParsed = data.lastPacketTimestamp;
   tick.timestampEmitted = LatencyTracker::now();
   tick.messageType = 7200;
-  
+
   tick.updateType = updateType;
   tick.validFlags = UDP::VALID_ALL;
-  
+
   return tick;
 }
 
@@ -155,9 +159,10 @@ UDP::MarketTick convertNseCmDepth(const nsecm::MarketDepthData &data) {
 }
 
 // Convert BSE Unified State to UDP::MarketTick
-UDP::MarketTick convertBseUnified(const bse::UnifiedTokenState &data,
-                                  UDP::ExchangeSegment segment,
-                                  UDP::UpdateType updateType = UDP::UpdateType::FULL_SNAPSHOT) {
+UDP::MarketTick
+convertBseUnified(const bse::UnifiedTokenState &data,
+                  UDP::ExchangeSegment segment,
+                  UDP::UpdateType updateType = UDP::UpdateType::FULL_SNAPSHOT) {
   UDP::MarketTick tick(segment, data.token);
   tick.ltp = data.ltp;
   tick.ltq = data.lastTradeQty;
@@ -189,10 +194,10 @@ UDP::MarketTick convertBseUnified(const bse::UnifiedTokenState &data,
   tick.timestampParsed = data.lastPacketTimestamp;
   tick.timestampEmitted = LatencyTracker::now();
   tick.messageType = 2020; // Generic Market Picture logic
-  
+
   tick.updateType = updateType;
   tick.validFlags = UDP::VALID_ALL;
-  
+
   return tick;
 }
 
@@ -347,7 +352,37 @@ UdpBroadcastService &UdpBroadcastService::instance() {
   return inst;
 }
 
-UdpBroadcastService::UdpBroadcastService(QObject *parent) : QObject(parent) {}
+UdpBroadcastService::UdpBroadcastService(QObject *parent) : QObject(parent) {
+  // Connect Greeks calculation signal to price store updates
+  // This ensures calculated Greeks are persisted for UI components to read
+  qDebug() << "[UdpBroadcast] Setting up Greeks persistence connection...";
+  connect(&GreeksCalculationService::instance(),
+          &GreeksCalculationService::greeksCalculated, this,
+          [](uint32_t token, int exchangeSegment, const GreeksResult &result) {
+            // qDebug() << "[UdpBroadcast] Greeks signal received for token:"
+            //          << token << "Segment:" << exchangeSegment
+            //          << "IV:" << result.impliedVolatility;
+
+            // Route to appropriate price store based on exchange segment
+            if (exchangeSegment == 2) { // NSE FO
+              nsefo::g_nseFoPriceStore.updateGreeks(
+                  token, result.impliedVolatility, result.bidIV, result.askIV,
+                  result.delta, result.gamma, result.vega, result.theta,
+                  result.theoreticalPrice, result.calculationTimestamp);
+              // qDebug() << "[UdpBroadcast] Updated NSE FO price store for
+              // token:"
+              //          << token;
+            } else if (exchangeSegment == 4) { // BSE FO
+              bse::g_bseFoPriceStore.updateGreeks(
+                  token, result.impliedVolatility, result.bidIV, result.askIV,
+                  result.delta, result.gamma, result.vega, result.theta,
+                  result.theoreticalPrice, result.calculationTimestamp);
+              // qDebug() << "[UdpBroadcast] Updated BSE FO price store for
+              // token:"
+              //          << token;
+            }
+          });
+}
 
 UdpBroadcastService::~UdpBroadcastService() { stop(); }
 
@@ -407,18 +442,21 @@ void UdpBroadcastService::setupNseFoCallbacks() {
       });
 
   // ========== TYPE-SPECIFIC CALLBACKS FOR GRANULAR EVENTS ==========
-  
+
   // Touchline Callback (7200) - BBO + basic stats
-  auto touchlineCallback = [this](int32_t token, int exchangeSegment, uint16_t messageType) {
+  auto touchlineCallback = [this](int32_t token, int exchangeSegment,
+                                  uint16_t messageType) {
     auto data = nsefo::g_nseFoPriceStore.getUnifiedSnapshot(token);
     if (data.token == 0)
       return;
 
     // Convert with TOUCHLINE update type
-    UDP::MarketTick udpTick = convertNseFoUnified(data, UDP::UpdateType::TOUCHLINE);
+    UDP::MarketTick udpTick =
+        convertNseFoUnified(data, UDP::UpdateType::TOUCHLINE);
     udpTick.messageType = messageType;
-    udpTick.validFlags = UDP::VALID_LTP | UDP::VALID_BID_TOP | UDP::VALID_ASK_TOP | 
-                         UDP::VALID_OHLC | UDP::VALID_VOLUME | UDP::VALID_PREV_CLOSE;
+    udpTick.validFlags = UDP::VALID_LTP | UDP::VALID_BID_TOP |
+                         UDP::VALID_ASK_TOP | UDP::VALID_OHLC |
+                         UDP::VALID_VOLUME | UDP::VALID_PREV_CLOSE;
     m_totalTicks++;
 
     FeedHandler::instance().onUdpTickReceived(udpTick);
@@ -436,15 +474,18 @@ void UdpBroadcastService::setupNseFoCallbacks() {
   };
 
   // Depth Callback (7208) - Order book depth only
-  auto depthCallback = [this](int32_t token, int exchangeSegment, uint16_t messageType) {
+  auto depthCallback = [this](int32_t token, int exchangeSegment,
+                              uint16_t messageType) {
     auto data = nsefo::g_nseFoPriceStore.getUnifiedSnapshot(token);
     if (data.token == 0)
       return;
 
     // Convert with DEPTH_UPDATE type
-    UDP::MarketTick udpTick = convertNseFoUnified(data, UDP::UpdateType::DEPTH_UPDATE);
+    UDP::MarketTick udpTick =
+        convertNseFoUnified(data, UDP::UpdateType::DEPTH_UPDATE);
     udpTick.messageType = messageType;
-    udpTick.validFlags = UDP::VALID_DEPTH | UDP::VALID_BID_TOP | UDP::VALID_ASK_TOP;
+    udpTick.validFlags =
+        UDP::VALID_DEPTH | UDP::VALID_BID_TOP | UDP::VALID_ASK_TOP;
     m_totalTicks++;
 
     FeedHandler::instance().onUdpTickReceived(udpTick);
@@ -457,13 +498,15 @@ void UdpBroadcastService::setupNseFoCallbacks() {
   };
 
   // Ticker Callback (7202, 17202) - LTP, volume, OI updates
-  auto tickerCallback = [this](int32_t token, int exchangeSegment, uint16_t messageType) {
+  auto tickerCallback = [this](int32_t token, int exchangeSegment,
+                               uint16_t messageType) {
     auto data = nsefo::g_nseFoPriceStore.getUnifiedSnapshot(token);
     if (data.token == 0)
       return;
 
     // Convert with TRADE_TICK type
-    UDP::MarketTick udpTick = convertNseFoUnified(data, UDP::UpdateType::TRADE_TICK);
+    UDP::MarketTick udpTick =
+        convertNseFoUnified(data, UDP::UpdateType::TRADE_TICK);
     udpTick.messageType = messageType;
     udpTick.validFlags = UDP::VALID_LTP | UDP::VALID_VOLUME | UDP::VALID_OI;
     m_totalTicks++;
@@ -500,9 +543,11 @@ void UdpBroadcastService::setupNseFoCallbacks() {
           return;
 
         // Convert with MARKET_WATCH type
-        UDP::MarketTick udpTick = convertNseFoUnified(stateData, UDP::UpdateType::MARKET_WATCH);
+        UDP::MarketTick udpTick =
+            convertNseFoUnified(stateData, UDP::UpdateType::MARKET_WATCH);
         udpTick.messageType = 7201;
-        udpTick.validFlags = UDP::VALID_ALL; // Market watch has comprehensive data
+        udpTick.validFlags =
+            UDP::VALID_ALL; // Market watch has comprehensive data
         m_totalTicks++;
 
         FeedHandler::instance().onUdpTickReceived(udpTick);
@@ -511,7 +556,8 @@ void UdpBroadcastService::setupNseFoCallbacks() {
         auto &greeksService = GreeksCalculationService::instance();
         if (greeksService.isEnabled()) {
           greeksService.onPriceUpdate(token, stateData.ltp, 2 /*NSEFO*/);
-          greeksService.onUnderlyingPriceUpdate(token, stateData.ltp, 2 /*NSEFO*/);
+          greeksService.onUnderlyingPriceUpdate(token, stateData.ltp,
+                                                2 /*NSEFO*/);
         }
 
         if (shouldEmitSignal(token)) {
@@ -520,12 +566,14 @@ void UdpBroadcastService::setupNseFoCallbacks() {
       });
 
   // Circuit Limit (7220) - Circuit limit updates
-  auto circuitCallback = [this](int32_t token, int exchangeSegment, uint16_t messageType) {
+  auto circuitCallback = [this](int32_t token, int exchangeSegment,
+                                uint16_t messageType) {
     auto data = nsefo::g_nseFoPriceStore.getUnifiedSnapshot(token);
     if (data.token == 0)
       return;
 
-    UDP::MarketTick udpTick = convertNseFoUnified(data, UDP::UpdateType::CIRCUIT_LIMIT);
+    UDP::MarketTick udpTick =
+        convertNseFoUnified(data, UDP::UpdateType::CIRCUIT_LIMIT);
     udpTick.messageType = messageType;
     udpTick.validFlags = UDP::VALID_LTP;
     m_totalTicks++;
@@ -536,7 +584,7 @@ void UdpBroadcastService::setupNseFoCallbacks() {
       emit udpTickReceived(udpTick);
     }
   };
-  
+
   nsefo::MarketDataCallbackRegistry::instance().registerCircuitLimitCallback(
       circuitCallback);
 
@@ -567,7 +615,8 @@ void UdpBroadcastService::setupNseCmCallbacks() {
 
   /* ========== OLD UNIFIED CALLBACK (COMMENTED OUT FOR TESTING) ==========
   // Unified CM Callback
-  auto unifiedCallback = [this](int32_t token, int exchangeSegment, uint16_t messageType) {
+  auto unifiedCallback = [this](int32_t token, int exchangeSegment, uint16_t
+  messageType) {
     // 1. Fetch thread-safe snapshot from global CM store
     auto data = nsecm::g_nseCmPriceStore.getUnifiedSnapshot(token);
     if (data.token == 0)
@@ -607,17 +656,20 @@ void UdpBroadcastService::setupNseCmCallbacks() {
   ========== END OLD UNIFIED CALLBACK ========== */
 
   // ========== NEW TYPE-SPECIFIC CALLBACKS (GRANULAR EVENTS) ==========
-  
+
   // Touchline Callback (7200) - BBO + basic stats
-  auto touchlineCallback = [this](int32_t token, int exchangeSegment, uint16_t messageType) {
+  auto touchlineCallback = [this](int32_t token, int exchangeSegment,
+                                  uint16_t messageType) {
     auto data = nsecm::g_nseCmPriceStore.getUnifiedSnapshot(token);
     if (data.token == 0)
       return;
 
-    UDP::MarketTick udpTick = convertNseCmUnified(data, UDP::UpdateType::TOUCHLINE);
+    UDP::MarketTick udpTick =
+        convertNseCmUnified(data, UDP::UpdateType::TOUCHLINE);
     udpTick.messageType = messageType;
-    udpTick.validFlags = UDP::VALID_LTP | UDP::VALID_BID_TOP | UDP::VALID_ASK_TOP | 
-                         UDP::VALID_OHLC | UDP::VALID_VOLUME | UDP::VALID_PREV_CLOSE;
+    udpTick.validFlags = UDP::VALID_LTP | UDP::VALID_BID_TOP |
+                         UDP::VALID_ASK_TOP | UDP::VALID_OHLC |
+                         UDP::VALID_VOLUME | UDP::VALID_PREV_CLOSE;
     m_totalTicks++;
 
     FeedHandler::instance().onUdpTickReceived(udpTick);
@@ -634,14 +686,17 @@ void UdpBroadcastService::setupNseCmCallbacks() {
   };
 
   // Depth Callback (7208) - Order book depth only
-  auto depthCallback = [this](int32_t token, int exchangeSegment, uint16_t messageType) {
+  auto depthCallback = [this](int32_t token, int exchangeSegment,
+                              uint16_t messageType) {
     auto data = nsecm::g_nseCmPriceStore.getUnifiedSnapshot(token);
     if (data.token == 0)
       return;
 
-    UDP::MarketTick udpTick = convertNseCmUnified(data, UDP::UpdateType::DEPTH_UPDATE);
+    UDP::MarketTick udpTick =
+        convertNseCmUnified(data, UDP::UpdateType::DEPTH_UPDATE);
     udpTick.messageType = messageType;
-    udpTick.validFlags = UDP::VALID_DEPTH | UDP::VALID_BID_TOP | UDP::VALID_ASK_TOP;
+    udpTick.validFlags =
+        UDP::VALID_DEPTH | UDP::VALID_BID_TOP | UDP::VALID_ASK_TOP;
     m_totalTicks++;
 
     FeedHandler::instance().onUdpTickReceived(udpTick);
@@ -654,12 +709,14 @@ void UdpBroadcastService::setupNseCmCallbacks() {
   };
 
   // Ticker Callback (18703) - LTP, volume updates
-  auto tickerCallback = [this](int32_t token, int exchangeSegment, uint16_t messageType) {
+  auto tickerCallback = [this](int32_t token, int exchangeSegment,
+                               uint16_t messageType) {
     auto data = nsecm::g_nseCmPriceStore.getUnifiedSnapshot(token);
     if (data.token == 0)
       return;
 
-    UDP::MarketTick udpTick = convertNseCmUnified(data, UDP::UpdateType::TRADE_TICK);
+    UDP::MarketTick udpTick =
+        convertNseCmUnified(data, UDP::UpdateType::TRADE_TICK);
     udpTick.messageType = messageType;
     udpTick.validFlags = UDP::VALID_LTP | UDP::VALID_VOLUME;
     m_totalTicks++;
@@ -695,22 +752,28 @@ void UdpBroadcastService::setupNseCmCallbacks() {
   // 7207 Index Callback for CM
   nsecm::MarketDataCallbackRegistry::instance().registerIndexCallback(
       [this](const nsecm::IndicesUpdate &update) {
-        // Log Stage 1: Reception
-        // qDebug() << "[UDP] Received NSECM Index Update (7207), Records:" <<
-        // update.numRecords;
-
         // Iterate through all indices in the update
         for (int i = 0; i < update.numRecords; i++) {
           const auto &data = update.indices[i];
 
-          // Log Stage 2: Data Content
-          // qDebug() << "  -> Index:" << data.name << "Value:" << data.value <<
-          // "Change:" << (data.value - data.close);
-
           // Update unified store for ATMs and Watchlist
           auto itName = nsecm::g_indexNameToToken.find(data.name);
+
+          //           if (data.name[0] == 'N' ||
+          //               data.name[0] == 'B') { // Filter logs for
+          //               NIFTY/BANKNIFTY
+          // //  ̰            qDebug() << "[IndexDebug] 7207 Index:" << data.name
+          // //                      << "Value:" << data.value << "MappedToken:"
+          // //                      << (itName !=
+          // nsecm::g_indexNameToToken.end()
+          // //                                  ? itName->second
+          // //                                  : 0);
+          //           }
+
           if (itName != nsecm::g_indexNameToToken.end()) {
             uint32_t token = itName->second;
+            // qDebug() << "[IndexDebug] Updating NSE CM store: Token=" << token
+            //          << "Symbol=" << data.name << "Value=" << data.value;
             nsecm::g_nseCmPriceStore.updateTouchline(
                 token, data.value, data.open, data.high, data.low, data.close,
                 0, 0, 0, data.value, 0, 0, 0, 0);
@@ -835,7 +898,8 @@ void UdpBroadcastService::setupBseFoCallbacks() {
   if (!m_bseFoReceiver)
     return;
 
-  auto unifiedCallback = [this](uint32_t token, int exchangeSegment, uint16_t messageType) {
+  auto unifiedCallback = [this](uint32_t token, int exchangeSegment,
+                                uint16_t messageType) {
     auto data = bse::g_bseFoPriceStore.getUnifiedSnapshot(token);
     if (data.token == 0)
       return;
@@ -887,7 +951,8 @@ void UdpBroadcastService::setupBseCmCallbacks() {
   if (!m_bseCmReceiver)
     return;
 
-  auto unifiedCallback = [this](uint32_t token, int exchangeSegment, uint16_t messageType) {
+  auto unifiedCallback = [this](uint32_t token, int exchangeSegment,
+                                uint16_t messageType) {
     auto data = bse::g_bseCmPriceStore.getUnifiedSnapshot(token);
     if (data.token == 0)
       return;
@@ -929,14 +994,15 @@ void UdpBroadcastService::setupBseCmCallbacks() {
         emit udpSessionStateReceived(sessTick);
       });
 
-  m_bseCmReceiver->setIndexCallback([this](uint32_t token, int exchangeSegment, uint16_t messageType) {
-    const auto *record = bse::g_bseCmIndexStore.getIndex(token);
-    if (!record)
-      return;
-    UDP::IndexTick indexTick =
-        convertBseIndex(*record, UDP::ExchangeSegment::BSECM);
-    emit udpIndexReceived(indexTick);
-  });
+  m_bseCmReceiver->setIndexCallback(
+      [this](uint32_t token, int exchangeSegment, uint16_t messageType) {
+        const auto *record = bse::g_bseCmIndexStore.getIndex(token);
+        if (!record)
+          return;
+        UDP::IndexTick indexTick =
+            convertBseIndex(*record, UDP::ExchangeSegment::BSECM);
+        emit udpIndexReceived(indexTick);
+      });
 }
 
 void UdpBroadcastService::start(const Config &config) {

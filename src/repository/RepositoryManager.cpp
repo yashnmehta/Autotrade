@@ -359,6 +359,52 @@ bool RepositoryManager::loadIndexMaster(const QString &mastersPath) {
   qDebug() << "Loaded" << m_indexNameTokenMap.size() << "indices from"
            << filePath;
 
+  // === FIX: Add explicit symbol mappings for index option/future symbols ===
+  // The CSV contains full names like "Nifty 50", but NSEFO contracts use
+  // abbreviated names like "NIFTY". Add explicit mappings to
+  // m_symbolToAssetToken.
+  if (!m_indexNameTokenMap.isEmpty()) {
+    // Map: NIFTY -> Nifty 50's token
+    if (m_indexNameTokenMap.contains("Nifty 50")) {
+      m_symbolToAssetToken["NIFTY"] = m_indexNameTokenMap["Nifty 50"];
+      qDebug() << "[loadIndexMaster] Mapped NIFTY ->"
+               << m_indexNameTokenMap["Nifty 50"];
+    }
+    // Map: BANKNIFTY -> Nifty Bank's token
+    if (m_indexNameTokenMap.contains("Nifty Bank")) {
+      m_symbolToAssetToken["BANKNIFTY"] = m_indexNameTokenMap["Nifty Bank"];
+      qDebug() << "[loadIndexMaster] Mapped BANKNIFTY ->"
+               << m_indexNameTokenMap["Nifty Bank"];
+    }
+    // Map: FINNIFTY -> Nifty Fin Service's token
+    if (m_indexNameTokenMap.contains("Nifty Fin Service")) {
+      m_symbolToAssetToken["FINNIFTY"] =
+          m_indexNameTokenMap["Nifty Fin Service"];
+      qDebug() << "[loadIndexMaster] Mapped FINNIFTY ->"
+               << m_indexNameTokenMap["Nifty Fin Service"];
+    }
+    // Map: MIDCPNIFTY -> NIFTY MID SELECT's token
+    if (m_indexNameTokenMap.contains("NIFTY MID SELECT")) {
+      m_symbolToAssetToken["MIDCPNIFTY"] =
+          m_indexNameTokenMap["NIFTY MID SELECT"];
+      qDebug() << "[loadIndexMaster] Mapped MIDCPNIFTY ->"
+               << m_indexNameTokenMap["NIFTY MID SELECT"];
+    }
+    // Also try alternate name for Midcap Select
+    if (!m_symbolToAssetToken.contains("MIDCPNIFTY") &&
+        m_indexNameTokenMap.contains("Nifty Midcap Select")) {
+      m_symbolToAssetToken["MIDCPNIFTY"] =
+          m_indexNameTokenMap["Nifty Midcap Select"];
+      qDebug() << "[loadIndexMaster] Mapped MIDCPNIFTY ->"
+               << m_indexNameTokenMap["Nifty Midcap Select"];
+    }
+
+    qDebug() << "[loadIndexMaster] Index symbol mappings complete:"
+             << "NIFTY=" << m_symbolToAssetToken.value("NIFTY", 0)
+             << "BANKNIFTY=" << m_symbolToAssetToken.value("BANKNIFTY", 0)
+             << "FINNIFTY=" << m_symbolToAssetToken.value("FINNIFTY", 0);
+  }
+
   // Initialize UDP index name→token mapping for NSE CM price store
   if (!m_indexNameTokenMap.isEmpty()) {
     qDebug()
@@ -429,21 +475,23 @@ void RepositoryManager::resolveIndexAssetTokens() {
   // Use the existing symbol to asset token map from index master
   if (!m_symbolToAssetToken.isEmpty()) {
     indexTokens = m_symbolToAssetToken;
-    qDebug() << "[RepositoryManager] Using" << indexTokens.size()
-             << "index tokens from index master";
   }
+
+  // MERGE: Add full index names for exact matching (e.g. "Nifty 50" -> 26000)
+  if (!m_indexNameTokenMap.isEmpty()) {
+    for (auto it = m_indexNameTokenMap.constBegin();
+         it != m_indexNameTokenMap.constEnd(); ++it) {
+      indexTokens.insert(it.key(), it.value());
+    }
+  }
+
+  qDebug() << "[RepositoryManager] Loaded" << indexTokens.size()
+           << "index tokens for resolution (Symbols + Full Names)";
 
   // Also add from NSECM INDEX series for additional coverage
   m_nsecm->forEachContract([&indexTokens](const ContractData &c) {
     if (c.series == "INDEX") {
       indexTokens[c.name] = c.exchangeInstrumentID;
-
-      // Store variations without common suffixes for better matching
-      QString shortName = c.name;
-      shortName.replace(" 50", "").replace(" BANK", "").replace(" 100", "");
-      if (shortName != c.name) {
-        indexTokens[shortName] = c.exchangeInstrumentID;
-      }
     }
   });
 
@@ -467,28 +515,35 @@ void RepositoryManager::resolveIndexAssetTokens() {
     if (contract.assetToken == 0 || contract.assetToken == -1) {
       totalCount++;
 
-      // Try to resolve from index token map using the contract's name
-      // (underlying)
-      QString symbol = contract.name;
+      // Try to resolve using UnderlyingIndexName (e.g. "Nifty 50")
+      // which matches exactly what's in the index master map.
+      QString lookupKey = contract.underlyingIndexName;
+      bool usedUnderlyingIndex = !lookupKey.isEmpty();
 
-      if (indexTokens.contains(symbol)) {
-        int64_t newAssetToken = indexTokens[symbol];
+      if (!usedUnderlyingIndex) {
+        lookupKey = contract.name; // Fallback to symbol (e.g. "NIFTY")
+      }
+
+      if (indexTokens.contains(lookupKey)) {
+        int64_t newAssetToken = indexTokens[lookupKey];
 
         // Update the asset token in the repository
         m_nsefo->updateAssetToken(contract.exchangeInstrumentID, newAssetToken);
         resolvedCount++;
 
-        if (resolvedCount <= 3) { // Log first few for verification
-          qDebug() << "  Resolved:" << symbol << "token"
-                   << contract.exchangeInstrumentID << "→ assetToken"
-                   << newAssetToken;
+        if (resolvedCount <= 20) { // Log more for initial verification
+          qInfo() << "  [VERIFICATION] Resolved:" << lookupKey
+                  << (usedUnderlyingIndex ? " (via UnderlyingIndexName)"
+                                          : " (via Name Fallback)")
+                  << "token" << contract.exchangeInstrumentID << "→ assetToken"
+                  << newAssetToken;
         }
       } else {
         unresolvedCount++;
         if (unresolvedCount <= 5) { // Log first few unresolved
-          qWarning() << "  Cannot resolve:" << symbol << "(token"
+          qWarning() << "  Cannot resolve:" << lookupKey << "(token"
                      << contract.exchangeInstrumentID << ")";
-          unresolvedSymbols.append(symbol);
+          unresolvedSymbols.append(lookupKey);
         }
       }
     }
@@ -801,6 +856,11 @@ bool RepositoryManager::loadFromMemory(const QString &csvData) {
     }
     updateIndexAssetTokens();
   }
+
+  // CRITICAL FIX: Resolve index asset tokens for FO contracts (e.g. NIFTY ->
+  // 26000) This uses the underlyingIndexName to find the correct token from
+  // index master
+  resolveIndexAssetTokens();
 
   // Initialize distributed price stores (Required for real-time data)
   initializeDistributedStores();
@@ -1291,6 +1351,7 @@ void RepositoryManager::initializeDistributedStores() {
     for (auto it = indexMap.begin(); it != indexMap.end(); ++it) {
       stdIndexMap[it.key().toStdString()] = static_cast<uint32_t>(it.value());
     }
+
     nsecm::initializeIndexMapping(stdIndexMap);
 
     std::vector<uint32_t> tokens;

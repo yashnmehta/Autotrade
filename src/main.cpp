@@ -3,6 +3,7 @@
 #include "ui/LoginWindow.h"
 #include "services/LoginFlowService.h"
 #include "services/TradingDataService.h"
+#include "services/GreeksCalculationService.h"  // For GreeksResult
 #include "core/WindowCacheManager.h"
 #include "utils/ConfigLoader.h"
 #include "utils/FileLogger.h"  // File logging
@@ -53,6 +54,10 @@ int main(int argc, char *argv[])
     qRegisterMetaType<UDP::MarketTick>("UDP::MarketTick");
     qRegisterMetaType<UDP::IndexTick>("UDP::IndexTick");
     qRegisterMetaType<UDP::CircuitLimitTick>("UDP::CircuitLimitTick");
+
+    // Register Greeks types for OptionChain updates (CRITICAL for Greeks display!)
+    qRegisterMetaType<uint32_t>("uint32_t");
+    qRegisterMetaType<GreeksResult>("GreeksResult");
 
     // Set application metadata
     app.setApplicationName("Trading Terminal");

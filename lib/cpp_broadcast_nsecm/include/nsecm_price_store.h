@@ -5,6 +5,7 @@
 #include <shared_mutex>
 #include <atomic>
 #include <cstring>
+#include <QDebug>
 #include "nsecm_callback.h"
 
 #include "data/UnifiedPriceState.h"
@@ -37,8 +38,18 @@ public:
                         double avgPrice, double netChange, char netChangeInd, uint16_t status, uint16_t bookType) {
         if (token < 0 || token >= (int32_t)tokenStates.size()) return;
         std::unique_lock lock(mutex);
-        if (!tokenStates[token]) return;
+        if (!tokenStates[token]) {
+            // qDebug() << "[NSECM Store] updateTouchline FAILED: Token" << token << "not initialized!";
+            return;
+        }
         auto& row = *tokenStates[token];
+        
+        // // Debug log for index tokens (26000-26999)
+        // if (token >= 26000 && token <= 26999) {
+        //     qDebug() << "[NSECM Store] updateTouchline: Token=" << token 
+        //              << "LTP=" << ltp << "Volume=" << volume;
+        // }
+        
         row.ltp = ltp;
         row.open = open;
         row.high = high;

@@ -7,6 +7,7 @@
 #include "nsecm_callback.h"
 #include "nsefo_callback.h"
 
+#include "core/WindowCacheManager.h"
 #include "repository/RepositoryManager.h"
 #include "services/ATMWatchManager.h"
 #include "services/FeedHandler.h"
@@ -17,7 +18,6 @@
 #include "utils/LatencyTracker.h"
 #include "views/IndicesView.h"
 #include "views/MarketWatchWindow.h" // Needed for getActiveMarketWatch cast
-#include "core/WindowCacheManager.h"
 #include <QAction>
 #include <QDebug>
 #include <QDockWidget>
@@ -25,6 +25,7 @@
 #include <QShortcut>
 #include <QStatusBar>
 #include <QTimer>
+
 
 MainWindow::MainWindow(QWidget *parent)
     : CustomMainWindow(parent), m_xtsMarketDataClient(nullptr),
@@ -41,20 +42,14 @@ MainWindow::MainWindow(QWidget *parent)
   // Setup keyboard shortcuts
   setupShortcuts();
 
-  // Connect new UDP::MarketTick signal directly to FeedHandler
-  connect(&UdpBroadcastService::instance(),
-          &UdpBroadcastService::udpTickReceived, &FeedHandler::instance(),
-          &FeedHandler::onUdpTickReceived);
+  // CRITICAL FIX: Do NOT connect udpTickReceived ->
+  // FeedHandler::onUdpTickReceived UdpBroadcastService already calls
+  // FeedHandler directly in its callbacks. connecting it here causes double
+  // processing of every tick!
 
-  // Connect UDP ticks to GreeksCalculationService for real-time IV/Greeks
-  // updates
-  connect(&UdpBroadcastService::instance(),
-          &UdpBroadcastService::udpTickReceived, this,
-          [](const UDP::MarketTick &tick) {
-            // Forward to Greeks service for option price updates
-            GreeksCalculationService::instance().onPriceUpdate(
-                tick.token, tick.ltp, static_cast<int>(tick.exchangeSegment));
-          });
+  // CRITICAL FIX: Do NOT connect udpTickReceived -> GreeksCalculationService
+  // UdpBroadcastService already calls GreeksService internally.
+  // connecting it here causes double calculation of Greeks!
 
   // Connect FeedHandler price subscription requests to MainWindow router (for
   // new PriceCache)
@@ -105,7 +100,8 @@ void MainWindow::setXTSClients(XTSMarketDataClient *mdClient,
   }
 
   // Set XTS client for cached SnapQuote window
-  WindowCacheManager::instance().setXTSClientForSnapQuote(m_xtsMarketDataClient);
+  WindowCacheManager::instance().setXTSClientForSnapQuote(
+      m_xtsMarketDataClient);
 }
 
 void MainWindow::setTradingDataService(TradingDataService *service) {

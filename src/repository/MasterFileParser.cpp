@@ -170,6 +170,8 @@ bool MasterFileParser::parseNSEFO(const QVector<QStringRef> &fields,
   }
 
   // Field 15: UnderlyingIndexName (symbol name)
+  contract.underlyingIndexName = trimQuotes(fields[15]);
+
   // Field 16: ContractExpiration (ISO format)
   contract.expiryDate = trimQuotes(fields[16]);
 
@@ -400,6 +402,9 @@ bool MasterFileParser::parseBSEFO(const QVector<QStringRef> &fields,
     // Direct token
     contract.assetToken = underlyingInstrumentId;
   }
+
+  // Field 15: UnderlyingIndexName
+  contract.underlyingIndexName = trimQuotes(fields[15]);
 
   // Field 16: ContractExpiration (ISO format)
   contract.expiryDate = trimQuotes(fields[16]);

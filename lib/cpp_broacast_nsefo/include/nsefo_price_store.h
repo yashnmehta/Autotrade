@@ -131,6 +131,42 @@ public:
         row.lastPacketTimestamp = data.lastPacketTimestamp;
     }
 
+    /**
+     * @brief Update Greeks fields (from GreeksCalculationService)
+     * @param token Token ID
+     * @param iv Implied Volatility (IV)
+     * @param bidIV Bid IV
+     * @param askIV Ask IV
+     * @param delta Delta
+     * @param gamma Gamma
+     * @param vega Vega (per 1% change)
+     * @param theta Theta (daily decay)
+     * @param theoreticalPrice Theoretical option price
+     * @param timestamp Calculation timestamp
+     */
+    void updateGreeks(uint32_t token, double iv, double bidIV, double askIV,
+                     double delta, double gamma, double vega, double theta,
+                     double theoreticalPrice, int64_t timestamp) {
+        if (token < MIN_TOKEN || token > MAX_TOKEN) return;
+        
+        std::unique_lock lock(mutex_); // Exclusive Write
+        auto* rowPtr = store_[token - MIN_TOKEN];
+        if (!rowPtr) return;
+        auto& row = *rowPtr;
+        
+        row.impliedVolatility = iv;
+        row.bidIV = bidIV;
+        row.askIV = askIV;
+        row.delta = delta;
+        row.gamma = gamma;
+        row.vega = vega;
+        row.theta = theta;
+        row.theoreticalPrice = theoreticalPrice;
+        row.greeksCalculated = true;
+        row.lastGreeksUpdateTime = timestamp;
+        row.lastPacketTimestamp = timestamp;
+    }
+
     // =========================================================
     // UNIFIED READ (Read Lock)
     // =========================================================

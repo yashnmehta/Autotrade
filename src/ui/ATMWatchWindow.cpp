@@ -11,7 +11,6 @@
 #include <QWheelEvent>
 #include <QtConcurrent>
 
-
 ATMWatchWindow::ATMWatchWindow(QWidget *parent) : QWidget(parent) {
   setupUI();
   setupModels();
@@ -128,8 +127,9 @@ void ATMWatchWindow::setupUI() {
 void ATMWatchWindow::setupModels() {
   m_callModel = new QStandardItemModel(this);
   m_callModel->setColumnCount(CALL_COUNT);
-  m_callModel->setHorizontalHeaderLabels(
-      {"LTP", "Chg", "Bid", "Ask", "Vol", "OI", "IV", "Delta", "Gamma", "Vega", "Theta"});
+  m_callModel->setHorizontalHeaderLabels({"LTP", "Chg", "Bid", "Ask", "Vol",
+                                          "OI", "IV", "Delta", "Gamma", "Vega",
+                                          "Theta"});
   m_callTable->setModel(m_callModel);
   m_callTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
 
@@ -142,8 +142,9 @@ void ATMWatchWindow::setupModels() {
 
   m_putModel = new QStandardItemModel(this);
   m_putModel->setColumnCount(PUT_COUNT);
-  m_putModel->setHorizontalHeaderLabels(
-      {"Bid", "Ask", "LTP", "Chg", "Vol", "OI", "IV", "Delta", "Gamma", "Vega", "Theta"});
+  m_putModel->setHorizontalHeaderLabels({"Bid", "Ask", "LTP", "Chg", "Vol",
+                                         "OI", "IV", "Delta", "Gamma", "Vega",
+                                         "Theta"});
   m_putTable->setModel(m_putModel);
   m_putTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
 }
@@ -153,27 +154,43 @@ void ATMWatchWindow::setupConnections() {
           &ATMWatchWindow::onATMUpdated);
 
   // Greeks updates
-  connect(&GreeksCalculationService::instance(), &GreeksCalculationService::greeksCalculated, this,
-          [this](uint32_t token, int exchangeSegment, const GreeksResult& result) {
-              if (!m_tokenToInfo.contains(token)) return;
-              auto info = m_tokenToInfo[token]; // {symbol, isCall}
-              int row = m_symbolToRow.value(info.first, -1);
-              if (row < 0) return;
+  connect(
+      &GreeksCalculationService::instance(),
+      &GreeksCalculationService::greeksCalculated, this,
+      [this](uint32_t token, int exchangeSegment, const GreeksResult &result) {
+        if (!m_tokenToInfo.contains(token))
+          return;
+        auto info = m_tokenToInfo[token]; // {symbol, isCall}
+        int row = m_symbolToRow.value(info.first, -1);
+        if (row < 0)
+          return;
 
-              if (info.second) { // Call
-                  m_callModel->setData(m_callModel->index(row, CALL_IV), QString::number(result.impliedVolatility, 'f', 2));
-                  m_callModel->setData(m_callModel->index(row, CALL_DELTA), QString::number(result.delta, 'f', 2));
-                  m_callModel->setData(m_callModel->index(row, CALL_GAMMA), QString::number(result.gamma, 'f', 4));
-                  m_callModel->setData(m_callModel->index(row, CALL_VEGA), QString::number(result.vega, 'f', 2));
-                  m_callModel->setData(m_callModel->index(row, CALL_THETA), QString::number(result.theta, 'f', 2));
-              } else { // Put
-                  m_putModel->setData(m_putModel->index(row, PUT_IV), QString::number(result.impliedVolatility, 'f', 2));
-                  m_putModel->setData(m_putModel->index(row, PUT_DELTA), QString::number(result.delta, 'f', 2));
-                  m_putModel->setData(m_putModel->index(row, PUT_GAMMA), QString::number(result.gamma, 'f', 4));
-                  m_putModel->setData(m_putModel->index(row, PUT_VEGA), QString::number(result.vega, 'f', 2));
-                  m_putModel->setData(m_putModel->index(row, PUT_THETA), QString::number(result.theta, 'f', 2));
-              }
-          });
+        if (info.second) { // Call
+          m_callModel->setData(
+              m_callModel->index(row, CALL_IV),
+              QString::number(result.impliedVolatility, 'f', 2));
+          m_callModel->setData(m_callModel->index(row, CALL_DELTA),
+                               QString::number(result.delta, 'f', 2));
+          m_callModel->setData(m_callModel->index(row, CALL_GAMMA),
+                               QString::number(result.gamma, 'f', 4));
+          m_callModel->setData(m_callModel->index(row, CALL_VEGA),
+                               QString::number(result.vega, 'f', 2));
+          m_callModel->setData(m_callModel->index(row, CALL_THETA),
+                               QString::number(result.theta, 'f', 2));
+        } else { // Put
+          m_putModel->setData(
+              m_putModel->index(row, PUT_IV),
+              QString::number(result.impliedVolatility, 'f', 2));
+          m_putModel->setData(m_putModel->index(row, PUT_DELTA),
+                              QString::number(result.delta, 'f', 2));
+          m_putModel->setData(m_putModel->index(row, PUT_GAMMA),
+                              QString::number(result.gamma, 'f', 4));
+          m_putModel->setData(m_putModel->index(row, PUT_VEGA),
+                              QString::number(result.vega, 'f', 2));
+          m_putModel->setData(m_putModel->index(row, PUT_THETA),
+                              QString::number(result.theta, 'f', 2));
+        }
+      });
 
   // Filter connections
   connect(m_exchangeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
@@ -237,34 +254,46 @@ void ATMWatchWindow::refreshData() {
       feed.subscribe(2, token, this, &ATMWatchWindow::onTickUpdate);
 
       // Fetch current price from cache
-      if (auto state =
-              MarketData::PriceStoreGateway::instance().getUnifiedState(
-                  2, token)) {
+      // Fetch current price from cache using thread-safe snapshot
+      auto state = MarketData::PriceStoreGateway::instance().getUnifiedSnapshot(
+          2, token);
+      if (state.token != 0) {
+
         UDP::MarketTick tick;
         tick.token = static_cast<uint32_t>(token);
-        tick.ltp = state->ltp;
-        tick.bids[0].price = state->bids[0].price;
-        tick.asks[0].price = state->asks[0].price;
-        tick.volume = state->volume;
-        tick.openInterest = state->openInterest;
-        tick.openInterest = state->openInterest;
+        tick.ltp = state.ltp;
+        tick.bids[0].price = state.bids[0].price;
+        tick.asks[0].price = state.asks[0].price;
+        tick.volume = state.volume;
+        tick.openInterest = state.openInterest;
         onTickUpdate(tick);
-        
-        // Pre-populate Greeks if available
-        if (state->greeksCalculated) {
-             if (isCall) {
-                  m_callModel->setData(m_callModel->index(row, CALL_IV), QString::number(state->impliedVolatility, 'f', 2));
-                  m_callModel->setData(m_callModel->index(row, CALL_DELTA), QString::number(state->delta, 'f', 2));
-                  m_callModel->setData(m_callModel->index(row, CALL_GAMMA), QString::number(state->gamma, 'f', 4));
-                  m_callModel->setData(m_callModel->index(row, CALL_VEGA), QString::number(state->vega, 'f', 2));
-                  m_callModel->setData(m_callModel->index(row, CALL_THETA), QString::number(state->theta, 'f', 2));
-             } else {
-                  m_putModel->setData(m_putModel->index(row, PUT_IV), QString::number(state->impliedVolatility, 'f', 2));
-                  m_putModel->setData(m_putModel->index(row, PUT_DELTA), QString::number(state->delta, 'f', 2));
-                  m_putModel->setData(m_putModel->index(row, PUT_GAMMA), QString::number(state->gamma, 'f', 4));
-                  m_putModel->setData(m_putModel->index(row, PUT_VEGA), QString::number(state->vega, 'f', 2));
-                  m_putModel->setData(m_putModel->index(row, PUT_THETA), QString::number(state->theta, 'f', 2));
-             }
+
+        if (state.greeksCalculated) {
+          if (isCall) {
+            m_callModel->setData(
+                m_callModel->index(row, CALL_IV),
+                QString::number(state.impliedVolatility, 'f', 2));
+            m_callModel->setData(m_callModel->index(row, CALL_DELTA),
+                                 QString::number(state.delta, 'f', 2));
+            m_callModel->setData(m_callModel->index(row, CALL_GAMMA),
+                                 QString::number(state.gamma, 'f', 4));
+            m_callModel->setData(m_callModel->index(row, CALL_VEGA),
+                                 QString::number(state.vega, 'f', 2));
+            m_callModel->setData(m_callModel->index(row, CALL_THETA),
+                                 QString::number(state.theta, 'f', 2));
+          } else {
+            m_putModel->setData(
+                m_putModel->index(row, PUT_IV),
+                QString::number(state.impliedVolatility, 'f', 2));
+            m_putModel->setData(m_putModel->index(row, PUT_DELTA),
+                                QString::number(state.delta, 'f', 2));
+            m_putModel->setData(m_putModel->index(row, PUT_GAMMA),
+                                QString::number(state.gamma, 'f', 4));
+            m_putModel->setData(m_putModel->index(row, PUT_VEGA),
+                                QString::number(state.vega, 'f', 2));
+            m_putModel->setData(m_putModel->index(row, PUT_THETA),
+                                QString::number(state.theta, 'f', 2));
+          }
         }
       }
     };
@@ -285,7 +314,7 @@ void ATMWatchWindow::onTickUpdate(const UDP::MarketTick &tick) {
   if (tick.updateType == UDP::UpdateType::DEPTH_UPDATE) {
     return;
   }
-  
+
   if (!m_tokenToInfo.contains(tick.token))
     return;
 
@@ -376,16 +405,17 @@ void ATMWatchWindow::loadAllSymbols() {
 
   // Run in background to prevent UI freeze
   QtConcurrent::run([this, repo]() {
-    // Step 1: Get option symbols from cache (instant lookup, no contract filtering)
+    // Step 1: Get option symbols from cache (instant lookup, no contract
+    // filtering)
     QVector<QString> optionSymbols = repo->getOptionSymbols();
-    
+
     qDebug() << "[ATMWatch] Loaded" << optionSymbols.size()
              << "option-enabled symbols from cache (instant lookup)";
 
     // Step 4: Subscribe to base tokens (underlying cash tokens) for all symbols
     // Note: Actual subscription happens automatically via FeedHandler
     // when ATMWatchManager calls fetchBasePrice() during calculation
-    
+
     // Clear existing ATM watches (on main thread)
     QMetaObject::invokeMethod(
         ATMWatchManager::getInstance(),
@@ -397,7 +427,7 @@ void ATMWatchWindow::loadAllSymbols() {
 
     // Step 5: Prepare watch configs for all symbols with appropriate expiry
     QVector<QPair<QString, QString>> watchConfigs; // symbol, expiry pairs
-    
+
     for (const QString &symbol : optionSymbols) {
       QString expiry;
 
@@ -405,8 +435,10 @@ void ATMWatchWindow::loadAllSymbols() {
         // Step 5.1: Get current expiry from cache (instant O(1) lookup)
         expiry = repo->getCurrentExpiry(symbol);
       } else {
-        // Use user-selected expiry (verify symbol has contracts for this expiry)
-        QVector<QString> symbolsForExpiry = repo->getSymbolsForExpiry(m_currentExpiry);
+        // Use user-selected expiry (verify symbol has contracts for this
+        // expiry)
+        QVector<QString> symbolsForExpiry =
+            repo->getSymbolsForExpiry(m_currentExpiry);
         if (symbolsForExpiry.contains(symbol)) {
           expiry = m_currentExpiry;
         }
@@ -419,7 +451,8 @@ void ATMWatchWindow::loadAllSymbols() {
 
     qDebug() << "[ATMWatch] Prepared" << watchConfigs.size() << "watch configs";
 
-    // Step 6: Add all watches in batch (on main thread) to avoid N × N calculations
+    // Step 6: Add all watches in batch (on main thread) to avoid N × N
+    // calculations
     QMetaObject::invokeMethod(
         ATMWatchManager::getInstance(),
         [watchConfigs]() {
@@ -444,9 +477,9 @@ void ATMWatchWindow::populateCommonExpiries(const QString &exchange) {
 
   // Get all expiries from cache (instant lookup)
   QVector<QString> expiries = repo->getAllExpiries();
-  
+
   // Add to combo box (already sorted ascending)
-  for (const QString& expiry : expiries) {
+  for (const QString &expiry : expiries) {
     m_expiryCombo->addItem(expiry, expiry);
   }
 }

@@ -108,7 +108,8 @@ OptionChainWindow::OptionChainWindow(QWidget *parent)
       m_titleLabel(nullptr), m_callTable(nullptr), m_strikeTable(nullptr),
       m_putTable(nullptr), m_callModel(nullptr), m_strikeModel(nullptr),
       m_putModel(nullptr), m_callDelegate(nullptr), m_putDelegate(nullptr),
-      m_atmStrike(0.0), m_exchangeSegment(2), m_selectedCallRow(-1), m_selectedPutRow(-1) {
+      m_atmStrike(0.0), m_exchangeSegment(2), m_selectedCallRow(-1),
+      m_selectedPutRow(-1) {
   setupUI();
   setupModels();
   setupConnections();
@@ -421,10 +422,10 @@ void OptionChainWindow::setupConnections() {
               ->setText(QString::number(data.callVega, 'f', 2));
           m_callModel->item(row, CALL_THETA)
               ->setText(QString::number(data.callTheta, 'f', 2));
-          
-          qDebug() << "[OptionChainWindow] Greeks updated for CALL" << token 
-                   << "Strike:" << strike << "IV:" << data.callIV 
-                   << "Delta:" << data.callDelta;
+
+          // qDebug() << "[OptionChainWindow] Greeks updated for CALL" << token
+          //          << "Strike:" << strike << "IV:" << data.callIV
+          //          << "Delta:" << data.callDelta;
         } else {
           data.putIV = result.impliedVolatility;
           data.putBidIV = result.bidIV;
@@ -448,10 +449,10 @@ void OptionChainWindow::setupConnections() {
               ->setText(QString::number(data.putVega, 'f', 2));
           m_putModel->item(row, PUT_THETA)
               ->setText(QString::number(data.putTheta, 'f', 2));
-          
-          qDebug() << "[OptionChainWindow] Greeks updated for PUT" << token 
-                   << "Strike:" << strike << "IV:" << data.putIV 
-                   << "Delta:" << data.putDelta;
+
+          // qDebug() << "[OptionChainWindow] Greeks updated for PUT" << token
+          //          << "Strike:" << strike << "IV:" << data.putIV
+          //          << "Delta:" << data.putDelta;
         }
       });
 }
@@ -798,7 +799,7 @@ void OptionChainWindow::refreshData() {
     contracts = repo->getOptionChain("BSE", symbol);
     exchangeSegment = 12; // BSEFO
   }
-  
+
   // Store exchange segment for Greeks calculation
   m_exchangeSegment = exchangeSegment;
 
@@ -852,33 +853,34 @@ void OptionChainWindow::refreshData() {
 
       m_tokenToStrike[data.callToken] = strike;
 
-      if (auto unifiedState =
-              MarketData::PriceStoreGateway::instance().getUnifiedState(
-                  exchangeSegment, data.callToken)) {
-        if (unifiedState->ltp > 0) {
-          data.callLTP = unifiedState->ltp;
-          if (unifiedState->close > 0)
-            data.callChng = unifiedState->ltp - unifiedState->close;
+      auto unifiedState =
+          MarketData::PriceStoreGateway::instance().getUnifiedSnapshot(
+              exchangeSegment, data.callToken);
+      if (unifiedState.token != 0) {
+        if (unifiedState.ltp > 0) {
+          data.callLTP = unifiedState.ltp;
+          if (unifiedState.close > 0)
+            data.callChng = unifiedState.ltp - unifiedState.close;
         }
-        if (unifiedState->bids[0].price > 0)
-          data.callBid = unifiedState->bids[0].price;
-        if (unifiedState->asks[0].price > 0)
-          data.callAsk = unifiedState->asks[0].price;
-        if (unifiedState->bids[0].quantity > 0)
-          data.callBidQty = unifiedState->bids[0].quantity;
-        if (unifiedState->asks[0].quantity > 0)
-          data.callAskQty = unifiedState->asks[0].quantity;
-        if (unifiedState->volume > 0)
-          data.callVolume = unifiedState->volume;
-        if (unifiedState->openInterest > 0)
-          data.callOI = (int)unifiedState->openInterest;
+        if (unifiedState.bids[0].price > 0)
+          data.callBid = unifiedState.bids[0].price;
+        if (unifiedState.asks[0].price > 0)
+          data.callAsk = unifiedState.asks[0].price;
+        if (unifiedState.bids[0].quantity > 0)
+          data.callBidQty = unifiedState.bids[0].quantity;
+        if (unifiedState.asks[0].quantity > 0)
+          data.callAskQty = unifiedState.asks[0].quantity;
+        if (unifiedState.volume > 0)
+          data.callVolume = unifiedState.volume;
+        if (unifiedState.openInterest > 0)
+          data.callOI = (int)unifiedState.openInterest;
 
-        if (unifiedState->greeksCalculated) {
-          data.callIV = unifiedState->impliedVolatility;
-          data.callDelta = unifiedState->delta;
-          data.callGamma = unifiedState->gamma;
-          data.callVega = unifiedState->vega;
-          data.callTheta = unifiedState->theta;
+        if (unifiedState.greeksCalculated) {
+          data.callIV = unifiedState.impliedVolatility;
+          data.callDelta = unifiedState.delta;
+          data.callGamma = unifiedState.gamma;
+          data.callVega = unifiedState.vega;
+          data.callTheta = unifiedState.theta;
         }
       }
     }
@@ -891,33 +893,34 @@ void OptionChainWindow::refreshData() {
 
       m_tokenToStrike[data.putToken] = strike;
 
-      if (auto unifiedState =
-              MarketData::PriceStoreGateway::instance().getUnifiedState(
-                  exchangeSegment, data.putToken)) {
-        if (unifiedState->ltp > 0) {
-          data.putLTP = unifiedState->ltp;
-          if (unifiedState->close > 0)
-            data.putChng = unifiedState->ltp - unifiedState->close;
+      auto unifiedState =
+          MarketData::PriceStoreGateway::instance().getUnifiedSnapshot(
+              exchangeSegment, data.putToken);
+      if (unifiedState.token != 0) {
+        if (unifiedState.ltp > 0) {
+          data.putLTP = unifiedState.ltp;
+          if (unifiedState.close > 0)
+            data.putChng = unifiedState.ltp - unifiedState.close;
         }
-        if (unifiedState->bids[0].price > 0)
-          data.putBid = unifiedState->bids[0].price;
-        if (unifiedState->asks[0].price > 0)
-          data.putAsk = unifiedState->asks[0].price;
-        if (unifiedState->bids[0].quantity > 0)
-          data.putBidQty = (int)unifiedState->bids[0].quantity;
-        if (unifiedState->asks[0].quantity > 0)
-          data.putAskQty = (int)unifiedState->asks[0].quantity;
-        if (unifiedState->volume > 0)
-          data.putVolume = (int)unifiedState->volume;
-        if (unifiedState->openInterest > 0)
-          data.putOI = (int)unifiedState->openInterest;
+        if (unifiedState.bids[0].price > 0)
+          data.putBid = unifiedState.bids[0].price;
+        if (unifiedState.asks[0].price > 0)
+          data.putAsk = unifiedState.asks[0].price;
+        if (unifiedState.bids[0].quantity > 0)
+          data.putBidQty = (int)unifiedState.bids[0].quantity;
+        if (unifiedState.asks[0].quantity > 0)
+          data.putAskQty = (int)unifiedState.asks[0].quantity;
+        if (unifiedState.volume > 0)
+          data.putVolume = (int)unifiedState.volume;
+        if (unifiedState.openInterest > 0)
+          data.putOI = (int)unifiedState.openInterest;
 
-        if (unifiedState->greeksCalculated) {
-          data.putIV = unifiedState->impliedVolatility;
-          data.putDelta = unifiedState->delta;
-          data.putGamma = unifiedState->gamma;
-          data.putVega = unifiedState->vega;
-          data.putTheta = unifiedState->theta;
+        if (unifiedState.greeksCalculated) {
+          data.putIV = unifiedState.impliedVolatility;
+          data.putDelta = unifiedState.delta;
+          data.putGamma = unifiedState.gamma;
+          data.putVega = unifiedState.vega;
+          data.putTheta = unifiedState.theta;
         }
       }
     }
@@ -1034,8 +1037,8 @@ void OptionChainWindow::refreshData() {
 
   // Initial color update
   updateTableColors();
-  
-  qDebug() << "[OptionChainWindow] Loaded" << m_strikeData.size() 
+
+  qDebug() << "[OptionChainWindow] Loaded" << m_strikeData.size()
            << "strikes for" << m_currentSymbol << m_currentExpiry;
   qDebug() << "[OptionChainWindow] Greeks will be calculated on tick updates";
 }
@@ -1113,8 +1116,9 @@ WindowContext OptionChainWindow::getSelectedContext() const {
 
 void OptionChainWindow::onTickUpdate(const UDP::MarketTick &tick) {
   // OPTIMIZATION: Skip depth-only updates (message 7208)
-  // OptionChain needs price changes (touchline/ticker/market watch), not just order book depth
-  // This reduces processing by ~40% for actively traded options
+  // OptionChain needs price changes (touchline/ticker/market watch), not just
+  // order book depth This reduces processing by ~40% for actively traded
+  // options
   if (tick.updateType == UDP::UpdateType::DEPTH_UPDATE) {
     return;
   }
@@ -1179,15 +1183,16 @@ void OptionChainWindow::onTickUpdate(const UDP::MarketTick &tick) {
 
   // Trigger visual update
   updateStrikeData(strike, data);
-  
+
   // Debug log tick updates (only for ATM strikes to avoid spam)
-  if (std::abs(strike - m_atmStrike) < 200) {  // Within 200 points of ATM
-    qDebug() << "[OptionChainWindow] Tick update: Token:" << tick.token 
-             << "Strike:" << strike << "LTP:" << tick.ltp;
-  }
-  
+  // if (std::abs(strike - m_atmStrike) < 200) { // Within 200 points of ATM
+  //   // qDebug() << "[OptionChainWindow] Tick update: Token:" << tick.token
+  //   //          << "Strike:" << strike << "LTP:" << tick.ltp;
+  // }
+
   // Trigger Greeks recalculation on price update
-  GreeksCalculationService::instance().onPriceUpdate(tick.token, tick.ltp, m_exchangeSegment);
+  GreeksCalculationService::instance().onPriceUpdate(tick.token, tick.ltp,
+                                                     m_exchangeSegment);
 }
 
 void OptionChainWindow::populateSymbols() {
@@ -1204,8 +1209,8 @@ void OptionChainWindow::populateSymbols() {
   }
 
   // 2. Get Stock Futures (RELIANCE, TCS, etc.)
-  // Note: Some stocks might have options but no futures (rare), or vice versa.
-  // Checking FUTSTK is a safe proxy for F&O stocks.
+  // Note: Some stocks might have options but no futures (rare), or vice
+  // versa. Checking FUTSTK is a safe proxy for F&O stocks.
   QVector<ContractData> stocks = repo->getScrips("NSE", "FO", "FUTSTK");
   for (const auto &contract : stocks) {
     symbols.insert(contract.name);
@@ -1278,8 +1283,8 @@ void OptionChainWindow::populateExpiries(const QString &symbol) {
   for (const QString &exp : expirySet) {
     // Try parsing DDMMMYYYY (e.g., 01JAN2024 or 1JAN2024)
     // Note: QDate format MMM is usually short month name (Jan/Feb).
-    // XTS Expiry is usually upper case "26DEC2025". QDate might need Title Case
-    // "26Dec2025".
+    // XTS Expiry is usually upper case "26DEC2025". QDate might need Title
+    // Case "26Dec2025".
 
     // Parse format like "26DEC2025" or "02JAN2026" (DDMMMYYYY)
     // QDate::fromString with "dMMMyyyy" generally expects "Dec", "Jan" (Title
@@ -1298,8 +1303,8 @@ void OptionChainWindow::populateExpiries(const QString &symbol) {
           monthPart = monthPart.at(0).toUpper() + monthPart.mid(1).toLower();
         }
 
-        // If day is single digit, padding isn't strictly needed for 'd' format,
-        // but 'dd' might expect it. 'd' handles 1 or 01.
+        // If day is single digit, padding isn't strictly needed for 'd'
+        // format, but 'dd' might expect it. 'd' handles 1 or 01.
 
         QString parseable = dayPart + monthPart + yearPart;
         QDate d = QDate::fromString(parseable, "dMMMyyyy");
