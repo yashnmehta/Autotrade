@@ -106,13 +106,13 @@ struct MarketWatchData {
 // ============================================================================
 
 // Callback for touchline updates (7200, 7208)
-using TouchlineCallback = std::function<void(int32_t token)>;
+using TouchlineCallback = std::function<void(int32_t token, int exchangeSegment, uint16_t messageType)>;
 
 // Callback for market depth updates (7200, 7208)
-using MarketDepthCallback = std::function<void(int32_t token)>;
+using MarketDepthCallback = std::function<void(int32_t token, int exchangeSegment, uint16_t messageType)>;
 
 // Callback for ticker updates (7202, 17202, 18703)
-using TickerCallback = std::function<void(int32_t token)>;
+using TickerCallback = std::function<void(int32_t token, int exchangeSegment, uint16_t messageType)>;
 
 // Callback for market watch updates (7201, 17201)
 using MarketWatchCallback = std::function<void(const MarketWatchData&)>;
@@ -294,7 +294,7 @@ public:
     }
     
     // Dispatch callbacks (called by parsers) - thread-safe
-    void dispatchTouchline(int32_t token) {
+    void dispatchTouchline(int32_t token, int exchangeSegment = 1, uint16_t messageType = 7200) {
         TouchlineCallback callback;
         {
             std::lock_guard<std::mutex> lock(callbackMutex);
@@ -302,11 +302,11 @@ public:
             callback = touchlineCallback;
         }
         if (callback) {
-            callback(token);
+            callback(token, exchangeSegment, messageType);
         }
     }
     
-    void dispatchMarketDepth(int32_t token) {
+    void dispatchMarketDepth(int32_t token, int exchangeSegment = 1, uint16_t messageType = 7208) {
         MarketDepthCallback callback;
         {
             std::lock_guard<std::mutex> lock(callbackMutex);
@@ -314,11 +314,11 @@ public:
             callback = marketDepthCallback;
         }
         if (callback) {
-            callback(token);
+            callback(token, exchangeSegment, messageType);
         }
     }
     
-    void dispatchTicker(int32_t token) {
+    void dispatchTicker(int32_t token, int exchangeSegment = 1, uint16_t messageType = 18703) {
         TickerCallback callback;
         {
             std::lock_guard<std::mutex> lock(callbackMutex);
@@ -326,7 +326,7 @@ public:
             callback = tickerCallback;
         }
         if (callback) {
-            callback(token);
+            callback(token, exchangeSegment, messageType);
         }
     }
     

@@ -138,6 +138,7 @@ public:
     /**
      * @brief Get the complete fused state of a token
      * @return const pointer to live record (valid until next write)
+     * @deprecated Use getUnifiedSnapshot() for thread-safe access
      */
     const UnifiedTokenState* getUnifiedState(uint32_t token) const {
         if (token < MIN_TOKEN || token > MAX_TOKEN) return nullptr;
@@ -146,6 +147,20 @@ public:
         const auto* rowPtr = store_[token - MIN_TOKEN];
         if (!rowPtr) return nullptr;
         return (rowPtr->token == token) ? rowPtr : nullptr;
+    }
+    
+    /**
+     * @brief Get thread-safe snapshot copy of token state
+     * @return Copy of token state, guaranteed consistent under lock
+     * @note Returns empty state (token=0) if not found
+     */
+    [[nodiscard]] UnifiedTokenState getUnifiedSnapshot(uint32_t token) const {
+        if (token < MIN_TOKEN || token > MAX_TOKEN) return UnifiedTokenState{};
+        
+        std::shared_lock lock(mutex_); // Shared Read
+        const auto* rowPtr = store_[token - MIN_TOKEN];
+        if (!rowPtr || rowPtr->token != token) return UnifiedTokenState{};
+        return *rowPtr; // Copy under lock - thread safe
     }
     
     // =========================================================

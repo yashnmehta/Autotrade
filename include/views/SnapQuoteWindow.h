@@ -30,6 +30,10 @@ public:
     void setScripDetails(const QString &exchange, const QString &segment, 
                         int token, const QString &instType, const QString &symbol);
     
+    // Subscribe to token updates via FeedHandler
+    void subscribeToToken(int exchangeSegment, int token);
+    void unsubscribeFromToken();
+    
     // Context-aware loading
     void loadFromContext(const WindowContext &context, bool fetchFromAPI = true);
     // Return last loaded context
@@ -139,6 +143,10 @@ private:
     QString m_segment;
     QString m_symbol;
     int m_token;
+    
+    // Token subscription management (for FeedHandler)
+    int m_subscribedExchangeSegment = 0;
+    int m_subscribedToken = 0;
     
     // Context data
     WindowContext m_context;

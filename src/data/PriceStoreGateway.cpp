@@ -45,6 +45,16 @@ const UnifiedState* PriceStoreGateway::getUnifiedState(int segment, uint32_t tok
     }
 }
 
+UnifiedState PriceStoreGateway::getUnifiedSnapshot(int segment, uint32_t token) const {
+    switch (segment) {
+        case 2:  return nsefo::g_nseFoPriceStore.getUnifiedSnapshot(token);
+        case 1:  return nsecm::g_nseCmPriceStore.getUnifiedSnapshot(token);
+        case 11: return bse::g_bseCmPriceStore.getUnifiedSnapshot(token);
+        case 12: return bse::g_bseFoPriceStore.getUnifiedSnapshot(token);
+        default: return UnifiedState{};
+    }
+}
+
 void PriceStoreGateway::setTokenEnabled(int segment, uint32_t token, bool enabled) {
     std::lock_guard<std::mutex> lock(g_filterMutex);
     int64_t key = makeKey(segment, token);

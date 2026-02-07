@@ -36,8 +36,21 @@ public:
 
   /**
    * @brief Get unified state for reading (Thread-Safe Shared Lock)
+   * @deprecated Use getUnifiedSnapshot() for thread-safe access
    */
   const UnifiedTokenState *getUnifiedState(uint32_t token) const;
+
+  /**
+   * @brief Get thread-safe snapshot copy of token state
+   * @return Copy of token state, guaranteed consistent under lock
+   * @note Returns empty state (token=0) if not found
+   */
+  [[nodiscard]] UnifiedTokenState getUnifiedSnapshot(uint32_t token) const {
+    if (token >= MAX_TOKENS) return UnifiedTokenState{};
+    std::shared_lock lock(mutex);
+    if (!tokenStates[token]) return UnifiedTokenState{};
+    return *tokenStates[token]; // Copy under lock - thread safe
+  }
 
   /**
    * @brief Update Market Picture (Msg 2020/2021)

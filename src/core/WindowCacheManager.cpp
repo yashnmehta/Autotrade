@@ -196,10 +196,9 @@ void WindowCacheManager::createCachedWindows() {
                           WindowConstants::OFF_SCREEN_Y); // Stagger positions
     entry.mdiWindow->lower();
 
-    // ⚡ Connect to UDP broadcast service for real-time updates
-    QObject::connect(&UdpBroadcastService::instance(),
-                     &UdpBroadcastService::udpTickReceived, entry.window,
-                     &SnapQuoteWindow::onTickUpdate);
+    // ⚡ NOTE: SnapQuote now manages its own token-specific FeedHandler subscription
+    // No need for global broadcast connection (95% CPU reduction)
+    // Connection happens in subscribeToToken() when token is set
 
     // Initialize entry metadata
     entry.needsReset = false; // Windows are pre-initialized

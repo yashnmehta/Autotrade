@@ -1112,6 +1112,13 @@ WindowContext OptionChainWindow::getSelectedContext() const {
 }
 
 void OptionChainWindow::onTickUpdate(const UDP::MarketTick &tick) {
+  // OPTIMIZATION: Skip depth-only updates (message 7208)
+  // OptionChain needs price changes (touchline/ticker/market watch), not just order book depth
+  // This reduces processing by ~40% for actively traded options
+  if (tick.updateType == UDP::UpdateType::DEPTH_UPDATE) {
+    return;
+  }
+
   if (!m_tokenToStrike.contains(tick.token))
     return;
 

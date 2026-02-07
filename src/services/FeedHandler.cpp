@@ -123,4 +123,24 @@ void FeedHandler::onUdpTickReceived(const UDP::MarketTick& tick) {
     if (pub) {
         pub->publish(trackedTick);
     }
+    
+    // Emit type-specific signals for granular UI optimization
+    switch (trackedTick.updateType) {
+        case UDP::UpdateType::DEPTH_UPDATE:
+            emit depthUpdateReceived(trackedTick);
+            break;
+        case UDP::UpdateType::TRADE_TICK:
+            emit tradeUpdateReceived(trackedTick);
+            break;
+        case UDP::UpdateType::TOUCHLINE:
+            emit touchlineUpdateReceived(trackedTick);
+            break;
+        case UDP::UpdateType::MARKET_WATCH:
+            emit marketWatchReceived(trackedTick);
+            break;
+        default:
+            // For FULL_SNAPSHOT or UNKNOWN, also emit touchline as fallback
+            emit touchlineUpdateReceived(trackedTick);
+            break;
+    }
 }

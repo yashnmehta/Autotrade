@@ -6,8 +6,8 @@
 // Handle UDP tick updates
 void SnapQuoteWindow::onTickUpdate(const UDP::MarketTick& tick)
 {
-    // Only process ticks for our token
-    if (static_cast<int>(tick.token) != m_token) return;
+    // Token check no longer needed - FeedHandler only sends subscribed tokens
+    // if (static_cast<int>(tick.token) != m_token) return;
     
     // Update LTP
     if (tick.ltp > 0 && m_lbLTPPrice) {

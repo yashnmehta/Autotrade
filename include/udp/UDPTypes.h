@@ -8,6 +8,39 @@
 namespace UDP {
 
 /**
+ * @brief Type of market data update
+ * Indicates which fields were updated in this tick
+ */
+enum class UpdateType : uint8_t {
+    TRADE_TICK = 0,      // LTP, volume, OI changed (7202, 17202)
+    DEPTH_UPDATE = 1,    // Order book depth changed (7208)
+    TOUCHLINE = 2,       // BBO + basic stats (7200)
+    MARKET_WATCH = 3,    // Enhanced market watch (7201, 17201)
+    OI_CHANGE = 4,       // OI-only update
+    FULL_SNAPSHOT = 5,   // Complete state refresh
+    CIRCUIT_LIMIT = 6,   // Circuit limit update (7220)
+    UNKNOWN = 255
+};
+
+/**
+ * @brief Bitmask flags for field validity
+ * Indicates which fields contain valid/updated data
+ */
+enum ValidFlags : uint32_t {
+    VALID_LTP         = 1 << 0,   // LTP field valid
+    VALID_VOLUME      = 1 << 1,   // Volume field valid
+    VALID_OI          = 1 << 2,   // Open Interest valid
+    VALID_DEPTH       = 1 << 3,   // Depth arrays valid
+    VALID_BID_TOP     = 1 << 4,   // Best bid valid
+    VALID_ASK_TOP     = 1 << 5,   // Best ask valid
+    VALID_OHLC        = 1 << 6,   // OHLC fields valid
+    VALID_PREV_CLOSE  = 1 << 7,   // Previous close valid
+    VALID_ATP         = 1 << 8,   // Average traded price valid
+    VALID_TIMESTAMP   = 1 << 9,   // Timestamp valid
+    VALID_ALL         = 0xFFFFFFFF // All fields valid
+};
+
+/**
  * @brief Single level of market depth
  * 
  * Represents one price level in the order book.
@@ -93,6 +126,9 @@ struct MarketTick {
     
     uint16_t messageType = 0;         // NSE: 7200, 7202, etc. | BSE: 2020, 2021, etc.
     uint32_t marketSeqNumber = 0;     // Market sequence number (BSE)
+    
+    UpdateType updateType = UpdateType::UNKNOWN;  // Type of update (trade, depth, etc.)
+    uint32_t validFlags = 0;          // Bitmask of ValidFlags indicating which fields are valid
     
     // ========== CONSTRUCTORS ==========
     

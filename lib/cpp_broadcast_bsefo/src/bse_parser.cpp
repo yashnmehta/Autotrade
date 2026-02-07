@@ -31,7 +31,7 @@ void BSEParser::parsePacket(const uint8_t* buffer, size_t length, ParserStats& s
             break;
         case MSG_TYPE_OPEN_INTEREST:
             stats.packets2015++;
-            decodeOpenInterest(buffer, length, stats);
+            decodeOpenInterest(buffer, length, msgType, stats);
             break;
         case MSG_TYPE_PRODUCT_STATE_CHANGE:
             stats.packets2002++;
@@ -39,15 +39,15 @@ void BSEParser::parsePacket(const uint8_t* buffer, size_t length, ParserStats& s
             break;
         case MSG_TYPE_CLOSE_PRICE:
             stats.packets2014++;
-            decodeClosePrice(buffer, length, stats);
+            decodeClosePrice(buffer, length, msgType, stats);
             break;
         case MSG_TYPE_INDEX:
             stats.packets2012++;
-            decodeIndex(buffer, length, stats);
+            decodeIndex(buffer, length, msgType, stats);
             break;
         case MSG_TYPE_IMPLIED_VOLATILITY:
             stats.packets2028++;
-            decodeImpliedVolatility(buffer, length, stats);
+            decodeImpliedVolatility(buffer, length, msgType, stats);
             break;
         case MSG_TYPE_RBI_REFERENCE_RATE:
             stats.packets2022++;
@@ -129,12 +129,12 @@ void BSEParser::decodeMarketPicture(const uint8_t* buffer, size_t length, uint16
         
         // Dispatch Callback (Token Only)
         if (recordCallback_ && isEnabled(token)) {
-            recordCallback_(token);
+            recordCallback_(token, marketSegment_, msgType);
         }
     }
 }
 
-void BSEParser::decodeOpenInterest(const uint8_t* buffer, size_t length, ParserStats& stats) {
+void BSEParser::decodeOpenInterest(const uint8_t* buffer, size_t length, uint16_t msgType, ParserStats& stats) {
     if (length < HEADER_SIZE + 2) return; // Need at least numRecords field
 
     // numRecords at offset 32 (Verified in previous code)
@@ -172,7 +172,7 @@ void BSEParser::decodeOpenInterest(const uint8_t* buffer, size_t length, ParserS
         }
         
         stats.packetsDecoded++;
-        if (oiCallback_ && isEnabled(token)) oiCallback_(token);
+        if (oiCallback_ && isEnabled(token)) oiCallback_(token, marketSegment_, msgType);
     }
 }
 
@@ -195,7 +195,7 @@ void BSEParser::decodeSessionState(const uint8_t* buffer, size_t length, ParserS
     if (sessionStateCallback_) sessionStateCallback_(state);
 }
 
-void BSEParser::decodeClosePrice(const uint8_t* buffer, size_t length, ParserStats& stats) {
+void BSEParser::decodeClosePrice(const uint8_t* buffer, size_t length, uint16_t msgType, ParserStats& stats) {
     if (length < HEADER_SIZE + 8) return;
     
     size_t recordSlotSize = 264; // Try max first
@@ -231,11 +231,11 @@ void BSEParser::decodeClosePrice(const uint8_t* buffer, size_t length, ParserSta
         }
         
         stats.packetsDecoded++;
-        if (closePriceCallback_ && isEnabled(token)) closePriceCallback_(token);
+        if (closePriceCallback_ && isEnabled(token)) closePriceCallback_(token, marketSegment_, msgType);
     }
 }
 
-void BSEParser::decodeIndex(const uint8_t* buffer, size_t length, ParserStats& stats) {
+void BSEParser::decodeIndex(const uint8_t* buffer, size_t length, uint16_t msgType, ParserStats& stats) {
     // 2012 Index Record
     size_t recordSlotSize = 120; // Estimated/Previous assumption
     size_t numRecords = (length - HEADER_SIZE) / recordSlotSize;
@@ -270,12 +270,12 @@ void BSEParser::decodeIndex(const uint8_t* buffer, size_t length, ParserStats& s
         }
         
         stats.packetsDecoded++;
-        if (indexCallback_) indexCallback_(token);
-        else if (recordCallback_) recordCallback_(token); // Fallback
+        if (indexCallback_) indexCallback_(token, marketSegment_, msgType);
+        else if (recordCallback_) recordCallback_(token, marketSegment_, msgType); // Fallback
     }
 }
 
-void BSEParser::decodeImpliedVolatility(const uint8_t* buffer, size_t length, ParserStats& stats) {
+void BSEParser::decodeImpliedVolatility(const uint8_t* buffer, size_t length, uint16_t msgType, ParserStats& stats) {
     // Message Type 2028
     if (length < 34) return;
     
@@ -309,7 +309,7 @@ void BSEParser::decodeImpliedVolatility(const uint8_t* buffer, size_t length, Pa
         }
         
         stats.packetsDecoded++;
-        if (ivCallback_ && isEnabled(token)) ivCallback_(token);
+        if (ivCallback_ && isEnabled(token)) ivCallback_(token, marketSegment_, msgType);
     }
 }
 

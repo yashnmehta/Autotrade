@@ -146,13 +146,13 @@ struct CircuitLimitData {
 // ============================================================================
 
 // Callback for touchline updates (7200, 7208)
-using TouchlineCallback = std::function<void(int32_t)>;
+using TouchlineCallback = std::function<void(int32_t token, int exchangeSegment, uint16_t messageType)>;
 
 // Callback for market depth updates (7200, 7208)
-using MarketDepthCallback = std::function<void(int32_t)>;
+using MarketDepthCallback = std::function<void(int32_t token, int exchangeSegment, uint16_t messageType)>;
 
 // Callback for ticker updates (7202, 17202)
-using TickerCallback = std::function<void(int32_t)>;
+using TickerCallback = std::function<void(int32_t token, int exchangeSegment, uint16_t messageType)>;
 
 // Callback for market watch updates (7201, 17201)
 using MarketWatchCallback = std::function<void(const MarketWatchData&)>;
@@ -164,7 +164,7 @@ using IndexCallback = std::function<void(const IndexData&)>;
 using IndustryIndexCallback = std::function<void(const IndustryIndexData&)>;
 
 // Callback for circuit limit updates (7220)
-using CircuitLimitCallback = std::function<void(int32_t)>;
+using CircuitLimitCallback = std::function<void(int32_t token, int exchangeSegment, uint16_t messageType)>;
 
 // ============================================================================
 // CALLBACK REGISTRY
@@ -219,21 +219,21 @@ public:
     }
     
     // Dispatch callbacks (called by parsers)
-    void dispatchTouchline(int32_t token) {
+    void dispatchTouchline(int32_t token, int exchangeSegment = 2, uint16_t messageType = 7200) {
         if (touchlineCallback && isEnabled(token)) {
-            touchlineCallback(token);
+            touchlineCallback(token, exchangeSegment, messageType);
         }
     }
     
-    void dispatchMarketDepth(int32_t token) {
+    void dispatchMarketDepth(int32_t token, int exchangeSegment = 2, uint16_t messageType = 7208) {
         if (marketDepthCallback && isEnabled(token)) {
-            marketDepthCallback(token);
+            marketDepthCallback(token, exchangeSegment, messageType);
         }
     }
     
-    void dispatchTicker(int32_t token) {
+    void dispatchTicker(int32_t token, int exchangeSegment = 2, uint16_t messageType = 7202) {
         if (tickerCallback && isEnabled(token)) {
-            tickerCallback(token);
+            tickerCallback(token, exchangeSegment, messageType);
         }
     }
     
@@ -255,9 +255,9 @@ public:
         }
     }
     
-    void dispatchCircuitLimit(int32_t token) {
+    void dispatchCircuitLimit(int32_t token, int exchangeSegment = 2, uint16_t messageType = 7220) {
         if (circuitLimitCallback && isEnabled(token)) {
-            circuitLimitCallback(token);
+            circuitLimitCallback(token, exchangeSegment, messageType);
         }
     }
     

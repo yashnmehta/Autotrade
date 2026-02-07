@@ -57,6 +57,9 @@ void SnapQuoteWindow::fetchQuote() {
 
 void SnapQuoteWindow::onScripSelected(const InstrumentData &data) {
   m_token = data.exchangeInstrumentID;
+  
+  // Subscribe to new token via FeedHandler
+  subscribeToToken(data.exchangeSegment, m_token);
 
   // Determine simpler exchange string for internal usage
   QString segKey =
@@ -140,6 +143,14 @@ void SnapQuoteWindow::loadFromContext(const WindowContext &context,
   m_token = context.token;
   m_exchange = context.exchange;
   m_symbol = context.symbol;
+  
+  // Subscribe to token (infer segment from exchange string)
+  int exchangeSegment = 2; // Default NSEFO
+  if (m_exchange.contains("NSECM") || m_exchange == "NSE") exchangeSegment = 1;
+  else if (m_exchange.contains("NSEFO")) exchangeSegment = 2;
+  else if (m_exchange.contains("BSECM")) exchangeSegment = 11;
+  else if (m_exchange.contains("BSEFO")) exchangeSegment = 12;
+  subscribeToToken(exchangeSegment, m_token);
 
   // ⚡ CRITICAL OPTIMIZATION: Defer expensive ScripBar population until window
   // is visible This reduces cache load time from 300-400ms to < 5ms!

@@ -87,6 +87,8 @@ void GreeksCalculationService::loadConfiguration() {
       settings.value("illiquid_threshold", 30).toInt();
   m_config.basePriceMode =
       settings.value("base_price_mode", "cash").toString().toLower();
+  m_config.calculateOnEveryFeed =
+      settings.value("calculate_on_every_feed", false).toBool();
 
   settings.endGroup();
 
@@ -172,18 +174,18 @@ GreeksResult GreeksCalculationService::calculateForToken(uint32_t token,
   double askPrice = 0.0;
 
   if (exchangeSegment == 2) { // NSEFO
-    const auto *state = nsefo::g_nseFoPriceStore.getUnifiedState(token);
-    if (state) {
-      optionPrice = state->ltp;
-      bidPrice = state->bids[0].price;
-      askPrice = state->asks[0].price;
+    auto state = nsefo::g_nseFoPriceStore.getUnifiedSnapshot(token);
+    if (state.token != 0) {
+      optionPrice = state.ltp;
+      bidPrice = state.bids[0].price;
+      askPrice = state.asks[0].price;
     }
   } else if (exchangeSegment == 12) { // BSEFO
-    const auto *state = bse::g_bseFoPriceStore.getUnifiedState(token);
-    if (state) {
-      optionPrice = state->ltp;
-      bidPrice = state->bids[0].price;
-      askPrice = state->asks[0].price;
+    auto state = bse::g_bseFoPriceStore.getUnifiedSnapshot(token);
+    if (state.token != 0) {
+      optionPrice = state.ltp;
+      bidPrice = state.bids[0].price;
+      askPrice = state.asks[0].price;
     }
   }
 
@@ -391,14 +393,24 @@ void GreeksCalculationService::onUnderlyingPriceUpdate(uint32_t underlyingToken,
   QList<uint32_t> optionTokens = m_underlyingToOptions.values(underlyingToken);
   int64_t now = QDateTime::currentMSecsSinceEpoch();
 
+  // If calculateOnEveryFeed is enabled, force immediate calculation for ALL options
+  if (m_config.calculateOnEveryFeed) {
+    for (uint32_t token : optionTokens) {
+      auto it = m_cache.find(token);
+      if (it != m_cache.end()) {
+        calculateForToken(token, it.value().result.exchangeSegment);
+      }
+    }
+    return;
+  }
+
+  // HYBRID THROTTLING LOGIC (when calculateOnEveryFeed = false)
+  // 1. If Liquid (Traded recently): Update immediately
+  // 2. If Illiquid: Skip (will be caught by processIlliquidUpdates timer)
   for (uint32_t token : optionTokens) {
     // We need the exchange segment to calculate
     auto it = m_cache.find(token);
     if (it != m_cache.end()) {
-
-      // HYBRID THROTTLING LOGIC
-      // 1. If Liquid (Traded recently): Update immediately
-      // 2. If Illiquid: Skip (will be caught by processIlliquidUpdates timer)
 
       int64_t lastTradeTime = it.value().lastTradeTimestamp;
       int64_t timeSinceTrade = now - lastTradeTime;
@@ -474,10 +486,10 @@ double GreeksCalculationService::getUnderlyingPrice(uint32_t optionToken,
 
   if (exchangeSegment == 2) { // NSEFO
     // Try futures price first
-    const auto *futureState = nsefo::g_nseFoPriceStore.getUnifiedState(
+    auto futureState = nsefo::g_nseFoPriceStore.getUnifiedSnapshot(
         static_cast<uint32_t>(underlyingToken));
-    if (futureState && futureState->ltp > 0) {
-      return futureState->ltp;
+    if (futureState.token != 0 && futureState.ltp > 0) {
+      return futureState.ltp;
     }
 
     // Fallback to spot price (handles equities and indices)
@@ -487,17 +499,17 @@ double GreeksCalculationService::getUnderlyingPrice(uint32_t optionToken,
     }
   } else if (exchangeSegment == 12) { // BSEFO
     // Try futures first
-    const auto *futureState = bse::g_bseFoPriceStore.getUnifiedState(
+    auto futureState = bse::g_bseFoPriceStore.getUnifiedSnapshot(
         static_cast<uint32_t>(underlyingToken));
-    if (futureState && futureState->ltp > 0) {
-      return futureState->ltp;
+    if (futureState.token != 0 && futureState.ltp > 0) {
+      return futureState.ltp;
     }
 
     // Fallback to cash market
-    const auto *cashState = bse::g_bseCmPriceStore.getUnifiedState(
+    auto cashState = bse::g_bseCmPriceStore.getUnifiedSnapshot(
         static_cast<uint32_t>(underlyingToken));
-    if (cashState && cashState->ltp > 0) {
-      return cashState->ltp;
+    if (cashState.token != 0 && cashState.ltp > 0) {
+      return cashState.ltp;
     }
   }
 

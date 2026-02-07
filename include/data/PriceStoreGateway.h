@@ -31,8 +31,18 @@ public:
      * @param token Exchange instrument token
      * @return const UnifiedState* Pointer to live record, or nullptr if not found.
      *         REMARK: This pointer is managed by the respective PriceStore.
+     * @deprecated Use getUnifiedSnapshot() for thread-safe access
      */
     const UnifiedState* getUnifiedState(int segment, uint32_t token) const;
+
+    /**
+     * @brief Get thread-safe snapshot copy of token state
+     * @param segment Semantic segment (1=NSECM, 2=NSEFO, 11=BSECM, 12=BSEFO)
+     * @param token Exchange instrument token
+     * @return Copy of token state, guaranteed consistent under lock
+     * @note Returns empty state (token=0) if not found
+     */
+    [[nodiscard]] UnifiedState getUnifiedSnapshot(int segment, uint32_t token) const;
 
     /**
      * @brief Enable/Disable notifications for a token.

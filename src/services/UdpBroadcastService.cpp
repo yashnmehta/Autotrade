@@ -19,7 +19,7 @@
 namespace {
 
 // Convert NSE FO Unified State to UDP::MarketTick
-UDP::MarketTick convertNseFoUnified(const nsefo::UnifiedTokenState &data) {
+UDP::MarketTick convertNseFoUnified(const nsefo::UnifiedTokenState &data, UDP::UpdateType updateType = UDP::UpdateType::FULL_SNAPSHOT) {
   UDP::MarketTick tick(UDP::ExchangeSegment::NSEFO, data.token);
   tick.ltp = data.ltp;
   tick.ltq = data.lastTradeQty;
@@ -48,6 +48,11 @@ UDP::MarketTick convertNseFoUnified(const nsefo::UnifiedTokenState &data) {
   tick.timestampParsed = data.lastPacketTimestamp;
   tick.timestampEmitted = LatencyTracker::now();
   tick.messageType = 7200;
+  
+  // Set update type and valid flags
+  tick.updateType = updateType;
+  tick.validFlags = UDP::VALID_ALL; // Unified state has all fields
+  
   return tick;
 }
 
@@ -74,7 +79,7 @@ UDP::MarketTick convertNseFoDepth(const nsefo::MarketDepthData &data) {
 }
 
 // Convert NSE CM Unified State to UDP::MarketTick
-UDP::MarketTick convertNseCmUnified(const nsecm::UnifiedTokenState &data) {
+UDP::MarketTick convertNseCmUnified(const nsecm::UnifiedTokenState &data, UDP::UpdateType updateType = UDP::UpdateType::FULL_SNAPSHOT) {
   UDP::MarketTick tick(UDP::ExchangeSegment::NSECM, data.token);
   tick.ltp = data.ltp;
   tick.ltq = data.lastTradeQty;
@@ -101,6 +106,10 @@ UDP::MarketTick convertNseCmUnified(const nsecm::UnifiedTokenState &data) {
   tick.timestampParsed = data.lastPacketTimestamp;
   tick.timestampEmitted = LatencyTracker::now();
   tick.messageType = 7200;
+  
+  tick.updateType = updateType;
+  tick.validFlags = UDP::VALID_ALL;
+  
   return tick;
 }
 
@@ -147,7 +156,8 @@ UDP::MarketTick convertNseCmDepth(const nsecm::MarketDepthData &data) {
 
 // Convert BSE Unified State to UDP::MarketTick
 UDP::MarketTick convertBseUnified(const bse::UnifiedTokenState &data,
-                                  UDP::ExchangeSegment segment) {
+                                  UDP::ExchangeSegment segment,
+                                  UDP::UpdateType updateType = UDP::UpdateType::FULL_SNAPSHOT) {
   UDP::MarketTick tick(segment, data.token);
   tick.ltp = data.ltp;
   tick.ltq = data.lastTradeQty;
@@ -179,6 +189,10 @@ UDP::MarketTick convertBseUnified(const bse::UnifiedTokenState &data,
   tick.timestampParsed = data.lastPacketTimestamp;
   tick.timestampEmitted = LatencyTracker::now();
   tick.messageType = 2020; // Generic Market Picture logic
+  
+  tick.updateType = updateType;
+  tick.validFlags = UDP::VALID_ALL;
+  
   return tick;
 }
 
@@ -392,53 +406,139 @@ void UdpBroadcastService::setupNseFoCallbacks() {
                                                                         token);
       });
 
-  // Touchline + Depth (7200/7208) - Unified Callback
-  auto unifiedCallback = [this](int32_t token) {
-    // 1. Fetch from Global Store (Zero-Copy Read)
-    const auto *data = nsefo::g_nseFoPriceStore.getUnifiedState(token);
-    if (!data)
+  // ========== TYPE-SPECIFIC CALLBACKS FOR GRANULAR EVENTS ==========
+  
+  // Touchline Callback (7200) - BBO + basic stats
+  auto touchlineCallback = [this](int32_t token, int exchangeSegment, uint16_t messageType) {
+    auto data = nsefo::g_nseFoPriceStore.getUnifiedSnapshot(token);
+    if (data.token == 0)
       return;
 
-    // 2. Convert to UDP::MarketTick
-    UDP::MarketTick udpTick = convertNseFoUnified(*data);
+    // Convert with TOUCHLINE update type
+    UDP::MarketTick udpTick = convertNseFoUnified(data, UDP::UpdateType::TOUCHLINE);
+    udpTick.messageType = messageType;
+    udpTick.validFlags = UDP::VALID_LTP | UDP::VALID_BID_TOP | UDP::VALID_ASK_TOP | 
+                         UDP::VALID_OHLC | UDP::VALID_VOLUME | UDP::VALID_PREV_CLOSE;
     m_totalTicks++;
 
-    // 3. FeedHandler Distribution
     FeedHandler::instance().onUdpTickReceived(udpTick);
 
-    // 4. Greeks Calculation (for option contracts only)
+    // Greeks calculation for every feed update (including zero-premium options)
     auto &greeksService = GreeksCalculationService::instance();
-    if (greeksService.isEnabled() && data->ltp > 0) {
-      // Trigger async Greeks calculation - service handles throttling
-      // internally
-      greeksService.onPriceUpdate(token, data->ltp, 2 /*NSEFO*/);
-
-      // Also trigger updates for options where THIS token is the underlying
-      // (Futures)
-      greeksService.onUnderlyingPriceUpdate(token, data->ltp, 2 /*NSEFO*/);
+    if (greeksService.isEnabled()) {
+      greeksService.onPriceUpdate(token, data.ltp, exchangeSegment);
+      greeksService.onUnderlyingPriceUpdate(token, data.ltp, exchangeSegment);
     }
 
-    // 5. UI Signals (Throttled)
     if (shouldEmitSignal(token)) {
       emit udpTickReceived(udpTick);
     }
   };
 
+  // Depth Callback (7208) - Order book depth only
+  auto depthCallback = [this](int32_t token, int exchangeSegment, uint16_t messageType) {
+    auto data = nsefo::g_nseFoPriceStore.getUnifiedSnapshot(token);
+    if (data.token == 0)
+      return;
+
+    // Convert with DEPTH_UPDATE type
+    UDP::MarketTick udpTick = convertNseFoUnified(data, UDP::UpdateType::DEPTH_UPDATE);
+    udpTick.messageType = messageType;
+    udpTick.validFlags = UDP::VALID_DEPTH | UDP::VALID_BID_TOP | UDP::VALID_ASK_TOP;
+    m_totalTicks++;
+
+    FeedHandler::instance().onUdpTickReceived(udpTick);
+
+    // Note: Depth-only updates should NOT trigger Greeks (LTP unchanged)
+
+    if (shouldEmitSignal(token)) {
+      emit udpTickReceived(udpTick);
+    }
+  };
+
+  // Ticker Callback (7202, 17202) - LTP, volume, OI updates
+  auto tickerCallback = [this](int32_t token, int exchangeSegment, uint16_t messageType) {
+    auto data = nsefo::g_nseFoPriceStore.getUnifiedSnapshot(token);
+    if (data.token == 0)
+      return;
+
+    // Convert with TRADE_TICK type
+    UDP::MarketTick udpTick = convertNseFoUnified(data, UDP::UpdateType::TRADE_TICK);
+    udpTick.messageType = messageType;
+    udpTick.validFlags = UDP::VALID_LTP | UDP::VALID_VOLUME | UDP::VALID_OI;
+    m_totalTicks++;
+
+    FeedHandler::instance().onUdpTickReceived(udpTick);
+
+    // Ticker updates trigger Greeks (price changed, including zero-premium)
+    auto &greeksService = GreeksCalculationService::instance();
+    if (greeksService.isEnabled()) {
+      greeksService.onPriceUpdate(token, data.ltp, exchangeSegment);
+      greeksService.onUnderlyingPriceUpdate(token, data.ltp, exchangeSegment);
+    }
+
+    if (shouldEmitSignal(token)) {
+      emit udpTickReceived(udpTick);
+    }
+  };
+
+  // Register type-specific callbacks
   nsefo::MarketDataCallbackRegistry::instance().registerTouchlineCallback(
-      unifiedCallback);
+      touchlineCallback);
   nsefo::MarketDataCallbackRegistry::instance().registerMarketDepthCallback(
-      unifiedCallback);
-
-  // Ticker (7202) -> Using same unified callback as Ticker updates UnifiedState
-  // too
+      depthCallback);
   nsefo::MarketDataCallbackRegistry::instance().registerTickerCallback(
-      unifiedCallback);
+      tickerCallback);
 
-  // Circuit Limit (7220) -> Also updates unified state?
-  // Wait, UnifiedState doesn't have circuit limits yet (except LPP which I
-  // added). If parsers update store, we can use the same callback.
+  // Market Watch (7201, 17201) - Enhanced market watch callback
+  // Note: Enhanced market watch (17201) provides 3-level depth data
+  nsefo::MarketDataCallbackRegistry::instance().registerMarketWatchCallback(
+      [this](const nsefo::MarketWatchData &data) {
+        int32_t token = data.token;
+        auto stateData = nsefo::g_nseFoPriceStore.getUnifiedSnapshot(token);
+        if (stateData.token == 0)
+          return;
+
+        // Convert with MARKET_WATCH type
+        UDP::MarketTick udpTick = convertNseFoUnified(stateData, UDP::UpdateType::MARKET_WATCH);
+        udpTick.messageType = 7201;
+        udpTick.validFlags = UDP::VALID_ALL; // Market watch has comprehensive data
+        m_totalTicks++;
+
+        FeedHandler::instance().onUdpTickReceived(udpTick);
+
+        // Market watch triggers Greeks for comprehensive data updates
+        auto &greeksService = GreeksCalculationService::instance();
+        if (greeksService.isEnabled()) {
+          greeksService.onPriceUpdate(token, stateData.ltp, 2 /*NSEFO*/);
+          greeksService.onUnderlyingPriceUpdate(token, stateData.ltp, 2 /*NSEFO*/);
+        }
+
+        if (shouldEmitSignal(token)) {
+          emit udpTickReceived(udpTick);
+        }
+      });
+
+  // Circuit Limit (7220) - Circuit limit updates
+  auto circuitCallback = [this](int32_t token, int exchangeSegment, uint16_t messageType) {
+    auto data = nsefo::g_nseFoPriceStore.getUnifiedSnapshot(token);
+    if (data.token == 0)
+      return;
+
+    UDP::MarketTick udpTick = convertNseFoUnified(data, UDP::UpdateType::CIRCUIT_LIMIT);
+    udpTick.messageType = messageType;
+    udpTick.validFlags = UDP::VALID_LTP;
+    m_totalTicks++;
+
+    FeedHandler::instance().onUdpTickReceived(udpTick);
+
+    if (shouldEmitSignal(token)) {
+      emit udpTickReceived(udpTick);
+    }
+  };
+  
   nsefo::MarketDataCallbackRegistry::instance().registerCircuitLimitCallback(
-      unifiedCallback);
+      circuitCallback);
 
   // Index callback for message 7207 (BCAST_INDICES)
   nsefo::MarketDataCallbackRegistry::instance().registerIndexCallback(
@@ -465,24 +565,26 @@ void UdpBroadcastService::setupNseCmCallbacks() {
                                                                         token);
       });
 
+  /* ========== OLD UNIFIED CALLBACK (COMMENTED OUT FOR TESTING) ==========
   // Unified CM Callback
-  auto unifiedCallback = [this](int32_t token) {
-    // 1. Fetch from Global CM Store
-    const auto *data = nsecm::g_nseCmPriceStore.getUnifiedState(token);
-    if (!data)
+  auto unifiedCallback = [this](int32_t token, int exchangeSegment, uint16_t messageType) {
+    // 1. Fetch thread-safe snapshot from global CM store
+    auto data = nsecm::g_nseCmPriceStore.getUnifiedSnapshot(token);
+    if (data.token == 0)
       return;
 
     // 2. Convert to UDP::MarketTick
-    UDP::MarketTick udpTick = convertNseCmUnified(*data);
+    UDP::MarketTick udpTick = convertNseCmUnified(data);
+    udpTick.messageType = messageType;
     m_totalTicks++;
 
     // 4. FeedHandler
     FeedHandler::instance().onUdpTickReceived(udpTick);
 
-    // 5. Greeks Calculation (Update for underlyings in Cash Market)
+    // 5. Greeks Calculation for underlyings in Cash Market
     auto &greeksService = GreeksCalculationService::instance();
-    if (greeksService.isEnabled() && data->ltp > 0) {
-      greeksService.onUnderlyingPriceUpdate(token, data->ltp, 1 /*NSECM*/);
+    if (greeksService.isEnabled()) {
+      greeksService.onUnderlyingPriceUpdate(token, data.ltp, exchangeSegment);
     }
 
     // 5. Signals
@@ -502,6 +604,86 @@ void UdpBroadcastService::setupNseCmCallbacks() {
   // Ticker updates (18703)
   nsecm::MarketDataCallbackRegistry::instance().registerTickerCallback(
       unifiedCallback);
+  ========== END OLD UNIFIED CALLBACK ========== */
+
+  // ========== NEW TYPE-SPECIFIC CALLBACKS (GRANULAR EVENTS) ==========
+  
+  // Touchline Callback (7200) - BBO + basic stats
+  auto touchlineCallback = [this](int32_t token, int exchangeSegment, uint16_t messageType) {
+    auto data = nsecm::g_nseCmPriceStore.getUnifiedSnapshot(token);
+    if (data.token == 0)
+      return;
+
+    UDP::MarketTick udpTick = convertNseCmUnified(data, UDP::UpdateType::TOUCHLINE);
+    udpTick.messageType = messageType;
+    udpTick.validFlags = UDP::VALID_LTP | UDP::VALID_BID_TOP | UDP::VALID_ASK_TOP | 
+                         UDP::VALID_OHLC | UDP::VALID_VOLUME | UDP::VALID_PREV_CLOSE;
+    m_totalTicks++;
+
+    FeedHandler::instance().onUdpTickReceived(udpTick);
+
+    // Greeks for underlyings in cash market
+    auto &greeksService = GreeksCalculationService::instance();
+    if (greeksService.isEnabled()) {
+      greeksService.onUnderlyingPriceUpdate(token, data.ltp, exchangeSegment);
+    }
+
+    if (shouldEmitSignal(token)) {
+      emit udpTickReceived(udpTick);
+    }
+  };
+
+  // Depth Callback (7208) - Order book depth only
+  auto depthCallback = [this](int32_t token, int exchangeSegment, uint16_t messageType) {
+    auto data = nsecm::g_nseCmPriceStore.getUnifiedSnapshot(token);
+    if (data.token == 0)
+      return;
+
+    UDP::MarketTick udpTick = convertNseCmUnified(data, UDP::UpdateType::DEPTH_UPDATE);
+    udpTick.messageType = messageType;
+    udpTick.validFlags = UDP::VALID_DEPTH | UDP::VALID_BID_TOP | UDP::VALID_ASK_TOP;
+    m_totalTicks++;
+
+    FeedHandler::instance().onUdpTickReceived(udpTick);
+
+    // No Greeks trigger for depth-only updates
+
+    if (shouldEmitSignal(token)) {
+      emit udpTickReceived(udpTick);
+    }
+  };
+
+  // Ticker Callback (18703) - LTP, volume updates
+  auto tickerCallback = [this](int32_t token, int exchangeSegment, uint16_t messageType) {
+    auto data = nsecm::g_nseCmPriceStore.getUnifiedSnapshot(token);
+    if (data.token == 0)
+      return;
+
+    UDP::MarketTick udpTick = convertNseCmUnified(data, UDP::UpdateType::TRADE_TICK);
+    udpTick.messageType = messageType;
+    udpTick.validFlags = UDP::VALID_LTP | UDP::VALID_VOLUME;
+    m_totalTicks++;
+
+    FeedHandler::instance().onUdpTickReceived(udpTick);
+
+    // Ticker updates trigger Greeks for underlyings
+    auto &greeksService = GreeksCalculationService::instance();
+    if (greeksService.isEnabled()) {
+      greeksService.onUnderlyingPriceUpdate(token, data.ltp, exchangeSegment);
+    }
+
+    if (shouldEmitSignal(token)) {
+      emit udpTickReceived(udpTick);
+    }
+  };
+
+  // Register type-specific callbacks
+  nsecm::MarketDataCallbackRegistry::instance().registerTouchlineCallback(
+      touchlineCallback);
+  nsecm::MarketDataCallbackRegistry::instance().registerMarketDepthCallback(
+      depthCallback);
+  nsecm::MarketDataCallbackRegistry::instance().registerTickerCallback(
+      tickerCallback);
 
   // Market watch updates (7201)
   nsecm::MarketDataCallbackRegistry::instance().registerMarketWatchCallback(
@@ -653,34 +835,35 @@ void UdpBroadcastService::setupBseFoCallbacks() {
   if (!m_bseFoReceiver)
     return;
 
-  auto unifiedCallback = [this](uint32_t token) {
-    const auto *data = bse::g_bseFoPriceStore.getUnifiedState(token);
-    if (!data)
+  auto unifiedCallback = [this](uint32_t token, int exchangeSegment, uint16_t messageType) {
+    auto data = bse::g_bseFoPriceStore.getUnifiedSnapshot(token);
+    if (data.token == 0)
       return;
 
     UDP::MarketTick udpTick =
-        convertBseUnified(*data, UDP::ExchangeSegment::BSEFO);
+        convertBseUnified(data, UDP::ExchangeSegment::BSEFO);
+    udpTick.messageType = messageType;
     m_totalTicks++;
 
     FeedHandler::instance().onUdpTickReceived(udpTick);
 
-    // Greeks Calculation (for option contracts only)
+    // Greeks Calculation for option contracts (including zero-premium)
     auto &greeksService = GreeksCalculationService::instance();
-    if (greeksService.isEnabled() && data->ltp > 0) {
-      greeksService.onPriceUpdate(token, data->ltp, 12 /*BSEFO*/);
+    if (greeksService.isEnabled()) {
+      greeksService.onPriceUpdate(token, data.ltp, exchangeSegment);
       // Also trigger updates for options where THIS token is the underlying
-      greeksService.onUnderlyingPriceUpdate(token, data->ltp, 12 /*BSEFO*/);
+      greeksService.onUnderlyingPriceUpdate(token, data.ltp, exchangeSegment);
     }
 
     if (shouldEmitSignal(token)) {
       emit udpTickReceived(udpTick);
 
       // Check Circuit Limits from Unified Data
-      if (data->upperCircuit > 0 || data->lowerCircuit > 0) {
+      if (data.upperCircuit > 0 || data.lowerCircuit > 0) {
         UDP::CircuitLimitTick limitTick;
         limitTick.token = token;
-        limitTick.upperLimit = data->upperCircuit;
-        limitTick.lowerLimit = data->lowerCircuit;
+        limitTick.upperLimit = data.upperCircuit;
+        limitTick.lowerLimit = data.lowerCircuit;
         limitTick.exchangeSegment = UDP::ExchangeSegment::BSEFO;
         emit udpCircuitLimitReceived(limitTick);
       }
@@ -704,31 +887,32 @@ void UdpBroadcastService::setupBseCmCallbacks() {
   if (!m_bseCmReceiver)
     return;
 
-  auto unifiedCallback = [this](uint32_t token) {
-    const auto *data = bse::g_bseCmPriceStore.getUnifiedState(token);
-    if (!data)
+  auto unifiedCallback = [this](uint32_t token, int exchangeSegment, uint16_t messageType) {
+    auto data = bse::g_bseCmPriceStore.getUnifiedSnapshot(token);
+    if (data.token == 0)
       return;
 
     UDP::MarketTick udpTick =
-        convertBseUnified(*data, UDP::ExchangeSegment::BSECM);
+        convertBseUnified(data, UDP::ExchangeSegment::BSECM);
+    udpTick.messageType = messageType;
     m_totalTicks++;
 
     FeedHandler::instance().onUdpTickReceived(udpTick);
 
-    // Greeks Calculation (Update for underlyings in Cash Market)
+    // Greeks Calculation for underlyings in Cash Market
     auto &greeksService = GreeksCalculationService::instance();
-    if (greeksService.isEnabled() && data->ltp > 0) {
-      greeksService.onUnderlyingPriceUpdate(token, data->ltp, 11 /*BSECM*/);
+    if (greeksService.isEnabled()) {
+      greeksService.onUnderlyingPriceUpdate(token, data.ltp, exchangeSegment);
     }
 
     if (shouldEmitSignal(token)) {
       emit udpTickReceived(udpTick);
 
-      if (data->upperCircuit > 0 || data->lowerCircuit > 0) {
+      if (data.upperCircuit > 0 || data.lowerCircuit > 0) {
         UDP::CircuitLimitTick limitTick;
         limitTick.token = token;
-        limitTick.upperLimit = data->upperCircuit;
-        limitTick.lowerLimit = data->lowerCircuit;
+        limitTick.upperLimit = data.upperCircuit;
+        limitTick.lowerLimit = data.lowerCircuit;
         limitTick.exchangeSegment = UDP::ExchangeSegment::BSECM;
         emit udpCircuitLimitReceived(limitTick);
       }
@@ -745,7 +929,7 @@ void UdpBroadcastService::setupBseCmCallbacks() {
         emit udpSessionStateReceived(sessTick);
       });
 
-  m_bseCmReceiver->setIndexCallback([this](uint32_t token) {
+  m_bseCmReceiver->setIndexCallback([this](uint32_t token, int exchangeSegment, uint16_t messageType) {
     const auto *record = bse::g_bseCmIndexStore.getIndex(token);
     if (!record)
       return;
