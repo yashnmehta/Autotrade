@@ -4,17 +4,16 @@
 #include <QDialog>
 #include <QVariantMap>
 
-class QComboBox;
-class QDoubleSpinBox;
-class QLineEdit;
-class QSpinBox;
-class QTextEdit;
+namespace Ui {
+class CreateStrategyDialog;
+}
 
 class CreateStrategyDialog : public QDialog {
   Q_OBJECT
 
 public:
   explicit CreateStrategyDialog(QWidget *parent = nullptr);
+  ~CreateStrategyDialog();
 
   QString instanceName() const;
   QString strategyType() const;
@@ -29,22 +28,16 @@ public:
 
   void setStrategyTypes(const QStringList &types);
 
+private slots:
+  void onTypeChanged(const QString &type);
+
 protected:
   void accept() override;
 
 private:
   QVariantMap parseParameters(bool *ok) const;
 
-  QLineEdit *m_nameEdit;
-  QComboBox *m_typeCombo;
-  QLineEdit *m_symbolEdit;
-  QLineEdit *m_accountEdit;
-  QComboBox *m_segmentCombo;
-  QDoubleSpinBox *m_stopLossSpin;
-  QDoubleSpinBox *m_targetSpin;
-  QDoubleSpinBox *m_entryPriceSpin;
-  QSpinBox *m_qtySpin;
-  QTextEdit *m_paramsEdit;
+  Ui::CreateStrategyDialog *ui;
   QVariantMap m_cachedParameters;
 };
 

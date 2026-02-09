@@ -385,7 +385,27 @@ set(SERVICE_HEADERS
     include/services/ATMWatchManager.h
     include/services/GreeksCalculationService.h
     include/services/StrategyService.h
+    include/services/StrategyService.h
     include/services/StrategyRepository.h
+)
+
+# ========================================
+# STRATEGIES LAYER - Trading Strategy Implementations
+# ========================================
+set(STRATEGY_IMPL_SOURCES
+    src/strategies/StrategyBase.cpp
+    src/strategies/StrategyFactory.cpp
+    src/strategies/MomentumStrategy.cpp
+    src/strategies/RangeBreakoutStrategy.cpp
+    src/strategies/JodiATMStrategy.cpp
+)
+
+set(STRATEGY_IMPL_HEADERS
+    include/strategies/StrategyBase.h
+    include/strategies/StrategyFactory.h
+    include/strategies/MomentumStrategy.h
+    include/strategies/RangeBreakoutStrategy.h
+    include/strategies/JodiATMStrategy.h
 )
 
 # ========================================
@@ -498,6 +518,7 @@ set(SOURCES
     ${VIEW_SOURCES}
     ${MODEL_SOURCES}
     ${SERVICE_SOURCES}
+    ${STRATEGY_IMPL_SOURCES}
     ${API_SOURCES}
     ${REPOSITORY_SOURCES}
     ${DATA_SOURCES}
@@ -514,6 +535,7 @@ set(HEADERS
     ${UTILS_HEADERS}
     ${VIEW_HELPER_HEADERS}
     ${SERVICE_HEADERS}
+    ${STRATEGY_IMPL_HEADERS}
     ${API_HEADERS}
     ${REPOSITORY_HEADERS}
     ${DATA_HEADERS}
@@ -534,6 +556,7 @@ set(FORMS
     resources/forms/PreferencesWorkSpaceTab.ui
     resources/forms/PreferencesPortfolioTab.ui
     resources/forms/StrategyManagerWindow.ui
+    resources/forms/CreateStrategyDialog.ui
 )
 
 # Resource files
