@@ -13,7 +13,6 @@ class QRect;
 #include <QTimer>
 #include <memory>
 
-
 class CustomMDIArea;
 class CustomMDISubWindow;
 class QToolBar;
@@ -87,6 +86,7 @@ private slots:
   CustomMDISubWindow *createTradeBookWindow();
   CustomMDISubWindow *createOrderBookWindow();
   CustomMDISubWindow *createPositionWindow();
+  CustomMDISubWindow *createStrategyManagerWindow();
   void focusScripBar();
   void onAddToWatchRequested(const InstrumentData &instrument);
   void resetLayout();

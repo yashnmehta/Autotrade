@@ -9,6 +9,7 @@
 #include "services/UdpBroadcastService.h"
 #include "ui/ATMWatchWindow.h"
 #include "ui/OptionChainWindow.h"
+#include "ui/StrategyManagerWindow.h"
 #include "views/BuyWindow.h"
 #include "views/CustomizeDialog.h"
 #include "views/MarketWatchWindow.h"
@@ -623,6 +624,21 @@ CustomMDISubWindow *MainWindow::createPositionWindow() {
   PositionWindow *pw = new PositionWindow(m_tradingDataService, window);
   window->setContentWidget(pw);
   window->resize(1000, 500);
+  connectWindowSignals(window);
+  m_mdiArea->addWindow(window);
+  window->activateWindow();
+  return window;
+}
+
+CustomMDISubWindow *MainWindow::createStrategyManagerWindow() {
+  CustomMDISubWindow *window =
+      new CustomMDISubWindow("Strategy Manager", m_mdiArea);
+  window->setWindowType("StrategyManager");
+
+  StrategyManagerWindow *strategyWindow = new StrategyManagerWindow(window);
+
+  window->setContentWidget(strategyWindow);
+  window->resize(1000, 600);
   connectWindowSignals(window);
   m_mdiArea->addWindow(window);
   window->activateWindow();

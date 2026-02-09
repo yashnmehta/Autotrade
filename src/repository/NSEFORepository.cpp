@@ -336,7 +336,8 @@ bool NSEFORepository::loadProcessedCSV(const QString &filename) {
           internString(trimQuotes(fields[7])); // DDMMMYYYY format
       m_strikePrice[idx] = fields[8].toDouble();
       m_optionType[idx] = internString(trimQuotes(fields[9])); // CE/PE/XX
-      m_assetToken[idx] = fields[11].toLongLong();
+      m_assetToken[idx] =
+          getUnderlyingAssetToken(m_name[idx], fields[11].toLongLong());
 
       // Only update symbol map if this symbol hasn't been seen yet
       if (!m_symbolToAssetToken.contains(m_name[idx])) {

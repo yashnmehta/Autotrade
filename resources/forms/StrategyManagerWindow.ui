@@ -1,0 +1,406 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>StrategyManagerWindow</class>
+ <widget class="QWidget" name="StrategyManagerWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1000</width>
+    <height>700</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Strategy Manager</string>
+  </property>
+  <property name="styleSheet">
+   <string notr="true">QWidget {
+    background-color: #1e1e1e;
+    color: #cccccc;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+}
+
+QFrame#HeaderFrame {
+    background-color: #252526;
+    border-bottom: 1px solid #3e3e42;
+    padding: 4px;
+}
+
+QLabel#TitleLabel {
+    font-size: 16px;
+    font-weight: bold;
+    color: #ffffff;
+    letter-spacing: 0.5px;
+}
+
+QLabel#SummaryLabel {
+    font-size: 11px;
+    color: #9ca3af;
+    font-weight: 500;
+}
+
+QPushButton#createButton {
+    background-color: #007acc;
+    color: white;
+    border: none;
+    border-radius: 2px;
+    font-weight: 600;
+    font-size: 12px;
+    padding: 6px 16px;
+}
+QPushButton#createButton:hover { background-color: #1c97ea; }
+QPushButton#createButton:pressed { background-color: #094771; }
+
+QPushButton {
+    background-color: #333333;
+    color: #ffffff;
+    border: 1px solid #454545;
+    border-radius: 2px;
+    padding: 5px 15px;
+    font-size: 11px;
+}
+QPushButton:hover {
+    background-color: #3e3e42;
+    border-color: #6b7280;
+}
+QPushButton:pressed {
+    background-color: #094771;
+    border-color: #094771;
+}
+
+QPushButton#filterAllBtn, QPushButton#filterRunningBtn, 
+QPushButton#filterPausedBtn, QPushButton#filterStoppedBtn {
+    background-color: #252526;
+    border: 1px solid #3e3e42;
+    border-radius: 0px;
+    margin: 0px;
+    color: #cccccc;
+    padding: 5px 12px;
+}
+QPushButton#filterAllBtn { border-top-left-radius: 3px; border-bottom-left-radius: 3px; border-right: none; }
+QPushButton#filterStoppedBtn { border-top-right-radius: 3px; border-bottom-right-radius: 3px; border-left: none; }
+
+QPushButton#filterAllBtn:checked, QPushButton#filterRunningBtn:checked, 
+QPushButton#filterPausedBtn:checked, QPushButton#filterStoppedBtn:checked {
+    background-color: #007acc;
+    color: white;
+    border: 1px solid #007acc;
+}
+QPushButton#filterRunningBtn:hover, QPushButton#filterPausedBtn:hover, QPushButton#filterStoppedBtn:hover, QPushButton#filterAllBtn:hover {
+    background-color: #3e3e42;
+    color: #ffffff;
+}
+
+QTableView {
+    background-color: #ffffff;
+    gridline-color: #e5e5e5;
+    border: none;
+    selection-background-color: #094771;
+    selection-color: #ffffff;
+    alternate-background-color: #f8fafc;
+    color: #1f1f1f;
+}
+
+QHeaderView::section {
+    background-color: #252526;
+    color: #cccccc;
+    padding: 6px 8px;
+    border: none;
+    border-bottom: 2px solid #3e3e42;
+    border-right: 1px solid #3e3e42;
+    font-weight: bold;
+    font-size: 11px;
+    text-transform: uppercase;
+}
+
+QComboBox {
+    background-color: #252526;
+    color: #ffffff;
+    border: 1px solid #3e3e42;
+    border-radius: 2px;
+    padding: 4px 8px;
+}
+QComboBox:hover { border-color: #555555; }
+QComboBox::drop-down { border: none; background: transparent; }
+
+QScrollBar:vertical {
+    background: #1e1e1e;
+    width: 12px;
+}
+QScrollBar::handle:vertical {
+    background: #333333;
+    border-radius: 6px;
+    min-height: 20px;
+    margin: 2px;
+}
+QScrollBar::handle:vertical:hover { background: #404040; }</string>
+  </property>
+  <layout class="QVBoxLayout" name="mainLayout">
+   <property name="spacing">
+    <number>0</number>
+   </property>
+   <property name="leftMargin">
+    <number>0</number>
+   </property>
+   <property name="topMargin">
+    <number>0</number>
+   </property>
+   <property name="rightMargin">
+    <number>0</number>
+   </property>
+   <property name="bottomMargin">
+    <number>0</number>
+   </property>
+   <item>
+    <widget class="QFrame" name="HeaderFrame">
+     <property name="minimumSize">
+      <size>
+       <width>0</width>
+       <height>60</height>
+      </size>
+     </property>
+     <property name="frameShape">
+      <enum>QFrame::StyledPanel</enum>
+     </property>
+     <property name="frameShadow">
+      <enum>QFrame::Raised</enum>
+     </property>
+     <layout class="QHBoxLayout" name="headerLayout">
+      <item>
+       <layout class="QVBoxLayout" name="titleArea">
+        <item>
+         <widget class="QLabel" name="TitleLabel">
+          <property name="text">
+           <string>Strategy Manager</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLabel" name="SummaryLabel">
+          <property name="text">
+           <string>Total: 0 | Running: 0 | Total P&amp;L: 0.00</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <spacer name="headerSpacer">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>40</width>
+          <height>20</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+      <item>
+       <widget class="QPushButton" name="createButton">
+        <property name="minimumSize">
+         <size>
+          <width>160</width>
+          <height>30</height>
+         </size>
+        </property>
+        <property name="text">
+         <string>Create New Strategy</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="filterLayout">
+     <property name="leftMargin">
+      <number>15</number>
+     </property>
+     <property name="topMargin">
+      <number>8</number>
+     </property>
+     <property name="rightMargin">
+      <number>15</number>
+     </property>
+     <property name="bottomMargin">
+      <number>8</number>
+     </property>
+     <item>
+      <widget class="QLabel" name="label">
+       <property name="text">
+        <string>Strategy Type:</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QComboBox" name="strategyFilterCombo">
+       <property name="minimumSize">
+        <size>
+         <width>180</width>
+         <height>0</height>
+        </size>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <spacer name="filterSpacer">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+     <item>
+      <widget class="QLabel" name="label_2">
+       <property name="text">
+        <string>Filter by Status:</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="filterAllBtn">
+       <property name="text">
+        <string>All</string>
+       </property>
+       <property name="checkable">
+        <bool>true</bool>
+       </property>
+       <property name="checked">
+        <bool>true</bool>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="filterRunningBtn">
+       <property name="text">
+        <string>Running</string>
+       </property>
+       <property name="checkable">
+        <bool>true</bool>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="filterPausedBtn">
+       <property name="text">
+        <string>Paused</string>
+       </property>
+       <property name="checkable">
+        <bool>true</bool>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="filterStoppedBtn">
+       <property name="text">
+        <string>Stopped</string>
+       </property>
+       <property name="checkable">
+        <bool>true</bool>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <widget class="QTableView" name="tableView">
+     <property name="alternatingRowColors">
+      <bool>true</bool>
+     </property>
+     <property name="selectionBehavior">
+      <enum>QAbstractItemView::SelectRows</enum>
+     </property>
+     <property name="selectionMode">
+      <enum>QAbstractItemView::SingleSelection</enum>
+     </property>
+     <property name="sortingEnabled">
+      <bool>true</bool>
+     </property>
+     <attribute name="verticalHeaderVisible">
+      <bool>false</bool>
+     </attribute>
+    </widget>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="actionLayout">
+     <property name="leftMargin">
+      <number>15</number>
+     </property>
+     <property name="topMargin">
+      <number>10</number>
+     </property>
+     <property name="rightMargin">
+      <number>15</number>
+     </property>
+     <property name="bottomMargin">
+      <number>15</number>
+     </property>
+     <item>
+      <widget class="QPushButton" name="startButton">
+       <property name="text">
+        <string>Start</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="pauseButton">
+       <property name="text">
+        <string>Pause</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="resumeButton">
+       <property name="text">
+        <string>Resume</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <spacer name="actionSpacer">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+     <item>
+      <widget class="QPushButton" name="modifyButton">
+       <property name="text">
+        <string>Modify</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="stopButton">
+       <property name="text">
+        <string>Stop</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="deleteButton">
+       <property name="text">
+        <string>Delete</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

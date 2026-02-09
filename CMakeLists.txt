@@ -13,7 +13,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOUIC_SEARCH_PATHS ${CMAKE_SOURCE_DIR}/resources/forms)
 
 # Find Qt5 components (UI only)
-find_package(Qt5 COMPONENTS Widgets Network WebSockets UiTools Concurrent REQUIRED)
+find_package(Qt5 COMPONENTS Widgets Network WebSockets UiTools Concurrent Sql REQUIRED)
 
 # Find Boost for native WebSocket (Beast + Asio)
 # Boost.Beast is header-only, just need Boost headers
@@ -240,6 +240,9 @@ set(UI_SOURCES
     src/ui/OptionChainWindow.cpp
     src/ui/ATMWatchWindow.cpp
     src/ui/ATMWatchSettingsDialog.cpp
+    src/ui/StrategyManagerWindow.cpp
+    src/ui/CreateStrategyDialog.cpp
+    src/ui/ModifyParametersDialog.cpp
 )
 
 set(UI_HEADERS
@@ -248,6 +251,9 @@ set(UI_HEADERS
     include/ui/OptionChainWindow.h
     include/ui/ATMWatchWindow.h
     include/ui/ATMWatchSettingsDialog.h
+    include/ui/StrategyManagerWindow.h
+    include/ui/CreateStrategyDialog.h
+    include/ui/ModifyParametersDialog.h
 )
 
 # ========================================
@@ -331,6 +337,8 @@ set(MODEL_SOURCES
     src/models/TradeModel.cpp
     src/models/PositionModel.cpp
     src/models/PinnedRowProxyModel.cpp
+    src/models/StrategyTableModel.cpp
+    src/models/StrategyFilterProxyModel.cpp
 )
 
 set(MODEL_HEADERS
@@ -341,6 +349,9 @@ set(MODEL_HEADERS
     include/models/TradeModel.h
     include/models/PositionModel.h
     include/models/PinnedRowProxyModel.h
+    include/models/StrategyInstance.h
+    include/models/StrategyTableModel.h
+    include/models/StrategyFilterProxyModel.h
 )
 
 # ========================================
@@ -358,6 +369,8 @@ set(SERVICE_SOURCES
     src/services/MasterDataState.cpp
     src/services/ATMWatchManager.cpp
     src/services/GreeksCalculationService.cpp
+    src/services/StrategyService.cpp
+    src/services/StrategyRepository.cpp
 )
 
 set(SERVICE_HEADERS
@@ -371,6 +384,8 @@ set(SERVICE_HEADERS
     include/services/MasterDataState.h
     include/services/ATMWatchManager.h
     include/services/GreeksCalculationService.h
+    include/services/StrategyService.h
+    include/services/StrategyRepository.h
 )
 
 # ========================================
@@ -518,6 +533,7 @@ set(FORMS
     resources/forms/PreferencesMarginPlusOrderTab.ui
     resources/forms/PreferencesWorkSpaceTab.ui
     resources/forms/PreferencesPortfolioTab.ui
+    resources/forms/StrategyManagerWindow.ui
 )
 
 # Resource files
@@ -620,6 +636,7 @@ target_link_libraries(TradingTerminal PRIVATE
     Qt5::WebSockets
     Qt5::UiTools
     Qt5::Concurrent
+    Qt5::Sql
     OpenSSL::SSL
     OpenSSL::Crypto
     Threads::Threads

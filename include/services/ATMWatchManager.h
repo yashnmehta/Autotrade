@@ -12,7 +12,6 @@
 #include <QVector>
 #include <shared_mutex>
 
-
 /**
  * @brief Manages ATM (At-The-Money) calculations and watch array.
  * Calculates ATM strikes every minute based on configurable base price source.
@@ -107,6 +106,11 @@ public:
    * @brief Remove an ATM watch
    */
   void removeWatch(const QString &symbol);
+
+  /**
+   * @brief Clear all ATM watches
+   */
+  void clearAllWatches();
 
   /**
    * @brief Get current ATM info for all watched symbols

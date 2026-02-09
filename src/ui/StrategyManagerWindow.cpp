@@ -1,0 +1,341 @@
+#include "ui/StrategyManagerWindow.h"
+#include "models/StrategyFilterProxyModel.h"
+#include "models/StrategyTableModel.h"
+#include "services/StrategyService.h"
+#include "ui/CreateStrategyDialog.h"
+#include "ui/ModifyParametersDialog.h"
+#include "ui_StrategyManagerWindow.h"
+#include <QButtonGroup>
+#include <QComboBox>
+#include <QHBoxLayout>
+#include <QHeaderView>
+#include <QLabel>
+#include <QMessageBox>
+#include <QPainter>
+#include <QPushButton>
+#include <QSet>
+#include <QStyledItemDelegate>
+#include <QTableView>
+#include <QVBoxLayout>
+
+class StrategyStatusDelegate : public QStyledItemDelegate {
+public:
+  using QStyledItemDelegate::QStyledItemDelegate;
+
+  void paint(QPainter *painter, const QStyleOptionViewItem &option,
+             const QModelIndex &index) const override {
+    if (index.column() == StrategyTableModel::COL_STATUS) {
+      painter->save();
+      painter->setRenderHint(QPainter::Antialiasing);
+
+      QString status = index.data().toString();
+      QColor bgColor = QColor("#454545");
+      QColor textColor = Qt::white;
+
+      if (status == "Running")
+        bgColor = QColor("#2e7d32");
+      else if (status == "Paused")
+        bgColor = QColor("#ef6c00");
+      else if (status == "Stopped")
+        bgColor = QColor("#c62828");
+      else if (status == "Created")
+        bgColor = QColor("#1565c0");
+
+      QRect rect = option.rect.adjusted(4, 4, -4, -4);
+      painter->setBrush(bgColor);
+      painter->setPen(Qt::NoPen);
+      painter->drawRoundedRect(rect, 4, 4);
+
+      painter->setPen(textColor);
+      painter->drawText(rect, Qt::AlignCenter, status);
+      painter->restore();
+    } else {
+      QStyledItemDelegate::paint(painter, option, index);
+    }
+  }
+};
+
+StrategyManagerWindow::StrategyManagerWindow(QWidget *parent)
+    : QWidget(parent), ui(new Ui::StrategyManagerWindow),
+      m_statusGroup(new QButtonGroup(this)),
+      m_model(new StrategyTableModel(this)),
+      m_proxy(new StrategyFilterProxyModel(this)) {
+  ui->setupUi(this);
+  setupUI();
+  setupModels();
+  setupConnections();
+
+  StrategyService::instance().initialize();
+  QVector<StrategyInstance> existing = StrategyService::instance().instances();
+  m_model->setInstances(existing);
+  refreshStrategyTypes();
+  updateSummary();
+}
+
+StrategyManagerWindow::~StrategyManagerWindow() { delete ui; }
+
+void StrategyManagerWindow::setupUI() {
+  // Map buttons to ButtonGroup for filtering
+  m_statusGroup->setExclusive(true);
+  m_statusGroup->addButton(ui->filterAllBtn, 0);
+  m_statusGroup->addButton(ui->filterRunningBtn, 1);
+  m_statusGroup->addButton(ui->filterPausedBtn, 2);
+  m_statusGroup->addButton(ui->filterStoppedBtn, 3);
+
+  // Table Setup
+  ui->tableView->setShowGrid(false);
+  ui->tableView->setAlternatingRowColors(true);
+  ui->tableView->setItemDelegateForColumn(StrategyTableModel::COL_STATUS,
+                                          new StrategyStatusDelegate(this));
+  ui->tableView->horizontalHeader()->setSectionResizeMode(
+      QHeaderView::Interactive);
+  ui->tableView->horizontalHeader()->setDefaultAlignment(Qt::AlignLeft |
+                                                         Qt::AlignVCenter);
+}
+
+void StrategyManagerWindow::setupModels() {
+  m_proxy->setSourceModel(m_model);
+  ui->tableView->setModel(m_proxy);
+}
+
+void StrategyManagerWindow::setupConnections() {
+  connect(ui->createButton, &QPushButton::clicked, this,
+          &StrategyManagerWindow::onCreateClicked);
+  connect(ui->startButton, &QPushButton::clicked, this,
+          &StrategyManagerWindow::onStartClicked);
+  connect(ui->pauseButton, &QPushButton::clicked, this,
+          &StrategyManagerWindow::onPauseClicked);
+  connect(ui->resumeButton, &QPushButton::clicked, this,
+          &StrategyManagerWindow::onResumeClicked);
+  connect(ui->modifyButton, &QPushButton::clicked, this,
+          &StrategyManagerWindow::onModifyClicked);
+  connect(ui->stopButton, &QPushButton::clicked, this,
+          &StrategyManagerWindow::onStopClicked);
+  connect(ui->deleteButton, &QPushButton::clicked, this,
+          &StrategyManagerWindow::onDeleteClicked);
+
+  connect(ui->strategyFilterCombo, &QComboBox::currentTextChanged, this,
+          &StrategyManagerWindow::onStrategyFilterChanged);
+
+#if QT_VERSION >= QT_VERSION_CHECK(5, 15, 0)
+  connect(m_statusGroup, QOverload<int>::of(&QButtonGroup::idClicked), this,
+          &StrategyManagerWindow::onStatusFilterClicked);
+#else
+  connect(
+      m_statusGroup,
+      static_cast<void (QButtonGroup::*)(int)>(&QButtonGroup::buttonClicked),
+      this, &StrategyManagerWindow::onStatusFilterClicked);
+#endif
+
+  StrategyService &service = StrategyService::instance();
+  connect(&service, &StrategyService::instanceAdded, this,
+          &StrategyManagerWindow::onInstanceAdded);
+  connect(&service, &StrategyService::instanceUpdated, this,
+          &StrategyManagerWindow::onInstanceUpdated);
+  connect(&service, &StrategyService::instanceRemoved, this,
+          &StrategyManagerWindow::onInstanceRemoved);
+
+  connect(m_model, &StrategyTableModel::instanceEdited, this,
+          &StrategyManagerWindow::onInstanceEdited);
+}
+
+void StrategyManagerWindow::refreshStrategyTypes() {
+  QSet<QString> types;
+  types.insert("All");
+
+  for (int row = 0; row < m_model->rowCount(); ++row) {
+    StrategyInstance instance = m_model->instanceAt(row);
+    if (!instance.strategyType.isEmpty()) {
+      types.insert(instance.strategyType);
+    }
+  }
+
+  QString current = ui->strategyFilterCombo->currentText();
+  ui->strategyFilterCombo->clear();
+  ui->strategyFilterCombo->addItems(types.values());
+
+  int index = ui->strategyFilterCombo->findText(current);
+  if (index >= 0) {
+    ui->strategyFilterCombo->setCurrentIndex(index);
+  }
+}
+
+StrategyInstance StrategyManagerWindow::selectedInstance(bool *ok) const {
+  QModelIndex proxyIndex = ui->tableView->currentIndex();
+  if (!proxyIndex.isValid()) {
+    if (ok) {
+      *ok = false;
+    }
+    return StrategyInstance();
+  }
+
+  QModelIndex sourceIndex = m_proxy->mapToSource(proxyIndex);
+  StrategyInstance instance = m_model->instanceAt(sourceIndex.row());
+  if (ok) {
+    *ok = instance.instanceId != 0;
+  }
+  return instance;
+}
+
+void StrategyManagerWindow::onCreateClicked() {
+  CreateStrategyDialog dialog(this);
+  dialog.setStrategyTypes({"Custom", "TSpecial", "JodiATM", "VixMonkey"});
+
+  if (dialog.exec() != QDialog::Accepted) {
+    return;
+  }
+
+  StrategyService::instance().createInstance(
+      dialog.instanceName(), dialog.strategyType(), dialog.symbol(),
+      dialog.account(), dialog.segment(), dialog.stopLoss(), dialog.target(),
+      dialog.entryPrice(), dialog.quantity(), dialog.parameters());
+}
+
+void StrategyManagerWindow::onStartClicked() {
+  bool ok = false;
+  StrategyInstance instance = selectedInstance(&ok);
+  if (!ok) {
+    return;
+  }
+
+  StrategyService::instance().startStrategy(instance.instanceId);
+}
+
+void StrategyManagerWindow::onPauseClicked() {
+  bool ok = false;
+  StrategyInstance instance = selectedInstance(&ok);
+  if (!ok) {
+    return;
+  }
+
+  StrategyService::instance().pauseStrategy(instance.instanceId);
+}
+
+void StrategyManagerWindow::onResumeClicked() {
+  bool ok = false;
+  StrategyInstance instance = selectedInstance(&ok);
+  if (!ok) {
+    return;
+  }
+
+  StrategyService::instance().resumeStrategy(instance.instanceId);
+}
+
+void StrategyManagerWindow::onModifyClicked() {
+  bool ok = false;
+  StrategyInstance instance = selectedInstance(&ok);
+  if (!ok) {
+    return;
+  }
+
+  ModifyParametersDialog dialog(this);
+  dialog.setInitialValues(instance.stopLoss, instance.target,
+                          instance.parameters);
+
+  if (dialog.exec() != QDialog::Accepted) {
+    return;
+  }
+
+  StrategyService::instance().modifyParameters(
+      instance.instanceId, dialog.parameters(), dialog.stopLoss(),
+      dialog.target());
+}
+
+void StrategyManagerWindow::onStopClicked() {
+  bool ok = false;
+  StrategyInstance instance = selectedInstance(&ok);
+  if (!ok) {
+    return;
+  }
+
+  StrategyService::instance().stopStrategy(instance.instanceId);
+}
+
+void StrategyManagerWindow::onDeleteClicked() {
+  bool ok = false;
+  StrategyInstance instance = selectedInstance(&ok);
+  if (!ok) {
+    return;
+  }
+
+  if (QMessageBox::question(this, "Delete",
+                            "Delete selected strategy instance?") !=
+      QMessageBox::Yes) {
+    return;
+  }
+
+  StrategyService::instance().deleteStrategy(instance.instanceId);
+}
+
+void StrategyManagerWindow::onStrategyFilterChanged(const QString &value) {
+  m_proxy->setStrategyTypeFilter(value);
+}
+
+void StrategyManagerWindow::onStatusFilterClicked(int id) {
+  switch (id) {
+  case 0:
+    m_proxy->clearStatusFilter();
+    break;
+  case 1:
+    m_proxy->setStatusFilter(StrategyState::Running);
+    break;
+  case 2:
+    m_proxy->setStatusFilter(StrategyState::Paused);
+    break;
+  case 3:
+    m_proxy->setStatusFilter(StrategyState::Stopped);
+    break;
+  default:
+    m_proxy->clearStatusFilter();
+    break;
+  }
+}
+
+void StrategyManagerWindow::onInstanceAdded(const StrategyInstance &instance) {
+  m_model->addInstance(instance);
+  refreshStrategyTypes();
+  updateSummary();
+}
+
+void StrategyManagerWindow::onInstanceUpdated(
+    const StrategyInstance &instance) {
+  m_model->updateInstance(instance);
+  updateSummary();
+}
+
+void StrategyManagerWindow::onInstanceRemoved(qint64 instanceId) {
+  m_model->removeInstance(instanceId);
+  refreshStrategyTypes();
+  updateSummary();
+}
+
+void StrategyManagerWindow::onInstanceEdited(const StrategyInstance &instance) {
+  StrategyService::instance().modifyParameters(
+      instance.instanceId, instance.parameters, instance.stopLoss,
+      instance.target);
+  updateSummary();
+}
+
+void StrategyManagerWindow::updateSummary() {
+  int total = m_model->rowCount();
+  int running = 0;
+  double totalMtm = 0.0;
+  for (int i = 0; i < total; ++i) {
+    StrategyInstance inst = m_model->instanceAt(i);
+    if (inst.state == StrategyState::Running)
+      running++;
+    totalMtm += inst.mtm;
+  }
+
+  ui->SummaryLabel->setText(QString("Total: %1 | Running: %2 | Total P&L: %3")
+                                .arg(total)
+                                .arg(running)
+                                .arg(totalMtm, 0, 'f', 2));
+
+  if (totalMtm > 0)
+    ui->SummaryLabel->setStyleSheet("color: #4caf50;");
+  else if (totalMtm < 0)
+    ui->SummaryLabel->setStyleSheet("color: #f44336;");
+  else
+    ui->SummaryLabel->setStyleSheet("color: #AAAAAA;");
+}

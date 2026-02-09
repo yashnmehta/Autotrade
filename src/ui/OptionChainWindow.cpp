@@ -140,55 +140,59 @@ void OptionChainWindow::setupUI() {
   // Title
   m_titleLabel = new QLabel("NIFTY");
   m_titleLabel->setStyleSheet(
-      "QLabel { font-size: 18px; font-weight: bold; color: #FFFFFF; }");
+      "QLabel { font-size: 16px; font-weight: bold; color: #FFFFFF; }");
   headerLayout->addWidget(m_titleLabel);
 
   headerLayout->addStretch();
 
   // Symbol selection
   QLabel *symbolLabel = new QLabel("Symbol:");
-  symbolLabel->setStyleSheet("QLabel { color: #FFFFFF; }");
+  symbolLabel->setStyleSheet("QLabel { color: #FFFFFF; font-weight: bold; }");
   headerLayout->addWidget(symbolLabel);
 
   m_symbolCombo = new QComboBox();
   m_symbolCombo->setMinimumWidth(120);
   m_symbolCombo->setStyleSheet(
-      "QComboBox { background: #2A3A50; color: #FFFFFF; border: 1px solid "
-      "#3A4A60; padding: 5px; }"
+      "QComboBox { background: #252526; color: #FFFFFF; border: 1px solid "
+      "#3e3e42; padding: 4px; }"
       "QComboBox::drop-down { border: none; }"
-      "QComboBox::down-arrow { image: url(none); }");
+      "QComboBox QAbstractItemView { background-color: #252526; color: "
+      "#FFFFFF; selection-background-color: #094771; }");
   headerLayout->addWidget(m_symbolCombo);
 
   // Expiry selection
   QLabel *expiryLabel = new QLabel("Expiry:");
-  expiryLabel->setStyleSheet("QLabel { color: #FFFFFF; }");
+  expiryLabel->setStyleSheet("QLabel { color: #FFFFFF; font-weight: bold; }");
   headerLayout->addWidget(expiryLabel);
 
   m_expiryCombo = new QComboBox();
   m_expiryCombo->setMinimumWidth(120);
   m_expiryCombo->setStyleSheet(
-      "QComboBox { background: #2A3A50; color: #FFFFFF; border: 1px solid "
-      "#3A4A60; padding: 5px; }"
+      "QComboBox { background: #252526; color: #FFFFFF; border: 1px solid "
+      "#3e3e42; padding: 4px; }"
       "QComboBox::drop-down { border: none; }"
-      "QComboBox::down-arrow { image: url(none); }");
+      "QComboBox QAbstractItemView { background-color: #252526; color: "
+      "#FFFFFF; selection-background-color: #094771; }");
   headerLayout->addWidget(m_expiryCombo);
 
   // Refresh button
   m_refreshButton = new QPushButton("Refresh");
   m_refreshButton->setStyleSheet(
-      "QPushButton { background: #2A5A80; color: #FFFFFF; border: none; "
-      "padding: 6px 15px; border-radius: 3px; }"
-      "QPushButton:hover { background: #3A6A90; }"
-      "QPushButton:pressed { background: #1A4A70; }");
+      "QPushButton { background: #333333; color: #FFFFFF; border: 1px solid "
+      "#454545; "
+      "padding: 5px 12px; border-radius: 2px; }"
+      "QPushButton:hover { background: #3e3e42; }"
+      "QPushButton:pressed { background: #094771; }");
   headerLayout->addWidget(m_refreshButton);
 
   // Calculator button
   m_calculatorButton = new QPushButton("View Calculators");
   m_calculatorButton->setStyleSheet(
-      "QPushButton { background: #2A5A80; color: #FFFFFF; border: none; "
-      "padding: 6px 15px; border-radius: 3px; }"
-      "QPushButton:hover { background: #3A6A90; }"
-      "QPushButton:pressed { background: #1A4A70; }");
+      "QPushButton { background: #333333; color: #FFFFFF; border: 1px solid "
+      "#454545; "
+      "padding: 5px 12px; border-radius: 2px; }"
+      "QPushButton:hover { background: #3e3e42; }"
+      "QPushButton:pressed { background: #094771; }");
   headerLayout->addWidget(m_calculatorButton);
 
   mainLayout->addLayout(headerLayout);
@@ -199,6 +203,27 @@ void OptionChainWindow::setupUI() {
   QHBoxLayout *tableLayout = new QHBoxLayout();
   tableLayout->setSpacing(0);
   tableLayout->setContentsMargins(0, 0, 0, 0);
+
+  // Common Table Sheet
+  QString tableStyle = "QTableView {"
+                       "   background-color: #1e1e1e;"
+                       "   color: #cccccc;"
+                       "   gridline-color: #2d2d2d;"
+                       "   border: 1px solid #3e3e42;"
+                       "   selection-background-color: #094771;"
+                       "   selection-color: #ffffff;"
+                       "}"
+                       "QTableView::item {"
+                       "   padding: 4px;"
+                       "}"
+                       "QHeaderView::section {"
+                       "   background-color: #252526;"
+                       "   color: #858585;"
+                       "   padding: 4px;"
+                       "   border: 1px solid #3e3e42;"
+                       "   font-weight: bold;"
+                       "   font-size: 11px;"
+                       "}";
 
   // Call Table (Left)
   m_callTable = new QTableView();
@@ -212,22 +237,7 @@ void OptionChainWindow::setupUI() {
   m_callTable->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
   m_callTable->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
   m_callTable->viewport()->installEventFilter(this);
-  m_callTable->setStyleSheet("QTableView {"
-                             "   background-color: #1E2A38;"
-                             "   color: #FFFFFF;"
-                             "   gridline-color: #2A3A50;"
-                             "   border: 1px solid #3A4A60;"
-                             "}"
-                             "QTableView::item {"
-                             "   padding: 5px;"
-                             "}"
-                             "QHeaderView::section {"
-                             "   background-color: #2A3A50;"
-                             "   color: #FFFFFF;"
-                             "   padding: 6px;"
-                             "   border: 1px solid #3A4A60;"
-                             "   font-weight: bold;"
-                             "}");
+  m_callTable->setStyleSheet(tableStyle);
   tableLayout->addWidget(m_callTable, 4);
 
   // Strike Table (Center)
@@ -243,21 +253,22 @@ void OptionChainWindow::setupUI() {
   m_strikeTable->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
   m_strikeTable->viewport()->installEventFilter(this);
   m_strikeTable->setStyleSheet("QTableView {"
-                               "   background-color: #2A3A50;"
-                               "   color: #FFFF00;"
-                               "   gridline-color: #3A4A60;"
-                               "   border: 1px solid #3A4A60;"
+                               "   background-color: #252526;"
+                               "   color: #ffffff;"
+                               "   gridline-color: #2d2d2d;"
+                               "   border: 1px solid #3e3e42;"
                                "   font-weight: bold;"
-                               "   font-size: 13px;"
+                               "   font-size: 12px;"
+                               "   selection-background-color: #094771;"
                                "}"
                                "QTableView::item {"
-                               "   padding: 5px;"
+                               "   padding: 4px;"
                                "}"
                                "QHeaderView::section {"
-                               "   background-color: #3A4A60;"
-                               "   color: #FFFFFF;"
-                               "   padding: 6px;"
-                               "   border: 1px solid #4A5A70;"
+                               "   background-color: #2d2d2d;"
+                               "   color: #cccccc;"
+                               "   padding: 4px;"
+                               "   border: 1px solid #3e3e42;"
                                "   font-weight: bold;"
                                "}");
   tableLayout->addWidget(m_strikeTable, 1);
@@ -274,28 +285,13 @@ void OptionChainWindow::setupUI() {
   m_putTable->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
   m_putTable->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
   m_putTable->viewport()->installEventFilter(this);
-  m_putTable->setStyleSheet("QTableView {"
-                            "   background-color: #1E2A38;"
-                            "   color: #FFFFFF;"
-                            "   gridline-color: #2A3A50;"
-                            "   border: 1px solid #3A4A60;"
-                            "}"
-                            "QTableView::item {"
-                            "   padding: 5px;"
-                            "}"
-                            "QHeaderView::section {"
-                            "   background-color: #2A3A50;"
-                            "   color: #FFFFFF;"
-                            "   padding: 6px;"
-                            "   border: 1px solid #3A4A60;"
-                            "   font-weight: bold;"
-                            "}");
+  m_putTable->setStyleSheet(tableStyle);
   tableLayout->addWidget(m_putTable, 4);
 
   mainLayout->addLayout(tableLayout);
 
   // Set main widget style
-  setStyleSheet("QWidget { background-color: #1E2A38; }");
+  setStyleSheet("QWidget { background-color: #1e1e1e; }");
 }
 
 void OptionChainWindow::setupModels() {

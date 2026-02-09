@@ -10,14 +10,82 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QMap>
+#include <QPainter>
 #include <QPushButton>
 #include <QScrollBar>
+#include <QStandardItem>
 #include <QStandardItemModel>
 #include <QStyledItemDelegate>
 #include <QTableView>
 #include <QToolBar>
 #include <QVBoxLayout>
 #include <QWidget>
+
+/**
+ * @brief Custom delegate for color-coding cells based on value changes
+ */
+class ATMWatchDelegate : public QStyledItemDelegate {
+  Q_OBJECT
+public:
+  explicit ATMWatchDelegate(bool isMiddle = false, QObject *parent = nullptr)
+      : QStyledItemDelegate(parent), m_isMiddle(isMiddle) {}
+
+  void paint(QPainter *painter, const QStyleOptionViewItem &option,
+             const QModelIndex &index) const override {
+    painter->save();
+
+    // Check for dynamic tick update color
+    int direction = index.data(Qt::UserRole + 1).toInt();
+    QColor bgColor = Qt::transparent;
+
+    if (direction == 1) {
+      bgColor = QColor("#0000FF"); // Blue for Up
+    } else if (direction == 2) {
+      bgColor = QColor("#FF0000"); // Red for Down
+    }
+
+    if (bgColor != Qt::transparent) {
+      painter->fillRect(option.rect, bgColor);
+    } else if (option.state & QStyle::State_Selected) {
+      painter->fillRect(option.rect, QColor("#3A5A70"));
+    } else if (m_isMiddle) {
+      painter->fillRect(option.rect,
+                        QColor("#222222")); // Slightly greyer for middle
+    }
+
+    // Draw text
+    QString text = index.data(Qt::DisplayRole).toString();
+    QColor textColor = Qt::white;
+
+    // Change color logic (for Chng column)
+    QString headerText =
+        index.model()->headerData(index.column(), Qt::Horizontal).toString();
+    if (headerText == "Chg") {
+      bool ok;
+      double value = text.toDouble(&ok);
+      if (ok && value != 0.0) {
+        textColor = (value > 0) ? QColor("#00FF00") : QColor("#FF4444");
+      }
+    }
+
+    // Specific highlight for LTP, Bid, Ask
+    if (headerText == "LTP" || headerText == "Bid" || headerText == "Ask" ||
+        headerText == "Spot/Fut") {
+      // Already handled by bgColor if direction is set
+    } else {
+      // For other columns, we might NOT want the blue/red background if it's
+      // too noisy But the user asked for background changes for values.
+    }
+
+    painter->setPen(textColor);
+    painter->drawText(option.rect, Qt::AlignCenter, text);
+
+    painter->restore();
+  }
+
+private:
+  bool m_isMiddle;
+};
 
 /**
  * @brief Professional ATM Watch Window
@@ -65,6 +133,9 @@ private:
   void openOptionChain(const QString &symbol,
                        const QString &expiry); // Open option chain window
   void sortATMList(QVector<ATMWatchManager::ATMInfo> &list); // Sort helper
+  void updateItemWithColor(QStandardItemModel *model, int row, int col,
+                           double newValue,
+                           int precision = 2); // Color helper
 
   // Sort State
   int m_sortColumn = 0; // Default: Symbol
@@ -95,6 +166,11 @@ private:
   QStandardItemModel *m_symbolModel;
   QStandardItemModel *m_putModel;
 
+  // Delegates
+  ATMWatchDelegate *m_callDelegate;
+  ATMWatchDelegate *m_putDelegate;
+  ATMWatchDelegate *m_symbolDelegate;
+
   // Logic storage
   QMap<QString, int> m_symbolToRow;
   QMap<int64_t, std::pair<QString, bool>>
@@ -111,10 +187,7 @@ private:
   QTimer *m_basePriceTimer;
 
   enum CallCols {
-    CALL_LTP = 0,
-    CALL_CHG,
-    CALL_BID,
-    CALL_ASK,
+    CALL_CHG = 0,
     CALL_VOL,
     CALL_OI,
     CALL_IV,
@@ -122,14 +195,14 @@ private:
     CALL_GAMMA,
     CALL_VEGA,
     CALL_THETA,
+    CALL_LTP,
+    CALL_BID,
+    CALL_ASK,
     CALL_COUNT
   };
   enum SymbolCols { SYM_NAME = 0, SYM_PRICE, SYM_ATM, SYM_EXPIRY, SYM_COUNT };
   enum PutCols {
-    PUT_BID = 0,
-    PUT_ASK,
-    PUT_LTP,
-    PUT_CHG,
+    PUT_CHG = 0,
     PUT_VOL,
     PUT_OI,
     PUT_IV,
@@ -137,6 +210,9 @@ private:
     PUT_GAMMA,
     PUT_VEGA,
     PUT_THETA,
+    PUT_LTP,
+    PUT_BID,
+    PUT_ASK,
     PUT_COUNT
   };
 };

@@ -18,6 +18,7 @@
 #include <QHeaderView>
 #include <QMenu>
 #include <QScrollBar>
+#include <QStandardItem>
 #include <QWheelEvent>
 #include <QtConcurrent>
 
@@ -52,13 +53,13 @@ void ATMWatchWindow::setupUI() {
   // Toolbar at Top
   m_toolbar = new QToolBar(this);
   m_toolbar->setStyleSheet(
-      "QToolBar { background-color: #2A3A50; border: 1px solid #3A4A60; "
+      "QToolBar { background-color: #252526; border: 1px solid #3e3e42; "
       "padding: 2px; }"
-      "QToolButton { background-color: #2A3A50; color: #FFFFFF; border: 1px "
-      "solid #3A4A60; "
+      "QToolButton { background-color: #252526; color: #FFFFFF; border: 1px "
+      "solid #3e3e42; "
       "padding: 4px 8px; margin: 2px; }"
-      "QToolButton:hover { background-color: #3A4A60; }"
-      "QToolButton:pressed { background-color: #4A5A70; }");
+      "QToolButton:hover { background-color: #3e3e42; }"
+      "QToolButton:pressed { background-color: #094771; }");
 
   QAction *settingsAction = m_toolbar->addAction("⚙ Settings");
   connect(settingsAction, &QAction::triggered, this,
@@ -80,11 +81,11 @@ void ATMWatchWindow::setupUI() {
   m_exchangeCombo = new QComboBox();
   m_exchangeCombo->addItems({"NSE", "BSE"});
   m_exchangeCombo->setStyleSheet(
-      "QComboBox { background-color: #2A3A50; color: #FFFFFF; border: 1px "
-      "solid #3A4A60; padding: 4px; }"
+      "QComboBox { background-color: #252526; color: #FFFFFF; border: 1px "
+      "solid #3e3e42; padding: 4px; }"
       "QComboBox::drop-down { border: none; }"
-      "QComboBox QAbstractItemView { background-color: #2A3A50; color: "
-      "#FFFFFF; selection-background-color: #3A4A60; }");
+      "QComboBox QAbstractItemView { background-color: #252526; color: "
+      "#FFFFFF; selection-background-color: #094771; }");
   m_exchangeCombo->setMinimumWidth(80);
 
   // Expiry Selection
@@ -93,16 +94,16 @@ void ATMWatchWindow::setupUI() {
   m_expiryCombo = new QComboBox();
   m_expiryCombo->addItem("Current (Nearest)", "CURRENT");
   m_expiryCombo->setStyleSheet(
-      "QComboBox { background-color: #2A3A50; color: #FFFFFF; border: 1px "
-      "solid #3A4A60; padding: 4px; }"
+      "QComboBox { background-color: #252526; color: #FFFFFF; border: 1px "
+      "solid #3e3e42; padding: 4px; }"
       "QComboBox::drop-down { border: none; }"
-      "QComboBox QAbstractItemView { background-color: #2A3A50; color: "
-      "#FFFFFF; selection-background-color: #3A4A60; }");
+      "QComboBox QAbstractItemView { background-color: #252526; color: "
+      "#FFFFFF; selection-background-color: #094771; }");
   m_expiryCombo->setMinimumWidth(150);
 
   // Status Label
   m_statusLabel = new QLabel("Loading...");
-  m_statusLabel->setStyleSheet("color: #AAAAAA; font-style: italic;");
+  m_statusLabel->setStyleSheet("color: #858585; font-style: italic;");
 
   filterLayout->addWidget(exchangeLabel);
   filterLayout->addWidget(m_exchangeCombo);
@@ -128,10 +129,10 @@ void ATMWatchWindow::setupUI() {
     table->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     table->viewport()->installEventFilter(this);
     table->setStyleSheet(
-        "QTableView { background-color: #1E2A38; color: #FFFFFF; "
-        "gridline-color: #2A3A50; border: 1px solid #3A4A60; }"
-        "QHeaderView::section { background-color: #2A3A50; color: #FFFFFF; "
-        "padding: 4px; border: 1px solid #3A4A60; font-weight: bold; }");
+        "QTableView { background-color: #1e1e1e; color: #FFFFFF; "
+        "gridline-color: #2d2d2d; border: 1px solid #3e3e42; }"
+        "QHeaderView::section { background-color: #252526; color: #858585; "
+        "padding: 4px; border: 1px solid #3e3e42; font-weight: bold; }");
   };
 
   m_callTable = new QTableView();
@@ -145,7 +146,7 @@ void ATMWatchWindow::setupUI() {
   // Symbols table (Middle) should show vertical scrollbar
   m_symbolTable->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
   m_symbolTable->setStyleSheet(m_symbolTable->styleSheet() +
-                               "QTableView { color: #FFFF00; }");
+                               "QTableView { color: #00A1FF; }");
 
   tableLayout->addWidget(m_callTable, 2);
   tableLayout->addWidget(m_symbolTable, 1);
@@ -158,17 +159,20 @@ void ATMWatchWindow::setupUI() {
           &ATMWatchWindow::onHeaderClicked);
 
   mainLayout->addLayout(tableLayout);
-  setStyleSheet("QWidget { background-color: #1E2A38; }");
+  setStyleSheet("QWidget { background-color: #1e1e1e; }");
 }
 
 void ATMWatchWindow::setupModels() {
   m_callModel = new QStandardItemModel(this);
   m_callModel->setColumnCount(CALL_COUNT);
-  m_callModel->setHorizontalHeaderLabels({"LTP", "Chg", "Bid", "Ask", "Vol",
-                                          "OI", "IV", "Delta", "Gamma", "Vega",
-                                          "Theta"});
+  m_callModel->setHorizontalHeaderLabels({"Chg", "Vol", "OI", "IV", "Delta",
+                                          "Gamma", "Vega", "Theta", "LTP",
+                                          "Bid", "Ask"});
   m_callTable->setModel(m_callModel);
   m_callTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+
+  m_callDelegate = new ATMWatchDelegate(false, this);
+  m_callTable->setItemDelegate(m_callDelegate);
 
   m_symbolModel = new QStandardItemModel(this);
   m_symbolModel->setColumnCount(SYM_COUNT);
@@ -177,13 +181,46 @@ void ATMWatchWindow::setupModels() {
   m_symbolTable->setModel(m_symbolModel);
   m_symbolTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
 
+  m_symbolDelegate = new ATMWatchDelegate(true, this);
+  m_symbolTable->setItemDelegate(m_symbolDelegate);
+
   m_putModel = new QStandardItemModel(this);
   m_putModel->setColumnCount(PUT_COUNT);
-  m_putModel->setHorizontalHeaderLabels({"Bid", "Ask", "LTP", "Chg", "Vol",
-                                         "OI", "IV", "Delta", "Gamma", "Vega",
-                                         "Theta"});
+  m_putModel->setHorizontalHeaderLabels({"Chg", "Vol", "OI", "IV", "Delta",
+                                         "Gamma", "Vega", "Theta", "LTP", "Bid",
+                                         "Ask"});
   m_putTable->setModel(m_putModel);
   m_putTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+
+  m_putDelegate = new ATMWatchDelegate(false, this);
+  m_putTable->setItemDelegate(m_putDelegate);
+}
+
+void ATMWatchWindow::updateItemWithColor(QStandardItemModel *model, int row,
+                                         int col, double newValue,
+                                         int precision) {
+  if (!model || row < 0 || col < 0)
+    return;
+
+  QStandardItem *item = model->item(row, col);
+  if (!item) {
+    item = new QStandardItem();
+    model->setItem(row, col, item);
+  }
+
+  double oldValue = item->text().toDouble();
+  item->setText(QString::number(newValue, 'f', precision));
+
+  if (oldValue > 0 && newValue > oldValue) {
+    item->setData(1, Qt::UserRole + 1);
+  } else if (oldValue > 0 && newValue < oldValue) {
+    item->setData(2, Qt::UserRole + 1);
+  } else {
+    // Keep color for a short duration? Or reset?
+    // For now reset if strictly equal but was different
+    if (newValue != oldValue)
+      item->setData(0, Qt::UserRole + 1);
+  }
 }
 
 void ATMWatchWindow::setupConnections() {
@@ -307,6 +344,7 @@ void ATMWatchWindow::refreshData() {
   m_symbolToRow.clear();
   m_underlyingToRow.clear();
   m_underlyingTokenToSymbol.clear();
+  m_previousATMData.clear();
 
   m_callModel->setRowCount(0);
   m_symbolModel->setRowCount(0);
@@ -452,8 +490,7 @@ void ATMWatchWindow::updateDataIncrementally() {
                             oldInfo.atmStrike != newInfo.atmStrike;
 
     if (basePriceChanged) {
-      m_symbolModel->setData(m_symbolModel->index(row, SYM_PRICE),
-                             QString::number(newInfo.basePrice, 'f', 2));
+      updateItemWithColor(m_symbolModel, row, SYM_PRICE, newInfo.basePrice);
     }
     if (atmStrikeChanged) {
       m_symbolModel->setData(m_symbolModel->index(row, SYM_ATM),
@@ -554,8 +591,7 @@ void ATMWatchWindow::updateDataIncrementally() {
       // Populate Symbol Table
       m_symbolModel->setData(m_symbolModel->index(row, SYM_NAME),
                              newInfo.symbol);
-      m_symbolModel->setData(m_symbolModel->index(row, SYM_PRICE),
-                             QString::number(newInfo.basePrice, 'f', 2));
+      updateItemWithColor(m_symbolModel, row, SYM_PRICE, newInfo.basePrice);
       m_symbolModel->setData(m_symbolModel->index(row, SYM_ATM),
                              QString::number(newInfo.atmStrike, 'f', 2));
       m_symbolModel->setData(m_symbolModel->index(row, SYM_EXPIRY),
@@ -608,9 +644,6 @@ void ATMWatchWindow::updateDataIncrementally() {
     }
   }
 
-  // Step 3: Update previous data for next comparison
-  m_previousATMData = newATMData;
-
   // Step 4: Robust Reconciliation of Underlying Tokens
   // Instead of incremental diffs, we calculate the desired state and enforce
   // it.
@@ -638,7 +671,6 @@ void ATMWatchWindow::updateDataIncrementally() {
     m_underlyingTokenToSymbol.remove(token);
     feed.unsubscribe(1, token, this);
     feed.unsubscribe(2, token, this);
-    // qDebug() << "[ATMWatch] Unsubscribed stale underlying token:" << token;
   }
 
   // D. Subscribe new tokens (in desired map but not in current)
@@ -651,13 +683,7 @@ void ATMWatchWindow::updateDataIncrementally() {
       feed.subscribe(1, token, this, &ATMWatchWindow::onTickUpdate);
       feed.subscribe(2, token, this, &ATMWatchWindow::onTickUpdate);
 
-      if (symbol == "RELIANCE") {
-        qDebug() << "[ATMWatch] RELIANCE Subscribed to underlying token:"
-                 << token;
-      }
-
       // Force an initial update if available
-      // Try segment 1 (Cash) or 2 (Future)
       auto state = MarketData::PriceStoreGateway::instance().getUnifiedSnapshot(
           1, token);
       if (state.token == 0)
@@ -665,12 +691,16 @@ void ATMWatchWindow::updateDataIncrementally() {
             2, token);
 
       if (state.token != 0) {
-        m_symbolModel->setData(
-            m_symbolModel->index(m_symbolToRow[symbol], SYM_PRICE),
-            QString::number(state.ltp, 'f', 2));
+        int targetRow = m_symbolToRow.value(symbol, -1);
+        if (targetRow >= 0 && targetRow < m_symbolModel->rowCount()) {
+          updateItemWithColor(m_symbolModel, targetRow, SYM_PRICE, state.ltp);
+        }
       }
     }
   }
+
+  // Step 5: Final sync of internal state
+  m_previousATMData = newATMData;
 }
 
 void ATMWatchWindow::onATMUpdated() {
@@ -698,10 +728,9 @@ void ATMWatchWindow::onTickUpdate(const UDP::MarketTick &tick) {
     // Case 1: Option Token Update
     const auto &info = m_tokenToInfo[tick.token];
     symbol = info.first;
-    if (!m_symbolToRow.contains(symbol))
+    int row = m_symbolToRow.value(symbol, -1);
+    if (row < 0 || row >= m_symbolModel->rowCount())
       return;
-
-    int row = m_symbolToRow[symbol];
 
     // Throttle UI updates (limit to 10fps per row)
     // using QElapsedTimer/QTime checks if needed
@@ -712,24 +741,19 @@ void ATMWatchWindow::onTickUpdate(const UDP::MarketTick &tick) {
     int colPrice = isCall ? CALL_LTP : PUT_LTP;
 
     // Update LTP
-    model->setData(model->index(row, colPrice),
-                   QString::number(tick.ltp, 'f', 2));
+    updateItemWithColor(model, row, colPrice, tick.ltp);
 
     // Update other fields
     if (isCall) { // Call
-      m_callModel->setData(m_callModel->index(row, CALL_BID),
-                           QString::number(tick.bestBid(), 'f', 2));
-      m_callModel->setData(m_callModel->index(row, CALL_ASK),
-                           QString::number(tick.bestAsk(), 'f', 2));
+      updateItemWithColor(m_callModel, row, CALL_BID, tick.bestBid());
+      updateItemWithColor(m_callModel, row, CALL_ASK, tick.bestAsk());
       m_callModel->setData(m_callModel->index(row, CALL_VOL),
                            QString::number(tick.volume));
       m_callModel->setData(m_callModel->index(row, CALL_OI),
                            QString::number(tick.openInterest));
     } else { // Put
-      m_putModel->setData(m_putModel->index(row, PUT_BID),
-                          QString::number(tick.bestBid(), 'f', 2));
-      m_putModel->setData(m_putModel->index(row, PUT_ASK),
-                          QString::number(tick.bestAsk(), 'f', 2));
+      updateItemWithColor(m_putModel, row, PUT_BID, tick.bestBid());
+      updateItemWithColor(m_putModel, row, PUT_ASK, tick.bestAsk());
       m_putModel->setData(m_putModel->index(row, PUT_VOL),
                           QString::number(tick.volume));
       m_putModel->setData(m_putModel->index(row, PUT_OI),
@@ -739,19 +763,11 @@ void ATMWatchWindow::onTickUpdate(const UDP::MarketTick &tick) {
   } else if (m_underlyingTokenToSymbol.contains(tick.token)) {
     // Case 2: Underlying Token Update ("Spot/Fut")
     symbol = m_underlyingTokenToSymbol[tick.token];
-    if (!m_symbolToRow.contains(symbol))
+    int row = m_symbolToRow.value(symbol, -1);
+    if (row < 0 || row >= m_symbolModel->rowCount())
       return;
 
-    int row = m_symbolToRow[symbol];
-
-    // DEBUG: Trace updates for RELIANCE
-    // if (symbol == "RELIANCE") {
-    //   qDebug() << "[ATMWatch] RELIANCE update from token:" << tick.token
-    //            << "Price:" << tick.ltp << "Row:" << row;
-    // }
-
-    m_symbolModel->setData(m_symbolModel->index(row, SYM_PRICE),
-                           QString::number(tick.ltp, 'f', 2));
+    updateItemWithColor(m_symbolModel, row, SYM_PRICE, tick.ltp);
   }
 }
 
@@ -823,13 +839,10 @@ void ATMWatchWindow::loadAllSymbols() {
     // Note: Actual subscription happens automatically via FeedHandler
     // when ATMWatchManager calls fetchBasePrice() during calculation
 
-    // Clear existing ATM watches (on main thread)
+    // Clear ALL ATM watches (on main thread)
     QMetaObject::invokeMethod(
         &ATMWatchManager::getInstance(),
-        [this]() {
-          ATMWatchManager::getInstance().removeWatch("NIFTY");
-          ATMWatchManager::getInstance().removeWatch("BANKNIFTY");
-        },
+        []() { ATMWatchManager::getInstance().clearAllWatches(); },
         Qt::QueuedConnection);
 
     // Step 5: Prepare watch configs for all symbols with appropriate expiry
@@ -858,8 +871,7 @@ void ATMWatchWindow::loadAllSymbols() {
 
     qDebug() << "[ATMWatch] Prepared" << watchConfigs.size() << "watch configs";
 
-    // Step 6: Add all watches in batch (on main thread) to avoid N × N
-    // calculations
+    // Step 6: Add all watches in batch (on main thread)
     QMetaObject::invokeMethod(
         &ATMWatchManager::getInstance(),
         [watchConfigs]() {
@@ -960,19 +972,17 @@ void ATMWatchWindow::updateBasePrices() {
       continue;
 
     int row = m_symbolToRow.value(info.symbol, -1);
-    if (row < 0)
-      continue;
+    if (row >= 0 && row < m_symbolModel->rowCount()) {
+      // Update the base price (LTP) column
+      updateItemWithColor(m_symbolModel, row, SYM_PRICE, info.basePrice);
 
-    // Update the base price (LTP) column
-    m_symbolModel->setData(m_symbolModel->index(row, SYM_PRICE),
-                           QString::number(info.basePrice, 'f', 2));
-
-    // Also update ATM strike if it changed
-    double currentATM =
-        m_symbolModel->data(m_symbolModel->index(row, SYM_ATM)).toDouble();
-    if (qAbs(currentATM - info.atmStrike) > 0.01) {
-      m_symbolModel->setData(m_symbolModel->index(row, SYM_ATM),
-                             QString::number(info.atmStrike, 'f', 2));
+      // Also update ATM strike if it changed
+      double currentATM =
+          m_symbolModel->data(m_symbolModel->index(row, SYM_ATM)).toDouble();
+      if (qAbs(currentATM - info.atmStrike) > 0.01) {
+        m_symbolModel->setData(m_symbolModel->index(row, SYM_ATM),
+                               QString::number(info.atmStrike, 'f', 2));
+      }
     }
   }
 }

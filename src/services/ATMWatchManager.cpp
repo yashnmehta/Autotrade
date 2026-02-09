@@ -8,6 +8,7 @@
 #include <QDebug>
 #include <QSet>
 #include <QtConcurrent>
+#include <atomic>
 
 ATMWatchManager &ATMWatchManager::getInstance() {
   static ATMWatchManager instance;
@@ -132,6 +133,16 @@ void ATMWatchManager::removeWatch(const QString &symbol) {
   m_results.remove(symbol);
 }
 
+void ATMWatchManager::clearAllWatches() {
+  std::unique_lock lock(m_mutex);
+  m_configs.clear();
+  m_results.clear();
+  m_tokenToSymbol.clear();
+  m_lastTriggerPrice.clear();
+  m_threshold.clear();
+  m_previousATMStrike.clear();
+}
+
 QVector<ATMWatchManager::ATMInfo> ATMWatchManager::getATMWatchArray() const {
   std::shared_lock lock(m_mutex);
   QVector<ATMInfo> result;
@@ -154,6 +165,18 @@ void ATMWatchManager::onMinuteTimer() {
 }
 
 void ATMWatchManager::calculateAll() {
+  // P2: Prevent concurrent calculations to reduce CPU load
+  static std::atomic<bool> isCalculating{false};
+  if (isCalculating.exchange(true)) {
+    return;
+  }
+
+  // Use RAII to ensure flag is reset even on early return
+  struct Guard {
+    std::atomic<bool> &flag;
+    ~Guard() { flag.store(false); }
+  } guard{isCalculating};
+
   std::unique_lock lock(m_mutex);
 
   auto repo = RepositoryManager::getInstance();

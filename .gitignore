@@ -75,3 +75,4 @@ build/build_log.txt
 #add batch files
 *.bat
 configs/config.ini
+ref_code
