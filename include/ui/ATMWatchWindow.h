@@ -31,6 +31,9 @@ public:
   explicit ATMWatchWindow(QWidget *parent = nullptr);
   ~ATMWatchWindow();
 
+  // Public Context Access for Global Shortcuts
+  WindowContext getCurrentContext();
+
 private slots:
   void onATMUpdated();
   void synchronizeScrollBars(int value);
@@ -68,7 +71,6 @@ private:
   Qt::SortOrder m_sortOrder = Qt::AscendingOrder;
 
   // Context & Key Handling
-  WindowContext getCurrentContext();
   void keyPressEvent(QKeyEvent *event) override;
 
   // UI Components - Toolbar

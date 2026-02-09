@@ -22,7 +22,11 @@ void SnapQuoteWindow::fetchQuote() {
     return;
 
   // Simplified segment mapping for demo
-  int segment = (m_exchange.contains("FO")) ? 2 : 1;
+  // Robust segment mapping
+  int segment =
+      RepositoryManager::getExchangeSegmentID(m_exchange, m_context.segment);
+  if (segment == -1)
+    segment = (m_exchange.contains("FO")) ? 2 : 1;
 
   // Connect to quote signal (use UniqueConnection to avoid duplicates)
   connect(
@@ -143,16 +147,11 @@ void SnapQuoteWindow::loadFromContext(const WindowContext &context,
   m_exchange = context.exchange;
   m_symbol = context.symbol;
 
-  // Subscribe to token (infer segment from exchange string)
-  int exchangeSegment = 2; // Default NSEFO
-  if (m_exchange.contains("NSECM") || m_exchange == "NSE")
-    exchangeSegment = 1;
-  else if (m_exchange.contains("NSEFO"))
-    exchangeSegment = 2;
-  else if (m_exchange.contains("BSECM"))
-    exchangeSegment = 11;
-  else if (m_exchange.contains("BSEFO"))
-    exchangeSegment = 12;
+  // Subscribe to token using robust segment detection
+  int exchangeSegment =
+      RepositoryManager::getExchangeSegmentID(m_exchange, context.segment);
+  if (exchangeSegment == -1)
+    exchangeSegment = 2; // Default NSEFO safety fallback
   subscribeToToken(exchangeSegment, m_token);
 
   // ⚡ CRITICAL OPTIMIZATION: Defer expensive ScripBar population until window
@@ -176,12 +175,9 @@ void SnapQuoteWindow::loadFromContext(const WindowContext &context,
     data.strikePrice = context.strikePrice;
     data.optionType = context.optionType;
 
-    // ⚡ ALWAYS defer ScripBar update to avoid blocking (happens async after
-    // show)
+    // ScripBar update deferred to avoid blocking
     m_pendingScripData = data;
     m_needsScripBarUpdate = true;
-    qDebug() << "[SnapQuoteWindow] ⚡ Queued ScripBar update for token:"
-             << m_token;
 
     // ⚡ If window is visible on-screen (not off-screen cache position),
     // trigger immediate async update
@@ -190,17 +186,12 @@ void SnapQuoteWindow::loadFromContext(const WindowContext &context,
 
     if (isVisible() && isOnScreen) {
       // Window is visible and on-screen - trigger immediate async update
-      qDebug() << "[SnapQuoteWindow] ⚡ Window on-screen, scheduling immediate "
-                  "ScripBar update";
       QTimer::singleShot(0, this, [this]() {
         if (m_scripBar && m_needsScripBarUpdate) {
           m_scripBar->setScripDetails(m_pendingScripData);
           m_needsScripBarUpdate = false;
-          qDebug() << "[SnapQuoteWindow] ⚡ ScripBar updated immediately";
         }
       });
-    } else {
-      qDebug() << "[SnapQuoteWindow] ⚡ Window off-screen, will update on show";
     }
   }
 
@@ -208,14 +199,12 @@ void SnapQuoteWindow::loadFromContext(const WindowContext &context,
   // Data will come from UDP broadcast within milliseconds of showing window
   // This avoids both API call (1-50ms) and GStore lookup (< 1ms but still
   // overhead)
-  if (!fetchFromAPI) {
-    qDebug() << "[SnapQuoteWindow] ⚡ Skipping data load - will receive UDP "
-                "update shortly";
-    // Just clear the fields, UDP will populate them
+  // Use GStore data for instant display while waiting for UDP pulses
+  if (!loadFromGStore()) {
     if (m_lbLTPPrice)
       m_lbLTPPrice->setText("--");
-    return; // Skip all data loading!
   }
+  return; // Skip API call load!
 
   // Only fetch if explicitly requested (non-cached first open)
   fetchQuote();
@@ -243,16 +232,11 @@ bool SnapQuoteWindow::loadFromGStore() {
     return false;
   }
 
-  // Convert exchange string to segment ID (same as MarketWatch does)
-  int segment = 1; // Default to NSECM
-  if (m_exchange == "NSEFO")
-    segment = 2;
-  else if (m_exchange == "NSECM")
-    segment = 1;
-  else if (m_exchange == "BSEFO")
-    segment = 12;
-  else if (m_exchange == "BSECM")
-    segment = 11;
+  // Robust segment mapping
+  int segment =
+      RepositoryManager::getExchangeSegmentID(m_exchange, m_context.segment);
+  if (segment == -1)
+    segment = (m_exchange.contains("FO")) ? 2 : 1;
 
   // ⚡ USE COMMON GSTORE FUNCTION (<1ms!) - THREAD SAFE SNAPSHOT
   // Same function MarketWatch, OptionChain use - no duplication!

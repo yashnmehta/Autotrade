@@ -8,9 +8,11 @@
 #include "nsecm_multicast_receiver.h"
 #include "utils/LockFreeQueue.h"
 class QRect;
+#include "models/WindowContext.h"
 #include <QString>
 #include <QTimer>
 #include <memory>
+
 
 class CustomMDIArea;
 class CustomMDISubWindow;
@@ -141,6 +143,9 @@ private:
 
   // Helper to get active MarketWatch for context
   class MarketWatchWindow *getActiveMarketWatch() const;
+
+  // Helper to get the best available window context
+  WindowContext getBestWindowContext() const;
 
   // Persist state
   void closeEvent(QCloseEvent *event) override;

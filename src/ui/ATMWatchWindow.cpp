@@ -271,6 +271,34 @@ void ATMWatchWindow::setupConnections() {
   // Initialize
   m_currentExchange = "NSE";
   populateCommonExpiries(m_currentExchange);
+
+  // Exclusive Selection Logic
+  // When one table is selected, clear selection in others to avoid context
+  // ambiguity
+  connect(m_callTable->selectionModel(), &QItemSelectionModel::selectionChanged,
+          this, [this](const QItemSelection &selected, const QItemSelection &) {
+            if (!selected.isEmpty()) {
+              m_putTable->clearSelection();
+              m_symbolTable->clearSelection();
+            }
+          });
+
+  connect(m_putTable->selectionModel(), &QItemSelectionModel::selectionChanged,
+          this, [this](const QItemSelection &selected, const QItemSelection &) {
+            if (!selected.isEmpty()) {
+              m_callTable->clearSelection();
+              m_symbolTable->clearSelection();
+            }
+          });
+
+  connect(m_symbolTable->selectionModel(),
+          &QItemSelectionModel::selectionChanged, this,
+          [this](const QItemSelection &selected, const QItemSelection &) {
+            if (!selected.isEmpty()) {
+              m_callTable->clearSelection();
+              m_putTable->clearSelection();
+            }
+          });
 }
 
 void ATMWatchWindow::refreshData() {
@@ -1188,9 +1216,18 @@ WindowContext ATMWatchWindow::getCurrentContext() {
 
   context.exchange = m_currentExchange;
   context.token = token;
-  context.symbol = contract.description; // Use description as trading symbol
+  context.symbol = contract.name; // Use underlying symbol name (e.g. NIFTY)
+  context.displayName =
+      contract.description; // Full description for UI title if needed
   context.segment = segment;
   context.series = contract.series;
+
+  // Populate Option Details
+  context.optionType = contract.optionType;
+  context.expiry = contract.expiryDate;
+  context.strikePrice = contract.strikePrice;
+  context.lotSize = contract.lotSize;
+  context.tickSize = contract.tickSize;
 
   // ✅ IMPROVED: Use series from contract if available, otherwise smart detect
   if (!contract.series.isEmpty()) {

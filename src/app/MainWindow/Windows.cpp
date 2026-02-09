@@ -84,6 +84,89 @@ void MainWindow::connectWindowSignals(CustomMDISubWindow *window) {
   }
 }
 
+WindowContext MainWindow::getBestWindowContext() const {
+  WindowContext context;
+  CustomMDISubWindow *activeSub =
+      m_mdiArea ? m_mdiArea->activeWindow() : nullptr;
+
+  // 1. Check if ACTIVE window is a Provider
+  if (activeSub) {
+    QString type = activeSub->windowType();
+    if (type == "ATMWatch") {
+      ATMWatchWindow *atm =
+          qobject_cast<ATMWatchWindow *>(activeSub->contentWidget());
+      if (atm)
+        context = atm->getCurrentContext();
+    } else if (type == "OptionChain") {
+      OptionChainWindow *oc =
+          qobject_cast<OptionChainWindow *>(activeSub->contentWidget());
+      if (oc)
+        context = oc->getSelectedContext();
+    } else if (type == "MarketWatch") {
+      MarketWatchWindow *mw =
+          qobject_cast<MarketWatchWindow *>(activeSub->contentWidget());
+      if (mw)
+        context = mw->getSelectedContractContext();
+    } else if (type == "PositionWindow") {
+      PositionWindow *pw =
+          qobject_cast<PositionWindow *>(activeSub->contentWidget());
+      if (pw)
+        context = pw->getSelectedContext();
+    } else if (type == "SnapQuote") {
+      SnapQuoteWindow *sq =
+          qobject_cast<SnapQuoteWindow *>(activeSub->contentWidget());
+      if (sq)
+        context = sq->getContext();
+    } else if (type == "BuyWindow" || type == "SellWindow") {
+      // ⚡ CRITICAL FIX: If an order window is active, take context from it!
+      // This allows F1 -> F2 (Buy -> Sell) transition to work perfectly.
+      BaseOrderWindow *orderWin =
+          qobject_cast<BaseOrderWindow *>(activeSub->contentWidget());
+      if (orderWin)
+        context = orderWin->getContext();
+    }
+  }
+
+  // 2. If no context from active window, search for ATM Watch anywhere
+  if (!context.isValid() && m_mdiArea) {
+    for (auto win : m_mdiArea->windowList()) {
+      if (win->windowType() == "ATMWatch") {
+        ATMWatchWindow *atm =
+            qobject_cast<ATMWatchWindow *>(win->contentWidget());
+        if (atm) {
+          context = atm->getCurrentContext();
+          if (context.isValid())
+            break;
+        }
+      }
+    }
+  }
+
+  // 3. Fallback to Option Chain anywhere
+  if (!context.isValid() && m_mdiArea) {
+    for (auto win : m_mdiArea->windowList()) {
+      if (win->windowType() == "OptionChain") {
+        OptionChainWindow *oc =
+            qobject_cast<OptionChainWindow *>(win->contentWidget());
+        if (oc) {
+          context = oc->getSelectedContext();
+          if (context.isValid())
+            break;
+        }
+      }
+    }
+  }
+
+  // 4. Final Fallback: Active or First Market Watch
+  if (!context.isValid()) {
+    MarketWatchWindow *mw = getActiveMarketWatch();
+    if (mw)
+      context = mw->getSelectedContractContext();
+  }
+
+  return context;
+}
+
 CustomMDISubWindow *MainWindow::createMarketWatch() {
   // ⏱️ PERFORMANCE LOG: Start timing market watch creation
   static int counter = 1;
@@ -171,10 +254,7 @@ CustomMDISubWindow *MainWindow::createBuyWindow() {
     activeMarketWatch->storeFocusedRow();
   }
 
-  WindowContext context;
-  if (activeMarketWatch && activeMarketWatch->hasValidSelection()) {
-    context = activeMarketWatch->getSelectedContractContext();
-  }
+  WindowContext context = getBestWindowContext();
 
   // Pass the active MarketWatch as the initiating window for focus restoration
   CustomMDISubWindow *cached = WindowCacheManager::instance().showBuyWindow(
@@ -195,51 +275,10 @@ CustomMDISubWindow *MainWindow::createBuyWindow() {
   // activeMarketWatch is already declared above
   BuyWindow *buyWindow = nullptr;
 
-  if (activeMarketWatch && activeMarketWatch->hasValidSelection()) {
-    WindowContext context = activeMarketWatch->getSelectedContractContext();
-    if (context.isValid()) {
-      buyWindow = new BuyWindow(context, window);
-    } else {
-      buyWindow = new BuyWindow(window);
-    }
+  if (context.isValid()) {
+    buyWindow = new BuyWindow(context, window);
   } else {
-    CustomMDISubWindow *activeSub =
-        m_mdiArea ? m_mdiArea->activeWindow() : nullptr;
-    if (activeSub) {
-      // Check for Snap Quote
-      SnapQuoteWindow *snap =
-          qobject_cast<SnapQuoteWindow *>(activeSub->contentWidget());
-      if (snap) {
-        WindowContext ctx = snap->getContext();
-        if (ctx.isValid()) {
-          buyWindow = new BuyWindow(ctx, window);
-        }
-      }
-      // Check for Position Window
-      else if (activeSub->windowType() == "PositionWindow") {
-        PositionWindow *pw =
-            qobject_cast<PositionWindow *>(activeSub->contentWidget());
-        if (pw) {
-          WindowContext ctx = pw->getSelectedContext();
-          if (ctx.isValid()) {
-            buyWindow = new BuyWindow(ctx, window);
-          }
-        }
-      }
-      // Check for Option Chain Window
-      else if (activeSub->windowType() == "OptionChain") {
-        OptionChainWindow *oc =
-            qobject_cast<OptionChainWindow *>(activeSub->contentWidget());
-        if (oc) {
-          WindowContext ctx = oc->getSelectedContext();
-          if (ctx.isValid()) {
-            buyWindow = new BuyWindow(ctx, window);
-          }
-        }
-      }
-    }
-    if (!buyWindow)
-      buyWindow = new BuyWindow(window);
+    buyWindow = new BuyWindow(window);
   }
 
   window->setContentWidget(buyWindow);
@@ -290,10 +329,7 @@ CustomMDISubWindow *MainWindow::createSellWindow() {
     activeMarketWatch->storeFocusedRow();
   }
 
-  WindowContext context;
-  if (activeMarketWatch && activeMarketWatch->hasValidSelection()) {
-    context = activeMarketWatch->getSelectedContractContext();
-  }
+  WindowContext context = getBestWindowContext();
 
   // Pass the active MarketWatch as the initiating window for focus restoration
   CustomMDISubWindow *cached = WindowCacheManager::instance().showSellWindow(
@@ -311,53 +347,12 @@ CustomMDISubWindow *MainWindow::createSellWindow() {
   CustomMDISubWindow *window = new CustomMDISubWindow("Sell Order", m_mdiArea);
   window->setWindowType("SellWindow");
 
-  // activeMarketWatch is already declared above
   SellWindow *sellWindow = nullptr;
 
-  if (activeMarketWatch && activeMarketWatch->hasValidSelection()) {
-    WindowContext context = activeMarketWatch->getSelectedContractContext();
-    if (context.isValid()) {
-      sellWindow = new SellWindow(context, window);
-    } else {
-      sellWindow = new SellWindow(window);
-    }
+  if (context.isValid()) {
+    sellWindow = new SellWindow(context, window);
   } else {
-    CustomMDISubWindow *activeSub =
-        m_mdiArea ? m_mdiArea->activeWindow() : nullptr;
-    if (activeSub) {
-      SnapQuoteWindow *snap =
-          qobject_cast<SnapQuoteWindow *>(activeSub->contentWidget());
-      if (snap) {
-        WindowContext ctx = snap->getContext();
-        if (ctx.isValid()) {
-          sellWindow = new SellWindow(ctx, window);
-        }
-      }
-      // Check for Position Window
-      else if (activeSub->windowType() == "PositionWindow") {
-        PositionWindow *pw =
-            qobject_cast<PositionWindow *>(activeSub->contentWidget());
-        if (pw) {
-          WindowContext ctx = pw->getSelectedContext();
-          if (ctx.isValid()) {
-            sellWindow = new SellWindow(ctx, window);
-          }
-        }
-      }
-      // Check for Option Chain Window
-      else if (activeSub->windowType() == "OptionChain") {
-        OptionChainWindow *oc =
-            qobject_cast<OptionChainWindow *>(activeSub->contentWidget());
-        if (oc) {
-          WindowContext ctx = oc->getSelectedContext();
-          if (ctx.isValid()) {
-            sellWindow = new SellWindow(ctx, window);
-          }
-        }
-      }
-    }
-    if (!sellWindow)
-      sellWindow = new SellWindow(window);
+    sellWindow = new SellWindow(window);
   }
 
   window->setContentWidget(sellWindow);
@@ -385,9 +380,7 @@ CustomMDISubWindow *MainWindow::createSellWindow() {
   connect(
       window, &CustomMDISubWindow::windowMoved, window,
       [](const QPoint &pos) {
-        QSettings s("TradingCompany", "TradingTerminal");
-        s.setValue("orderwindow/last_x", pos.x());
-        s.setValue("orderwindow/last_y", pos.y());
+        WindowCacheManager::instance().saveOrderWindowPosition(pos);
       },
       Qt::UniqueConnection);
 
@@ -407,21 +400,7 @@ CustomMDISubWindow *MainWindow::createSnapQuoteWindow() {
     activeMarketWatch->storeFocusedRow();
   }
 
-  WindowContext context;
-
-  if (activeMarketWatch && activeMarketWatch->hasValidSelection()) {
-    context = activeMarketWatch->getSelectedContractContext();
-  } else {
-    // Check active OptionChain/Position window for context
-    CustomMDISubWindow *activeSub =
-        m_mdiArea ? m_mdiArea->activeWindow() : nullptr;
-    if (activeSub && activeSub->windowType() == "OptionChain") {
-      OptionChainWindow *oc =
-          qobject_cast<OptionChainWindow *>(activeSub->contentWidget());
-      if (oc)
-        context = oc->getSelectedContext();
-    }
-  }
+  WindowContext context = getBestWindowContext();
 
   // ⭐ CHECK CACHE
   CustomMDISubWindow *cached =
@@ -499,6 +478,15 @@ CustomMDISubWindow *MainWindow::createSnapQuoteWindow() {
           qobject_cast<OptionChainWindow *>(activeSub->contentWidget());
       if (oc) {
         WindowContext ctx = oc->getSelectedContext();
+        if (ctx.isValid()) {
+          snapWindow = new SnapQuoteWindow(ctx, window);
+        }
+      }
+    } else if (activeSub && activeSub->windowType() == "ATMWatch") {
+      ATMWatchWindow *atm =
+          qobject_cast<ATMWatchWindow *>(activeSub->contentWidget());
+      if (atm) {
+        WindowContext ctx = atm->getCurrentContext();
         if (ctx.isValid()) {
           snapWindow = new SnapQuoteWindow(ctx, window);
         }

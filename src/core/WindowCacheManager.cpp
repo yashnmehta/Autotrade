@@ -16,7 +16,6 @@
 #include <QSettings>
 #include <QTimer>
 
-
 WindowCacheManager &WindowCacheManager::instance() {
   static WindowCacheManager instance;
   return instance;
@@ -196,8 +195,8 @@ void WindowCacheManager::createCachedWindows() {
                           WindowConstants::OFF_SCREEN_Y); // Stagger positions
     entry.mdiWindow->lower();
 
-    // ⚡ NOTE: SnapQuote now manages its own token-specific FeedHandler subscription
-    // No need for global broadcast connection (95% CPU reduction)
+    // ⚡ NOTE: SnapQuote now manages its own token-specific FeedHandler
+    // subscription No need for global broadcast connection (95% CPU reduction)
     // Connection happens in subscribeToToken() when token is set
 
     // Initialize entry metadata
@@ -287,7 +286,8 @@ int WindowCacheManager::findLeastRecentlyUsedSnapQuoteWindow() {
 }
 
 CustomMDISubWindow *
-WindowCacheManager::showBuyWindow(const WindowContext *context, QWidget* initiatingWindow) {
+WindowCacheManager::showBuyWindow(const WindowContext *context,
+                                  QWidget *initiatingWindow) {
   static int cacheHitCounter = 0;
   cacheHitCounter++;
   qDebug() << "[PERF] [CACHE_SHOW_BUY] #" << cacheHitCounter
@@ -300,11 +300,14 @@ WindowCacheManager::showBuyWindow(const WindowContext *context, QWidget* initiat
     qDebug() << "[WindowCacheManager] Buy window cache not available";
     return nullptr;
   }
-  
-  // Register with WindowManager, passing the initiating window for focus restoration
+
+  // Register with WindowManager, passing the initiating window for focus
+  // restoration
   if (initiatingWindow) {
-    WindowManager::instance().registerWindow(m_cachedBuyWindow, "Buy Window", initiatingWindow);
-    qDebug() << "[WindowCacheManager] Registered Buy window with initiating window";
+    WindowManager::instance().registerWindow(m_cachedBuyWindow, "Buy Window",
+                                             initiatingWindow);
+    qDebug()
+        << "[WindowCacheManager] Registered Buy window with initiating window";
   }
 
   qint64 t1 = timer.elapsed();
@@ -416,7 +419,8 @@ WindowCacheManager::showBuyWindow(const WindowContext *context, QWidget* initiat
 }
 
 CustomMDISubWindow *
-WindowCacheManager::showSellWindow(const WindowContext *context, QWidget* initiatingWindow) {
+WindowCacheManager::showSellWindow(const WindowContext *context,
+                                   QWidget *initiatingWindow) {
   static int cacheHitCounter = 0;
   cacheHitCounter++;
   qDebug() << "[PERF] [CACHE_SHOW_SELL] #" << cacheHitCounter
@@ -429,11 +433,14 @@ WindowCacheManager::showSellWindow(const WindowContext *context, QWidget* initia
     qDebug() << "[WindowCacheManager] Sell window cache not available";
     return nullptr;
   }
-  
-  // Register with WindowManager, passing the initiating window for focus restoration
+
+  // Register with WindowManager, passing the initiating window for focus
+  // restoration
   if (initiatingWindow) {
-    WindowManager::instance().registerWindow(m_cachedSellWindow, "Sell Window", initiatingWindow);
-    qDebug() << "[WindowCacheManager] Registered Sell window with initiating window";
+    WindowManager::instance().registerWindow(m_cachedSellWindow, "Sell Window",
+                                             initiatingWindow);
+    qDebug()
+        << "[WindowCacheManager] Registered Sell window with initiating window";
   }
 
   qint64 t1 = timer.elapsed();
@@ -544,7 +551,8 @@ WindowCacheManager::showSellWindow(const WindowContext *context, QWidget* initia
 }
 
 CustomMDISubWindow *
-WindowCacheManager::showSnapQuoteWindow(const WindowContext *context, QWidget* initiatingWindow) {
+WindowCacheManager::showSnapQuoteWindow(const WindowContext *context,
+                                        QWidget *initiatingWindow) {
   static int cacheHitCounter = 0;
   cacheHitCounter++;
   qDebug() << "[PERF] [CACHE_SHOW_SNAPQUOTE] #" << cacheHitCounter
@@ -568,151 +576,133 @@ WindowCacheManager::showSnapQuoteWindow(const WindowContext *context, QWidget* i
   int requestedToken = context ? context->token : -1;
   int selectedIndex = -1;
 
-  // ⚡ DEBUG: State of snap quote pool
-  qDebug() << "[WindowCacheManager] SnapQuote Pool Size:"
-           << m_snapQuoteWindows.size();
-  for (int i = 0; i < m_snapQuoteWindows.size(); i++) {
-    qDebug() << "  Window" << i
-             << ": isVisible=" << m_snapQuoteWindows[i].isVisible
-             << "lastToken=" << m_snapQuoteWindows[i].lastToken;
-  }
+  // Debug pool state only if really needed (removed for performance)
 
   // ⚡ STEP 1: Check if token is already displayed in any window (reuse same
   // window)
-  if (requestedToken != -1) {
-    for (int i = 0; i < m_snapQuoteWindows.size(); i++) {
-      if (m_snapQuoteWindows[i].lastToken == requestedToken &&
-          m_snapQuoteWindows[i].isVisible) {
-        selectedIndex = i;
-        qDebug() << "[WindowCacheManager] Token" << requestedToken
-                 << "already in window" << (i + 1) << "- reusing";
-        break;
+  selectedIndex = i;
+  break;
+}
+}
+}
+
+// ⚡ STEP 2: If not found, look for first unused window (not yet visible)
+selectedIndex = i;
+break;
+}
+}
+}
+
+// ⚡ STEP 3: All windows in use - find LRU
+if (selectedIndex == -1) {
+  selectedIndex = findLeastRecentlyUsedSnapQuoteWindow();
+}
+
+if (selectedIndex == -1) {
+  qWarning() << "[WindowCacheManager] Failed to select SnapQuote window!";
+  return nullptr;
+}
+
+auto &entry = m_snapQuoteWindows[selectedIndex];
+
+qint64 t1 = timer.elapsed();
+
+// Position window (cascade windows with offset)
+auto mdiArea = m_mainWindow->mdiArea();
+if (mdiArea) {
+  QSize mdiSize = mdiArea->size();
+  int x = (mdiSize.width() - 860) / 2 + (selectedIndex * 30); // Cascade offset
+  int y = (mdiSize.height() - 300) / 2 + (selectedIndex * 30);
+  entry.mdiWindow->move(x, y);
+}
+
+qint64 t2 = timer.elapsed();
+
+// Smart context loading: only reload if context changed or window needs reset
+if (context && (entry.needsReset || requestedToken != entry.lastToken)) {
+  // Context changed OR window was closed - need to reload
+  // ⚡ Pass false to skip XTS API call - use GStore data instead (MUCH
+  // faster!)
+  entry.window->loadFromContext(*context, false);
+  entry.lastToken = requestedToken;
+  entry.needsReset = false;
+  qDebug() << "[WindowCacheManager] Loaded NEW context for SnapQuote token:"
+           << requestedToken << "(no API call)";
+} else {
+  // Same context, window still has data - skip expensive reload!
+  qDebug() << "[WindowCacheManager] Skipping reload - same SnapQuote token:"
+           << requestedToken;
+}
+
+qint64 t3 = timer.elapsed();
+
+// Update LRU timestamp BEFORE showing (critical for next LRU calculation)
+entry.lastUsedTime = QDateTime::currentDateTime();
+entry.isVisible = true;
+
+// Register with WindowManager, passing the initiating window for focus
+// restoration
+if (initiatingWindow && entry.window) {
+  QString windowName =
+      QString("Window_%1").arg(reinterpret_cast<quintptr>(entry.window));
+  WindowManager::instance().registerWindow(entry.window, windowName,
+                                           initiatingWindow);
+  qDebug() << "[WindowCacheManager] Registered SnapQuote window"
+           << (selectedIndex + 1) << "with initiating window";
+}
+
+qint64 t4 = timer.elapsed();
+
+// ⚡ ULTRA-FAST PATH: Keep window visible, just reposition (no show/hide
+// overhead!)
+bool wasHidden = !entry.mdiWindow->isVisible();
+
+if (wasHidden) {
+  // First time showing after hide() - need to call show() once
+  entry.mdiWindow->show();
+  if (entry.window)
+    entry.window->show();
+  qDebug() << "[WindowCacheManager] ⚡ Window" << (selectedIndex + 1)
+           << "was hidden, calling show()";
+} else {
+  // Already visible (just repositioned)
+  qDebug() << "[WindowCacheManager] ⚡ Window" << (selectedIndex + 1)
+           << "already visible, instant reposition!";
+}
+
+qint64 t5 = timer.elapsed();
+
+// ⚡ Defer raise/activate to next event loop (ensures proper focus)
+QTimer::singleShot(0, this, [this, selectedIndex]() {
+  if (selectedIndex >= 0 && selectedIndex < m_snapQuoteWindows.size()) {
+    auto &e = m_snapQuoteWindows[selectedIndex];
+    if (e.mdiWindow) {
+      e.mdiWindow->raise();
+      e.mdiWindow->activateWindow();
+
+      // Set focus to content widget for keyboard input
+      if (e.window) {
+        e.window->setFocus();
+        e.window->activateWindow();
       }
     }
   }
+});
 
-  // ⚡ STEP 2: If not found, look for first unused window (not yet visible)
-  if (selectedIndex == -1) {
-    for (int i = 0; i < m_snapQuoteWindows.size(); i++) {
-      if (!m_snapQuoteWindows[i].isVisible) {
-        selectedIndex = i;
-        qDebug() << "[WindowCacheManager] Selected index" << i
-                 << "(Unused window)";
-        break;
-      }
-    }
-  }
+qint64 totalTime = timer.elapsed();
 
-  // ⚡ STEP 3: All windows in use - find LRU
-  if (selectedIndex == -1) {
-    selectedIndex = findLeastRecentlyUsedSnapQuoteWindow();
-    qDebug() << "[WindowCacheManager] Selected index" << selectedIndex
-             << "(LRU reuse)";
-  }
+qDebug() << "[WindowCacheManager] ⚡ SnapQuote window" << (selectedIndex + 1)
+         << "shown from cache";
+qDebug() << "[WindowCacheManager] Timing breakdown:";
+qDebug() << "  Window selection:" << t1 << "ms";
+qDebug() << "  Position restore:" << (t2 - t1) << "ms";
+qDebug() << "  Load context/reset (⚡ ScripBar deferred):" << (t3 - t2) << "ms";
+qDebug() << "  Update LRU timestamp:" << (t4 - t3) << "ms";
+qDebug() << "  Show/raise/activate:" << (t5 - t4) << "ms"
+         << (wasHidden ? " (show() called)" : " (instant!)");
+qDebug() << "  TOTAL:" << totalTime << "ms (⚡ Target: 10-20ms)";
 
-  if (selectedIndex == -1) {
-    qWarning() << "[WindowCacheManager] Failed to select SnapQuote window!";
-    return nullptr;
-  }
-
-  auto &entry = m_snapQuoteWindows[selectedIndex];
-
-  qint64 t1 = timer.elapsed();
-
-  // Position window (cascade windows with offset)
-  auto mdiArea = m_mainWindow->mdiArea();
-  if (mdiArea) {
-    QSize mdiSize = mdiArea->size();
-    int x =
-        (mdiSize.width() - 860) / 2 + (selectedIndex * 30); // Cascade offset
-    int y = (mdiSize.height() - 300) / 2 + (selectedIndex * 30);
-    entry.mdiWindow->move(x, y);
-  }
-
-  qint64 t2 = timer.elapsed();
-
-  // Smart context loading: only reload if context changed or window needs reset
-  if (context && (entry.needsReset || requestedToken != entry.lastToken)) {
-    // Context changed OR window was closed - need to reload
-    // ⚡ Pass false to skip XTS API call - use GStore data instead (MUCH
-    // faster!)
-    entry.window->loadFromContext(*context, false);
-    entry.lastToken = requestedToken;
-    entry.needsReset = false;
-    qDebug() << "[WindowCacheManager] Loaded NEW context for SnapQuote token:"
-             << requestedToken << "(no API call)";
-  } else {
-    // Same context, window still has data - skip expensive reload!
-    qDebug() << "[WindowCacheManager] Skipping reload - same SnapQuote token:"
-             << requestedToken;
-  }
-
-  qint64 t3 = timer.elapsed();
-
-  // Update LRU timestamp BEFORE showing (critical for next LRU calculation)
-  entry.lastUsedTime = QDateTime::currentDateTime();
-  entry.isVisible = true;
-  
-  // Register with WindowManager, passing the initiating window for focus restoration
-  if (initiatingWindow && entry.window) {
-    QString windowName = QString("Window_%1").arg(reinterpret_cast<quintptr>(entry.window));
-    WindowManager::instance().registerWindow(entry.window, windowName, initiatingWindow);
-    qDebug() << "[WindowCacheManager] Registered SnapQuote window" << (selectedIndex + 1) << "with initiating window";
-  }
-
-  qint64 t4 = timer.elapsed();
-
-  // ⚡ ULTRA-FAST PATH: Keep window visible, just reposition (no show/hide
-  // overhead!)
-  bool wasHidden = !entry.mdiWindow->isVisible();
-
-  if (wasHidden) {
-    // First time showing after hide() - need to call show() once
-    entry.mdiWindow->show();
-    if (entry.window)
-      entry.window->show();
-    qDebug() << "[WindowCacheManager] ⚡ Window" << (selectedIndex + 1)
-             << "was hidden, calling show()";
-  } else {
-    // Already visible (just repositioned)
-    qDebug() << "[WindowCacheManager] ⚡ Window" << (selectedIndex + 1)
-             << "already visible, instant reposition!";
-  }
-
-  qint64 t5 = timer.elapsed();
-
-  // ⚡ Defer raise/activate to next event loop (ensures proper focus)
-  QTimer::singleShot(0, this, [this, selectedIndex]() {
-    if (selectedIndex >= 0 && selectedIndex < m_snapQuoteWindows.size()) {
-      auto &e = m_snapQuoteWindows[selectedIndex];
-      if (e.mdiWindow) {
-        e.mdiWindow->raise();
-        e.mdiWindow->activateWindow();
-
-        // Set focus to content widget for keyboard input
-        if (e.window) {
-          e.window->setFocus();
-          e.window->activateWindow();
-        }
-      }
-    }
-  });
-
-  qint64 totalTime = timer.elapsed();
-
-  qDebug() << "[WindowCacheManager] ⚡ SnapQuote window" << (selectedIndex + 1)
-           << "shown from cache";
-  qDebug() << "[WindowCacheManager] Timing breakdown:";
-  qDebug() << "  Window selection:" << t1 << "ms";
-  qDebug() << "  Position restore:" << (t2 - t1) << "ms";
-  qDebug() << "  Load context/reset (⚡ ScripBar deferred):" << (t3 - t2)
-           << "ms";
-  qDebug() << "  Update LRU timestamp:" << (t4 - t3) << "ms";
-  qDebug() << "  Show/raise/activate:" << (t5 - t4) << "ms"
-           << (wasHidden ? " (show() called)" : " (instant!)");
-  qDebug() << "  TOTAL:" << totalTime << "ms (⚡ Target: 10-20ms)";
-
-  return entry.mdiWindow;
+return entry.mdiWindow;
 }
 
 void WindowCacheManager::markSnapQuoteWindowClosed(int windowIndex) {
@@ -724,7 +714,7 @@ void WindowCacheManager::markSnapQuoteWindowClosed(int windowIndex) {
 
     qDebug() << "[WindowCacheManager] SnapQuote window" << (windowIndex + 1)
              << "marked as closed (available for reuse)";
-    
+
     // Note: We don't unregister from WindowManager here because cached windows
     // are not actually destroyed - just moved off-screen. The window remains
     // in the stack for proper focus restoration when user closes it.
@@ -732,12 +722,13 @@ void WindowCacheManager::markSnapQuoteWindowClosed(int windowIndex) {
   }
 }
 
-  void WindowCacheManager::markBuyWindowClosed() {
+void WindowCacheManager::markBuyWindowClosed() {
   m_buyWindowNeedsReset = true;
   m_lastBuyToken = -1; // Clear cached token
-  
-  qDebug() << "[WindowCacheManager] Buy window marked as closed (available for reuse)";
-  
+
+  qDebug() << "[WindowCacheManager] Buy window marked as closed (available for "
+              "reuse)";
+
   // Note: We don't unregister from WindowManager here because cached windows
   // are not actually destroyed - just moved off-screen. The window remains
   // in the stack for proper focus restoration when user closes it.
@@ -747,9 +738,10 @@ void WindowCacheManager::markSnapQuoteWindowClosed(int windowIndex) {
 void WindowCacheManager::markSellWindowClosed() {
   m_sellWindowNeedsReset = true;
   m_lastSellToken = -1; // Clear cached token
-  
-  qDebug() << "[WindowCacheManager] Sell window marked as closed (available for reuse)";
-  
+
+  qDebug() << "[WindowCacheManager] Sell window marked as closed (available "
+              "for reuse)";
+
   // Note: We don't unregister from WindowManager here because cached windows
   // are not actually destroyed - just moved off-screen. The window remains
   // in the stack for proper focus restoration when user closes it.
