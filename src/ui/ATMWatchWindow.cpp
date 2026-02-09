@@ -1,10 +1,14 @@
 #include "ui/ATMWatchWindow.h"
 #include "data/PriceStoreGateway.h"
+#include "models/WindowContext.h"
 #include "repository/RepositoryManager.h"
 #include "services/FeedHandler.h"
 #include "services/GreeksCalculationService.h"
 #include "ui/ATMWatchSettingsDialog.h"
 #include "ui/OptionChainWindow.h"
+#include "views/BuyWindow.h"
+#include "views/SellWindow.h"
+#include "views/SnapQuoteWindow.h"
 #include <QAction>
 #include <QApplication>
 #include <QClipboard>
@@ -147,6 +151,12 @@ void ATMWatchWindow::setupUI() {
   tableLayout->addWidget(m_symbolTable, 1);
   tableLayout->addWidget(m_putTable, 2);
 
+  // Enable sorting on Symbol table header
+  m_symbolTable->horizontalHeader()->setSectionsClickable(true);
+  m_symbolTable->horizontalHeader()->setSortIndicatorShown(true);
+  connect(m_symbolTable->horizontalHeader(), &QHeaderView::sectionClicked, this,
+          &ATMWatchWindow::onHeaderClicked);
+
   mainLayout->addLayout(tableLayout);
   setStyleSheet("QWidget { background-color: #1E2A38; }");
 }
@@ -275,6 +285,7 @@ void ATMWatchWindow::refreshData() {
   m_putModel->setRowCount(0);
 
   auto atmList = ATMWatchManager::getInstance().getATMWatchArray();
+  sortATMList(atmList); // Apply sorting
   FeedHandler &feed = FeedHandler::instance();
 
   int row = 0;
@@ -481,6 +492,20 @@ void ATMWatchWindow::updateDataIncrementally() {
       setupTokenSubscription(newInfo.callToken, true);
       setupTokenSubscription(newInfo.putToken, false);
     }
+
+    // Step 1c: Handle Underlying Token changes (e.g. Source switched Cash <->
+    // Future)
+    bool underlyingChanged = !m_previousATMData.contains(symbol) ||
+                             oldInfo.underlyingToken != newInfo.underlyingToken;
+
+    if (underlyingChanged && m_previousATMData.contains(symbol)) {
+      if (oldInfo.underlyingToken > 0) {
+        m_underlyingTokenToSymbol.remove(oldInfo.underlyingToken);
+        feed.unsubscribe(1, oldInfo.underlyingToken, this);
+        feed.unsubscribe(2, oldInfo.underlyingToken, this);
+      }
+      // New token subscription handled in Step 4
+    }
   }
 
   // Step 2: Add new symbols (not in previous data)
@@ -558,19 +583,63 @@ void ATMWatchWindow::updateDataIncrementally() {
   // Step 3: Update previous data for next comparison
   m_previousATMData = newATMData;
 
-  // Step 4: Sync underlying subscriptions
-  // Optimization: Instead of complex diffing, we can just resubscribe new ones
-  // since FeedHandler handles duplicate subscriptions gracefully.
-  // But to be clean, let's just ensure we have subscriptions for all current
-  // valid ATMs.
+  // Step 4: Robust Reconciliation of Underlying Tokens
+  // Instead of incremental diffs, we calculate the desired state and enforce
+  // it.
+
+  // A. Build desired map from current ATM list
+  QHash<int64_t, QString> desiredMap;
   for (const auto &info : atmList) {
     if (info.isValid && info.underlyingToken > 0) {
-      if (!m_underlyingTokenToSymbol.contains(info.underlyingToken)) {
-        m_underlyingTokenToSymbol[info.underlyingToken] = info.symbol;
-        feed.subscribe(1, info.underlyingToken, this,
-                       &ATMWatchWindow::onTickUpdate);
-        feed.subscribe(2, info.underlyingToken, this,
-                       &ATMWatchWindow::onTickUpdate);
+      desiredMap[info.underlyingToken] = info.symbol;
+    }
+  }
+
+  // B. Identify stale subscriptions (in current map but not in desired)
+  QVector<int64_t> tokensToRemove;
+  for (auto it = m_underlyingTokenToSymbol.begin();
+       it != m_underlyingTokenToSymbol.end(); ++it) {
+    int64_t token = it.key();
+    if (!desiredMap.contains(token)) {
+      tokensToRemove.append(token);
+    }
+  }
+
+  // C. Unsubscribe stale tokens
+  for (int64_t token : tokensToRemove) {
+    m_underlyingTokenToSymbol.remove(token);
+    feed.unsubscribe(1, token, this);
+    feed.unsubscribe(2, token, this);
+    // qDebug() << "[ATMWatch] Unsubscribed stale underlying token:" << token;
+  }
+
+  // D. Subscribe new tokens (in desired map but not in current)
+  for (auto it = desiredMap.begin(); it != desiredMap.end(); ++it) {
+    int64_t token = it.key();
+    QString symbol = it.value();
+
+    if (!m_underlyingTokenToSymbol.contains(token)) {
+      m_underlyingTokenToSymbol[token] = symbol;
+      feed.subscribe(1, token, this, &ATMWatchWindow::onTickUpdate);
+      feed.subscribe(2, token, this, &ATMWatchWindow::onTickUpdate);
+
+      if (symbol == "RELIANCE") {
+        qDebug() << "[ATMWatch] RELIANCE Subscribed to underlying token:"
+                 << token;
+      }
+
+      // Force an initial update if available
+      // Try segment 1 (Cash) or 2 (Future)
+      auto state = MarketData::PriceStoreGateway::instance().getUnifiedSnapshot(
+          1, token);
+      if (state.token == 0)
+        state = MarketData::PriceStoreGateway::instance().getUnifiedSnapshot(
+            2, token);
+
+      if (state.token != 0) {
+        m_symbolModel->setData(
+            m_symbolModel->index(m_symbolToRow[symbol], SYM_PRICE),
+            QString::number(state.ltp, 'f', 2));
       }
     }
   }
@@ -589,45 +658,72 @@ void ATMWatchWindow::onTickUpdate(const UDP::MarketTick &tick) {
     return;
   }
 
-  // Case 1: Option Update
-  if (m_tokenToInfo.contains(tick.token)) {
-    auto info = m_tokenToInfo[tick.token];
-    int row = m_symbolToRow.value(info.first, -1);
-    if (row >= 0) {
-      if (info.second) { // Call
-        m_callModel->setData(m_callModel->index(row, CALL_LTP),
-                             QString::number(tick.ltp, 'f', 2));
-        m_callModel->setData(m_callModel->index(row, CALL_BID),
-                             QString::number(tick.bestBid(), 'f', 2));
-        m_callModel->setData(m_callModel->index(row, CALL_ASK),
-                             QString::number(tick.bestAsk(), 'f', 2));
-        m_callModel->setData(m_callModel->index(row, CALL_VOL),
-                             QString::number(tick.volume));
-        m_callModel->setData(m_callModel->index(row, CALL_OI),
-                             QString::number(tick.openInterest));
-      } else { // Put
-        m_putModel->setData(m_putModel->index(row, PUT_LTP),
-                            QString::number(tick.ltp, 'f', 2));
-        m_putModel->setData(m_putModel->index(row, PUT_BID),
-                            QString::number(tick.bestBid(), 'f', 2));
-        m_putModel->setData(m_putModel->index(row, PUT_ASK),
-                            QString::number(tick.bestAsk(), 'f', 2));
-        m_putModel->setData(m_putModel->index(row, PUT_VOL),
-                            QString::number(tick.volume));
-        m_putModel->setData(m_putModel->index(row, PUT_OI),
-                            QString::number(tick.openInterest));
-      }
-    }
+  // Find info for this token
+  if (!m_tokenToInfo.contains(tick.token) &&
+      !m_underlyingTokenToSymbol.contains(tick.token)) {
+    return;
   }
 
-  // Case 2: Underlying Update
-  if (m_underlyingTokenToSymbol.contains(tick.token)) {
-    QString symbol = m_underlyingTokenToSymbol[tick.token];
-    int row = m_symbolToRow.value(symbol, -1);
-    if (row >= 0) {
-      m_symbolModel->setData(m_symbolModel->index(row, SYM_PRICE),
-                             QString::number(tick.ltp, 'f', 2));
+  QString symbol;
+
+  if (m_tokenToInfo.contains(tick.token)) {
+    // Case 1: Option Token Update
+    const auto &info = m_tokenToInfo[tick.token];
+    symbol = info.first;
+    if (!m_symbolToRow.contains(symbol))
+      return;
+
+    int row = m_symbolToRow[symbol];
+
+    // Throttle UI updates (limit to 10fps per row)
+    // using QElapsedTimer/QTime checks if needed
+    // For now, direct update
+
+    bool isCall = info.second;
+    auto model = isCall ? m_callModel : m_putModel;
+    int colPrice = isCall ? CALL_LTP : PUT_LTP;
+
+    // Update LTP
+    model->setData(model->index(row, colPrice),
+                   QString::number(tick.ltp, 'f', 2));
+
+    // Update other fields
+    if (isCall) { // Call
+      m_callModel->setData(m_callModel->index(row, CALL_BID),
+                           QString::number(tick.bestBid(), 'f', 2));
+      m_callModel->setData(m_callModel->index(row, CALL_ASK),
+                           QString::number(tick.bestAsk(), 'f', 2));
+      m_callModel->setData(m_callModel->index(row, CALL_VOL),
+                           QString::number(tick.volume));
+      m_callModel->setData(m_callModel->index(row, CALL_OI),
+                           QString::number(tick.openInterest));
+    } else { // Put
+      m_putModel->setData(m_putModel->index(row, PUT_BID),
+                          QString::number(tick.bestBid(), 'f', 2));
+      m_putModel->setData(m_putModel->index(row, PUT_ASK),
+                          QString::number(tick.bestAsk(), 'f', 2));
+      m_putModel->setData(m_putModel->index(row, PUT_VOL),
+                          QString::number(tick.volume));
+      m_putModel->setData(m_putModel->index(row, PUT_OI),
+                          QString::number(tick.openInterest));
     }
+
+  } else if (m_underlyingTokenToSymbol.contains(tick.token)) {
+    // Case 2: Underlying Token Update ("Spot/Fut")
+    symbol = m_underlyingTokenToSymbol[tick.token];
+    if (!m_symbolToRow.contains(symbol))
+      return;
+
+    int row = m_symbolToRow[symbol];
+
+    // DEBUG: Trace updates for RELIANCE
+    // if (symbol == "RELIANCE") {
+    //   qDebug() << "[ATMWatch] RELIANCE update from token:" << tick.token
+    //            << "Price:" << tick.ltp << "Row:" << row;
+    // }
+
+    m_symbolModel->setData(m_symbolModel->index(row, SYM_PRICE),
+                           QString::number(tick.ltp, 'f', 2));
   }
 }
 
@@ -940,4 +1036,219 @@ void ATMWatchWindow::openOptionChain(const QString &symbol,
   chainWindow->activateWindow();
 
   m_statusLabel->setText(QString("Opened Option Chain for %1").arg(symbol));
+}
+
+void ATMWatchWindow::onHeaderClicked(int logicalIndex) {
+  // Only sort on click of Symbol table columns
+  if (logicalIndex == m_sortColumn) {
+    // Toggle order
+    m_sortOrder = (m_sortOrder == Qt::AscendingOrder) ? Qt::DescendingOrder
+                                                      : Qt::AscendingOrder;
+  } else {
+    // New column, default to Ascending
+    m_sortColumn = logicalIndex;
+    m_sortOrder = Qt::AscendingOrder;
+  }
+
+  m_symbolTable->horizontalHeader()->setSortIndicator(m_sortColumn,
+                                                      m_sortOrder);
+  refreshData();
+}
+
+void ATMWatchWindow::sortATMList(QVector<ATMWatchManager::ATMInfo> &list) {
+  if (list.isEmpty())
+    return;
+
+  std::sort(list.begin(), list.end(),
+            [this](const ATMWatchManager::ATMInfo &a,
+                   const ATMWatchManager::ATMInfo &b) {
+              bool less = false;
+              switch (m_sortColumn) {
+              case SYM_NAME: // Symbol
+                less = a.symbol < b.symbol;
+                break;
+              case SYM_PRICE: // Spot/Fut Price (Base Price)
+                less = a.basePrice < b.basePrice;
+                break;
+              case SYM_ATM: // ATM Strike
+                less = a.atmStrike < b.atmStrike;
+                break;
+              case SYM_EXPIRY: // Expiry
+                less = a.expiry < b.expiry;
+                break;
+              default:
+                less = a.symbol < b.symbol;
+                break;
+              }
+              return (m_sortOrder == Qt::AscendingOrder) ? less : !less;
+            });
+}
+
+WindowContext ATMWatchWindow::getCurrentContext() {
+  WindowContext context;
+  context.sourceWindow = "ATMWatch";
+
+  QTableView *activeTable = nullptr;
+  if (m_callTable->hasFocus())
+    activeTable = m_callTable;
+  else if (m_putTable->hasFocus())
+    activeTable = m_putTable;
+  else if (m_symbolTable->hasFocus())
+    activeTable = m_symbolTable;
+
+  // Fallback to table with selection
+  if (!activeTable) {
+    if (m_callTable->selectionModel()->hasSelection())
+      activeTable = m_callTable;
+    else if (m_putTable->selectionModel()->hasSelection())
+      activeTable = m_putTable;
+    else if (m_symbolTable->selectionModel()->hasSelection())
+      activeTable = m_symbolTable;
+  }
+
+  if (!activeTable)
+    return context;
+
+  QModelIndex index = activeTable->currentIndex();
+  if (!index.isValid())
+    return context;
+
+  int row = index.row();
+  QString symbol =
+      m_symbolModel->data(m_symbolModel->index(row, SYM_NAME)).toString();
+
+  // Retrieve ATM Info from Manager to get Tokens
+  auto atmList = ATMWatchManager::getInstance().getATMWatchArray();
+  ATMWatchManager::ATMInfo info;
+  bool found = false;
+  for (const auto &item : atmList) {
+    if (item.symbol == symbol) {
+      info = item;
+      found = true;
+      break;
+    }
+  }
+
+  if (!found)
+    return context;
+
+  int64_t token = 0;
+  if (activeTable == m_callTable) {
+    token = info.callToken;
+  } else if (activeTable == m_putTable) {
+    token = info.putToken;
+  } else {
+    // Symbol Table (Underlying)
+    token = info.underlyingToken;
+
+    // Fix: If viewing Index Spot (Cash), switch to Future for trading context
+    // because Indices themselves are not tradeable
+    bool isIndex = (symbol == "NIFTY" || symbol == "BANKNIFTY" ||
+                    symbol == "FINNIFTY" || symbol == "MIDCPNIFTY");
+
+    if (isIndex) {
+      // Try to find Future token if current token looks like index (or checking
+      // mostly symbol) We can always try to fetch Future token for the current
+      // expiry
+      auto repo = RepositoryManager::getInstance();
+      int64_t futToken =
+          repo->getFutureTokenForSymbolExpiry(symbol, info.expiry);
+      if (futToken > 0) {
+        token = futToken; // Switch to Future token
+        qDebug() << "[ATMWatch] Context: Switched Index Spot to Future Token:"
+                 << token;
+      }
+    }
+  }
+
+  if (token <= 0)
+    return context;
+
+  // Fetch full contract details
+  auto repo = RepositoryManager::getInstance();
+  const ContractData *contractPtr = nullptr;
+  QString segment = "FO";
+
+  // Try FO first
+  contractPtr = repo->getContractByToken(m_currentExchange, "FO", token);
+
+  // If not found, try CM
+  if (!contractPtr) {
+    contractPtr = repo->getContractByToken(m_currentExchange, "CM", token);
+    segment = "CM";
+  }
+  if (!contractPtr)
+    return context;
+
+  const ContractData &contract = *contractPtr;
+
+  qDebug() << "[ATMWatch] Context Resolved - Symbol:" << contract.name
+           << "Series:" << contract.series << "Type:" << contract.instrumentType
+           << "Token:" << token << "Segment:" << segment;
+
+  context.exchange = m_currentExchange;
+  context.token = token;
+  context.symbol = contract.description; // Use description as trading symbol
+  context.segment = segment;
+  context.series = contract.series;
+
+  // ✅ IMPROVED: Use series from contract if available, otherwise smart detect
+  if (!contract.series.isEmpty()) {
+    context.instrumentType = contract.series;
+  } else {
+    bool isIndex =
+        (contract.name == "NIFTY" || contract.name == "BANKNIFTY" ||
+         contract.name == "FINNIFTY" || contract.name == "MIDCPNIFTY");
+
+    if (contract.instrumentType == 1) { // Future
+      context.instrumentType = isIndex ? "FUTIDX" : "FUTSTK";
+    } else if (contract.instrumentType == 2) { // Option
+      context.instrumentType = isIndex ? "OPTIDX" : "OPTSTK";
+    } else {
+      context.instrumentType = "EQ";
+    }
+  }
+
+  qDebug() << "[ATMWatch] Final InstrumentType:" << context.instrumentType;
+
+  context.expiry = contract.expiryDate;
+  context.strikePrice = contract.strikePrice;
+  context.optionType = contract.optionType;
+  context.lotSize = contract.lotSize;
+  context.tickSize = contract.tickSize;
+  context.freezeQty = contract.freezeQty;
+
+  return context;
+}
+
+void ATMWatchWindow::keyPressEvent(QKeyEvent *event) {
+  if (event->key() == Qt::Key_F1 || event->key() == Qt::Key_F2 ||
+      event->key() == Qt::Key_F6 || event->key() == Qt::Key_Delete) {
+    WindowContext context = getCurrentContext();
+
+    if (event->key() == Qt::Key_Delete) {
+      if (context.isValid()) {
+        ATMWatchManager::getInstance().removeWatch(context.symbol);
+        return;
+      }
+    }
+
+    if (!context.isValid()) {
+      // Maybe show status "Select a valid contract"
+      return;
+    }
+
+    if (event->key() == Qt::Key_F1) { // Buy
+      BuyWindow::getInstance(context, this)->show();
+    } else if (event->key() == Qt::Key_F2) { // Sell
+      SellWindow::getInstance(context, this)->show();
+    } else if (event->key() == Qt::Key_F6) { // SnapQuote
+      auto w = new SnapQuoteWindow(context, this);
+      w->setAttribute(Qt::WA_DeleteOnClose);
+      w->show();
+    }
+    return;
+  }
+
+  QWidget::keyPressEvent(event);
 }

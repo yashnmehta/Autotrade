@@ -1,14 +1,15 @@
 #ifndef ATM_WATCH_WINDOW_H
 #define ATM_WATCH_WINDOW_H
 
+#include "models/WindowContext.h"
 #include "services/ATMWatchManager.h"
 #include "udp/UDPTypes.h"
 #include <QComboBox>
 #include <QHBoxLayout>
+#include <QKeyEvent>
 #include <QLabel>
 #include <QLineEdit>
 #include <QMap>
-#include <QMenu>
 #include <QPushButton>
 #include <QScrollBar>
 #include <QStandardItemModel>
@@ -17,7 +18,6 @@
 #include <QToolBar>
 #include <QVBoxLayout>
 #include <QWidget>
-
 
 /**
  * @brief Professional ATM Watch Window
@@ -43,6 +43,7 @@ private slots:
   void onShowContextMenu(const QPoint &pos); // Right-click context menu
   void
   onSymbolDoubleClicked(const QModelIndex &index); // Double-click to open chain
+  void onHeaderClicked(int logicalIndex);          // Sort by column
 
 protected:
   bool eventFilter(QObject *obj, QEvent *event) override;
@@ -60,6 +61,15 @@ private:
   void updateBasePrices(); // Update all base prices from price stores
   void openOptionChain(const QString &symbol,
                        const QString &expiry); // Open option chain window
+  void sortATMList(QVector<ATMWatchManager::ATMInfo> &list); // Sort helper
+
+  // Sort State
+  int m_sortColumn = 0; // Default: Symbol
+  Qt::SortOrder m_sortOrder = Qt::AscendingOrder;
+
+  // Context & Key Handling
+  WindowContext getCurrentContext();
+  void keyPressEvent(QKeyEvent *event) override;
 
   // UI Components - Toolbar
   QToolBar *m_toolbar;

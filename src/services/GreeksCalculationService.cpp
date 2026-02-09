@@ -161,9 +161,9 @@ GreeksResult GreeksCalculationService::calculateForToken(uint32_t token,
 
   // Step 4: Check if it's an option
   if (!isOption(contract->instrumentType)) {
-    if (shouldLog)
-      qDebug() << "[GreeksDebug] Not an option for token:" << token
-               << "type:" << contract->instrumentType;
+    // if (shouldLog)
+    //   qDebug() << "[GreeksDebug] Not an option for token:" << token
+    //            << "type:" << contract->instrumentType;
     return result;
   }
 
@@ -461,7 +461,8 @@ void GreeksCalculationService::onPriceUpdate(uint32_t token, double ltp,
     return;
   }
 
-  // If calculateOnEveryFeed is enabled, bypass throttling and calculate immediately
+  // If calculateOnEveryFeed is enabled, bypass throttling and calculate
+  // immediately
   if (m_config.calculateOnEveryFeed) {
     calculateForToken(token, exchangeSegment);
     return;
@@ -471,10 +472,10 @@ void GreeksCalculationService::onPriceUpdate(uint32_t token, double ltp,
   // Check if enough time has passed since last calculation
   int64_t now = QDateTime::currentMSecsSinceEpoch();
   auto it = m_cache.find(token);
-  
+
   if (it != m_cache.end()) {
     int64_t timeSinceLastCalc = now - it.value().result.calculationTimestamp;
-    
+
     // If throttle time not elapsed, skip calculation
     if (timeSinceLastCalc < m_config.throttleMs) {
       return;

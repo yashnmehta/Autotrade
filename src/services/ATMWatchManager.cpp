@@ -9,7 +9,6 @@
 #include <QSet>
 #include <QtConcurrent>
 
-
 ATMWatchManager &ATMWatchManager::getInstance() {
   static ATMWatchManager instance;
   return instance;
@@ -53,6 +52,17 @@ void ATMWatchManager::addWatch(const QString &symbol, const QString &expiry,
 void ATMWatchManager::setDefaultBasePriceSource(BasePriceSource source) {
   std::unique_lock lock(m_mutex);
   m_defaultSource = source;
+
+  // Update all existing configs with new source
+  for (auto it = m_configs.begin(); it != m_configs.end(); ++it) {
+    it.value().source = source;
+  }
+
+  // Trigger recalculation to fetch new underlying tokens
+  qDebug() << "[ATMWatch] Base price source set to"
+           << (source == BasePriceSource::Cash ? "Cash" : "Future")
+           << "- triggering recalculation";
+  QtConcurrent::run([this]() { calculateAll(); });
 }
 
 void ATMWatchManager::setStrikeRangeCount(int count) {
@@ -188,6 +198,13 @@ void ATMWatchManager::calculateAll() {
         }
       }
       basePrice = repo->getUnderlyingPrice(config.symbol, config.expiry);
+    }
+
+    if (config.symbol == "RELIANCE") {
+      qDebug() << "[ATMWatchManager] RELIANCE Calculated - Source:"
+               << (config.source == BasePriceSource::Cash ? "Cash" : "Future")
+               << "UnderlyingToken:" << underlyingToken
+               << "BasePrice:" << basePrice;
     }
 
     // Step 3: Get sorted strikes from cache (O(1) lookup)
