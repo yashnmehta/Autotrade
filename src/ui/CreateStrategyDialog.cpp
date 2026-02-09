@@ -72,7 +72,8 @@ CreateStrategyDialog::CreateStrategyDialog(QWidget *parent)
   setStyleSheet(
       "QDialog { background-color: #ffffff; color: #1f1f1f; font-family: "
       "'Segoe UI'; }"
-      "QLabel { color: #333333; font-weight: 600; font-size: 12px; }"
+      "QLabel { background-color: transparent; color: #333333; font-weight: "
+      "600; font-size: 12px; border: none; }"
       "QLineEdit, QSpinBox, QDoubleSpinBox, QTextEdit, QComboBox {"
       "    background-color: #ffffff; color: #333333;"
       "    border: 1px solid #d1d5db; border-radius: 4px; padding: 6px;"
