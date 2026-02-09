@@ -3,10 +3,16 @@
 #include "repository/RepositoryManager.h"
 #include "services/FeedHandler.h"
 #include "services/GreeksCalculationService.h"
+#include "ui/ATMWatchSettingsDialog.h"
+#include "ui/OptionChainWindow.h"
+#include <QAction>
+#include <QApplication>
+#include <QClipboard>
 #include <QDate>
 #include <QDebug>
 #include <QEvent>
 #include <QHeaderView>
+#include <QMenu>
 #include <QScrollBar>
 #include <QWheelEvent>
 #include <QtConcurrent>
@@ -38,6 +44,27 @@ void ATMWatchWindow::setupUI() {
   QVBoxLayout *mainLayout = new QVBoxLayout(this);
   mainLayout->setContentsMargins(5, 5, 5, 5);
   mainLayout->setSpacing(5);
+
+  // Toolbar at Top
+  m_toolbar = new QToolBar(this);
+  m_toolbar->setStyleSheet(
+      "QToolBar { background-color: #2A3A50; border: 1px solid #3A4A60; "
+      "padding: 2px; }"
+      "QToolButton { background-color: #2A3A50; color: #FFFFFF; border: 1px "
+      "solid #3A4A60; "
+      "padding: 4px 8px; margin: 2px; }"
+      "QToolButton:hover { background-color: #3A4A60; }"
+      "QToolButton:pressed { background-color: #4A5A70; }");
+
+  QAction *settingsAction = m_toolbar->addAction("⚙ Settings");
+  connect(settingsAction, &QAction::triggered, this,
+          &ATMWatchWindow::onSettingsClicked);
+
+  QAction *refreshAction = m_toolbar->addAction("🔄 Refresh");
+  connect(refreshAction, &QAction::triggered, this,
+          &ATMWatchWindow::refreshData);
+
+  mainLayout->addWidget(m_toolbar);
 
   // Filter Panel at Top
   QHBoxLayout *filterLayout = new QHBoxLayout();
@@ -150,7 +177,7 @@ void ATMWatchWindow::setupModels() {
 }
 
 void ATMWatchWindow::setupConnections() {
-  connect(ATMWatchManager::getInstance(), &ATMWatchManager::atmUpdated, this,
+  connect(&ATMWatchManager::getInstance(), &ATMWatchManager::atmUpdated, this,
           &ATMWatchWindow::onATMUpdated);
 
   // Greeks updates
@@ -192,11 +219,35 @@ void ATMWatchWindow::setupConnections() {
         }
       });
 
+  // ATM calculation error handling
+  connect(&ATMWatchManager::getInstance(), &ATMWatchManager::calculationFailed,
+          this, [this](const QString &symbol, const QString &errorMessage) {
+            int row = m_symbolToRow.value(symbol, -1);
+            if (row >= 0) {
+              // Show error in ATM strike column
+              m_symbolModel->setData(m_symbolModel->index(row, SYM_ATM),
+                                     "ERROR");
+              m_symbolModel->setData(m_symbolModel->index(row, SYM_ATM),
+                                     errorMessage, Qt::ToolTipRole);
+
+              // Set color to red
+              m_symbolModel->setData(m_symbolModel->index(row, SYM_ATM),
+                                     QColor(Qt::red), Qt::ForegroundRole);
+            }
+          });
+
   // Filter connections
   connect(m_exchangeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
           this, &ATMWatchWindow::onExchangeChanged);
   connect(m_expiryCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
           this, &ATMWatchWindow::onExpiryChanged);
+
+  // Context menu and double-click for symbol table
+  m_symbolTable->setContextMenuPolicy(Qt::CustomContextMenu);
+  connect(m_symbolTable, &QTableView::customContextMenuRequested, this,
+          &ATMWatchWindow::onShowContextMenu);
+  connect(m_symbolTable, &QTableView::doubleClicked, this,
+          &ATMWatchWindow::onSymbolDoubleClicked);
 
   // Async loading completion
   connect(this, &ATMWatchWindow::onSymbolsLoaded, this, [this](int count) {
@@ -217,12 +268,13 @@ void ATMWatchWindow::refreshData() {
   m_tokenToInfo.clear();
   m_symbolToRow.clear();
   m_underlyingToRow.clear();
+  m_underlyingTokenToSymbol.clear();
 
   m_callModel->setRowCount(0);
   m_symbolModel->setRowCount(0);
   m_putModel->setRowCount(0);
 
-  auto atmList = ATMWatchManager::getInstance()->getATMWatchArray();
+  auto atmList = ATMWatchManager::getInstance().getATMWatchArray();
   FeedHandler &feed = FeedHandler::instance();
 
   int row = 0;
@@ -301,11 +353,233 @@ void ATMWatchWindow::refreshData() {
     setupInitialOptionData(info.callToken, true);
     setupInitialOptionData(info.putToken, false);
 
+    // Subscribe to Underlying Token for Real-Time "Spot/Fut" updates
+    if (info.underlyingToken > 0) {
+      m_underlyingTokenToSymbol[info.underlyingToken] = info.symbol;
+      feed.subscribe(1, info.underlyingToken, this,
+                     &ATMWatchWindow::onTickUpdate);
+      // Try subscribing to segment 2 as well if it's a future, or just rely on
+      // feed handler to handle segment
+      feed.subscribe(2, info.underlyingToken, this,
+                     &ATMWatchWindow::onTickUpdate);
+    }
+
     row++;
   }
 }
 
-void ATMWatchWindow::onATMUpdated() { refreshData(); }
+void ATMWatchWindow::updateDataIncrementally() {
+  // P2: Incremental updates - only change what's different, no flicker
+  auto atmList = ATMWatchManager::getInstance().getATMWatchArray();
+  FeedHandler &feed = FeedHandler::instance();
+
+  // Build map of new ATM info for quick lookup
+  QMap<QString, ATMWatchManager::ATMInfo> newATMData;
+  for (const auto &info : atmList) {
+    if (info.isValid) {
+      newATMData[info.symbol] = info;
+    }
+  }
+
+  // Step 1: Update existing rows and handle token changes
+  for (auto it = m_symbolToRow.begin(); it != m_symbolToRow.end(); ++it) {
+    const QString &symbol = it.key();
+    int row = it.value();
+
+    // Check if symbol still exists in new data
+    if (!newATMData.contains(symbol)) {
+      // Symbol removed - unsubscribe and mark for deletion
+      if (m_previousATMData.contains(symbol)) {
+        const auto &oldInfo = m_previousATMData[symbol];
+        if (oldInfo.callToken > 0) {
+          feed.unsubscribe(2, oldInfo.callToken, this);
+          m_tokenToInfo.remove(oldInfo.callToken);
+        }
+        if (oldInfo.putToken > 0) {
+          feed.unsubscribe(2, oldInfo.putToken, this);
+          m_tokenToInfo.remove(oldInfo.putToken);
+        }
+      }
+      continue;
+    }
+
+    const auto &newInfo = newATMData[symbol];
+    const auto &oldInfo = m_previousATMData.value(symbol);
+
+    // Step 1a: Update symbol table if data changed
+    bool basePriceChanged = !m_previousATMData.contains(symbol) ||
+                            oldInfo.basePrice != newInfo.basePrice;
+    bool atmStrikeChanged = !m_previousATMData.contains(symbol) ||
+                            oldInfo.atmStrike != newInfo.atmStrike;
+
+    if (basePriceChanged) {
+      m_symbolModel->setData(m_symbolModel->index(row, SYM_PRICE),
+                             QString::number(newInfo.basePrice, 'f', 2));
+    }
+    if (atmStrikeChanged) {
+      m_symbolModel->setData(m_symbolModel->index(row, SYM_ATM),
+                             QString::number(newInfo.atmStrike, 'f', 2));
+    }
+
+    // Step 1b: Handle token changes (ATM strike moved)
+    if (atmStrikeChanged && m_previousATMData.contains(symbol)) {
+      // Unsubscribe from old tokens
+      if (oldInfo.callToken > 0) {
+        feed.unsubscribe(2, oldInfo.callToken, this);
+        m_tokenToInfo.remove(oldInfo.callToken);
+      }
+      if (oldInfo.putToken > 0) {
+        feed.unsubscribe(2, oldInfo.putToken, this);
+        m_tokenToInfo.remove(oldInfo.putToken);
+      }
+
+      // Subscribe to new tokens
+      auto setupTokenSubscription = [&](int64_t token, bool isCall) {
+        if (token <= 0)
+          return;
+
+        m_tokenToInfo[token] = {symbol, isCall};
+        feed.subscribe(2, token, this, &ATMWatchWindow::onTickUpdate);
+
+        // Fetch current price from cache
+        auto state =
+            MarketData::PriceStoreGateway::instance().getUnifiedSnapshot(2,
+                                                                         token);
+        if (state.token != 0) {
+          UDP::MarketTick tick;
+          tick.token = static_cast<uint32_t>(token);
+          tick.ltp = state.ltp;
+          tick.bids[0].price = state.bids[0].price;
+          tick.asks[0].price = state.asks[0].price;
+          tick.volume = state.volume;
+          tick.openInterest = state.openInterest;
+          onTickUpdate(tick);
+
+          // Update Greeks if available
+          if (state.greeksCalculated) {
+            auto model = isCall ? m_callModel : m_putModel;
+            int colIV = isCall ? CALL_IV : PUT_IV;
+            int colDelta = isCall ? CALL_DELTA : PUT_DELTA;
+            int colGamma = isCall ? CALL_GAMMA : PUT_GAMMA;
+            int colVega = isCall ? CALL_VEGA : PUT_VEGA;
+            int colTheta = isCall ? CALL_THETA : PUT_THETA;
+
+            model->setData(model->index(row, colIV),
+                           QString::number(state.impliedVolatility, 'f', 2));
+            model->setData(model->index(row, colDelta),
+                           QString::number(state.delta, 'f', 2));
+            model->setData(model->index(row, colGamma),
+                           QString::number(state.gamma, 'f', 4));
+            model->setData(model->index(row, colVega),
+                           QString::number(state.vega, 'f', 2));
+            model->setData(model->index(row, colTheta),
+                           QString::number(state.theta, 'f', 2));
+          }
+        }
+      };
+
+      setupTokenSubscription(newInfo.callToken, true);
+      setupTokenSubscription(newInfo.putToken, false);
+    }
+  }
+
+  // Step 2: Add new symbols (not in previous data)
+  for (const auto &newInfo : atmList) {
+    if (!newInfo.isValid)
+      continue;
+
+    if (!m_symbolToRow.contains(newInfo.symbol)) {
+      // New symbol - add row using existing refreshData logic
+      int row = m_symbolModel->rowCount();
+
+      m_callModel->insertRow(row);
+      m_symbolModel->insertRow(row);
+      m_putModel->insertRow(row);
+
+      m_symbolToRow[newInfo.symbol] = row;
+
+      // Populate Symbol Table
+      m_symbolModel->setData(m_symbolModel->index(row, SYM_NAME),
+                             newInfo.symbol);
+      m_symbolModel->setData(m_symbolModel->index(row, SYM_PRICE),
+                             QString::number(newInfo.basePrice, 'f', 2));
+      m_symbolModel->setData(m_symbolModel->index(row, SYM_ATM),
+                             QString::number(newInfo.atmStrike, 'f', 2));
+      m_symbolModel->setData(m_symbolModel->index(row, SYM_EXPIRY),
+                             newInfo.expiry);
+
+      // Subscribe to tokens
+      auto setupNewTokenSubscription = [&](int64_t token, bool isCall) {
+        if (token <= 0)
+          return;
+        m_tokenToInfo[token] = {newInfo.symbol, isCall};
+        feed.subscribe(2, token, this, &ATMWatchWindow::onTickUpdate);
+
+        auto state =
+            MarketData::PriceStoreGateway::instance().getUnifiedSnapshot(2,
+                                                                         token);
+        if (state.token != 0) {
+          UDP::MarketTick tick;
+          tick.token = static_cast<uint32_t>(token);
+          tick.ltp = state.ltp;
+          tick.bids[0].price = state.bids[0].price;
+          tick.asks[0].price = state.asks[0].price;
+          tick.volume = state.volume;
+          tick.openInterest = state.openInterest;
+          onTickUpdate(tick);
+
+          if (state.greeksCalculated) {
+            auto model = isCall ? m_callModel : m_putModel;
+            int colIV = isCall ? CALL_IV : PUT_IV;
+            int colDelta = isCall ? CALL_DELTA : PUT_DELTA;
+            int colGamma = isCall ? CALL_GAMMA : PUT_GAMMA;
+            int colVega = isCall ? CALL_VEGA : PUT_VEGA;
+            int colTheta = isCall ? CALL_THETA : PUT_THETA;
+
+            model->setData(model->index(row, colIV),
+                           QString::number(state.impliedVolatility, 'f', 2));
+            model->setData(model->index(row, colDelta),
+                           QString::number(state.delta, 'f', 2));
+            model->setData(model->index(row, colGamma),
+                           QString::number(state.gamma, 'f', 4));
+            model->setData(model->index(row, colVega),
+                           QString::number(state.vega, 'f', 2));
+            model->setData(model->index(row, colTheta),
+                           QString::number(state.theta, 'f', 2));
+          }
+        }
+      };
+
+      setupNewTokenSubscription(newInfo.callToken, true);
+      setupNewTokenSubscription(newInfo.putToken, false);
+    }
+  }
+
+  // Step 3: Update previous data for next comparison
+  m_previousATMData = newATMData;
+
+  // Step 4: Sync underlying subscriptions
+  // Optimization: Instead of complex diffing, we can just resubscribe new ones
+  // since FeedHandler handles duplicate subscriptions gracefully.
+  // But to be clean, let's just ensure we have subscriptions for all current
+  // valid ATMs.
+  for (const auto &info : atmList) {
+    if (info.isValid && info.underlyingToken > 0) {
+      if (!m_underlyingTokenToSymbol.contains(info.underlyingToken)) {
+        m_underlyingTokenToSymbol[info.underlyingToken] = info.symbol;
+        feed.subscribe(1, info.underlyingToken, this,
+                       &ATMWatchWindow::onTickUpdate);
+        feed.subscribe(2, info.underlyingToken, this,
+                       &ATMWatchWindow::onTickUpdate);
+      }
+    }
+  }
+}
+
+void ATMWatchWindow::onATMUpdated() {
+  // P2: Use incremental updates to avoid flicker
+  updateDataIncrementally();
+}
 
 void ATMWatchWindow::onTickUpdate(const UDP::MarketTick &tick) {
   // ✅ OPTIMIZATION: Skip depth-only updates (message 7208)
@@ -315,36 +589,45 @@ void ATMWatchWindow::onTickUpdate(const UDP::MarketTick &tick) {
     return;
   }
 
-  if (!m_tokenToInfo.contains(tick.token))
-    return;
+  // Case 1: Option Update
+  if (m_tokenToInfo.contains(tick.token)) {
+    auto info = m_tokenToInfo[tick.token];
+    int row = m_symbolToRow.value(info.first, -1);
+    if (row >= 0) {
+      if (info.second) { // Call
+        m_callModel->setData(m_callModel->index(row, CALL_LTP),
+                             QString::number(tick.ltp, 'f', 2));
+        m_callModel->setData(m_callModel->index(row, CALL_BID),
+                             QString::number(tick.bestBid(), 'f', 2));
+        m_callModel->setData(m_callModel->index(row, CALL_ASK),
+                             QString::number(tick.bestAsk(), 'f', 2));
+        m_callModel->setData(m_callModel->index(row, CALL_VOL),
+                             QString::number(tick.volume));
+        m_callModel->setData(m_callModel->index(row, CALL_OI),
+                             QString::number(tick.openInterest));
+      } else { // Put
+        m_putModel->setData(m_putModel->index(row, PUT_LTP),
+                            QString::number(tick.ltp, 'f', 2));
+        m_putModel->setData(m_putModel->index(row, PUT_BID),
+                            QString::number(tick.bestBid(), 'f', 2));
+        m_putModel->setData(m_putModel->index(row, PUT_ASK),
+                            QString::number(tick.bestAsk(), 'f', 2));
+        m_putModel->setData(m_putModel->index(row, PUT_VOL),
+                            QString::number(tick.volume));
+        m_putModel->setData(m_putModel->index(row, PUT_OI),
+                            QString::number(tick.openInterest));
+      }
+    }
+  }
 
-  auto info = m_tokenToInfo[tick.token];
-  int row = m_symbolToRow.value(info.first, -1);
-  if (row < 0)
-    return;
-
-  if (info.second) { // Call
-    m_callModel->setData(m_callModel->index(row, CALL_LTP),
-                         QString::number(tick.ltp, 'f', 2));
-    m_callModel->setData(m_callModel->index(row, CALL_BID),
-                         QString::number(tick.bestBid(), 'f', 2));
-    m_callModel->setData(m_callModel->index(row, CALL_ASK),
-                         QString::number(tick.bestAsk(), 'f', 2));
-    m_callModel->setData(m_callModel->index(row, CALL_VOL),
-                         QString::number(tick.volume));
-    m_callModel->setData(m_callModel->index(row, CALL_OI),
-                         QString::number(tick.openInterest));
-  } else { // Put
-    m_putModel->setData(m_putModel->index(row, PUT_LTP),
-                        QString::number(tick.ltp, 'f', 2));
-    m_putModel->setData(m_putModel->index(row, PUT_BID),
-                        QString::number(tick.bestBid(), 'f', 2));
-    m_putModel->setData(m_putModel->index(row, PUT_ASK),
-                        QString::number(tick.bestAsk(), 'f', 2));
-    m_putModel->setData(m_putModel->index(row, PUT_VOL),
-                        QString::number(tick.volume));
-    m_putModel->setData(m_putModel->index(row, PUT_OI),
-                        QString::number(tick.openInterest));
+  // Case 2: Underlying Update
+  if (m_underlyingTokenToSymbol.contains(tick.token)) {
+    QString symbol = m_underlyingTokenToSymbol[tick.token];
+    int row = m_symbolToRow.value(symbol, -1);
+    if (row >= 0) {
+      m_symbolModel->setData(m_symbolModel->index(row, SYM_PRICE),
+                             QString::number(tick.ltp, 'f', 2));
+    }
   }
 }
 
@@ -418,10 +701,10 @@ void ATMWatchWindow::loadAllSymbols() {
 
     // Clear existing ATM watches (on main thread)
     QMetaObject::invokeMethod(
-        ATMWatchManager::getInstance(),
+        &ATMWatchManager::getInstance(),
         [this]() {
-          ATMWatchManager::getInstance()->removeWatch("NIFTY");
-          ATMWatchManager::getInstance()->removeWatch("BANKNIFTY");
+          ATMWatchManager::getInstance().removeWatch("NIFTY");
+          ATMWatchManager::getInstance().removeWatch("BANKNIFTY");
         },
         Qt::QueuedConnection);
 
@@ -454,9 +737,9 @@ void ATMWatchWindow::loadAllSymbols() {
     // Step 6: Add all watches in batch (on main thread) to avoid N × N
     // calculations
     QMetaObject::invokeMethod(
-        ATMWatchManager::getInstance(),
+        &ATMWatchManager::getInstance(),
         [watchConfigs]() {
-          ATMWatchManager::getInstance()->addWatchesBatch(watchConfigs);
+          ATMWatchManager::getInstance().addWatchesBatch(watchConfigs);
         },
         Qt::QueuedConnection);
 
@@ -546,7 +829,7 @@ void ATMWatchWindow::onSymbolsLoaded(int count) {
 
 void ATMWatchWindow::updateBasePrices() {
   // Get latest ATM info from manager
-  auto atmList = ATMWatchManager::getInstance()->getATMWatchArray();
+  auto atmList = ATMWatchManager::getInstance().getATMWatchArray();
 
   for (const auto &info : atmList) {
     if (!info.isValid)
@@ -568,4 +851,93 @@ void ATMWatchWindow::updateBasePrices() {
                              QString::number(info.atmStrike, 'f', 2));
     }
   }
+}
+
+void ATMWatchWindow::onSettingsClicked() {
+  ATMWatchSettingsDialog dialog(this);
+  if (dialog.exec() == QDialog::Accepted) {
+    // Settings applied, refresh ATM data on next calculation
+    qInfo() << "[ATMWatch] Settings updated, will take effect on next ATM "
+               "calculation";
+  }
+}
+
+void ATMWatchWindow::onShowContextMenu(const QPoint &pos) {
+  QModelIndex index = m_symbolTable->indexAt(pos);
+  if (!index.isValid()) {
+    return;
+  }
+
+  int row = index.row();
+  QString symbol =
+      m_symbolModel->data(m_symbolModel->index(row, SYM_NAME)).toString();
+  QString expiry =
+      m_symbolModel->data(m_symbolModel->index(row, SYM_EXPIRY)).toString();
+
+  QMenu contextMenu(this);
+  contextMenu.setStyleSheet(
+      "QMenu { background-color: #2A3A50; color: #FFFFFF; border: 1px solid "
+      "#3A4A60; }"
+      "QMenu::item:selected { background-color: #3A4A60; }");
+
+  QAction *openChainAction = contextMenu.addAction("📊 Open Option Chain");
+  QAction *recalculateAction = contextMenu.addAction("🔄 Recalculate ATM");
+  contextMenu.addSeparator();
+  QAction *copySymbolAction = contextMenu.addAction("📋 Copy Symbol");
+
+  QAction *selectedAction =
+      contextMenu.exec(m_symbolTable->viewport()->mapToGlobal(pos));
+
+  if (selectedAction == openChainAction) {
+    openOptionChain(symbol, expiry);
+  } else if (selectedAction == recalculateAction) {
+    // Recalculate ATM for all symbols
+    ATMWatchManager::getInstance().calculateAll();
+    m_statusLabel->setText("Recalculating ATM...");
+  } else if (selectedAction == copySymbolAction) {
+    QClipboard *clipboard = QApplication::clipboard();
+    clipboard->setText(symbol);
+    m_statusLabel->setText(QString("Copied: %1").arg(symbol));
+  }
+}
+
+void ATMWatchWindow::onSymbolDoubleClicked(const QModelIndex &index) {
+  if (!index.isValid()) {
+    return;
+  }
+
+  int row = index.row();
+  QString symbol =
+      m_symbolModel->data(m_symbolModel->index(row, SYM_NAME)).toString();
+  QString expiry =
+      m_symbolModel->data(m_symbolModel->index(row, SYM_EXPIRY)).toString();
+
+  openOptionChain(symbol, expiry);
+}
+
+void ATMWatchWindow::openOptionChain(const QString &symbol,
+                                     const QString &expiry) {
+  qInfo() << "[ATMWatch] Opening Option Chain for" << symbol
+          << "expiry:" << expiry;
+
+  // Create and show option chain window
+  OptionChainWindow *chainWindow = new OptionChainWindow();
+  chainWindow->setAttribute(Qt::WA_DeleteOnClose); // Auto-delete when closed
+  chainWindow->setWindowTitle(
+      QString("Option Chain - %1 (%2)").arg(symbol, expiry));
+  chainWindow->setSymbol(symbol, expiry);
+
+  // Get ATM strike from current data
+  int row = m_symbolToRow.value(symbol, -1);
+  if (row >= 0) {
+    double atmStrike =
+        m_symbolModel->data(m_symbolModel->index(row, SYM_ATM)).toDouble();
+    chainWindow->setATMStrike(atmStrike);
+  }
+
+  chainWindow->show();
+  chainWindow->raise();
+  chainWindow->activateWindow();
+
+  m_statusLabel->setText(QString("Opened Option Chain for %1").arg(symbol));
 }

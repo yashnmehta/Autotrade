@@ -239,6 +239,7 @@ set(UI_SOURCES
     src/ui/LoginWindow.cpp
     src/ui/OptionChainWindow.cpp
     src/ui/ATMWatchWindow.cpp
+    src/ui/ATMWatchSettingsDialog.cpp
 )
 
 set(UI_HEADERS
@@ -246,6 +247,7 @@ set(UI_HEADERS
     include/ui/LoginWindow.h
     include/ui/OptionChainWindow.h
     include/ui/ATMWatchWindow.h
+    include/ui/ATMWatchSettingsDialog.h
 )
 
 # ========================================

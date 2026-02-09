@@ -114,16 +114,16 @@ void MainWindow::setConfigLoader(ConfigLoader *loader) {
   // Update ATM default source from config
   if (m_configLoader) {
     QString mode = m_configLoader->getBasePriceMode();
-    auto atm = ATMWatchManager::getInstance();
+    auto& atm = ATMWatchManager::getInstance();
     ATMWatchManager::BasePriceSource source =
         (mode == "future") ? ATMWatchManager::BasePriceSource::Future
                            : ATMWatchManager::BasePriceSource::Cash;
 
-    atm->setDefaultBasePriceSource(source);
+    atm.setDefaultBasePriceSource(source);
 
     // Add default watches using the configured source
-    atm->addWatch("NIFTY", "27JAN2026", source);
-    atm->addWatch("BANKNIFTY", "27JAN2026", source);
+    atm.addWatch("NIFTY", "27JAN2026", source);
+    atm.addWatch("BANKNIFTY", "27JAN2026", source);
   }
 
   // ✅ DO NOT create IndicesView here!
