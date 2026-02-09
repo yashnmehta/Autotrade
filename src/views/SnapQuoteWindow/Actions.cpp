@@ -195,16 +195,14 @@ void SnapQuoteWindow::loadFromContext(const WindowContext &context,
     }
   }
 
-  // ⚡ ULTRA-OPTIMIZATION: Skip ALL data loading when using cached window
-  // Data will come from UDP broadcast within milliseconds of showing window
-  // This avoids both API call (1-50ms) and GStore lookup (< 1ms but still
-  // overhead)
-  // Use GStore data for instant display while waiting for UDP pulses
-  if (!loadFromGStore()) {
-    if (m_lbLTPPrice)
-      m_lbLTPPrice->setText("--");
+  if (!fetchFromAPI) {
+    // Use GStore data for instant display while waiting for UDP pulses
+    if (!loadFromGStore()) {
+      if (m_lbLTPPrice)
+        m_lbLTPPrice->setText("--");
+    }
+    return; // Skip API call load!
   }
-  return; // Skip API call load!
 
   // Only fetch if explicitly requested (non-cached first open)
   fetchQuote();
