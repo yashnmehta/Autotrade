@@ -1,0 +1,58 @@
+
+C:\Users\admin\Desktop\trading_terminal_cpp>echo ========================================== 
+==========================================
+
+C:\Users\admin\Desktop\trading_terminal_cpp>echo Rebuilding Trading Terminal... 
+Rebuilding Trading Terminal...
+
+C:\Users\admin\Desktop\trading_terminal_cpp>echo ========================================== 
+==========================================
+
+C:\Users\admin\Desktop\trading_terminal_cpp>REM Setup environment first 
+
+C:\Users\admin\Desktop\trading_terminal_cpp>call setup-development-env.bat 
+
+================================================
+Trading Terminal - Development Environment
+================================================
+
+Setting up MinGW environment...
+Setting up Qt paths...
+Setting up vcpkg paths...
+
+Verifying installations...
+
+[OK] MinGW/GCC found
+g++ (x86_64-posix-seh-rev0, Built by MinGW-W64 project) 8.1.0
+[OK] Qt found  
+Using Qt version 5.15.2 in C:/Qt/5.15.2/mingw81_64/lib
+[OK] CMake found
+cmake version 4.2.1
+CMake suite maintained and supported by Kitware (kitware.com/cmake).
+
+================================================
+Environment configured successfully!
+================================================
+
+Tools available:
+  - MinGW:   C:\Qt\Tools\mingw810_64
+  - Qt:      C:\Qt\5.15.2\mingw81_64
+  - vcpkg:   C:\vcpkg
+  - CMake:   Available in PATH
+
+To configure project:  configure-project.bat
+To build project:      build-project.bat
+
+[1/4] Automatic MOC and UIC for target TradingTerminal
+[2/3] Building CXX object CMakeFiles\TradingTerminal.dir\src\services\LoginFlowService.cpp.obj
+FAILED: [code=2] CMakeFiles/TradingTerminal.dir/src/services/LoginFlowService.cpp.obj 
+C:\PROGRA~1\MIB055~1\18\COMMUN~1\VC\Tools\MSVC\1450~1.357\bin\Hostx64\x64\cl.exe  /nologo /TP -DNOMINMAX -DQT_CHARTS_LIB -DQT_CONCURRENT_LIB -DQT_CORE_LIB -DQT_GUI_LIB -DQT_NETWORK_LIB -DQT_NO_DEBUG -DQT_POSITIONING_LIB -DQT_PRINTSUPPORT_LIB -DQT_QMLMODELS_LIB -DQT_QML_LIB -DQT_QUICK_LIB -DQT_SQL_LIB -DQT_UITOOLS_LIB -DQT_WEBCHANNEL_LIB -DQT_WEBENGINECORE_LIB -DQT_WEBENGINEWIDGETS_LIB -DQT_WEBENGINE_LIB -DQT_WEBSOCKETS_LIB -DQT_WIDGETS_LIB -DWEBENGINE_AVAILABLE -D_CRT_SECURE_NO_WARNINGS -D_WIN32_WINNT=0x0601 -D_WINSOCK_DEPRECATED_NO_WARNINGS -IC:\Users\admin\Desktop\trading_terminal_cpp\build -IC:\Users\admin\Desktop\trading_terminal_cpp -IC:\Users\admin\Desktop\trading_terminal_cpp\build\TradingTerminal_autogen\include -IC:\Users\admin\Desktop\trading_terminal_cpp\include -IC:\Users\admin\Desktop\trading_terminal_cpp\include\core -IC:\Users\admin\Desktop\trading_terminal_cpp\include\core\widgets -IC:\Users\admin\Desktop\trading_terminal_cpp\include\core\base -IC:\Users\admin\Desktop\trading_terminal_cpp\include\app -IC:\Users\admin\Desktop\trading_terminal_cpp\include\ui -IC:\Users\admin\Desktop\trading_terminal_cpp\include\views -IC:\Users\admin\Desktop\trading_terminal_cpp\include\models -IC:\Users\admin\Desktop\trading_terminal_cpp\include\services -IC:\Users\admin\Desktop\trading_terminal_cpp\include\services\xts -IC:\Users\admin\Desktop\trading_terminal_cpp\include\api -IC:\Users\admin\Desktop\trading_terminal_cpp\include\repository -IC:\Users\admin\Desktop\trading_terminal_cpp\include\utils -IC:\Users\admin\Desktop\trading_terminal_cpp\include\data -IC:\Users\admin\Desktop\trading_terminal_cpp\lib\common\include -IC:\Users\admin\Desktop\trading_terminal_cpp\lib\cpp_broacast_nsefo\include -IC:\Users\admin\Desktop\trading_terminal_cpp\lib\cpp_broadcast_nsecm\include -IC:\Users\admin\Desktop\trading_terminal_cpp\lib\cpp_broadcast_bsefo\include -IC:\Users\admin\Desktop\trading_terminal_cpp\lib\cpp_broadcast_bsecm\include -IC:\Users\admin\Desktop\trading_terminal_cpp\lib\lzo-2.10\include -IC:\vcpkg\installed\x64-mingw-dynamic\include -external:IC:\Qt\5.15.2\msvc2019_64\include -external:IC:\Qt\5.15.2\msvc2019_64\include\QtWidgets -external:IC:\Qt\5.15.2\msvc2019_64\include\QtGui -external:IC:\Qt\5.15.2\msvc2019_64\include\QtANGLE -external:IC:\Qt\5.15.2\msvc2019_64\include\QtCore -external:IC:\Qt\5.15.2\msvc2019_64\.\mkspecs\win32-msvc -external:IC:\Qt\5.15.2\msvc2019_64\include\QtNetwork -external:IC:\Qt\5.15.2\msvc2019_64\include\QtWebSockets -external:IC:\Qt\5.15.2\msvc2019_64\include\QtUiTools -external:IC:\Qt\5.15.2\msvc2019_64\include\QtConcurrent -external:IC:\Qt\5.15.2\msvc2019_64\include\QtSql -external:IC:\Qt\5.15.2\msvc2019_64\include\QtCharts -external:I"C:\Program Files\OpenSSL-Win64\include" -external:IC:\Qt\5.15.2\msvc2019_64\include\QtWebEngine -external:IC:\Qt\5.15.2\msvc2019_64\include\QtWebEngineCore -external:IC:\Qt\5.15.2\msvc2019_64\include\QtQuick -external:IC:\Qt\5.15.2\msvc2019_64\include\QtQmlModels -external:IC:\Qt\5.15.2\msvc2019_64\include\QtQml -external:IC:\Qt\5.15.2\msvc2019_64\include\QtWebChannel -external:IC:\Qt\5.15.2\msvc2019_64\include\QtPositioning -external:IC:\Qt\5.15.2\msvc2019_64\include\QtWebEngineWidgets -external:IC:\Qt\5.15.2\msvc2019_64\include\QtPrintSupport -external:W0 /DWIN32 /D_WINDOWS /W3 /GR /EHsc /MD /O2 /Ob2 /DNDEBUG -std:c++20 /wd4244 /wd4267 /wd4200 /wd4566 /wd4996 /showIncludes /FoCMakeFiles\TradingTerminal.dir\src\services\LoginFlowService.cpp.obj /FdCMakeFiles\TradingTerminal.dir\ /FS -c C:\Users\admin\Desktop\trading_terminal_cpp\src\services\LoginFlowService.cpp
+C:\Qt\5.15.2\msvc2019_64\include\QtCore/qglobal.h(45): fatal error C1083: Cannot open include file: 'type_traits': No such file or directory
+ninja: build stopped: subcommand failed.
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+BUILD FAILED!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+Note: If 'ninja' is not found, you may need to run this from a Developer Command Prompt
+or ensure 'ninja' is in your PATH.

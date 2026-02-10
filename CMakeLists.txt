@@ -20,12 +20,12 @@ find_package(Qt5 COMPONENTS Widgets Network WebSockets UiTools Concurrent Sql RE
 find_package(Boost 1.70 REQUIRED)
 
 # Use OpenSSL from C:/Program Files/OpenSSL-Win64 (native Windows build)
-if(FALSE) # Disabled manual config due to missing lib files
+if(TRUE) # Enabled manual config as we found the files
     message(STATUS "Detected native Windows OpenSSL installation")
     set(OPENSSL_ROOT_DIR "C:/Program Files/OpenSSL-Win64" CACHE PATH "OpenSSL root directory" FORCE)
     set(OPENSSL_INCLUDE_DIR "C:/Program Files/OpenSSL-Win64/include" CACHE PATH "OpenSSL include directory" FORCE)
-    set(OPENSSL_CRYPTO_LIBRARY "C:/Program Files/OpenSSL-Win64/lib/libcrypto.lib" CACHE FILEPATH "OpenSSL crypto library" FORCE)
-    set(OPENSSL_SSL_LIBRARY "C:/Program Files/OpenSSL-Win64/lib/libssl.lib" CACHE FILEPATH "OpenSSL SSL library" FORCE)
+    set(OPENSSL_CRYPTO_LIBRARY "C:/Program Files/OpenSSL-Win64/lib/VC/x64/MD/libcrypto.lib" CACHE FILEPATH "OpenSSL crypto library" FORCE)
+    set(OPENSSL_SSL_LIBRARY "C:/Program Files/OpenSSL-Win64/lib/VC/x64/MD/libssl.lib" CACHE FILEPATH "OpenSSL SSL library" FORCE)
     
     # Verify OpenSSL files exist
     if(NOT EXISTS "${OPENSSL_INCLUDE_DIR}/openssl/ssl.h")

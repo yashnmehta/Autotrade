@@ -75,4 +75,6 @@ build/build_log.txt
 #add batch files
 *.bat
 configs/config.ini
-ref_code
+ref_code/Autotrader-Reborn-master/*
+ref_code/charting_library-master (1)/*
+ref_code/trade-chart-frontend/*
