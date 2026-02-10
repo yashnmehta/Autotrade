@@ -41,11 +41,13 @@ QVector<StrategyInstance> StrategyService::instances() const {
 }
 
 qint64 StrategyService::createInstance(
-    const QString &name, const QString &strategyType, const QString &symbol,
-    const QString &account, int segment, double stopLoss, double target,
-    double entryPrice, int quantity, const QVariantMap &parameters) {
+    const QString &name, const QString &description,
+    const QString &strategyType, const QString &symbol, const QString &account,
+    int segment, double stopLoss, double target, double entryPrice,
+    int quantity, const QVariantMap &parameters) {
   StrategyInstance instance;
   instance.instanceName = name;
+  instance.description = description;
   instance.strategyType = strategyType;
   instance.symbol = symbol;
   instance.account = account;

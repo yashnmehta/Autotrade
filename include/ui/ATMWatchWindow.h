@@ -38,10 +38,12 @@ public:
     int direction = index.data(Qt::UserRole + 1).toInt();
     QColor bgColor = Qt::transparent;
 
-    if (direction == 1) {
-      bgColor = QColor("#0000FF"); // Blue for Up
-    } else if (direction == 2) {
-      bgColor = QColor("#FF0000"); // Red for Down
+    if (!m_isMiddle) {
+      if (direction == 1) {
+        bgColor = QColor("#0000FF"); // Blue for Up
+      } else if (direction == 2) {
+        bgColor = QColor("#FF0000"); // Red for Down
+      }
     }
 
     if (bgColor != Qt::transparent) {
@@ -202,7 +204,10 @@ private:
   };
   enum SymbolCols { SYM_NAME = 0, SYM_PRICE, SYM_ATM, SYM_EXPIRY, SYM_COUNT };
   enum PutCols {
-    PUT_CHG = 0,
+    PUT_LTP = 0,
+    PUT_BID,
+    PUT_ASK,
+    PUT_CHG,
     PUT_VOL,
     PUT_OI,
     PUT_IV,
@@ -210,9 +215,6 @@ private:
     PUT_GAMMA,
     PUT_VEGA,
     PUT_THETA,
-    PUT_LTP,
-    PUT_BID,
-    PUT_ASK,
     PUT_COUNT
   };
 };

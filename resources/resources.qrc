@@ -11,5 +11,7 @@
         <file>forms/PreferencesDerivativeTab.ui</file>
         <file>forms/PreferencesAlertMessageTab.ui</file>
         <file>forms/PreferencesMarginPlusOrderTab.ui</file>
+        <file>forms/stretegies/JodiATM/inputParam.ui</file>
+        <file>forms/stretegies/TSpecial/tspecialParam.ui</file>
     </qresource>
 </RCC>

@@ -18,10 +18,10 @@ public:
   void initialize(const QString &dbPath = QString());
   QVector<StrategyInstance> instances() const;
 
-  qint64 createInstance(const QString &name, const QString &strategyType,
-                        const QString &symbol, const QString &account,
-                        int segment, double stopLoss, double target,
-                        double entryPrice, int quantity,
+  qint64 createInstance(const QString &name, const QString &description,
+                        const QString &strategyType, const QString &symbol,
+                        const QString &account, int segment, double stopLoss,
+                        double target, double entryPrice, int quantity,
                         const QVariantMap &parameters);
 
   bool startStrategy(qint64 instanceId);

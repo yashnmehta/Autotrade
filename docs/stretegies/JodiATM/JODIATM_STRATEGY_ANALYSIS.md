@@ -1045,3 +1045,29 @@ JodiATM is a sophisticated, adaptive straddle strategy that balances:
 **Last Updated:** February 10, 2026  
 **Author:** Trading Terminal Development Team  
 **Version:** 1.0
+
+---
+
+## UI Implementation: Dynamic Parameter Dialog
+
+The JodiATM strategy now utilizes a dedicated UI page within the `CreateStrategyDialog`'s `QStackedWidget`. Instead of manual JSON entry, traders use high-precision input controls:
+
+### JodiATM Page Layout
+- **Price Buffers**: 
+  - `Offset`: Primary distance trigger.
+  - `Threshold`: Calculation buffer.
+- **Fine Tuning**:
+  - `Adj Pts`: ATM centering.
+  - `Diff Points`: Strike width override.
+- **Execution Config**:
+  - `CE Strike Index`: Dropdown (default ATM).
+  - `PE Strike Index`: Dropdown (default ATM).
+  - `Is Trailing`: Toggle for progressive risk adjustment.
+
+### Automated Naming
+The UI logic ensures consistent naming conventions:
+- Neutral Prefix: `000_...`
+- Production Instance: `{ID}_{TYPE}` (e.g., `012_JodiATM`)
+
+This refactor eliminates syntax errors in parameter configuration and aligns with professional trading desks.
+

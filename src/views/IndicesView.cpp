@@ -11,7 +11,6 @@
 #include <QSettings>
 #include <QVBoxLayout>
 
-
 // ========== IndicesModel Implementation ==========
 
 QVariant IndicesModel::data(const QModelIndex &index, int role) const {
@@ -136,10 +135,28 @@ void IndicesView::setupUI() {
 
   // Style
   m_view->setShowGrid(false);
-  m_view->setAlternatingRowColors(true);
+  m_view->setAlternatingRowColors(false); // Disable for clean dark look
   m_view->setSelectionBehavior(QAbstractItemView::SelectRows);
   m_view->setSelectionMode(QAbstractItemView::SingleSelection);
   m_view->setEditTriggers(QAbstractItemView::NoEditTriggers);
+
+  setStyleSheet(
+      "background-color: #1e1e1e; color: #cccccc; border: 1px solid #3e3e42;");
+  m_view->setStyleSheet("QTableView { "
+                        "   background-color: #1e1e1e; "
+                        "   gridline-color: #333333; "
+                        "   color: #e0e0e0; "
+                        "   border: none; "
+                        "} "
+                        "QTableView::item:selected { "
+                        "   background-color: #094771; "
+                        "   color: white; "
+                        "} "
+                        "QHeaderView::section { "
+                        "   background-color: #252526; "
+                        "   color: #cccccc; "
+                        "   border: 1px solid #3e3e42; "
+                        "}");
 
   // Column sizing
   QHeaderView *header = m_view->horizontalHeader();
@@ -197,113 +214,67 @@ void IndicesView::removeIndex(const QString &name) {
     return;
 
   // 1. Remove from selected list
-  m_selectedIndices.removeAll(name);
+  m_selectedIndices.remove(name);
 
   // 2. Persist to settings
+  QStringList list = m_selectedIndices.toList();
   QSettings settings("TradingCompany", "TradingTerminal");
-  settings.setValue("indices/selected", m_selectedIndices);
+  settings.setValue("indices/selected", list);
 
-  // 3. Reload view (easiest way to cleanup pending updates and model rows)
-  reloadSelectedIndices(m_selectedIndices);
+  // 3. Reload view
+  reloadSelectedIndices(list);
 }
 
 void IndicesView::updateIndex(const QString &name, double ltp, double change,
                               double percentChange) {
-  // ✅ PERFORMANCE FIX: Queue update instead of immediate model update
-  IndexData data;
-  data.name = name;
-  data.ltp = ltp;
-  data.change = change;
-  data.percentChange = percentChange;
-
-  m_pendingUpdates[name] = data; // Overwrites previous pending update
+  // ✅ Queue update instead of immediate model update
+  IndexData data(name, ltp, change, percentChange);
+  m_pendingUpdates[name] = data;
 }
 
 void IndicesView::processPendingUpdates() {
-  if (m_pendingUpdates.isEmpty()) {
+  if (m_pendingUpdates.isEmpty())
     return;
-  }
 
-  // ✅ PERFORMANCE: Batch all model updates together
-  // Model/View architecture handles efficient repainting automatically
   for (auto it = m_pendingUpdates.begin(); it != m_pendingUpdates.end(); ++it) {
     const IndexData &data = it.value();
     m_model->updateIndex(data.name, data.ltp, data.change, data.percentChange);
   }
-
   m_pendingUpdates.clear();
 }
 
 void IndicesView::onIndexReceived(const UDP::IndexTick &tick) {
-  QString name = QString::fromLatin1(tick.name).trimmed();
+  // ✅ ULTRA-FAST PATH 1: Use token-based lookup (O(1))
+  if (tick.token > 0 && m_tokenToName.contains(tick.token)) {
+    const QString &name = m_tokenToName[tick.token];
+    updateIndex(name, tick.value, tick.change, tick.changePercent);
+    return;
+  }
 
-  // For BSE, name might be empty, so map from token
+  // ✅ ROBUST PATH 2: Use name-based lookup (O(1) with normalization cache)
+  // This is critical for NSE where tokens are often 0 in IndexTick records
+  QString rawName = QString::fromLatin1(tick.name).trimmed();
+  if (!rawName.isEmpty()) {
+    QString upperRaw = rawName.toUpper();
+    if (m_upperToDisplayName.contains(upperRaw)) {
+      const QString &displayName = m_upperToDisplayName[upperRaw];
+      updateIndex(displayName, tick.value, tick.change, tick.changePercent);
+      return;
+    }
+  }
+
+  // Fallback for SENSEX/BSE basics if not in token map but logically mapped
   if (tick.exchangeSegment == UDP::ExchangeSegment::BSECM ||
       tick.exchangeSegment == UDP::ExchangeSegment::BSEFO) {
+    QString name;
     if (tick.token == 1)
       name = "SENSEX";
     else if (tick.token == 2)
       name = "BSE 100";
-    else
-      return;
-  }
 
-  // For NSE, standardize names (case-insensitive matching against selected
-  // list)
-  if (tick.exchangeSegment == UDP::ExchangeSegment::NSECM) {
-    // 1. Try to find a case-insensitive match in our selected list
-    // This solves the "NIFTY 50" (UDP) vs "Nifty 50" (Settings) mismatch
-    bool found = false;
-    for (const QString &selected : m_selectedIndices) {
-      if (selected.compare(name, Qt::CaseInsensitive) == 0) {
-        name = selected; // Use the display name from settings
-        found = true;
-        break;
-      }
+    if (!name.isEmpty() && m_selectedIndices.contains(name)) {
+      updateIndex(name, tick.value, tick.change, tick.changePercent);
     }
-
-    // 2. If not found in selected list, do basic normalization logic (fallback)
-    if (!found) {
-      QString upperName = name.toUpper();
-      if ((upperName == "NIFTY 50" || upperName == "NIFTY" ||
-           upperName == "NIFTY50") &&
-          !upperName.contains("ARBITRAGE") && !upperName.contains("FUTURES") &&
-          !upperName.contains("ALPHA")) {
-        name = "Nifty 50";
-      } else if (upperName.contains("NIFTY BANK") ||
-                 upperName.contains("BANKNIFTY") ||
-                 upperName.contains("BANK NIFTY")) {
-        name = "Nifty Bank";
-      }
-    }
-  }
-  // BSE: Prevent Nifty/BankNifty conflict by prefixing
-  else if (tick.exchangeSegment == UDP::ExchangeSegment::BSECM ||
-           tick.exchangeSegment == UDP::ExchangeSegment::BSEFO) {
-    QString upperName = name.toUpper();
-    if (upperName == "NIFTY 50" || upperName == "NIFTY" ||
-        upperName.contains("NIFTY 50")) {
-      name = "BSE NIFTY 50";
-    } else if (upperName == "BANKNIFTY" || upperName.contains("BANKEX")) {
-      if (upperName == "BANKNIFTY")
-        name = "BSE BANKNIFTY";
-    }
-
-    // Allow SENSEX to merge (it's the primary index)
-    if (upperName.contains("SENSEX")) {
-      name = "SENSEX";
-    }
-  }
-
-  // Update (will be queued and batched)
-  // FIX: Only update if it is in the user's selected list.
-  // This prevents Removed indices from reappearing when a UDP tick arrives.
-  if (m_selectedIndices.contains(name)) {
-    updateIndex(name, tick.value, tick.change, tick.changePercent);
-  } else if (name == "SENSEX" && m_selectedIndices.contains("SENSEX")) {
-    // Special case for SENSEX if needed, but the general check above should
-    // cover it if SENSEX is in the list.
-    updateIndex(name, tick.value, tick.change, tick.changePercent);
   }
 }
 
@@ -315,52 +286,69 @@ void IndicesView::clear() {
 void IndicesView::initialize(RepositoryManager *repoManager) {
   if (!repoManager)
     return;
-
   m_repoManager = repoManager;
 
-  qDebug() << "[IndicesView] Initializing with repository data...";
-
-  // Load selected indices from settings
   QSettings settings("TradingCompany", "TradingTerminal");
-  m_selectedIndices = settings.value("indices/selected").toStringList();
+  QStringList selected = settings.value("indices/selected").toStringList();
 
-  // If no saved selection, use defaults
-  if (m_selectedIndices.isEmpty()) {
-    m_selectedIndices << "Nifty 50" << "Nifty Bank" << "SENSEX" << "Nifty IT"
-                      << "Nifty Next 50" << "Nifty 500" << "Nifty Midcap 50"
-                      << "Nifty200 Alpha 30" << "India VIX";
+  if (selected.isEmpty()) {
+    selected << "Nifty 50" << "Nifty Bank" << "SENSEX" << "Nifty IT"
+             << "Nifty Next 50" << "Nifty 500" << "Nifty Midcap 50"
+             << "Nifty200 Alpha 30" << "India VIX";
   }
 
-  reloadSelectedIndices(m_selectedIndices);
+  reloadSelectedIndices(selected);
 }
 
 void IndicesView::reloadSelectedIndices(const QStringList &selectedIndices) {
   if (!m_repoManager)
     return;
 
-  m_selectedIndices = selectedIndices;
-
-  // Clear existing data
+  m_selectedIndices =
+      QSet<QString>(selectedIndices.begin(), selectedIndices.end());
+  m_tokenToName.clear();
+  m_upperToDisplayName.clear();
   m_model->clear();
   m_pendingUpdates.clear();
 
-  // Get the index name to token map
   const auto &indexMap = m_repoManager->getIndexNameTokenMap();
 
-  qDebug() << "[IndicesView] Loading" << m_selectedIndices.size()
-           << "selected indices";
-
-  // Pre-populate with selected index names (values will be updated by UDP)
-  int addedCount = 0;
+  // Populate maps for fast UDP lookup
   for (const QString &indexName : m_selectedIndices) {
+    // 1. Add to upper-case name map for robust string matching
+    m_upperToDisplayName[indexName.toUpper()] = indexName;
+
+    // 2. Exact match in repository
     if (indexMap.contains(indexName)) {
-      // Add with zero values - will be updated by UDP
+      uint32_t token = static_cast<uint32_t>(indexMap[indexName]);
+      m_tokenToName[token] = indexName;
       updateIndex(indexName, 0.0, 0.0, 0.0);
-      addedCount++;
+    }
+    // 3. Case-insensitive fallback logic for repository mapping
+    else {
+      bool mapped = false;
+      for (auto it = indexMap.constBegin(); it != indexMap.constEnd(); ++it) {
+        if (it.key().compare(indexName, Qt::CaseInsensitive) == 0) {
+          uint32_t token = static_cast<uint32_t>(it.value());
+          m_tokenToName[token] = indexName; // Map token -> display name
+          updateIndex(indexName, 0.0, 0.0, 0.0);
+          mapped = true;
+          break;
+        }
+      }
+
+      // If still not mapped to a token, we might rely purely on name in
+      // onIndexReceived
+      if (!mapped) {
+        // Pre-populate so it shows up in UI even if no price yet
+        updateIndex(indexName, 0.0, 0.0, 0.0);
+      }
     }
   }
 
-  qDebug() << "[IndicesView] Pre-populated" << addedCount << "indices";
+  qDebug() << "[IndicesView] Reloaded:" << m_selectedIndices.size()
+           << "selected," << m_tokenToName.size() << "token-mapped,"
+           << m_upperToDisplayName.size() << "name-mapped";
 }
 
 void IndicesView::loadPosition() {

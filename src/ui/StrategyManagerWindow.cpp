@@ -179,16 +179,28 @@ StrategyInstance StrategyManagerWindow::selectedInstance(bool *ok) const {
 
 void StrategyManagerWindow::onCreateClicked() {
   CreateStrategyDialog dialog(this);
-  dialog.setStrategyTypes({"Custom", "TSpecial", "JodiATM", "VixMonkey"});
+  dialog.setStrategyTypes({"JodiATM", "Momentum", "TSpecial", "VixMonkey",
+                           "RangeBreakout", "Custom"});
+
+  // Calculate next Sr No
+  int nextId = 1;
+  const auto &instances = m_model->allInstances();
+  for (const auto &inst : instances) {
+    if (inst.instanceId >= nextId)
+      nextId = inst.instanceId + 1;
+  }
+  dialog.setNextSrNo(nextId);
 
   if (dialog.exec() != QDialog::Accepted) {
     return;
   }
 
+  QVariantMap params = dialog.parameters();
+
   StrategyService::instance().createInstance(
-      dialog.instanceName(), dialog.strategyType(), dialog.symbol(),
-      dialog.account(), dialog.segment(), dialog.stopLoss(), dialog.target(),
-      dialog.entryPrice(), dialog.quantity(), dialog.parameters());
+      dialog.instanceName(), dialog.description(), dialog.strategyType(),
+      dialog.symbol(), dialog.account(), dialog.segment(), dialog.stopLoss(),
+      dialog.target(), dialog.entryPrice(), dialog.quantity(), params);
 }
 
 void StrategyManagerWindow::onStartClicked() {

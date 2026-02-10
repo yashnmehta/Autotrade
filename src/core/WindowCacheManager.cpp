@@ -26,203 +26,132 @@ WindowCacheManager::WindowCacheManager() {}
 WindowCacheManager::~WindowCacheManager() {}
 
 void WindowCacheManager::initialize(MainWindow *mainWindow) {
-  // ⏱️ PERFORMANCE LOG: Track WindowCacheManager initialization CPU usage
-  QElapsedTimer initTimer;
-  initTimer.start();
-  qint64 startTime = QDateTime::currentMSecsSinceEpoch();
-
-  qDebug() << "========================================";
-  qDebug() << "[PERF] [WINDOW_CACHE_INIT] START";
-  qDebug() << "  Timestamp:" << startTime;
-  qDebug() << "========================================";
-
-  if (m_initialized) {
-    qDebug() << "[WindowCacheManager] Already initialized";
+  if (m_initialized)
     return;
-  }
-
-  if (!mainWindow) {
-    qWarning() << "[WindowCacheManager] Cannot initialize: MainWindow is null";
+  if (!mainWindow)
     return;
-  }
 
   m_mainWindow = mainWindow;
+  qDebug() << "[WindowCacheManager] Starting staggered window cache "
+              "initialization...";
 
-  qDebug() << "[WindowCacheManager] Initializing window cache...";
-  qint64 t0 = initTimer.elapsed();
+  // Phase 1: Create Buy Window immediately
+  createBuyWindow();
 
-  createCachedWindows();
-  qint64 t1 = initTimer.elapsed();
+  // Phase 2: Stagger remaining windows to keep UI responsive
+  QTimer::singleShot(50, this, [this]() {
+    createSellWindow();
 
-  m_initialized = true;
-  qDebug() << "[WindowCacheManager] ✓ Window cache initialized successfully";
+    QTimer::singleShot(50, this, [this]() {
+      createSnapQuoteWindows();
+      m_initialized = true;
+      qDebug() << "[WindowCacheManager] ✓ Window cache background "
+                  "initialization complete";
+    });
+  });
 
-  // Pre-load saved position to avoid disk I/O on hotkey press
+  // Pre-load saved position
   QSettings settings("TradingCompany", "TradingTerminal");
   if (settings.contains("orderwindow/last_x") &&
       settings.contains("orderwindow/last_y")) {
-    int x = settings.value("orderwindow/last_x").toInt();
-    int y = settings.value("orderwindow/last_y").toInt();
-    m_lastOrderWindowPos = QPoint(x, y);
+    m_lastOrderWindowPos = QPoint(settings.value("orderwindow/last_x").toInt(),
+                                  settings.value("orderwindow/last_y").toInt());
     m_hasSavedPosition = true;
-    qDebug() << "[WindowCacheManager] Pre-loaded window position:"
-             << m_lastOrderWindowPos;
-  } else {
-    m_hasSavedPosition = false;
-    qDebug()
-        << "[WindowCacheManager] No saved position found (will use default)";
   }
-  qint64 t2 = initTimer.elapsed();
-
-  qint64 totalTime = initTimer.elapsed();
-  qDebug() << "========================================";
-  qDebug() << "[PERF] [WINDOW_CACHE_INIT] COMPLETE";
-  qDebug() << "  TOTAL TIME:" << totalTime << "ms";
-  qDebug() << "  Breakdown:";
-  qDebug() << "    - Pre-setup:" << t0 << "ms";
-  qDebug() << "    - Create cached windows (Buy/Sell/3xSnapQuote):" << (t1 - t0)
-           << "ms";
-  qDebug() << "    - Load window position:" << (t2 - t1) << "ms";
-  qDebug() << "========================================";
 }
 
-void WindowCacheManager::createCachedWindows() {
-  // ⏱️ PERFORMANCE LOG: Track per-window creation time
-  QElapsedTimer windowTimer;
-  windowTimer.start();
-
-  qDebug() << "[PERF] [CACHE_CREATE] Starting window pre-creation...";
-
-  if (!m_mainWindow || !m_mainWindow->mdiArea()) {
-    qWarning() << "[WindowCacheManager] Cannot create cached windows: MDI area "
-                  "not ready";
-    return;
-  }
-
+void WindowCacheManager::createBuyWindow() {
   auto mdiArea = m_mainWindow->mdiArea();
+  if (!mdiArea)
+    return;
 
-  // Pre-create Buy Window
-  qint64 buyStart = windowTimer.elapsed();
   m_cachedBuyMdiWindow = new CustomMDISubWindow("Buy Order", mdiArea);
   m_cachedBuyMdiWindow->setWindowType("BuyWindow");
-  m_cachedBuyMdiWindow->setCached(true); // Mark as cached window
+  m_cachedBuyMdiWindow->setCached(true);
   m_cachedBuyWindow = new BuyWindow(m_cachedBuyMdiWindow);
   m_cachedBuyMdiWindow->setContentWidget(m_cachedBuyWindow);
   m_cachedBuyMdiWindow->resize(1220, 200);
-  mdiArea->addWindow(m_cachedBuyMdiWindow);
 
-  // ⚡ CRITICAL: Show off-screen immediately (not hide!) for instant first show
+  // ⚡ Add window without activating or showing (it's cached)
+  mdiArea->addWindow(m_cachedBuyMdiWindow, false);
+
+  // Move off-screen
   m_cachedBuyMdiWindow->show();
   m_cachedBuyMdiWindow->move(WindowConstants::OFF_SCREEN_X,
                              WindowConstants::OFF_SCREEN_Y);
   m_cachedBuyMdiWindow->lower();
 
-  // Connect signals to MainWindow (Crucial for cached windows!)
-  if (m_mainWindow && m_cachedBuyWindow) {
+  if (m_cachedBuyWindow) {
     QObject::connect(m_cachedBuyWindow, &BaseOrderWindow::orderSubmitted,
                      m_mainWindow, &MainWindow::placeOrder);
     QObject::connect(m_cachedBuyWindow,
                      &BaseOrderWindow::orderModificationSubmitted, m_mainWindow,
                      &MainWindow::modifyOrder);
   }
-
-  // Windows are pre-initialized, don't need reset on first show
   m_buyWindowNeedsReset = false;
+}
 
-  qint64 buyTime = windowTimer.elapsed() - buyStart;
-  qDebug() << "[PERF] [CACHE_CREATE] Buy window created in" << buyTime << "ms";
+void WindowCacheManager::createSellWindow() {
+  auto mdiArea = m_mainWindow->mdiArea();
+  if (!mdiArea)
+    return;
 
-  // Pre-create Sell Window
-  qint64 sellStart = windowTimer.elapsed();
   m_cachedSellMdiWindow = new CustomMDISubWindow("Sell Order", mdiArea);
   m_cachedSellMdiWindow->setWindowType("SellWindow");
-  m_cachedSellMdiWindow->setCached(true); // Mark as cached window
+  m_cachedSellMdiWindow->setCached(true);
   m_cachedSellWindow = new SellWindow(m_cachedSellMdiWindow);
   m_cachedSellMdiWindow->setContentWidget(m_cachedSellWindow);
   m_cachedSellMdiWindow->resize(1220, 200);
-  mdiArea->addWindow(m_cachedSellMdiWindow);
 
-  // ⚡ CRITICAL: Show off-screen immediately (not hide!) for instant first show
+  mdiArea->addWindow(m_cachedSellMdiWindow, false);
+
   m_cachedSellMdiWindow->show();
   m_cachedSellMdiWindow->move(WindowConstants::OFF_SCREEN_X,
                               WindowConstants::OFF_SCREEN_Y);
   m_cachedSellMdiWindow->lower();
 
-  // Connect signals to MainWindow (Crucial for cached windows!)
-  if (m_mainWindow && m_cachedSellWindow) {
+  if (m_cachedSellWindow) {
     QObject::connect(m_cachedSellWindow, &BaseOrderWindow::orderSubmitted,
                      m_mainWindow, &MainWindow::placeOrder);
     QObject::connect(m_cachedSellWindow,
                      &BaseOrderWindow::orderModificationSubmitted, m_mainWindow,
                      &MainWindow::modifyOrder);
   }
-
-  // Windows are pre-initialized, don't need reset on first show
   m_sellWindowNeedsReset = false;
+}
 
-  qint64 sellTime = windowTimer.elapsed() - sellStart;
-  qDebug() << "[PERF] [CACHE_CREATE] Sell window created in" << sellTime
-           << "ms";
+void WindowCacheManager::createSnapQuoteWindows() {
+  auto mdiArea = m_mainWindow->mdiArea();
+  if (!mdiArea)
+    return;
 
-  // ⚡ Pre-create 3 SnapQuote Windows for multi-window support
-  qint64 snapStart = windowTimer.elapsed();
   for (int i = 0; i < CACHED_SNAPQUOTE_COUNT; i++) {
-    qint64 singleSnapStart = windowTimer.elapsed();
-
     SnapQuoteWindowEntry entry;
-
     QString title = QString("Snap Quote %1").arg(i + 1);
     entry.mdiWindow = new CustomMDISubWindow(title, mdiArea);
     entry.mdiWindow->setWindowType("SnapQuote");
-    entry.mdiWindow->setCached(true); // Mark as cached window
-    entry.mdiWindow->setProperty("snapQuoteIndex",
-                                 i); // Store index for close tracking
+    entry.mdiWindow->setCached(true);
+    entry.mdiWindow->setProperty("snapQuoteIndex", i);
 
     entry.window = new SnapQuoteWindow(entry.mdiWindow);
-
-    // ⚡ CRITICAL: Set ScripBar to DisplayMode for instant setScripDetails()
-    // (<1ms) SnapQuote only needs to display the selected scrip, not search
     entry.window->setScripBarDisplayMode(true);
-
     entry.mdiWindow->setContentWidget(entry.window);
     entry.mdiWindow->resize(860, 300);
-    mdiArea->addWindow(entry.mdiWindow);
 
-    // ⚡ CRITICAL: Show off-screen immediately (not hide!) for instant first
-    // show This ensures even the FIRST user-triggered show is instant (< 20ms)!
+    mdiArea->addWindow(entry.mdiWindow, false);
+
     entry.mdiWindow->show();
     entry.mdiWindow->move(WindowConstants::OFF_SCREEN_X - (i * 100),
-                          WindowConstants::OFF_SCREEN_Y); // Stagger positions
+                          WindowConstants::OFF_SCREEN_Y);
     entry.mdiWindow->lower();
 
-    // ⚡ NOTE: SnapQuote now manages its own token-specific FeedHandler
-    // subscription No need for global broadcast connection (95% CPU reduction)
-    // Connection happens in subscribeToToken() when token is set
-
-    // Initialize entry metadata
-    entry.needsReset = false; // Windows are pre-initialized
+    entry.needsReset = false;
     entry.isVisible = false;
     entry.lastToken = -1;
-    entry.lastUsedTime = QDateTime::currentDateTime().addSecs(
-        -i); // Stagger times for initial LRU order
+    entry.lastUsedTime = QDateTime::currentDateTime().addSecs(-i);
 
     m_snapQuoteWindows.append(entry);
-
-    qint64 singleSnapTime = windowTimer.elapsed() - singleSnapStart;
-    qDebug() << "[PERF] [CACHE_CREATE] SnapQuote window" << (i + 1)
-             << "created in" << singleSnapTime << "ms";
   }
-
-  qint64 totalSnapTime = windowTimer.elapsed() - snapStart;
-  qint64 totalTime = windowTimer.elapsed();
-
-  qDebug() << "[PERF] [CACHE_CREATE] ✓ All" << (int)CACHED_SNAPQUOTE_COUNT
-           << "SnapQuote windows created in" << totalSnapTime << "ms";
-  qDebug() << "[PERF] [CACHE_CREATE] TOTAL window creation time:" << totalTime
-           << "ms";
-  qDebug() << "  - Buy:" << buyTime << "ms";
-  qDebug() << "  - Sell:" << sellTime << "ms";
-  qDebug() << "  - 3x SnapQuote:" << totalSnapTime << "ms";
 }
 
 void WindowCacheManager::setXTSClientForSnapQuote(XTSMarketDataClient *client) {

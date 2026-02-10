@@ -48,27 +48,33 @@ public:
   /**
    * @brief Show cached Buy window with optional context
    * @param context Window context (instrument details)
-   * @param initiatingWindow The window that is opening this Buy window (for focus restoration)
+   * @param initiatingWindow The window that is opening this Buy window (for
+   * focus restoration)
    * @return true if cached window was shown, false if cache not available
    */
-  CustomMDISubWindow *showBuyWindow(const WindowContext *context = nullptr, QWidget* initiatingWindow = nullptr);
+  CustomMDISubWindow *showBuyWindow(const WindowContext *context = nullptr,
+                                    QWidget *initiatingWindow = nullptr);
 
   /**
    * @brief Show cached Sell window with optional context
    * @param context Window context (instrument details)
-   * @param initiatingWindow The window that is opening this Sell window (for focus restoration)
+   * @param initiatingWindow The window that is opening this Sell window (for
+   * focus restoration)
    * @return true if cached window was shown, false if cache not available
    */
-  CustomMDISubWindow *showSellWindow(const WindowContext *context = nullptr, QWidget* initiatingWindow = nullptr);
+  CustomMDISubWindow *showSellWindow(const WindowContext *context = nullptr,
+                                     QWidget *initiatingWindow = nullptr);
 
   /**
    * @brief Show cached SnapQuote window with optional context
    * @param context Window context (instrument details)
-   * @param initiatingWindow The window that is opening this SnapQuote window (for focus restoration)
+   * @param initiatingWindow The window that is opening this SnapQuote window
+   * (for focus restoration)
    * @return true if cached window was shown, false if cache not available
    */
   CustomMDISubWindow *
-  showSnapQuoteWindow(const WindowContext *context = nullptr, QWidget* initiatingWindow = nullptr);
+  showSnapQuoteWindow(const WindowContext *context = nullptr,
+                      QWidget *initiatingWindow = nullptr);
 
   /**
    * @brief Mark Buy window as needing reset (called when user closes it)
@@ -98,7 +104,9 @@ private:
   WindowCacheManager(const WindowCacheManager &) = delete;
   WindowCacheManager &operator=(const WindowCacheManager &) = delete;
 
-  void createCachedWindows();
+  void createBuyWindow();
+  void createSellWindow();
+  void createSnapQuoteWindows();
   void resetBuyWindow();
   void resetSellWindow();
   void resetSnapQuoteWindow(int index);

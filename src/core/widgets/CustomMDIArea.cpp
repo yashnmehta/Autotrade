@@ -8,7 +8,6 @@
 #include <QVBoxLayout>
 #include <QtMath>
 
-
 #include <QApplication>
 #include <QShortcut>
 
@@ -63,7 +62,8 @@ CustomMDIArea::~CustomMDIArea() {
   qDeleteAll(m_windows);
 }
 
-void CustomMDIArea::addWindow(CustomMDISubWindow *window) {
+void CustomMDIArea::addWindow(CustomMDISubWindow *window,
+                              bool showAndActivate) {
   if (!window || m_windows.contains(window)) {
     return;
   }
@@ -78,11 +78,6 @@ void CustomMDIArea::addWindow(CustomMDISubWindow *window) {
   // Add to list
   m_windows.append(window);
 
-  // Show and activate
-  window->show();
-  window->raise();
-  activateWindow(window);
-
   // Install event filter to track activation
   window->installEventFilter(this);
 
@@ -94,6 +89,13 @@ void CustomMDIArea::addWindow(CustomMDISubWindow *window) {
   // windowActivated for focus/z-order management
   connect(window, &CustomMDISubWindow::windowActivated, this,
           [this, window]() { activateWindow(window); });
+
+  // Optional show/activate (can be skipped for cached windows)
+  if (showAndActivate) {
+    window->show();
+    window->raise();
+    activateWindow(window);
+  }
 
   emit windowAdded(window);
 

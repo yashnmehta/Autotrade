@@ -25,13 +25,11 @@
 #include <QToolBar>
 #include <QVBoxLayout>
 
-
 #include "models/GenericProfileManager.h"
 #include "models/GenericTableProfile.h"
 #include "views/BaseBookWindow.h"
 #include "views/MarketWatchWindow.h"
 #include <QJsonDocument>
-
 
 void MainWindow::setupContent() {
   // Get the central widget container from CustomMainWindow
@@ -214,21 +212,12 @@ void MainWindow::createMenuBar() {
 
   m_indicesViewAction = viewMenu->addAction("In&dices View");
   m_indicesViewAction->setCheckable(true);
-  m_indicesViewAction->setChecked(true);
-  connect(m_indicesViewAction, &QAction::toggled, this, [this](bool visible) {
-    if (m_indicesDock)
-      m_indicesDock->setVisible(visible);
-  });
+  // Checked state will be updated in createIndicesView after preference load
 
   m_allIndicesAction = viewMenu->addAction("&All Indices...");
   m_allIndicesAction->setCheckable(false);
-  connect(m_allIndicesAction, &QAction::triggered, this, [this]() {
-    if (m_allIndicesWindow) {
-      m_allIndicesWindow->show();
-      m_allIndicesWindow->raise();
-      m_allIndicesWindow->activateWindow();
-    }
-  });
+  connect(m_allIndicesAction, &QAction::triggered, this,
+          &MainWindow::showAllIndices);
 
   viewMenu->addSeparator();
   QAction *resetLayoutAction = viewMenu->addAction("Reset &Layout");
@@ -545,124 +534,99 @@ void MainWindow::manageWorkspaces() {
 }
 
 void MainWindow::createIndicesView() {
-  // ⏱️ PERFORMANCE LOG: Track IndicesView creation time
-  QElapsedTimer indicesTimer;
-  indicesTimer.start();
-  qint64 startTime = QDateTime::currentMSecsSinceEpoch();
+  if (m_indicesView)
+    return;
 
-  qDebug() << "========================================";
-  qDebug() << "[PERF] [INDICES_CREATE] START";
-  qDebug() << "  Timestamp:" << startTime;
-  qDebug() << "========================================";
+  qDebug() << "[MainWindow] Creating IndicesView (staggered initialization)...";
 
-  // ✅ DEFERRED CREATION: This is now called ONLY after login completes
-  // Create standalone tool window (subwindow to main app)
-  // Parented to this so it closes with app, Qt::Tool makes it a lightweight
-  // floating window
-  qint64 t0 = indicesTimer.elapsed();
+  // Phase 1: Create the widget (fast)
   m_indicesView = new IndicesView(this);
-  qint64 t1 = indicesTimer.elapsed();
-
   m_indicesView->setWindowTitle("Indices");
-  // ✅ FIX: Removed WindowStaysOnTopHint - now only stays with parent app, not
-  // over other apps
   m_indicesView->setWindowFlags(Qt::Tool | Qt::WindowCloseButtonHint);
-
-  // Set initial size
   m_indicesView->resize(400, 120);
-  qint64 t2 = indicesTimer.elapsed();
 
-  // ✅ Thread-Safe: Use QueuedConnection since UDP callbacks are on background
-  // threads
-  connect(&UdpBroadcastService::instance(),
-          &UdpBroadcastService::udpIndexReceived, m_indicesView,
-          &IndicesView::onIndexReceived, Qt::QueuedConnection);
-  qint64 t3 = indicesTimer.elapsed();
+  // Phase 2: Deferred initialization to keep startup smooth
+  QTimer::singleShot(10, this, [this]() {
+    if (!m_indicesView)
+      return;
 
-  // ✅ Initialize with repository data to pre-populate index names
-  if (RepositoryManager::getInstance()) {
-    m_indicesView->initialize(RepositoryManager::getInstance());
-  }
+    // Connect UDP signal
+    connect(&UdpBroadcastService::instance(),
+            &UdpBroadcastService::udpIndexReceived, m_indicesView,
+            &IndicesView::onIndexReceived, Qt::QueuedConnection);
 
-  // Create All Indices Window
-  m_allIndicesWindow = new AllIndicesWindow(this);
-  if (RepositoryManager::getInstance()) {
-    m_allIndicesWindow->initialize(RepositoryManager::getInstance());
-    // Load current selection
-    QSettings settings("TradingCompany", "TradingTerminal");
-    QStringList selected = settings.value("indices/selected").toStringList();
-    m_allIndicesWindow->setSelectedIndices(selected);
-  }
-
-  // Connect selection changes from All Indices to Indices View
-  connect(m_allIndicesWindow, &AllIndicesWindow::selectionChanged, this,
-          [this](const QStringList &selected) {
-            if (m_indicesView) {
-              m_indicesView->reloadSelectedIndices(selected);
-            }
-          });
-
-  // Restore position if saved
-  // For now, position relative to main window
-  // m_indicesView->move(this->x() + this->width() - 410, this->y() + 50);
-
-  // Check user preference for visibility
-  bool indicesVisible = QSettings("TradingCompany", "TradingTerminal")
-                            .value("mainwindow/indices_visible", true)
-                            .toBool();
-  qint64 t4 = indicesTimer.elapsed();
-
-  // Update action state
-  if (m_indicesViewAction) {
-    m_indicesViewAction->setChecked(indicesVisible);
+    // Initialize data from repository
+    if (RepositoryManager::getInstance()) {
+      m_indicesView->initialize(RepositoryManager::getInstance());
+    }
 
     // Connect action to view visibility
-    connect(m_indicesViewAction, &QAction::toggled, this, [this](bool visible) {
-      if (visible) {
-        m_indicesView->show();
-        m_indicesView->raise();
-        m_indicesView->activateWindow();
-      } else {
-        m_indicesView->hide();
-      }
-      // Save preference
-      QSettings s("TradingCompany", "TradingTerminal");
-      s.setValue("mainwindow/indices_visible", visible);
-    });
+    if (m_indicesViewAction) {
+      connect(m_indicesViewAction, &QAction::toggled, this,
+              [this](bool visible) {
+                if (!m_indicesView)
+                  return;
+                if (visible) {
+                  m_indicesView->show();
+                  m_indicesView->raise();
+                  m_indicesView->activateWindow();
+                } else {
+                  m_indicesView->hide();
+                }
+                // Save preference
+                QSettings s("TradingCompany", "TradingTerminal");
+                s.setValue("mainwindow/indices_visible", visible);
+              });
 
-    // ✅ Connect hideRequested signal to update action state when user closes
-    // window NOTE: When user closes with X button, we only uncheck the menu
-    // item but DON'T save the preference as false - window should reopen on
-    // next launch
-    connect(m_indicesView, &IndicesView::hideRequested, this, [this]() {
-      if (m_indicesViewAction) {
-        // Temporarily disconnect to avoid triggering save
-        m_indicesViewAction->blockSignals(true);
-        m_indicesViewAction->setChecked(false);
-        m_indicesViewAction->blockSignals(false);
-      }
-      // DON'T save preference here - keep it as true for next launch
-    });
+      // ✅ Connect hideRequested signal
+      connect(m_indicesView, &IndicesView::hideRequested, this, [this]() {
+        if (m_indicesViewAction) {
+          m_indicesViewAction->blockSignals(true);
+          m_indicesViewAction->setChecked(false);
+          m_indicesViewAction->blockSignals(false);
+        }
+      });
+    }
+
+    // Show if preference says so
+    bool indicesVisible = QSettings("TradingCompany", "TradingTerminal")
+                              .value("mainwindow/indices_visible", true)
+                              .toBool();
+    if (indicesVisible) {
+      m_indicesView->show();
+      m_indicesView->raise();
+      if (m_indicesViewAction)
+        m_indicesViewAction->setChecked(true);
+    }
+
+    qDebug() << "[MainWindow] IndicesView background initialization complete";
+  });
+}
+
+// Helper to ensure AllIndicesWindow is created only when needed
+void MainWindow::showAllIndices() {
+  if (!m_allIndicesWindow) {
+    qDebug() << "[MainWindow] Creating AllIndicesWindow on-demand...";
+    m_allIndicesWindow = new AllIndicesWindow(this);
+    if (RepositoryManager::getInstance()) {
+      m_allIndicesWindow->initialize(RepositoryManager::getInstance());
+
+      // Sync selection
+      QSettings settings("TradingCompany", "TradingTerminal");
+      QStringList selected = settings.value("indices/selected").toStringList();
+      m_allIndicesWindow->setSelectedIndices(selected);
+    }
+
+    // Connect selection changes
+    connect(m_allIndicesWindow, &AllIndicesWindow::selectionChanged, this,
+            [this](const QStringList &selected) {
+              if (m_indicesView) {
+                m_indicesView->reloadSelectedIndices(selected);
+              }
+            });
   }
-  qint64 t5 = indicesTimer.elapsed();
 
-  // Show if user preference was enabled
-  if (indicesVisible) {
-    m_indicesView->show();
-    m_indicesView->raise();
-  }
-  qint64 t6 = indicesTimer.elapsed();
-
-  qint64 totalTime = indicesTimer.elapsed();
-  qDebug() << "========================================";
-  qDebug() << "[PERF] [INDICES_CREATE] COMPLETE";
-  qDebug() << "  TOTAL TIME:" << totalTime << "ms";
-  qDebug() << "  Breakdown:";
-  qDebug() << "    - Create IndicesView widget:" << (t1 - t0) << "ms";
-  qDebug() << "    - Set window properties:" << (t2 - t1) << "ms";
-  qDebug() << "    - Connect UDP signal:" << (t3 - t2) << "ms";
-  qDebug() << "    - Load visibility preference:" << (t4 - t3) << "ms";
-  qDebug() << "    - Setup action connections:" << (t5 - t4) << "ms";
-  qDebug() << "    - Show window (if enabled):" << (t6 - t5) << "ms";
-  qDebug() << "========================================";
+  m_allIndicesWindow->show();
+  m_allIndicesWindow->raise();
+  m_allIndicesWindow->activateWindow();
 }

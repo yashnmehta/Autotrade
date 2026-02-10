@@ -254,7 +254,7 @@ UDP::CircuitLimitTick convertBseCircuitLimit(uint32_t token,
 UDP::IndexTick convertNseFoIndex(const nsefo::IndexData &data) {
   UDP::IndexTick tick;
   tick.exchangeSegment = UDP::ExchangeSegment::NSEFO;
-  tick.token = 0; // Index doesn't have a token in 7207
+  tick.token = 0;
 
   // Copy index name (ensure null-termination)
   size_t copySize = sizeof(tick.name) - 1;
@@ -591,6 +591,8 @@ void UdpBroadcastService::setupNseFoCallbacks() {
   // Index callback for message 7207 (BCAST_INDICES)
   nsefo::MarketDataCallbackRegistry::instance().registerIndexCallback(
       [this](const nsefo::IndexData &data) {
+        qInfo() << "[UdpBroadcast] NSE FO Index:" << data.name
+                << "Value:" << data.value;
         // Emit new UDP::IndexTick
         UDP::IndexTick indexTick = convertNseFoIndex(data);
         emit udpIndexReceived(indexTick);
@@ -781,7 +783,8 @@ void UdpBroadcastService::setupNseCmCallbacks() {
 
           UDP::IndexTick tick;
           tick.exchangeSegment = UDP::ExchangeSegment::NSECM;
-          tick.token = 0; // No token in 7207
+          tick.token =
+              (itName != nsecm::g_indexNameToToken.end()) ? itName->second : 0;
 
           // Name
           size_t copySize = sizeof(tick.name) - 1;
@@ -801,6 +804,8 @@ void UdpBroadcastService::setupNseCmCallbacks() {
           tick.numAdvances = data.upMoves;
           tick.numDeclines = data.downMoves;
 
+          // qInfo() << "[UdpBroadcast] NSE CM Index:" << tick.name
+          //         << "Value:" << tick.value;
           emit udpIndexReceived(tick);
 
           // FUNNEL TO FEEDHANDLER: Convert IndexTick to MarketTick for

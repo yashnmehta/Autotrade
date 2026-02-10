@@ -74,3 +74,30 @@ Goal: A trader-first, dense, fast UI that scales to 100+ running instances.
 
 - Avoid modal spam: only use dialogs for Create/Modify
 - Avoid auto popups on error; show in row + context panel
+
+---
+
+## Dynamic Create Strategy Dialog (V2 Improvement)
+
+### Header (Common Section)
+- **Sr No (ID)**: Read-only integer (calculated as max(instances) + 1).
+- **Strategy Type**: Dropdown (JodiATM, Momentum, RangeBreakout, Custom).
+- **Strategy Name**: Auto-generated as `SrNo_Type` (e.g., `042_JodiATM`), remains editable.
+- **Client ID**: Input for assigning the strategy to a specific execution account.
+
+### Body (Strategy-Specific UI)
+A `QStackedWidget` is used to switch between dedicated parameter views:
+
+1. **JodiATM Page**:
+   - Numerical inputs for: Offset, Threshold, Adj Points, Diff Points.
+   - Checkboxes: Trailing SL.
+   - Strike Selectors: CE/PE Strike Index (ATM, ATM+/-N).
+2. **Momentum Page**:
+   - Numerical inputs for Target/SL offset.
+3. **Custom Page**:
+   - `QTextEdit` with JSON highlighting for advanced users.
+
+### Logic
+- **Naming Service**: Naming changes instantly when Strategy Type is toggled.
+- **Parameter Extraction**: Main dialog queries the active stacked page for its `QVariantMap`.
+

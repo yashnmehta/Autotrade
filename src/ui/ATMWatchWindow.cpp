@@ -186,9 +186,9 @@ void ATMWatchWindow::setupModels() {
 
   m_putModel = new QStandardItemModel(this);
   m_putModel->setColumnCount(PUT_COUNT);
-  m_putModel->setHorizontalHeaderLabels({"Chg", "Vol", "OI", "IV", "Delta",
-                                         "Gamma", "Vega", "Theta", "LTP", "Bid",
-                                         "Ask"});
+  m_putModel->setHorizontalHeaderLabels({"LTP", "Bid", "Ask", "Chg", "Vol",
+                                         "OI", "IV", "Delta", "Gamma", "Vega",
+                                         "Theta"});
   m_putTable->setModel(m_putModel);
   m_putTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
 

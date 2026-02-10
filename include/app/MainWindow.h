@@ -60,6 +60,7 @@ public:
   // IndicesView management
   bool hasIndicesView() const; // Check if IndicesView exists
   void createIndicesView();    // Create IndicesView (called from main.cpp)
+  void showAllIndices();       // Show AllIndicesWindow (creates on-demand)
 
   // Order operations
   bool loadWorkspaceByName(const QString &name);

@@ -1,9 +1,10 @@
 #ifndef CUSTOMMDIAREA_H
 #define CUSTOMMDIAREA_H
 
-#include <QWidget>
 #include <QList>
 #include <QPoint>
+#include <QWidget>
+
 
 class CustomMDISubWindow;
 class MDITaskBar;
@@ -17,73 +18,75 @@ class MDITaskBar;
  * - Direct child window control
  * - Custom taskbar for minimized windows
  */
-class CustomMDIArea : public QWidget
-{
-    Q_OBJECT
+class CustomMDIArea : public QWidget {
+  Q_OBJECT
 
 public:
-    explicit CustomMDIArea(QWidget *parent = nullptr);
-    ~CustomMDIArea();
+  explicit CustomMDIArea(QWidget *parent = nullptr);
+  ~CustomMDIArea();
 
-    // Window Management (Pure C++)
-    void addWindow(CustomMDISubWindow *window);
-    void removeWindow(CustomMDISubWindow *window);
-    void activateWindow(CustomMDISubWindow *window);
-    void minimizeWindow(CustomMDISubWindow *window);
-    void restoreWindow(CustomMDISubWindow *window);
-    void closeAllSubWindows();
+  // Window Management (Pure C++)
+  void addWindow(CustomMDISubWindow *window, bool showAndActivate = true);
+  void removeWindow(CustomMDISubWindow *window);
+  void activateWindow(CustomMDISubWindow *window);
+  void minimizeWindow(CustomMDISubWindow *window);
+  void restoreWindow(CustomMDISubWindow *window);
+  void closeAllSubWindows();
 
-    // Window Arrangement
-    void cascadeWindows();
-    void tileWindows();
-    void tileHorizontally();
-    void tileVertically();
+  // Window Arrangement
+  void cascadeWindows();
+  void tileWindows();
+  void tileHorizontally();
+  void tileVertically();
 
-    // Window Snapping
-    QRect getSnappedGeometry(const QRect &geometry) const;
-    void showSnapPreview(const QRect &snapRect);
-    void hideSnapPreview();
+  // Window Snapping
+  QRect getSnappedGeometry(const QRect &geometry) const;
+  void showSnapPreview(const QRect &snapRect);
+  void hideSnapPreview();
 
-    // Workspace Management
-    void saveWorkspace(const QString &name);
-    void loadWorkspace(const QString &name);
-    QStringList availableWorkspaces() const;
-    void deleteWorkspace(const QString &name);
+  // Workspace Management
+  void saveWorkspace(const QString &name);
+  void loadWorkspace(const QString &name);
+  QStringList availableWorkspaces() const;
+  void deleteWorkspace(const QString &name);
 
-    CustomMDISubWindow *activeWindow() const;
-    QList<CustomMDISubWindow *> windowList() const;
-    
-    // Navigation
-    void cycleActiveWindow(bool backward = false);
+  CustomMDISubWindow *activeWindow() const;
+  QList<CustomMDISubWindow *> windowList() const;
 
-    MDITaskBar *taskBar() const { return m_taskBar; }
+  // Navigation
+  void cycleActiveWindow(bool backward = false);
+
+  MDITaskBar *taskBar() const { return m_taskBar; }
 
 signals:
-    void windowActivated(CustomMDISubWindow *window);
-    void windowAdded(CustomMDISubWindow *window);
-    void windowRemoved(CustomMDISubWindow *window);
-    void restoreWindowRequested(const QString &type, const QString &title, const QRect &geometry, bool isMinimized, bool isMaximized, bool isPinned, const QString &workspaceName, int index);
+  void windowActivated(CustomMDISubWindow *window);
+  void windowAdded(CustomMDISubWindow *window);
+  void windowRemoved(CustomMDISubWindow *window);
+  void restoreWindowRequested(const QString &type, const QString &title,
+                              const QRect &geometry, bool isMinimized,
+                              bool isMaximized, bool isPinned,
+                              const QString &workspaceName, int index);
 
 protected:
-    void resizeEvent(QResizeEvent *event) override;
-    bool eventFilter(QObject *watched, QEvent *event) override;
+  void resizeEvent(QResizeEvent *event) override;
+  bool eventFilter(QObject *watched, QEvent *event) override;
 
 private:
-    QPoint getNextWindowPosition();
+  QPoint getNextWindowPosition();
 
-    QList<CustomMDISubWindow *> m_windows;
-    QList<CustomMDISubWindow *> m_minimizedWindows;
-    CustomMDISubWindow *m_activeWindow;
-    MDITaskBar *m_taskBar;
+  QList<CustomMDISubWindow *> m_windows;
+  QList<CustomMDISubWindow *> m_minimizedWindows;
+  CustomMDISubWindow *m_activeWindow;
+  MDITaskBar *m_taskBar;
 
-    // Window positioning
-    int m_nextX;
-    int m_nextY;
-    static constexpr int CASCADE_OFFSET = 30;
+  // Window positioning
+  int m_nextX;
+  int m_nextY;
+  static constexpr int CASCADE_OFFSET = 30;
 
-    // Snapping
-    QWidget *m_snapPreview;
-    static constexpr int SNAP_DISTANCE = 15;
+  // Snapping
+  QWidget *m_snapPreview;
+  static constexpr int SNAP_DISTANCE = 15;
 };
 
 #endif // CUSTOMMDIAREA_H

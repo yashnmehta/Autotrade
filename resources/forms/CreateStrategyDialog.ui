@@ -6,211 +6,134 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>400</width>
-    <height>550</height>
+    <width>850</width>
+    <height>500</height>
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Create Strategy Instance</string>
+   <string>Strategy Configuration</string>
   </property>
   <property name="styleSheet">
    <string notr="true">
-    QDialog { background-color: #ffffff; color: #1f1f1f; font-family: 'Segoe UI'; }
-    QLabel { background-color: transparent; color: #333333; font-weight: 600; font-size: 12px; border: none; }
-    QLineEdit, QSpinBox, QDoubleSpinBox, QTextEdit, QComboBox {
-        background-color: #ffffff; color: #333333;
-        border: 1px solid #d1d5db; border-radius: 4px; padding: 6px;
-        font-size: 12px;
+    QDialog { background-color: #ffffff; font-family: 'Segoe UI', Arial; }
+    
+    QGroupBox { 
+        font-weight: bold; border: 1px solid #e2e8f0; 
+        border-radius: 4px; margin-top: 8px; padding-top: 15px; 
+        background-color: #ffffff;
     }
-    QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QDoubleSpinBox:focus, QTextEdit:focus {
-        border: 1px solid #2563eb;
+    QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 3px; color: #64748b; background-color: #ffffff; }
+
+    QLabel { color: #475569; font-size: 10px; font-weight: 600; text-transform: uppercase; background: transparent; }
+    
+    QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox, QTextEdit {
+        border: 1px solid #cbd5e1; border-radius: 3px; padding: 2px 6px;
+        background-color: white; color: #0f172a; font-size: 11px;
     }
-    QPushButton {
-        background-color: #f3f4f6; color: #1f2937;
-        border: 1px solid #d1d5db; border-radius: 4px;
-        padding: 6px 16px; font-weight: 600; font-size: 12px;
+    QLineEdit:focus, QComboBox:focus, QSpinBox:focus { border: 1px solid #3b82f6; background-color: #f0f9ff; }
+    
+    QPushButton#okButton { 
+        background-color: #2563eb; color: white; border-radius: 4px; 
+        font-weight: bold; padding: 6px 20px; min-width: 100px;
     }
-    QPushButton:hover { background-color: #e5e7eb; border-color: #9ca3af; }
-    QPushButton:pressed { background-color: #d1d5db; }
-    QTextEdit { font-family: 'Consolas', monospace; font-size: 11px; }
+    QPushButton#okButton:hover { background-color: #1d4ed8; }
+    
+    QPushButton#cancelButton { 
+        background-color: #ffffff; color: #475569; border: 1px solid #cbd5e1;
+        border-radius: 4px; padding: 6px 20px;
+    }
+    QPushButton#cancelButton:hover { background-color: #f1f5f9; }
+
+    QScrollArea { background-color: #ffffff; border: none; border-left: 1px solid #e2e8f0; }
+    QWidget#scrollAreaWidgetContents { background-color: #ffffff; }
+    QFrame#sParamFrame { background-color: #ffffff; }
+
+    QCheckBox { color: #1e293b; font-size: 11px; font-weight: 600; background: transparent; spacing: 5px; }
+    QCheckBox::indicator { width: 14px; height: 14px; border: 1px solid #cbd5e1; border-radius: 3px; background: white; }
+    QCheckBox::indicator:checked { background-color: #2563eb; border-color: #2563eb; image: url(:/icons/check.png); }
+
+    QScrollBar:vertical {
+        border: none; background: #f8fafc; width: 6px; margin: 0px 0px 0px 0px; border-radius: 3px;
+    }
+    QScrollBar::handle:vertical {
+        background: #e2e8f0; min-height: 20px; border-radius: 3px;
+    }
+    QScrollBar::handle:vertical:hover { background: #cbd5e1; }
+    QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0px; }
+    QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: none; }
    </string>
   </property>
-  <layout class="QVBoxLayout" name="verticalLayout">
-   <item>
-    <layout class="QFormLayout" name="formLayout">
-     <item row="0" column="0">
-      <widget class="QLabel" name="label_name">
-       <property name="text">
-        <string>Instance Name</string>
+  <layout class="QGridLayout" name="gridLayout">
+   <property name="margin">
+    <number>10</number>
+   </property>
+   <property name="spacing">
+    <number>8</number>
+   </property>
+   <item row="0" column="1" rowspan="2">
+    <widget class="QScrollArea" name="scrollArea">
+     <property name="widgetResizable">
+      <bool>true</bool>
+     </property>
+     <property name="frameShape">
+      <enum>QFrame::NoFrame</enum>
+     </property>
+     <widget class="QWidget" name="scrollAreaWidgetContents">
+      <layout class="QVBoxLayout" name="scrollLayout">
+       <property name="margin">
+        <number>0</number>
        </property>
-      </widget>
-     </item>
-     <item row="0" column="1">
-      <widget class="QLineEdit" name="m_nameEdit"/>
-     </item>
-     <item row="1" column="0">
-      <widget class="QLabel" name="label_type">
-       <property name="text">
-        <string>Strategy Type</string>
-       </property>
-      </widget>
-     </item>
-     <item row="1" column="1">
-      <widget class="QComboBox" name="m_typeCombo"/>
-     </item>
-     <item row="2" column="0">
-      <widget class="QLabel" name="label_symbol">
-       <property name="text">
-        <string>Symbol</string>
-       </property>
-      </widget>
-     </item>
-     <item row="2" column="1">
-      <widget class="QLineEdit" name="m_symbolEdit"/>
-     </item>
-     <item row="3" column="0">
-      <widget class="QLabel" name="label_account">
-       <property name="text">
-        <string>Account ID</string>
-       </property>
-      </widget>
-     </item>
-     <item row="3" column="1">
-      <widget class="QLineEdit" name="m_accountEdit"/>
-     </item>
-     <item row="4" column="0">
-      <widget class="QLabel" name="label_segment">
-       <property name="text">
-        <string>Segment</string>
-       </property>
-      </widget>
-     </item>
-     <item row="4" column="1">
-      <widget class="QComboBox" name="m_segmentCombo">
        <item>
-        <property name="text">
-         <string>NSECM</string>
-        </property>
+        <widget class="QFrame" name="sParamFrame">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="frameShape">
+          <enum>QFrame::NoFrame</enum>
+         </property>
+        </widget>
        </item>
        <item>
-        <property name="text">
-         <string>NSEFO</string>
-        </property>
+        <spacer name="verticalSpacer_2">
+         <property name="orientation">
+          <enum>Qt::Vertical</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>40</height>
+          </size>
+         </property>
+        </spacer>
        </item>
-       <item>
-        <property name="text">
-         <string>BSECM</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>BSEFO</string>
-        </property>
-       </item>
-      </widget>
-     </item>
-     <item row="5" column="0">
-      <widget class="QLabel" name="label_stopLoss">
-       <property name="text">
-        <string>Stop Loss</string>
-       </property>
-      </widget>
-     </item>
-     <item row="5" column="1">
-      <widget class="QDoubleSpinBox" name="m_stopLossSpin">
-       <property name="decimals">
-        <number>2</number>
-       </property>
-       <property name="maximum">
-        <double>1000000000.000000000000000</double>
-       </property>
-      </widget>
-     </item>
-     <item row="6" column="0">
-      <widget class="QLabel" name="label_target">
-       <property name="text">
-        <string>Target</string>
-       </property>
-      </widget>
-     </item>
-     <item row="6" column="1">
-      <widget class="QDoubleSpinBox" name="m_targetSpin">
-       <property name="decimals">
-        <number>2</number>
-       </property>
-       <property name="maximum">
-        <double>1000000000.000000000000000</double>
-       </property>
-      </widget>
-     </item>
-     <item row="7" column="0">
-      <widget class="QLabel" name="label_entryPrice">
-       <property name="text">
-        <string>Entry Price</string>
-       </property>
-      </widget>
-     </item>
-     <item row="7" column="1">
-      <widget class="QDoubleSpinBox" name="m_entryPriceSpin">
-       <property name="decimals">
-        <number>2</number>
-       </property>
-       <property name="maximum">
-        <double>1000000000.000000000000000</double>
-       </property>
-      </widget>
-     </item>
-     <item row="8" column="0">
-      <widget class="QLabel" name="label_qty">
-       <property name="text">
-        <string>Quantity</string>
-       </property>
-      </widget>
-     </item>
-     <item row="8" column="1">
-      <widget class="QSpinBox" name="m_qtySpin">
-       <property name="maximum">
-        <number>1000000</number>
-       </property>
-      </widget>
-     </item>
-     <item row="9" column="0">
-      <widget class="QLabel" name="label_params">
-       <property name="text">
-        <string>Parameters</string>
-       </property>
-      </widget>
-     </item>
-     <item row="9" column="1">
-      <widget class="QTextEdit" name="m_paramsEdit">
-       <property name="placeholderText">
-        <string>Optional JSON parameters. Example: {&quot;threshold&quot;: 0.5}</string>
-       </property>
-      </widget>
-     </item>
-    </layout>
+      </layout>
+     </widget>
+    </widget>
    </item>
-   <item>
-    <layout class="QHBoxLayout" name="horizontalLayout">
+   <item row="2" column="0" colspan="2">
+    <layout class="QHBoxLayout" name="footerLayout">
      <item>
-      <spacer name="horizontalSpacer">
+      <widget class="QLabel" name="m_validationLabel">
+       <property name="styleSheet">
+        <string>color: #e11d48; font-size: 11px; text-transform: none;</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <spacer name="spacer">
        <property name="orientation">
         <enum>Qt::Horizontal</enum>
        </property>
        <property name="sizeHint" stdset="0">
         <size>
-         <width>40</width>
-         <height>20</height>
+         <width>0</width>
+         <height>0</height>
         </size>
        </property>
       </spacer>
-     </item>
-     <item>
-      <widget class="QPushButton" name="okButton">
-       <property name="text">
-        <string>Create</string>
-       </property>
-      </widget>
      </item>
      <item>
       <widget class="QPushButton" name="cancelButton">
@@ -219,43 +142,155 @@
        </property>
       </widget>
      </item>
+     <item>
+      <widget class="QPushButton" name="okButton">
+       <property name="text">
+        <string>Create Instance</string>
+       </property>
+      </widget>
+     </item>
     </layout>
+   </item>
+   <item row="0" column="0">
+    <widget class="QGroupBox" name="identityGroup">
+     <property name="maximumSize">
+      <size>
+       <width>320</width>
+       <height>16777215</height>
+      </size>
+     </property>
+     <property name="title">
+      <string>IDENTITY &amp; CONFIG</string>
+     </property>
+     <layout class="QGridLayout" name="identityGrid">
+      <property name="verticalSpacing">
+       <number>6</number>
+      </property>
+      <item row="0" column="0">
+       <widget class="QLabel" name="label">
+        <property name="text">
+         <string>Sr:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QLabel" name="m_srNoLabel">
+        <property name="styleSheet">
+         <string>color: #2563eb; font-weight: 800; font-size: 12px;</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="2">
+       <widget class="QLabel" name="label_type">
+        <property name="text">
+         <string>Type:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="3">
+       <widget class="QComboBox" name="m_typeCombo"/>
+      </item>
+      <item row="1" column="0">
+       <widget class="QLabel" name="label_name">
+        <property name="text">
+         <string>Name:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="1" colspan="3">
+       <widget class="QLineEdit" name="m_nameEdit"/>
+      </item>
+      <item row="2" column="0">
+       <widget class="QLabel" name="label_acc">
+        <property name="text">
+         <string>Acc:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="1">
+       <widget class="QLineEdit" name="m_accountEdit"/>
+      </item>
+      <item row="2" column="2">
+       <widget class="QLabel" name="label_note">
+        <property name="text">
+         <string>Note:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="3">
+       <widget class="QLineEdit" name="m_descriptionEdit"/>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item row="1" column="0">
+    <widget class="QGroupBox" name="riskGroup">
+     <property name="title">
+      <string>GLOBAL RISK (OPTIONAL)</string>
+     </property>
+     <property name="maximumSize">
+      <size>
+       <width>320</width>
+       <height>16777215</height>
+      </size>
+     </property>
+     <layout class="QGridLayout" name="riskGridLayout">
+      <item row="0" column="0">
+       <widget class="QLabel" name="label_target">
+        <property name="text">
+         <string>Target</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QDoubleSpinBox" name="m_targetSpin">
+        <property name="maximum">
+         <double>9999999.98999999910593</double>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="0">
+       <widget class="QLabel" name="label_sl">
+        <property name="text">
+         <string>SL Amt</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="1">
+       <widget class="QDoubleSpinBox" name="m_stopLossSpin">
+        <property name="minimum">
+         <double>-9999999.98999999910593</double>
+        </property>
+        <property name="maximum">
+         <double>9999999.98999999910593</double>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="0" colspan="2">
+       <widget class="QCheckBox" name="m_isTrailingCheck">
+        <property name="text">
+         <string>Enable Trailing</string>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="0">
+       <spacer name="verticalSpacer">
+        <property name="orientation">
+         <enum>Qt::Vertical</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>20</width>
+          <height>40</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+     </layout>
+    </widget>
    </item>
   </layout>
  </widget>
  <resources/>
- <connections>
-  <connection>
-   <sender>okButton</sender>
-   <signal>clicked()</signal>
-   <receiver>CreateStrategyDialog</receiver>
-   <slot>accept()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>20</x>
-     <y>20</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>20</x>
-     <y>20</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>cancelButton</sender>
-   <signal>clicked()</signal>
-   <receiver>CreateStrategyDialog</receiver>
-   <slot>reject()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>20</x>
-     <y>20</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>20</x>
-     <y>20</y>
-    </hint>
-   </hints>
-  </connection>
- </connections>
+ <connections/>
 </ui>

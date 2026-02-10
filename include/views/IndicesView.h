@@ -5,6 +5,8 @@
 #include "udp/UDPTypes.h"
 #include <QAbstractTableModel>
 #include <QHash>
+#include <QSet>
+#include <QStringList>
 #include <QTableView>
 #include <QTimer>
 #include <QVector>
@@ -91,20 +93,22 @@ private slots:
   void processPendingUpdates();
 
 protected:
-    void closeEvent(QCloseEvent *event) override;
-    void moveEvent(QMoveEvent *event) override;
+  void closeEvent(QCloseEvent *event) override;
+  void moveEvent(QMoveEvent *event) override;
 
 private:
-    void setupUI();
-    void loadPosition();
-    void savePosition();
+  void setupUI();
+  void loadPosition();
+  void savePosition();
 
   QTableView *m_view;    // ✅ View (no item overhead)
   IndicesModel *m_model; // ✅ Model (efficient data storage)
   QHash<QString, IndexData> m_pendingUpdates;
   QTimer *m_updateTimer;
   RepositoryManager *m_repoManager = nullptr;
-  QStringList m_selectedIndices;
+  QSet<QString> m_selectedIndices;              // Set for O(1) membership check
+  QHash<uint32_t, QString> m_tokenToName;       // Map for ultra-fast UDP lookup
+  QHash<QString, QString> m_upperToDisplayName; // Map UPC(name) -> DisplayName
 };
 
 #endif // INDICESVIEW_H
