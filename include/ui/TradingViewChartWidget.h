@@ -2,8 +2,10 @@
 #define TRADINGVIEWCHARTWIDGET_H
 
 #include <QWidget>
+#ifdef HAVE_QTWEBENGINE
 #include <QWebEngineView>
 #include <QWebChannel>
+#endif
 #include <QString>
 #include "data/CandleData.h"
 
@@ -35,6 +37,7 @@ class XTSMarketDataClient;
  * layout->addWidget(chart);
  * ```
  */
+#ifdef HAVE_QTWEBENGINE
 class TradingViewChartWidget : public QWidget {
     Q_OBJECT
 
@@ -214,5 +217,6 @@ signals:
                                 const QString& resolution,
                                 qint64 from, qint64 to);
 };
+#endif // HAVE_QTWEBENGINE
 
 #endif // TRADINGVIEWCHARTWIDGET_H

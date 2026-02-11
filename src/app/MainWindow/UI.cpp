@@ -265,9 +265,17 @@ void MainWindow::createMenuBar() {
   connect(wmStrategy, &QAction::triggered, this,
           &MainWindow::createStrategyManagerWindow);
 
+#ifdef HAVE_QTWEBENGINE
   QAction *wmChart = windowMenu->addAction("Chart (&TradingView)\tF7");
   connect(wmChart, &QAction::triggered, this,
           &MainWindow::createChartWindow);
+#else
+  // TradingView not available - show disabled menu item with explanation
+  QAction *wmChart = windowMenu->addAction("Chart (TradingView) - Not Available on macOS");
+  wmChart->setEnabled(false);
+  wmChart->setToolTip("TradingView charts require QtWebEngine which is not available for Qt5 on macOS.\n"
+                     "Use Qt Charts (native charting) instead, or use Windows version for TradingView.");
+#endif
 
   windowMenu->addSeparator();
   windowMenu->addAction("&Cascade", this,

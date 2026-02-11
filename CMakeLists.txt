@@ -73,7 +73,7 @@ if(ENABLE_TRADINGVIEW)
 endif()
 
 # Use OpenSSL from C:/Program Files/OpenSSL-Win64 (native Windows build)
-if(TRUE) # Enabled manual config as we found the files
+if(WIN32)
     message(STATUS "Detected native Windows OpenSSL installation")
     set(OPENSSL_ROOT_DIR "C:/Program Files/OpenSSL-Win64" CACHE PATH "OpenSSL root directory" FORCE)
     set(OPENSSL_INCLUDE_DIR "C:/Program Files/OpenSSL-Win64/include" CACHE PATH "OpenSSL include directory" FORCE)
@@ -116,9 +116,8 @@ if(TRUE) # Enabled manual config as we found the files
             INTERFACE_INCLUDE_DIRECTORIES "${OPENSSL_INCLUDE_DIR}"
         )
     endif()
-# MSYS2 OpenSSL configuration removed to avoid toolchain mismatch.
-# Relying on find_package(OpenSSL) or manual configuration via CMake variables.
-
+else()
+    find_package(OpenSSL REQUIRED)
 endif()
 
 # Only call find_package if OpenSSL wasn't manually configured
@@ -218,6 +217,9 @@ if(USE_SYSTEM_LZO)
         message(STATUS "Using system LZO library")
         message(STATUS "LZO include dirs: ${LZO_INCLUDE_DIRS}")
         message(STATUS "LZO libraries: ${LZO_LIBRARIES}")
+        if(LZO_LIBRARY_DIRS)
+            link_directories(${LZO_LIBRARY_DIRS})
+        endif()
         set(USE_BUNDLED_LZO OFF)
     else()
         message(STATUS "System LZO library not found, using bundled version")

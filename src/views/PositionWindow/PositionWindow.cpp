@@ -44,7 +44,13 @@ PositionWindow::PositionWindow(TradingDataService *tradingDataService,
   m_priceUpdateTimer = new QTimer(this);
   connect(m_priceUpdateTimer, &QTimer::timeout, this,
           &PositionWindow::updateMarketPrices);
+#ifdef Q_OS_MACOS
+  // macOS optimization: Use coarse timer for better CPU efficiency
+  m_priceUpdateTimer->setTimerType(Qt::CoarseTimer);
+  m_priceUpdateTimer->start(1000); // 1 second (reduced for macOS)
+#else
   m_priceUpdateTimer->start(500);
+#endif
 }
 
 PositionWindow::~PositionWindow() {}

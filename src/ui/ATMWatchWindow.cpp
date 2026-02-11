@@ -30,6 +30,10 @@ ATMWatchWindow::ATMWatchWindow(QWidget *parent) : QWidget(parent) {
   // Initialize base price update timer (every 1 second)
   m_basePriceTimer = new QTimer(this);
   m_basePriceTimer->setInterval(1000); // 1 second
+#ifdef Q_OS_MACOS
+  // macOS optimization: Use coarse timer for better CPU efficiency
+  m_basePriceTimer->setTimerType(Qt::CoarseTimer);
+#endif
   connect(m_basePriceTimer, &QTimer::timeout, this,
           &ATMWatchWindow::onBasePriceUpdate);
   m_basePriceTimer->start();

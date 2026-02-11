@@ -10,7 +10,9 @@
 #include "ui/ATMWatchWindow.h"
 #include "ui/OptionChainWindow.h"
 #include "ui/StrategyManagerWindow.h"
+#ifdef HAVE_QTWEBENGINE
 #include "ui/TradingViewChartWidget.h"
+#endif
 #include "views/BuyWindow.h"
 #include "views/CustomizeDialog.h"
 #include "views/MarketWatchWindow.h"
@@ -242,6 +244,7 @@ CustomMDISubWindow *MainWindow::createMarketWatch() {
   return window;
 }
 
+#ifdef HAVE_QTWEBENGINE
 CustomMDISubWindow *MainWindow::createChartWindow() {
   static int counter = 1;
   
@@ -279,6 +282,7 @@ CustomMDISubWindow *MainWindow::createChartWindow() {
   qDebug() << "[MainWindow] Created Chart Window";
   return window;
 }
+#endif
 
 CustomMDISubWindow *MainWindow::createBuyWindow() {
   static int f1Counter = 0;

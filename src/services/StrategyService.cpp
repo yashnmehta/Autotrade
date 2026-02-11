@@ -11,7 +11,13 @@ StrategyService &StrategyService::instance() {
 }
 
 StrategyService::StrategyService() : QObject(nullptr) {
+#ifdef Q_OS_MACOS
+  // macOS optimization: Use coarse timer for better CPU efficiency
+  m_updateTimer.setInterval(1000); // 1 second (reduced for macOS)
+  m_updateTimer.setTimerType(Qt::CoarseTimer);
+#else
   m_updateTimer.setInterval(500);
+#endif
   connect(&m_updateTimer, &QTimer::timeout, this,
           &StrategyService::onUpdateTick);
 }

@@ -290,6 +290,11 @@ void MarketWatchModel::updatePrice(int row, double ltp, double change, double ch
     if (row >= 0 && row < m_scrips.count() && !m_scrips.at(row).isBlankRow) {
         ScripData &scrip = m_scrips[row];
         
+        // Only update if data changed (prevent unnecessary repaints)
+        if (scrip.ltp == ltp && scrip.change == change && scrip.changePercent == changePercent) {
+            return; // No change, skip update
+        }
+        
         // Determine tick direction for LTP
         if (ltp > scrip.ltp && scrip.ltp > 0) scrip.ltpTick = 1;
         else if (ltp < scrip.ltp && scrip.ltp > 0) scrip.ltpTick = -1;
@@ -307,6 +312,9 @@ void MarketWatchModel::updatePrice(int row, double ltp, double change, double ch
 void MarketWatchModel::updateVolume(int row, qint64 volume)
 {
     if (row >= 0 && row < m_scrips.count() && !m_scrips.at(row).isBlankRow) {
+        if (m_scrips[row].volume == volume) {
+            return; // No change, skip update
+        }
         m_scrips[row].volume = volume;
         notifyRowUpdated(row, 0, columnCount() - 1);
     }
@@ -317,6 +325,11 @@ void MarketWatchModel::updateBidAsk(int row, double bid, double ask)
 {
     if (row >= 0 && row < m_scrips.count() && !m_scrips.at(row).isBlankRow) {
         ScripData &scrip = m_scrips[row];
+        
+        // Only update if data changed
+        if (scrip.bid == bid && scrip.ask == ask) {
+            return; // No change, skip update
+        }
         
         // Determine tick direction for Bid
         if (bid > scrip.bid && scrip.bid > 0) scrip.bidTick = 1;
@@ -338,6 +351,9 @@ void MarketWatchModel::updateBidAsk(int row, double bid, double ask)
 void MarketWatchModel::updateLastTradedQuantity(int row, qint64 ltq)
 {
     if (row >= 0 && row < m_scrips.count() && !m_scrips.at(row).isBlankRow) {
+        if (m_scrips[row].ltq == ltq) {
+            return; // No change, skip update
+        }
         m_scrips[row].ltq = ltq;
         notifyRowUpdated(row, 0, columnCount() - 1);
     }
@@ -348,6 +364,9 @@ void MarketWatchModel::updateLastTradedQuantity(int row, qint64 ltq)
 void MarketWatchModel::updateHighLow(int row, double high, double low)
 {
     if (row >= 0 && row < m_scrips.count() && !m_scrips.at(row).isBlankRow) {
+        if (m_scrips[row].high == high && m_scrips[row].low == low) {
+            return; // No change, skip update
+        }
         m_scrips[row].high = high;
         m_scrips[row].low = low;
         notifyRowUpdated(row, 0, columnCount() - 1);
@@ -358,6 +377,9 @@ void MarketWatchModel::updateHighLow(int row, double high, double low)
 void MarketWatchModel::updateOpenInterest(int row, qint64 oi)
 {
     if (row >= 0 && row < m_scrips.count() && !m_scrips.at(row).isBlankRow) {
+        if (m_scrips[row].openInterest == oi) {
+            return; // No change, skip update
+        }
         m_scrips[row].openInterest = oi;
         // Notify entire row to support dynamic column profiles correctly
         notifyRowUpdated(row, 0, columnCount() - 1);
@@ -377,6 +399,12 @@ void MarketWatchModel::updateOHLC(int row, double open, double high, double low,
 {
     if (row >= 0 && row < m_scrips.count() && !m_scrips.at(row).isBlankRow) {
         ScripData &scrip = m_scrips[row];
+        
+        // Only update if data changed
+        if (scrip.open == open && scrip.high == high && scrip.low == low && scrip.close == close) {
+            return; // No change, skip update
+        }
+        
         scrip.open = open;
         scrip.high = high;
         scrip.low = low;
@@ -390,6 +418,10 @@ void MarketWatchModel::updateOHLC(int row, double open, double high, double low,
 void MarketWatchModel::updateBidAskQuantities(int row, int bidQty, int askQty)
 {
     if (row >= 0 && row < m_scrips.count() && !m_scrips.at(row).isBlankRow) {
+        if (m_scrips[row].buyQty == bidQty && m_scrips[row].sellQty == askQty) {
+            return; // No change, skip update
+        }
+        
         m_scrips[row].buyQty = bidQty;
         m_scrips[row].sellQty = askQty;
         
@@ -401,6 +433,10 @@ void MarketWatchModel::updateBidAskQuantities(int row, int bidQty, int askQty)
 void MarketWatchModel::updateTotalBuySellQty(int row, int totalBuyQty, int totalSellQty)
 {
     if (row >= 0 && row < m_scrips.count() && !m_scrips.at(row).isBlankRow) {
+        if (m_scrips[row].totalBuyQty == totalBuyQty && m_scrips[row].totalSellQty == totalSellQty) {
+            return; // No change, skip update
+        }
+        
         m_scrips[row].totalBuyQty = totalBuyQty;
         m_scrips[row].totalSellQty = totalSellQty;
         
@@ -412,6 +448,10 @@ void MarketWatchModel::updateTotalBuySellQty(int row, int totalBuyQty, int total
 void MarketWatchModel::updateOpenInterestWithChange(int row, qint64 oi, double oiChangePercent)
 {
     if (row >= 0 && row < m_scrips.count() && !m_scrips.at(row).isBlankRow) {
+        if (m_scrips[row].openInterest == oi && m_scrips[row].oiChangePercent == oiChangePercent) {
+            return; // No change, skip update
+        }
+        
         m_scrips[row].openInterest = oi;
         m_scrips[row].oiChangePercent = oiChangePercent;
         

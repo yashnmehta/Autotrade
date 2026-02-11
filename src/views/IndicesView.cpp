@@ -105,7 +105,13 @@ IndicesView::IndicesView(QWidget *parent)
   setupUI();
 
   // Setup throttling timer - max 10 updates per second (100ms interval)
+#ifdef Q_OS_MACOS
+  // macOS optimization: Use coarse timer and longer interval
+  m_updateTimer->setInterval(250); // 4 updates/sec (reduced for macOS)
+  m_updateTimer->setTimerType(Qt::CoarseTimer);
+#else
   m_updateTimer->setInterval(100);
+#endif
   m_updateTimer->setSingleShot(false);
   connect(m_updateTimer, &QTimer::timeout, this,
           &IndicesView::processPendingUpdates);

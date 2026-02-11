@@ -301,7 +301,13 @@ void MarketWatchWindow::setupZeroCopyMode() {
     m_zeroCopyUpdateTimer = new QTimer(this);
     connect(m_zeroCopyUpdateTimer, &QTimer::timeout, this,
             &MarketWatchWindow::onZeroCopyTimerUpdate);
+#ifdef Q_OS_MACOS
+    // macOS optimization: Use coarse timer for better CPU efficiency
+    m_zeroCopyUpdateTimer->setTimerType(Qt::CoarseTimer);
+    m_zeroCopyUpdateTimer->start(200); // 200ms = 5 updates/sec (reduced for macOS)
+#else
     m_zeroCopyUpdateTimer->start(100); // 100ms = 10 updates/sec
+#endif
   }
 
   qDebug() << "[MarketWatch] ✓ Zero-copy PriceCache mode configured with 100ms "
