@@ -10,7 +10,7 @@ echo ================================================
 echo.
 
 REM Setup environment first
-call setup-development-env.bat
+call scripts\mingw81\setup-development-env.bat
 if %errorlevel% neq 0 (
     echo Failed to setup development environment
     pause
@@ -21,7 +21,7 @@ REM Check if project is configured
 if not exist "build\CMakeCache.txt" (
     echo.
     echo ERROR: Project not configured yet!
-    echo Please run: configure-project.bat
+    echo Please run: scripts\mingw81\setup.bat
     echo.
     pause
     exit /b 1

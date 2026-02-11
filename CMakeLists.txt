@@ -1,13 +1,39 @@
 cmake_minimum_required(VERSION 3.14)
 
+# Fix MSVC parallel build PDB conflicts - use _INIT to ensure it persists
+if(WIN32 AND NOT MINGW)
+    set(CMAKE_CXX_FLAGS_INIT "/FS /MP")
+    set(CMAKE_C_FLAGS_INIT "/FS /MP")
+endif()
+
 project(TradingTerminal LANGUAGES CXX)
+
+# Disable unity builds - causes conflicts with duplicate symbols across broadcast libraries
+set(CMAKE_UNITY_BUILD OFF)
 
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+if(WIN32)
+    add_definitions(-DNOMINMAX)
+endif()
+
+# MSVC optimizations for faster builds
+if(MSVC)
+    add_compile_options(/FS /MP)  # Multi-processor compilation
+    add_compile_options(/W1)  # Reduce warning level for faster compilation
+    
+    # Faster linking options
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /INCREMENTAL")
+    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} /INCREMENTAL")
+    
+    message(STATUS "MSVC: Enabled fast build optimizations (/FS /MP /W1 /INCREMENTAL)")
+    message(STATUS "MSVC: Unity builds enabled (batch size: 16)")
+endif()
 
 # Set AUTOUIC search paths for .ui files
 set(CMAKE_AUTOUIC_SEARCH_PATHS ${CMAKE_SOURCE_DIR}/resources/forms)
@@ -18,6 +44,33 @@ find_package(Qt5 COMPONENTS Widgets Network WebSockets UiTools Concurrent Sql RE
 # Find Boost for native WebSocket (Beast + Asio)
 # Boost.Beast is header-only, just need Boost headers
 find_package(Boost 1.70 REQUIRED)
+
+# Optional Qt Charts support (Native charting with QChart)
+option(ENABLE_QTCHARTS "Enable Qt Charts for native charting" ON)
+if(ENABLE_QTCHARTS)
+    find_package(Qt5Charts QUIET)
+    if(Qt5Charts_FOUND)
+        message(STATUS "Qt Charts found. Enabling native QChart-based charting!")
+        add_definitions(-DHAVE_QTCHARTS)
+    else()
+        message(WARNING "Qt Charts not found. Install with: Qt Maintenance Tool > Add Components > Qt Charts")
+        message(STATUS "Continuing without native charts...")
+    endif()
+endif()
+
+# Optional QtWebEngine support (Chromium browser for TradingView)
+option(ENABLE_TRADINGVIEW "Enable TradingView Lightweight Charts integration" ON)
+if(ENABLE_TRADINGVIEW)
+    find_package(Qt5WebEngineWidgets QUIET)
+    find_package(Qt5WebChannel QUIET)
+    if(Qt5WebEngineWidgets_FOUND AND Qt5WebChannel_FOUND)
+        message(STATUS "QtWebEngine found. Enabling TradingView chart integration!")
+        add_definitions(-DHAVE_QTWEBENGINE)
+        add_definitions(-DHAVE_TRADINGVIEW)
+    else()
+        message(STATUS "QtWebEngine not found. TradingView charts will be disabled.")
+    endif()
+endif()
 
 # Use OpenSSL from C:/Program Files/OpenSSL-Win64 (native Windows build)
 if(TRUE) # Enabled manual config as we found the files
@@ -74,6 +127,45 @@ if(NOT OPENSSL_FOUND)
 endif()
 
 find_package(Threads REQUIRED)
+
+# ========================================
+# TA-Lib (Technical Analysis Library) - Optional
+# ========================================
+option(ENABLE_TALIB "Enable TA-Lib for technical indicators" ON)
+if(ENABLE_TALIB)
+    # Try to find TA-Lib
+    find_path(TALIB_INCLUDE_DIR ta-lib/ta_libc.h
+        PATHS
+            "C:/Program Files/TA-Lib/include"
+            "C:/ta-lib/include"
+            "${CMAKE_SOURCE_DIR}/lib/ta-lib/include"
+            "/usr/local/include"
+            "/usr/include"
+    )
+    
+    find_library(TALIB_LIBRARY
+        NAMES ta_lib ta_libc_cdr ta_libc
+        PATHS
+            "C:/Program Files/TA-Lib/lib"
+            "C:/ta-lib/lib"
+            "${CMAKE_SOURCE_DIR}/lib/ta-lib/lib"
+            "/usr/local/lib"
+            "/usr/lib"
+    )
+    
+    if(TALIB_INCLUDE_DIR AND TALIB_LIBRARY)
+        message(STATUS "TA-Lib found!")
+        message(STATUS "  Include: ${TALIB_INCLUDE_DIR}")
+        message(STATUS "  Library: ${TALIB_LIBRARY}")
+        add_definitions(-DHAVE_TALIB)
+        set(TALIB_FOUND TRUE)
+    else()
+        message(WARNING "TA-Lib not found. Technical indicators will be limited.")
+        message(STATUS "  Download from: https://ta-lib.org/")
+        message(STATUS "  Windows: Install to C:/Program Files/TA-Lib or C:/ta-lib")
+        set(TALIB_FOUND FALSE)
+    endif()
+endif()
 
 # ========================================
 # Socket.IO C++ Client Library - DISABLED
@@ -256,6 +348,13 @@ set(UI_HEADERS
     include/ui/ModifyParametersDialog.h
 )
 
+# Add TradingView chart widget if enabled
+if(ENABLE_TRADINGVIEW AND Qt5WebEngineWidgets_FOUND AND Qt5WebChannel_FOUND)
+    list(APPEND UI_SOURCES src/ui/TradingViewChartWidget.cpp)
+    list(APPEND UI_HEADERS include/ui/TradingViewChartWidget.h)
+    message(STATUS "Added TradingView chart widget to build")
+endif()
+
 # ========================================
 # VIEWS LAYER - Trading Windows
 # ✅ Actively developed
@@ -371,6 +470,10 @@ set(SERVICE_SOURCES
     src/services/GreeksCalculationService.cpp
     src/services/StrategyService.cpp
     src/services/StrategyRepository.cpp
+    
+    # Chart & Indicator Services
+    src/services/HistoricalDataStore.cpp
+    src/services/CandleAggregator.cpp
 )
 
 set(SERVICE_HEADERS
@@ -387,6 +490,11 @@ set(SERVICE_HEADERS
     include/services/StrategyService.h
     include/services/StrategyService.h
     include/services/StrategyRepository.h
+    
+    # Chart & Indicator Services
+    include/services/HistoricalDataStore.h
+    include/services/CandleAggregator.h
+    include/data/CandleData.h
 )
 
 # ========================================
@@ -652,6 +760,14 @@ add_executable(TradingTerminal
     ${BSEFO_BROADCAST_SOURCES}
 )
 
+# Fix MSVC PDB contention - use embedded debug info instead of PDB files
+if(MSVC)
+    target_compile_options(TradingTerminal PRIVATE 
+        /Z7  # Embed debug info in .obj files (avoids PDB contention)
+        $<$<CONFIG:Debug>:/Od>  # Disable optimizations for debug
+    )
+endif()
+
 # Link libraries
 target_link_libraries(TradingTerminal PRIVATE
     Qt5::Widgets
@@ -667,6 +783,14 @@ target_link_libraries(TradingTerminal PRIVATE
     cpp_broadcast_bsefo  # BSE FO broadcast library
     # sioclient  # Disabled
 )
+
+# Add TradingView dependencies if enabled
+if(ENABLE_TRADINGVIEW AND Qt5WebEngineWidgets_FOUND AND Qt5WebChannel_FOUND)
+    target_link_libraries(TradingTerminal PRIVATE 
+        Qt5::WebEngineWidgets 
+        Qt5::WebChannel
+    )
+endif()
 
 if(WIN32)
     target_link_libraries(TradingTerminal PRIVATE Ws2_32 Iphlpapi Psapi)
@@ -699,40 +823,71 @@ if(APPLE)
     )
 endif()
 
-# Add tests subdirectory
-add_subdirectory(tests)
+# Tests directory removed by user request
 
 # ========================================
-# Post-Build: Copy DLLs for Windows MinGW
+# Post-Build: Copy DLLs for Windows
 # ========================================
-if(WIN32 AND MINGW)
-    # Find windeployqt
-    find_program(WINDEPLOYQT_EXECUTABLE windeployqt HINTS "${Qt5_DIR}/../../../bin")
+if(WIN32)
+    # Get Qt binary directory from qmake
+    get_target_property(QT_QMAKE_EXECUTABLE Qt5::qmake IMPORTED_LOCATION)
+    get_filename_component(QT_BIN_DIR "${QT_QMAKE_EXECUTABLE}" DIRECTORY)
     
-    if(WINDEPLOYQT_EXECUTABLE)
-        # Deploy Qt DLLs automatically after build
-        add_custom_command(TARGET TradingTerminal POST_BUILD
-            COMMAND "${WINDEPLOYQT_EXECUTABLE}"
-                --no-translations
-                --no-system-d3d-compiler
-                --no-opengl-sw
-                --no-angle
-                "$<TARGET_FILE:TradingTerminal>"
-            COMMENT "Running windeployqt to copy Qt DLLs..."
-        )
+    # Deployment suffix (d for MSVC Debug)
+    set(DLL_SUFFIX "")
+    if(MSVC AND CMAKE_BUILD_TYPE STREQUAL "Debug")
+        set(DLL_SUFFIX "d")
+    endif()
+
+    # Define list of core Qt DLLs to deploy
+    set(QT_DEPS Core Gui Widgets Network WebSockets Sql Concurrent UiTools)
+    
+    foreach(DEP ${QT_DEPS})
+        set(DLL_NAME "Qt5${DEP}${DLL_SUFFIX}.dll")
+        if(EXISTS "${QT_BIN_DIR}/${DLL_NAME}")
+            add_custom_command(TARGET TradingTerminal POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                    "${QT_BIN_DIR}/${DLL_NAME}"
+                    "$<TARGET_FILE_DIR:TradingTerminal>"
+                COMMENT "Deploying ${DLL_NAME}..."
+            )
+        endif()
+    endforeach()
+    
+    # Use windeployqt for MSVC builds (comprehensive deployment)
+    if(MSVC)
+        find_program(WINDEPLOYQT_EXECUTABLE windeployqt HINTS "${QT_BIN_DIR}")
+        if(WINDEPLOYQT_EXECUTABLE)
+            # Set PATH to only include the correct Qt bin directory to avoid DLL conflicts
+            # This prevents windeployqt from finding MinGW Qt DLLs
+            add_custom_command(TARGET TradingTerminal POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E env "PATH=${QT_BIN_DIR};$ENV{SystemRoot}\\System32;$ENV{SystemRoot}"
+                    "${WINDEPLOYQT_EXECUTABLE}"
+                    --no-translations
+                    --no-system-d3d-compiler
+                    --no-opengl-sw
+                    --no-compiler-runtime
+                    --dir "$<TARGET_FILE_DIR:TradingTerminal>"
+                    "$<TARGET_FILE:TradingTerminal>"
+                COMMENT "Running windeployqt to deploy Qt dependencies..."
+            )
+            message(STATUS "windeployqt found: ${WINDEPLOYQT_EXECUTABLE}")
+            message(STATUS "Qt dependencies will be automatically deployed after build")
+        else()
+            message(WARNING "windeployqt not found. You may need to manually copy Qt DLLs.")
+        endif()
         
-        # Manually copy Qt Network and WebSockets DLLs (windeployqt sometimes misses these)
-        get_target_property(QT_QMAKE_EXECUTABLE Qt5::qmake IMPORTED_LOCATION)
-        get_filename_component(QT_BIN_DIR "${QT_QMAKE_EXECUTABLE}" DIRECTORY)
-        add_custom_command(TARGET TradingTerminal POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                "${QT_BIN_DIR}/Qt5Network.dll"
-                "${QT_BIN_DIR}/Qt5WebSockets.dll"
-                "$<TARGET_FILE_DIR:TradingTerminal>"
-            COMMENT "Copying Qt Network and WebSockets DLLs..."
-        )
-    else()
-        message(WARNING "windeployqt not found. Qt DLLs will need to be copied manually.")
+        # Copy OpenSSL DLLs for MSVC builds
+        set(OPENSSL_BIN_DIR "C:/Program Files/OpenSSL-Win64/bin")
+        if(EXISTS "${OPENSSL_BIN_DIR}/libssl-1_1-x64.dll")
+            add_custom_command(TARGET TradingTerminal POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                    "${OPENSSL_BIN_DIR}/libssl-1_1-x64.dll"
+                    "${OPENSSL_BIN_DIR}/libcrypto-1_1-x64.dll"
+                    "$<TARGET_FILE_DIR:TradingTerminal>"
+                COMMENT "Deploying OpenSSL DLLs..."
+            )
+        endif()
     endif()
     
     # Copy vcpkg DLLs (OpenSSL, Boost if dynamic)
@@ -749,41 +904,45 @@ if(WIN32 AND MINGW)
     endif()
     
     # Copy MinGW runtime DLLs from Chocolatey installation
-    set(CHOCOLATEY_MINGW_BIN "C:/ProgramData/chocolatey/lib/mingw/tools/install/mingw64/bin")
-    if(EXISTS "${CHOCOLATEY_MINGW_BIN}")
-        add_custom_command(TARGET TradingTerminal POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                "${CHOCOLATEY_MINGW_BIN}/libgcc_s_seh-1.dll"
-                "${CHOCOLATEY_MINGW_BIN}/libstdc++-6.dll"
-                "${CHOCOLATEY_MINGW_BIN}/libwinpthread-1.dll"
-                "$<TARGET_FILE_DIR:TradingTerminal>"
-            COMMENT "Copying MinGW runtime DLLs from Chocolatey..."
-        )
-    else()
-        # Fallback: try to find MinGW DLLs relative to compiler
-        get_filename_component(MINGW_BIN_DIR "${CMAKE_CXX_COMPILER}" DIRECTORY)
-        file(GLOB MINGW_RUNTIME_DLLS
-            "${MINGW_BIN_DIR}/libgcc_s_seh-1.dll"
-            "${MINGW_BIN_DIR}/libstdc++-6.dll"
-            "${MINGW_BIN_DIR}/libwinpthread-1.dll"
-        )
-        if(MINGW_RUNTIME_DLLS)
+    if(MINGW)
+        set(CHOCOLATEY_MINGW_BIN "C:/ProgramData/chocolatey/lib/mingw/tools/install/mingw64/bin")
+        if(EXISTS "${CHOCOLATEY_MINGW_BIN}")
             add_custom_command(TARGET TradingTerminal POST_BUILD
-                COMMAND ${CMAKE_COMMAND} -E copy_if_different ${MINGW_RUNTIME_DLLS} "$<TARGET_FILE_DIR:TradingTerminal>"
-                COMMENT "Copying MinGW runtime DLLs..."
+                COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                    "${CHOCOLATEY_MINGW_BIN}/libgcc_s_seh-1.dll"
+                    "${CHOCOLATEY_MINGW_BIN}/libstdc++-6.dll"
+                    "${CHOCOLATEY_MINGW_BIN}/libwinpthread-1.dll"
+                    "$<TARGET_FILE_DIR:TradingTerminal>"
+                COMMENT "Copying MinGW runtime DLLs from Chocolatey..."
             )
         else()
-            message(WARNING "MinGW runtime DLLs not found. Application may not run without them.")
+            # Fallback: try to find MinGW DLLs relative to compiler
+            get_filename_component(MINGW_BIN_DIR "${CMAKE_CXX_COMPILER}" DIRECTORY)
+            file(GLOB MINGW_RUNTIME_DLLS
+                "${MINGW_BIN_DIR}/libgcc_s_seh-1.dll"
+                "${MINGW_BIN_DIR}/libstdc++-6.dll"
+                "${MINGW_BIN_DIR}/libwinpthread-1.dll"
+            )
+            if(MINGW_RUNTIME_DLLS)
+                add_custom_command(TARGET TradingTerminal POST_BUILD
+                    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${MINGW_RUNTIME_DLLS} "$<TARGET_FILE_DIR:TradingTerminal>"
+                    COMMENT "Copying MinGW runtime DLLs..."
+                )
+            else()
+                message(WARNING "MinGW runtime DLLs not found. Application may not run without them.")
+            endif()
         endif()
     endif()
+    
+    # Copy TradingView library files to build directory if enabled
+    if(ENABLE_TRADINGVIEW AND Qt5WebEngineWidgets_FOUND AND Qt5WebChannel_FOUND)
+        add_custom_command(TARGET TradingTerminal POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:TradingTerminal>/resources"
+            COMMAND ${CMAKE_COMMAND} -E copy_directory
+                "${CMAKE_SOURCE_DIR}/resources/tradingview"
+                "$<TARGET_FILE_DIR:TradingTerminal>/resources/tradingview"
+            COMMENT "Copying TradingView library files to build directory..."
+        )
+        message(STATUS "TradingView library will be copied to build directory")
+    endif()
 endif()
-
-# XTS API Test Program (disabled due to GCC 9 compiler ICE bug)
-# add_executable(test_xts_api test_xts_api.cpp)
-# target_link_libraries(test_xts_api Qt5::Core Qt5::Network)
-# set_target_properties(test_xts_api PROPERTIES AUTOMOC ON)
-
-# Performance Benchmark: Qt vs Native C++ (REMOVED - test file deleted)
-# add_executable(benchmark_qt_vs_native tests/benchmark_qt_vs_native.cpp)
-# target_link_libraries(benchmark_qt_vs_native Qt5::Core)
-# set_target_properties(benchmark_qt_vs_native PROPERTIES AUTOMOC ON)

@@ -29,6 +29,10 @@ sudo apt-get install build-essential cmake qt5-default qtbase5-dev libqt5websock
 ### Windows
 Install Qt 5.15 via the Qt Online Installer and ensure CMake is installed.
 
+#### Automated Setup
+- **MinGW**: Run `scripts\mingw81\setup.bat`
+- **MSVC**: Run `scripts\msvc\setup.bat` (Requires Visual Studio)
+
 ## Build Instructions
 
 1. Create a build directory:

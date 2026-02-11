@@ -10,6 +10,7 @@
 #include "ui/ATMWatchWindow.h"
 #include "ui/OptionChainWindow.h"
 #include "ui/StrategyManagerWindow.h"
+#include "ui/TradingViewChartWidget.h"
 #include "views/BuyWindow.h"
 #include "views/CustomizeDialog.h"
 #include "views/MarketWatchWindow.h"
@@ -238,6 +239,44 @@ CustomMDISubWindow *MainWindow::createMarketWatch() {
   qDebug() << "    - Focus/raise/activate (batched):" << (t6 - t5) << "ms";
   qDebug() << "    - Add to MDI area:" << (t5 - t4) << "ms";
   qDebug() << "    - Focus/raise/activate:" << (t6 - t5) << "ms";
+  return window;
+}
+
+CustomMDISubWindow *MainWindow::createChartWindow() {
+  static int counter = 1;
+  
+  CustomMDISubWindow *window = new CustomMDISubWindow(
+      QString("Chart %1").arg(counter++), m_mdiArea);
+  window->setWindowType("ChartWindow");
+
+  TradingViewChartWidget *chartWidget = new TradingViewChartWidget(window);
+  chartWidget->setXTSMarketDataClient(m_xtsMarketDataClient);
+  chartWidget->setRepositoryManager(RepositoryManager::getInstance());
+  window->setContentWidget(chartWidget);
+  window->resize(1200, 700);
+
+  connectWindowSignals(window);
+
+  m_mdiArea->setUpdatesEnabled(false);
+  m_mdiArea->addWindow(window);
+  window->setFocus();
+  window->raise();
+  window->activateWindow();
+  m_mdiArea->setUpdatesEnabled(true);
+
+  // Load a default symbol if we have context
+  WindowContext context = getBestWindowContext();
+  if (context.isValid()) {
+    // Convert segment string to int (E=1, D=2, F=2, etc.)
+    int segmentInt = 1; // Default to NSE CM
+    if (context.segment == "F" || context.segment == "2") {
+      segmentInt = 2; // NSE FO
+    }
+    // Pass token from context
+    chartWidget->loadSymbol(context.symbol, segmentInt, context.token, "5"); // 5-minute default
+  }
+
+  qDebug() << "[MainWindow] Created Chart Window";
   return window;
 }
 

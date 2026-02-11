@@ -13,6 +13,9 @@ class QRect;
 #include <QTimer>
 #include <memory>
 
+// Forward declarations for chart widgets
+class TradingViewChartWidget;
+
 class CustomMDIArea;
 class CustomMDISubWindow;
 class QToolBar;
@@ -88,6 +91,7 @@ private slots:
   CustomMDISubWindow *createOrderBookWindow();
   CustomMDISubWindow *createPositionWindow();
   CustomMDISubWindow *createStrategyManagerWindow();
+  CustomMDISubWindow *createChartWindow();
   void focusScripBar();
   void onAddToWatchRequested(const InstrumentData &instrument);
   void resetLayout();

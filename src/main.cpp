@@ -1,6 +1,8 @@
 #include "api/XTSTypes.h" // For XTS::Tick
 #include "app/MainWindow.h"
 #include "core/WindowCacheManager.h"
+#include "data/CandleData.h" // For ChartData::Candle
+#include "services/CandleAggregator.h"
 #include "services/GreeksCalculationService.h" // For GreeksResult
 #include "services/LoginFlowService.h"
 #include "services/TradingDataService.h"
@@ -58,6 +60,10 @@ int main(int argc, char *argv[]) {
   // display!)
   qRegisterMetaType<uint32_t>("uint32_t");
   qRegisterMetaType<GreeksResult>("GreeksResult");
+  
+  // Register Chart/Candle types for charting system
+  qRegisterMetaType<ChartData::Candle>("ChartData::Candle");
+  qRegisterMetaType<ChartData::Timeframe>("ChartData::Timeframe");
 
   // Set application metadata
   app.setApplicationName("Trading Terminal");
@@ -72,54 +78,83 @@ int main(int argc, char *argv[]) {
   splash->setStatus("Loading configuration...");
   splash->setProgress(5);
 
+  fprintf(stderr, "[Main] Loading configuration...\n");
+  fflush(stderr);
+
   ConfigLoader *config = new ConfigLoader();
   QString appDir = QCoreApplication::applicationDirPath();
 
-  QStringList candidates;
-  // 1) Workspace config (highest priority for development)
-  candidates << QDir(appDir).filePath("../../../../configs/config.ini");
+  fprintf(stderr, "[Main] Application directory: %s\n", qPrintable(appDir));
+  fflush(stderr);
 
-  // 2) Standard application config location (per-platform)
+  QStringList candidates;
+  // 1) MSVC build config (build_msvc/Debug or build_msvc/Release)
+  candidates << QDir(appDir).filePath("../../configs/config.ini");
+  
+  // 2) MinGW build config (build/)
+  candidates << QDir(appDir).filePath("../configs/config.ini");
+  
+  // 3) Same directory as executable
+  candidates << QDir(appDir).filePath("configs/config.ini");
+
+  // 4) Standard application config location (per-platform)
   QString appConfigDir =
       QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation);
   if (!appConfigDir.isEmpty()) {
     candidates << QDir(appConfigDir).filePath("config.ini");
   }
 
-  // 3) User-specific config in ~/.config/<AppName>/config.ini
+  // 5) User-specific config in ~/.config/<AppName>/config.ini
   QString homeConfig = QDir::home().filePath(
       QString(".config/%1/config.ini")
           .arg(QCoreApplication::applicationName().replace(' ', "")));
   candidates << homeConfig;
 
-  // 4) Common developer/project locations relative to the binary
+  // 6) macOS bundle or other deep nesting
+  candidates << QDir(appDir).filePath("../../../../configs/config.ini");
   candidates << QDir(appDir).filePath("../../../../../configs/config.ini");
-  candidates << QDir(appDir).filePath("../configs/config.ini");
-  candidates << QDir(appDir).filePath("configs/config.ini");
 
-  // 5) macOS specific: inside app bundle Resources (if bundled)
+  // 7) macOS specific: inside app bundle Resources (if bundled)
   candidates << QDir(appDir).filePath("../Resources/config.ini");
 
   QString foundPath;
+  qWarning() << "[CONFIG] Starting config search...";
+  qWarning() << "[CONFIG] Application directory:" << appDir;
+  
+  fprintf(stderr, "[Main] Searching for config.ini...\n");
+  fflush(stderr);
+  
   for (const QString &cand : candidates) {
     QString abs = QFileInfo(cand).absoluteFilePath();
-    qDebug() << "Checking config candidate:" << abs;
+    fprintf(stderr, "[Main] Checking: %s\n", qPrintable(abs));
+    fflush(stderr);
+    qWarning() << "[CONFIG] Checking:" << abs;
     if (QFile::exists(abs)) {
-      qDebug() << "Found config at:" << abs;
+      fprintf(stderr, "[Main] ✓ FOUND: %s\n", qPrintable(abs));
+      fflush(stderr);
+      qWarning() << "[CONFIG] ✓ Found config at:" << abs;
       if (config->load(abs)) {
         foundPath = abs;
+        fprintf(stderr, "[Main] ✓ Successfully loaded config\n");
+        fflush(stderr);
+        qWarning() << "[CONFIG] ✓ Successfully loaded config from:" << abs;
         break;
       } else {
-        qWarning() << "Found config but failed to load:" << abs;
+        fprintf(stderr, "[Main] ✗ Failed to load config\n");
+        fflush(stderr);
+        qWarning() << "[CONFIG] ✗ Found config but failed to load:" << abs;
       }
     }
   }
 
   if (!foundPath.isEmpty()) {
-    qDebug() << "✓ Config loaded from:" << foundPath;
+    qWarning() << "[CONFIG] ✅ Configuration loaded successfully from:" << foundPath;
+    qWarning() << "[CONFIG] Default client:" << config->getDefaultClient();
+    qWarning() << "[CONFIG] User ID:" << config->getUserID();
+    qWarning() << "[CONFIG] XTS URL:" << config->getXTSUrl();
     splash->setStatus("Configuration loaded");
   } else {
-    qDebug() << "Config file not found, using defaults";
+    qWarning() << "[CONFIG] ⚠ Config file not found, using defaults";
     splash->setStatus("Using default configuration");
   }
   splash->setProgress(10);
@@ -211,6 +246,10 @@ int main(int argc, char *argv[]) {
                                            loginService, tradingDataService,
                                            config]() {
           qDebug() << "✅ Login complete! Showing main window...";
+
+          // Initialize CandleAggregator for real-time chart updates
+          CandleAggregator::instance().initialize(true);
+          qDebug() << "[Main] CandleAggregator initialized";
 
           // Pass XTS clients to main window
           mainWindow->setXTSClients(loginService->getMarketDataClient(),

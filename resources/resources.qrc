@@ -13,5 +13,6 @@
         <file>forms/PreferencesMarginPlusOrderTab.ui</file>
         <file>forms/stretegies/JodiATM/inputParam.ui</file>
         <file>forms/stretegies/TSpecial/tspecialParam.ui</file>
+        <file>html/tradingview_chart.html</file>
     </qresource>
 </RCC>

@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>TradingView Advanced Chart</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,minimum-scale=1.0">
+    
+    <!-- QWebChannel for C++ communication -->
+    <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+    
+    <!-- TradingView Charting Library (loaded from file system) -->
+    <script src="charting_library/charting_library.standalone.js"></script>
+    
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: #131722;
+            overflow: hidden;
+        }
+        
+        #tv_chart_container {
+            width: 100%;
+            height: 100vh;
+        }
+        
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #d1d4dc;
+            text-align: center;
+        }
+        
+        .spinner {
+            border: 3px solid #2962ff;
+            border-top: 3px solid transparent;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+
+<body>
+    <div id="loading">
+        <div class="spinner"></div>
+        <p>Initializing TradingView Chart...</p>
+    </div>
+    <div id="tv_chart_container"></div>
+
+    <script>
+        // Global variables
+        let dataBridge = null;
+        let widget = null;
+        
+        // Custom datafeed that connects to C++ backend
+        const customDatafeed = {
+            onReady: (callback) => {
+                console.log('[TradingView] onReady called');
+                setTimeout(() => {
+                    callback({
+                        supported_resolutions: ['1', '5', '15', '30', '60', '240', 'D', 'W'],
+                        supports_time: true,
+                        supports_marks: true,
+                        supports_timescale_marks: true,
+                    });
+                }, 0);
+            },
+            
+            searchSymbols: (userInput, exchange, symbolType, onResultReadyCallback) => {
+                console.log('[TradingView] searchSymbols:', userInput, exchange, symbolType);
+                
+                // Store callback for when results arrive
+                window.pendingSearchCallback = onResultReadyCallback;
+                
+                // Request search from C++ (default to NSE FO if no exchange specified)
+                const searchExchange = exchange || 'NSE';
+                const searchSegment = 'FO';  // Default to F&O, can be made configurable
+                
+                if (dataBridge) {
+                    dataBridge.searchSymbols(userInput, searchExchange, searchSegment);
+                } else {
+                    onResultReadyCallback([]);
+                }
+            },
+            
+            resolveSymbol: (symbolName, onSymbolResolvedCallback, onResolveErrorCallback) => {
+                console.log('[TradingView] resolveSymbol:', symbolName);
+                
+                // Parse symbol (format: "SYMBOL_SEGMENT")
+                const parts = symbolName.split('_');
+                const symbol = parts[0];
+                const segment = parts.length > 1 ? parseInt(parts[1]) : 2;
+                
+                const symbolInfo = {
+                    name: symbol,
+                    ticker: symbolName,
+                    description: symbol,
+                    type: 'stock',
+                    session: '0915-1530',
+                    timezone: 'Asia/Kolkata',
+                    exchange: segment === 2 ? 'NSE FO' : 'NSE CM',
+                    minmov: 1,
+                    pricescale: 100,
+                    has_intraday: true,
+                    has_daily: true,
+                    has_weekly_and_monthly: true,
+                    supported_resolutions: ['1', '5', '15', '30', '60', '240', 'D', 'W'],
+                    volume_precision: 0,
+                    data_status: 'streaming',
+                };
+                
+                setTimeout(() => {
+                    onSymbolResolvedCallback(symbolInfo);
+                }, 0);
+            },
+            
+            getBars: (symbolInfo, resolution, periodParams, onHistoryCallback, onErrorCallback) => {
+                console.log('[TradingView] getBars:', symbolInfo.name, resolution, periodParams);
+                
+                // Parse symbol
+                const parts = symbolInfo.ticker.split('_');
+                const symbol = parts[0];
+                const segment = parts.length > 1 ? parseInt(parts[1]) : 2;
+                
+                // Request historical data from C++
+                if (dataBridge) {
+                    // Store callback for when data arrives
+                    window.pendingHistoricalCallback = onHistoryCallback;
+                    
+                    dataBridge.requestHistoricalData(
+                        symbol,
+                        segment,
+                        resolution,
+                        periodParams.from * 1000,  // Convert to milliseconds
+                        periodParams.to * 1000
+                    );
+                } else {
+                    console.error('[TradingView] Data bridge not initialized');
+                    onErrorCallback('Data bridge not connected');
+                }
+            },
+            
+            subscribeBars: (symbolInfo, resolution, onRealtimeCallback, subscriberUID, onResetCacheNeededCallback) => {
+                console.log('[TradingView] subscribeBars:', symbolInfo.name, resolution, subscriberUID);
+                
+                // Store callback for real-time updates
+                window.realtimeCallback = onRealtimeCallback;
+            },
+            
+            unsubscribeBars: (subscriberUID) => {
+                console.log('[TradingView] unsubscribeBars:', subscriberUID);
+                window.realtimeCallback = null;
+            }
+        };
+        
+        // Initialize QWebChannel
+        new QWebChannel(qt.webChannelTransport, function(channel) {
+            dataBridge = channel.objects.dataBridge;
+            console.log('[TradingView] Data bridge connected');
+            
+            // Listen for historical data from C++
+            dataBridge.historicalDataReady.connect(function(bars) {
+                console.log('[TradingView] Received', bars.length, 'historical bars');
+                
+                if (window.pendingHistoricalCallback) {
+                    if (bars.length === 0) {
+                        window.pendingHistoricalCallback([], { noData: true });
+                    } else {
+                        // Convert bars to TradingView format
+                        const tvBars = bars.map(bar => ({
+                            time: bar.time,
+                            open: bar.open,
+                            high: bar.high,
+                            low: bar.low,
+                            close: bar.close,
+                            volume: bar.volume || 0
+                        }));
+                        
+                        window.pendingHistoricalCallback(tvBars, { noData: false });
+                    }
+                    window.pendingHistoricalCallback = null;
+                }
+            });
+            
+            // Listen for real-time bar updates from C++
+            dataBridge.realtimeBarUpdate.connect(function(bar) {
+                console.log('[TradingView] Realtime bar update:', bar.time, bar.close);
+                
+                if (window.realtimeCallback) {
+                    window.realtimeCallback({
+                        time: bar.time,
+                        open: bar.open,
+                        high: bar.high,
+                        low:bar.low,
+                        close: bar.close,
+                        volume: bar.volume || 0
+                    });
+                }
+            });
+            
+            // Listen for symbol search results from C++
+            dataBridge.symbolSearchResults.connect(function(results) {
+                console.log('[TradingView] Received', results.length, 'search results');
+                
+                if (window.pendingSearchCallback) {
+                    // Convert to TradingView format
+                    const tvResults = results.map(item => ({
+                        symbol: item.symbol,
+                        full_name: item.full_name,
+                        description: item.description,
+                        exchange: item.exchange,
+                        ticker: item.symbol + '_' + item.segment,
+                        type: item.type
+                    }));
+                    
+                    window.pendingSearchCallback(tvResults);
+                    window.pendingSearchCallback = null;
+                }
+            });
+            
+            // Initialize TradingView widget
+            initTradingView();
+        });
+        
+        function initTradingView() {
+            console.log('[TradingView] Initializing widget...');
+            
+            // Hide loading indicator
+            document.getElementById('loading').style.display = 'none';
+            
+            widget = new TradingView.widget({
+                container: 'tv_chart_container',
+                locale: 'en',
+                library_path: 'charting_library/',
+                
+                // Default symbol and interval
+                symbol: 'NIFTY_2',
+                interval: '5',
+                
+                // Custom datafeed
+                datafeed: customDatafeed,
+                
+                // Chart settings
+                autosize: true,
+                fullscreen: false,
+                
+                // Theme
+                theme: 'Dark',
+                
+                // Disabled features (customize as needed)
+                disabled_features: [
+                    'use_localstorage_for_settings',
+                    'header_symbol_search',
+                    'symbol_search_hot_key',
+                ],
+                
+                // Enabled features
+                enabled_features: [
+                    'study_templates',
+                    'side_toolbar_in_fullscreen_mode',
+                    'header_in_fullscreen_mode',
+                ],
+                
+                // Overrides for chart appearance
+                overrides: {
+                    'mainSeriesProperties.candleStyle.upColor': '#26a69a',
+                    'mainSeriesProperties.candleStyle.downColor': '#ef5350',
+                    'mainSeriesProperties.candleStyle.borderUpColor': '#26a69a',
+                    'mainSeriesProperties.candleStyle.borderDownColor': '#ef5350',
+                    'mainSeriesProperties.candleStyle.wickUpColor': '#26a69a',
+                    'mainSeriesProperties.candleStyle.wickDownColor': '#ef5350',
+                },
+                
+                // Time scale settings
+                time_scale: {
+                    min_bar_spacing: 3,
+                },
+            });
+            
+            widget.onChartReady(() => {
+                console.log('[TradingView] Chart is ready');
+                
+                // Store widget globally for external access
+                window.widget = widget;
+                
+                // Notify C++ that chart is ready
+                if (dataBridge) {
+                    dataBridge.onChartReady();
+                }
+                
+                // Subscribe to chart events
+                widget.activeChart().onIntervalChanged().subscribe(null, (interval, timeframeObj) => {
+                    console.log('[TradingView] Interval changed:',interval);
+                });
+                
+                widget.activeChart().onSymbolChanged().subscribe(null, (symbolData) => {
+                    console.log('[TradingView] Symbol changed:', symbolData.ticker);
+                });
+                
+                // Chart click handler (for order placement)
+                widget.activeChart().crossHairMoved().subscribe(null, (params) => {
+                    if (params.time && params.price && dataBridge) {
+                        // You can trigger this only on actual click if needed
+                        // For now, it captures crosshair movement
+                    }
+                });
+            });
+        }
+        
+        // Error handler
+        window.onerror = function(message, source, lineno, colno, error) {
+            console.error('[TradingView] Error:', message, 'at', source, lineno, colno);
+            if (dataBridge) {
+                dataBridge.sendError(message);
+            }
+        };
+    </script>
+</body>
+</html>

@@ -265,6 +265,10 @@ void MainWindow::createMenuBar() {
   connect(wmStrategy, &QAction::triggered, this,
           &MainWindow::createStrategyManagerWindow);
 
+  QAction *wmChart = windowMenu->addAction("Chart (&TradingView)\tF7");
+  connect(wmChart, &QAction::triggered, this,
+          &MainWindow::createChartWindow);
+
   windowMenu->addSeparator();
   windowMenu->addAction("&Cascade", this,
                         [this]() { m_mdiArea->cascadeWindows(); });
