@@ -1,16 +1,17 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <title>TradingView Advanced Chart</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,minimum-scale=1.0">
-    
+
     <!-- QWebChannel for C++ communication -->
     <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
-    
+
     <!-- TradingView Charting Library (loaded from file system) -->
     <script src="charting_library/charting_library.standalone.js"></script>
-    
+
     <style>
         body {
             margin: 0;
@@ -19,12 +20,50 @@
             background: #131722;
             overflow: hidden;
         }
-        
+
         #tv_chart_container {
             width: 100%;
             height: 100vh;
         }
-        
+
+        /* Search Button Overlay */
+        #customSearchButton {
+            position: fixed;
+            top: 16px;
+            right: 16px;
+            z-index: 1000;
+            background: linear-gradient(135deg, #2962ff 0%, #1e4db7 100%);
+            border: none;
+            color: #ffffff;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(41, 98, 255, 0.4);
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        #customSearchButton:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(41, 98, 255, 0.5);
+        }
+
+        #customSearchButton:active {
+            transform: translateY(0);
+        }
+
+        #customSearchButton .shortcut {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 11px;
+            margin-left: 4px;
+        }
+
         #loading {
             position: absolute;
             top: 50%;
@@ -33,7 +72,7 @@
             color: #d1d4dc;
             text-align: center;
         }
-        
+
         .spinner {
             border: 3px solid #2962ff;
             border-top: 3px solid transparent;
@@ -43,26 +82,1026 @@
             animation: spin 1s linear infinite;
             margin: 20px auto;
         }
-        
+
         @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* PREMIUM SEARCH DIALOG SKIN */
+        .tv-dialog {
+            background-color: #1E222D !important;
+            border: 1px solid #363c4e !important;
+            border-radius: 8px !important;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5) !important;
+        }
+
+        .tv-dialog__title {
+            color: #d1d4dc !important;
+            font-weight: 600 !important;
+            border-bottom: 1px solid #363c4e !important;
+        }
+
+        .symbol-search-dialog__input-wrapper {
+            background: #2a2e39 !important;
+            border-bottom: 2px solid #2962ff !important;
+        }
+
+        .symbol-search-dialog__input {
+            color: #ffffff !important;
+            font-size: 16px !important;
+        }
+
+        .symbol-search-dialog__results-container {
+            background: #131722 !important;
+        }
+
+        /* Result Item Row */
+        .symbol-search-dialog__result-item {
+            padding: 12px 16px !important;
+            border-bottom: 1px solid #2a2e39 !important;
+            transition: background 0.2s ease !important;
+        }
+
+        .symbol-search-dialog__result-item:hover {
+            background-color: #2a2e39 !important;
+        }
+
+        .symbol-search-dialog__result-item--active {
+            background-color: #2962ff22 !important;
+            border-left: 3px solid #2962ff !important;
+        }
+
+        .symbol-search-dialog__result-item-title {
+            color: #ffffff !important;
+            font-weight: 700 !important;
+            font-size: 14px !important;
+        }
+
+        .symbol-search-dialog__result-item-description {
+            color: #848e9c !important;
+            font-size: 12px !important;
+            margin-top: 2px !important;
+        }
+
+        .symbol-search-dialog__result-item-exchange {
+            color: #2962ff !important;
+            font-weight: 800 !important;
+            font-size: 10px !important;
+            border: 1px solid #2962ff44 !important;
+            padding: 2px 4px !important;
+            border-radius: 3px !important;
+        }
+
+        /* Filter Tabs */
+        .symbol-search-dialog__tabs-container {
+            background: #1e222d !important;
+            border-bottom: 1px solid #363c4e !important;
+        }
+
+        .symbol-search-dialog__tab {
+            color: #848e9c !important;
+        }
+
+        .symbol-search-dialog__tab--active {
+            color: #2962ff !important;
+            border-bottom: 2px solid #2962ff !important;
+        }
+
+        /* ===== CUSTOM PREMIUM SEARCH DIALOG ===== */
+        .custom-search-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(4px);
+            z-index: 10000;
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            padding-top: 60px;
+            animation: fadeIn 0.2s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        .custom-search-container {
+            background: linear-gradient(180deg, #1e222d 0%, #17191f 100%);
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+            width: 800px;
+            max-height: 85vh;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid #363c4e;
+            animation: slideDown 0.3s ease;
+        }
+
+        @keyframes slideDown {
+            from {
+                transform: translateY(-30px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .custom-search-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 20px;
+            border-bottom: 1px solid #363c4e;
+        }
+
+        .custom-search-header h2 {
+            margin: 0;
+            color: #ffffff;
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .custom-search-close {
+            background: transparent;
+            border: none;
+            color: #848e9c;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 0;
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .custom-search-close:hover {
+            background: #2a2e39;
+            color: #ffffff;
+        }
+
+        .custom-search-input-wrapper {
+            padding: 16px 20px 8px;
+            background: #1e222d;
+        }
+
+        .custom-search-input {
+            width: 100%;
+            padding: 14px 16px;
+            background: #2a2e39;
+            border: 2px solid #363c4e;
+            border-radius: 8px;
+            color: #ffffff;
+            font-size: 16px;
+            outline: none;
+            transition: border-color 0.2s;
+            box-sizing: border-box;
+        }
+
+        .custom-search-input:focus {
+            border-color: #2962ff;
+            box-shadow: 0 0 0 3px rgba(41, 98, 255, 0.1);
+        }
+
+        .search-hint {
+            color: #61688a;
+            font-size: 11px;
+            margin-top: 8px;
+            padding-left: 4px;
+        }
+
+        .custom-search-filters {
+            display: flex;
+            gap: 12px;
+            padding: 12px 20px;
+            background: #1a1d28;
+            border-bottom: 1px solid #363c4e;
+            overflow-x: auto;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            min-width: 130px;
+        }
+
+        .filter-group label {
+            color: #848e9c;
+            font-size: 11px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .filter-select {
+            background: #2a2e39;
+            border: 1px solid #363c4e;
+            border-radius: 6px;
+            color: #ffffff;
+            padding: 8px 10px;
+            font-size: 13px;
+            cursor: pointer;
+            outline: none;
+            transition: all 0.2s;
+        }
+
+        .filter-select:hover {
+            border-color: #2962ff;
+        }
+
+        .filter-select:focus {
+            border-color: #2962ff;
+            box-shadow: 0 0 0 2px rgba(41, 98, 255, 0.1);
+        }
+
+        .search-history {
+            padding: 12px 20px;
+            background: #1a1d28;
+            border-bottom: 1px solid #363c4e;
+        }
+
+        .history-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .history-header span {
+            color: #848e9c;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .history-clear {
+            background: transparent;
+            border: none;
+            color: #f23645;
+            font-size: 11px;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 4px;
+            transition: background 0.2s;
+        }
+
+        .history-clear:hover {
+            background: rgba(242, 54, 69, 0.1);
+        }
+
+        .history-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .history-item {
+            background: #2a2e39;
+            border: 1px solid #363c4e;
+            border-radius: 6px;
+            padding: 6px 12px;
+            color: #9598a1;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .history-item:hover {
+            background: #363c4e;
+            color: #ffffff;
+            border-color: #2962ff;
+        }
+
+        .custom-search-results {
+            flex: 1;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .results-info {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 20px;
+            background: #1a1d28;
+            border-bottom: 1px solid #363c4e;
+        }
+
+        .results-info span {
+            color: #848e9c;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        #resultsCount {
+            color: #2962ff;
+            font-weight: 600;
+        }
+
+        .results-list-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px;
+        }
+
+        .result-group {
+            margin-bottom: 16px;
+        }
+
+        .group-header {
+            background: #1a1d28;
+            padding: 8px 12px;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            border-left: 3px solid #2962ff;
+        }
+
+        .group-header-title {
+            color: #2962ff;
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .group-header-count {
+            color: #61688a;
+            font-size: 11px;
+            margin-left: 8px;
+        }
+
+        .result-item {
+            background: #1e222d;
+            border: 1px solid #2a2e39;
+            border-radius: 8px;
+            padding: 12px 14px;
+            margin-bottom: 6px;
+            cursor: pointer;
+            transition: all 0.15s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .result-item:hover {
+            background: #2a2e39;
+            border-color: #2962ff;
+            transform: translateX(4px);
+        }
+
+        .result-item.selected {
+            background: #2a2e39;
+            border-color: #2962ff;
+            box-shadow: 0 0 0 2px rgba(41, 98, 255, 0.15);
+        }
+
+        .result-item-left {
+            flex: 1;
+        }
+
+        .result-item-symbol {
+            color: #ffffff;
+            font-size: 15px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .result-item-symbol .ce-badge {
+            color: #26a69a;
+            background: rgba(38, 166, 154, 0.15);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 800;
+            margin-left: 6px;
+        }
+
+        .result-item-symbol .pe-badge {
+            color: #ef5350;
+            background: rgba(239, 83, 80, 0.15);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 800;
+            margin-left: 6px;
+        }
+
+        .result-item-desc {
+            color: #848e9c;
+            font-size: 12px;
+        }
+
+        .result-item-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .result-exchange-badge {
+            background: #2962ff22;
+            border: 1px solid #2962ff44;
+            color: #2962ff;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .result-stats {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 2px;
+        }
+
+        .result-stats-label {
+            color: #61688a;
+            font-size: 10px;
+        }
+
+        .result-stats-value {
+            color: #ffffff;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .custom-search-footer {
+            padding: 12px 20px;
+            background: #1a1d28;
+            border-top: 1px solid #363c4e;
+        }
+
+        .footer-shortcuts {
+            display: flex;
+            gap: 16px;
+            color: #61688a;
+            font-size: 11px;
+            align-items: center;
+        }
+
+        .footer-shortcuts kbd {
+            background: #2a2e39;
+            border: 1px solid #363c4e;
+            border-radius: 4px;
+            padding: 3px 6px;
+            font-family: monospace;
+            font-size: 10px;
+            color: #9598a1;
+            margin-right: 4px;
+        }
+
+        /* Scrollbar Styling */
+        .results-list-container::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .results-list-container::-webkit-scrollbar-track {
+            background: #17191f;
+        }
+
+        .results-list-container::-webkit-scrollbar-thumb {
+            background: #363c4e;
+            border-radius: 4px;
+        }
+
+        .results-list-container::-webkit-scrollbar-thumb:hover {
+            background: #4a5069;
+        }
+
+        .no-results {
+            text-align: center;
+            padding: 60px 20px;
+            color: #61688a;
+        }
+
+        .no-results-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+        .no-results-text {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .no-results-hint {
+            font-size: 13px;
+            color: #4a5069;
         }
     </style>
 </head>
 
 <body>
+    <!-- Search Button -->
+    <button id="customSearchButton" onclick="openCustomSearch()">
+        🔍 Search Symbols
+        <span class="shortcut">Ctrl+F</span>
+    </button>
+
     <div id="loading">
         <div class="spinner"></div>
         <p>Initializing TradingView Chart...</p>
     </div>
     <div id="tv_chart_container"></div>
 
+    <!-- CUSTOM PREMIUM SEARCH DIALOG -->
+    <div id="customSearchDialog" class="custom-search-overlay" style="display: none;">
+        <div class="custom-search-container">
+            <!-- Header -->
+            <div class="custom-search-header">
+                <h2>🔍 Symbol Search</h2>
+                <button class="custom-search-close" onclick="closeCustomSearch()">✕</button>
+            </div>
+
+            <!-- Search Input -->
+            <div class="custom-search-input-wrapper">
+                <input type="text" id="customSearchInput" class="custom-search-input"
+                    placeholder="Search: NIFTY 26000 CE, RELIANCE, 50000 PE..." autocomplete="off">
+                <div class="search-hint">💡 Try: "nifty 26000 ce" or "banknifty pe" or "reliance"</div>
+            </div>
+
+            <!-- Filters Row -->
+            <div class="custom-search-filters">
+                <div class="filter-group">
+                    <label>Exchange</label>
+                    <select id="filterExchange" class="filter-select">
+                        <option value="ALL">All Exchanges</option>
+                        <option value="NSE" selected>NSE</option>
+                        <option value="BSE">BSE</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label>Instrument</label>
+                    <select id="filterInstrument" class="filter-select">
+                        <option value="ALL" selected>All Instruments</option>
+                        <option value="STOCKS">Stocks (Equity)</option>
+                        <option value="OPTIONS">Options</option>
+                        <option value="FUTURES">Futures</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label>Option Type</label>
+                    <select id="filterOptionType" class="filter-select">
+                        <option value="ALL" selected>CE & PE</option>
+                        <option value="CE">Call (CE) Only</option>
+                        <option value="PE">Put (PE) Only</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label>Results</label>
+                    <select id="filterResultLimit" class="filter-select">
+                        <option value="10">Show 10</option>
+                        <option value="20" selected>Show 20</option>
+                        <option value="50">Show 50</option>
+                        <option value="100">Show 100</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label>Group By</label>
+                    <select id="filterGroupBy" class="filter-select">
+                        <option value="NONE" selected>No Grouping</option>
+                        <option value="STRIKE">Strike Price</option>
+                        <option value="EXPIRY">Expiry Date</option>
+                        <option value="TYPE">Option Type</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Search History -->
+            <div id="searchHistoryContainer" class="search-history" style="display: none;">
+                <div class="history-header">
+                    <span>Recent Searches</span>
+                    <button class="history-clear" onclick="clearSearchHistory()">Clear</button>
+                </div>
+                <div id="searchHistoryList" class="history-list"></div>
+            </div>
+
+            <!-- Results Container -->
+            <div id="customSearchResults" class="custom-search-results">
+                <div class="results-info">
+                    <span id="resultsCount">Type to search...</span>
+                    <span id="resultsStats"></span>
+                </div>
+                <div id="resultsListContainer" class="results-list-container">
+                    <!-- Results will be populated here -->
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="custom-search-footer">
+                <div class="footer-shortcuts">
+                    <kbd>↑↓</kbd> Navigate <kbd>Enter</kbd> Select <kbd>Esc</kbd> Close <kbd>Ctrl+F</kbd> Focus Search
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
+        // ===== CUSTOM SEARCH DIALOG LOGIC =====
+        let customSearchResults = [];
+        let filteredResults = [];
+        let selectedResultIndex = -1;
+        let searchHistory = [];
+
+        // Load search history from localStorage
+        function loadSearchHistory() {
+            const stored = localStorage.getItem('tradingview_search_history');
+            if (stored) {
+                try {
+                    searchHistory = JSON.parse(stored);
+                } catch (e) {
+                    searchHistory = [];
+                }
+            }
+        }
+
+        // Save search history to localStorage
+        function saveSearchHistory() {
+            localStorage.setItem('tradingview_search_history', JSON.stringify(searchHistory.slice(0, 10)));
+        }
+
+        // Add to search history
+        function addToSearchHistory(query) {
+            if (!query || query.length < 2) return;
+
+            // Remove if exists (to move to front)
+            searchHistory = searchHistory.filter(h => h.toLowerCase() !== query.toLowerCase());
+
+            // Add to front
+            searchHistory.unshift(query);
+
+            // Keep max 10
+            if (searchHistory.length > 10) {
+                searchHistory = searchHistory.slice(0, 10);
+            }
+
+            saveSearchHistory();
+            updateSearchHistoryUI();
+        }
+
+        // Update search history UI
+        function updateSearchHistoryUI() {
+            const container = document.getElementById('searchHistoryContainer');
+            const list = document.getElementById('searchHistoryList');
+
+            if (searchHistory.length === 0) {
+                container.style.display = 'none';
+                return;
+            }
+
+            container.style.display = 'block';
+            list.innerHTML = '';
+
+            searchHistory.forEach(query => {
+                const item = document.createElement('div');
+                item.className = 'history-item';
+                item.textContent = query;
+                item.onclick = () => {
+                    document.getElementById('customSearchInput').value = query;
+                    performCustomSearch();
+                };
+                list.appendChild(item);
+            });
+        }
+
+        // Clear search history
+        function clearSearchHistory() {
+            searchHistory = [];
+            saveSearchHistory();
+            updateSearchHistoryUI();
+        }
+
+        // Open custom search dialog
+        function openCustomSearch() {
+            document.getElementById('customSearchDialog').style.display = 'flex';
+            document.getElementById('customSearchInput').value = '';
+            document.getElementById('customSearchInput').focus();
+            selectedResultIndex = -1;
+
+            loadSearchHistory();
+            updateSearchHistoryUI();
+
+            // Show hint
+            document.getElementById('resultsCount').textContent = 'Type to search...';
+            document.getElementById('resultsListContainer').innerHTML = '<div class="no-results"><div class="no-results-icon">🔍</div><div class="no-results-text">Start typing to search</div><div class="no-results-hint">Try: NIFTY 26000 CE, BANKNIFTY PE, RELIANCE</div></div>';
+        }
+
+        // Close custom search dialog
+        function closeCustomSearch() {
+            document.getElementById('customSearchDialog').style.display = 'none';
+        }
+
+        // Perform search with C++ backend
+        function performCustomSearch() {
+            const query = document.getElementById('customSearchInput').value.trim();
+
+            if (query.length < 1) {
+                document.getElementById('resultsCount').textContent = 'Type to search...';
+                document.getElementById('resultsListContainer').innerHTML = '<div class="no-results"><div class="no-results-icon">🔍</div><div class="no-results-text">Start typing to search</div></div>';
+                searchHistory.length > 0 ? updateSearchHistoryUI() : '';
+                return;
+            }
+
+            // Hide search history when searching
+            document.getElementById('searchHistoryContainer').style.display = 'none';
+
+            // Get filter values
+            const exchange = document.getElementById('filterExchange').value;
+            const resultLimit = parseInt(document.getElementById('filterResultLimit').value);
+
+            // Show loading
+            document.getElementById('resultsCount').textContent = 'Searching...';
+            document.getElementById('resultsListContainer').innerHTML = '<div class="no-results"><div class="spinner"></div></div>';
+
+            // Store callback for results
+            window.customSearchCallback = function (results) {
+                customSearchResults = results;
+                addToSearchHistory(query);
+                applyFiltersAndDisplay();
+            };
+
+            // Request search from C++
+            if (dataBridge) {
+                // Determine segment based on instrument filter
+                const instrument = document.getElementById('filterInstrument').value;
+                let segment = 'ALL';
+                if (instrument === 'STOCKS') segment = 'CM';
+                else if (instrument === 'OPTIONS' || instrument === 'FUTURES') segment = 'FO';
+
+                dataBridge.searchSymbols(query, exchange === 'ALL' ? 'NSE' : exchange, segment);
+            } else {
+                console.error('[Custom Search] Data bridge not available');
+                document.getElementById('resultsListContainer').innerHTML = '<div class="no-results"><div class="no-results-icon">⚠️</div><div class="no-results-text">Search unavailable</div></div>';
+            }
+        }
+
+        // Apply filters and display results
+        function applyFiltersAndDisplay() {
+            const instrument = document.getElementById('filterInstrument').value;
+            const optionType = document.getElementById('filterOptionType').value;
+            const resultLimit = parseInt(document.getElementById('filterResultLimit').value);
+            const groupBy = document.getElementById('filterGroupBy').value;
+
+            // Filter results
+            filteredResults = customSearchResults.filter(result => {
+                // Instrument filter
+                if (instrument !== 'ALL') {
+                    if (instrument === 'STOCKS' && result.type !== 'stock') return false;
+                    if (instrument === 'OPTIONS' && result.type !== 'option') return false;
+                    if (instrument === 'FUTURES' && result.type !== 'future') return false;
+                }
+
+                // Option type filter
+                if (optionType !== 'ALL' && result.type === 'option') {
+                    if (optionType === 'CE' && !result.symbol.includes(' CE')) return false;
+                    if (optionType === 'PE' && !result.symbol.includes(' PE')) return false;
+                }
+
+                return true;
+            });
+
+            // Limit results
+            filteredResults = filteredResults.slice(0, resultLimit);
+
+            // Update count
+            const totalCount = customSearchResults.length;
+            const filteredCount = filteredResults.length;
+            document.getElementById('resultsCount').textContent =
+                `Found ${totalCount} results` + (filteredCount !== totalCount ? ` (showing ${filteredCount})` : '');
+
+            // Display results
+            if (filteredResults.length === 0) {
+                document.getElementById('resultsListContainer').innerHTML =
+                    '<div class="no-results"><div class="no-results-icon">😕</div><div class="no-results-text">No results found</div><div class="no-results-hint">Try different keywords or filters</div></div>';
+                return;
+            }
+
+            // Group results if needed
+            if (groupBy !== 'NONE') {
+                displayGroupedResults(filteredResults, groupBy);
+            } else {
+                displayFlatResults(filteredResults);
+            }
+
+            selectedResultIndex = -1;
+        }
+
+        // Display flat results (no grouping)
+        function displayFlatResults(results) {
+            const container = document.getElementById('resultsListContainer');
+            container.innerHTML = '';
+
+            results.forEach((result, index) => {
+                container.appendChild(createResultItem(result, index));
+            });
+        }
+
+        // Display grouped results
+        function displayGroupedResults(results, groupBy) {
+            const container = document.getElementById('resultsListContainer');
+            container.innerHTML = '';
+
+            // Group results
+            const groups = {};
+            results.forEach(result => {
+                let groupKey = 'Other';
+
+                if (groupBy === 'STRIKE') {
+                    const strikeMatch = result.symbol.match(/(\d+\.?\d*)\s*(CE|PE)/);
+                    groupKey = strikeMatch ? `Strike ${strikeMatch[1]}` : 'No Strike';
+                } else if (groupBy === 'EXPIRY') {
+                    groupKey = result.expiry || 'No Expiry';
+                } else if (groupBy === 'TYPE') {
+                    if (result.symbol.includes(' CE')) groupKey = 'Call Options (CE)';
+                    else if (result.symbol.includes(' PE')) groupKey = 'Put Options (PE)';
+                    else groupKey = 'Stocks';
+                }
+
+                if (!groups[groupKey]) groups[groupKey] = [];
+                groups[groupKey].push(result);
+            });
+
+            // Display each group
+            let globalIndex = 0;
+            Object.keys(groups).sort().forEach(groupKey => {
+                const groupDiv = document.createElement('div');
+                groupDiv.className = 'result-group';
+
+                const header = document.createElement('div');
+                header.className = 'group-header';
+                header.innerHTML = `
+                    <span class="group-header-title">${groupKey}</span>
+                    <span class="group-header-count">${groups[groupKey].length} results</span>
+                `;
+                groupDiv.appendChild(header);
+
+                groups[groupKey].forEach(result => {
+                    groupDiv.appendChild(createResultItem(result, globalIndex++));
+                });
+
+                container.appendChild(groupDiv);
+            });
+        }
+
+        // Create result item HTML
+        function createResultItem(result, index) {
+            const item = document.createElement('div');
+            item.className = 'result-item';
+            item.dataset.index = index;
+
+            // Determine if CE or PE
+            let optionBadge = '';
+            if (result.symbol.includes(' CE')) {
+                optionBadge = '<span class="ce-badge">CE</span>';
+            } else if (result.symbol.includes(' PE')) {
+                optionBadge = '<span class="pe-badge">PE</span>';
+            }
+
+            // Format symbol (remove CE/PE from display name)
+            const displaySymbol = result.symbol.replace(/ CE$| PE$/, '');
+
+            item.innerHTML = `
+                <div class="result-item-left">
+                    <div class="result-item-symbol">
+                        ${displaySymbol}${optionBadge}
+                    </div>
+                    <div class="result-item-desc">${result.description || result.full_name}</div>
+                </div>
+                <div class="result-item-right">
+                    <div class="result-exchange-badge">${result.exchange}</div>
+                </div>
+            `;
+
+            item.onclick = () => selectSearchResult(index);
+
+            return item;
+        }
+
+        // Select search result
+        function selectSearchResult(index) {
+            if (index < 0 || index >= filteredResults.length) return;
+
+            const result = filteredResults[index];
+            console.log('[Custom Search] Selected:', result);
+
+            // Close dialog
+            closeCustomSearch();
+
+            // Set symbol in TradingView
+            if (widget && widget.activeChart) {
+                widget.activeChart().setSymbol(result.ticker, () => {
+                    console.log('[Custom Search] Symbol loaded:', result.ticker);
+                });
+            }
+        }
+
+        // Keyboard navigation
+        function navigateResults(direction) {
+            const items = document.querySelectorAll('.result-item');
+            if (items.length === 0) return;
+
+            // Remove previous selection
+            if (selectedResultIndex >= 0 && selectedResultIndex < items.length) {
+                items[selectedResultIndex].classList.remove('selected');
+            }
+
+            // Update index
+            selectedResultIndex += direction;
+            if (selectedResultIndex < 0) selectedResultIndex = 0;
+            if (selectedResultIndex >= items.length) selectedResultIndex = items.length - 1;
+
+            // Add selection
+            items[selectedResultIndex].classList.add('selected');
+            items[selectedResultIndex].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }
+
+        // Initialize event listeners
+        document.addEventListener('DOMContentLoaded', function () {
+            // Search input
+            const searchInput = document.getElementById('customSearchInput');
+            if (searchInput) {
+                let searchTimeout;
+                searchInput.addEventListener('input', function () {
+                    clearTimeout(searchTimeout);
+                    searchTimeout = setTimeout(performCustomSearch, 300); // Debounce 300ms
+                });
+
+                // Keyboard navigation
+                searchInput.addEventListener('keydown', function (e) {
+                    if (e.key === 'ArrowDown') {
+                        e.preventDefault();
+                        navigateResults(1);
+                    } else if (e.key === 'ArrowUp') {
+                        e.preventDefault();
+                        navigateResults(-1);
+                    } else if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (selectedResultIndex >= 0) {
+                            selectSearchResult(selectedResultIndex);
+                        } else if (filteredResults.length > 0) {
+                            selectSearchResult(0);
+                        }
+                    } else if (e.key === 'Escape') {
+                        closeCustomSearch();
+                    }
+                });
+            }
+
+            // Filter change handlers
+            document.getElementById('filterExchange')?.addEventListener('change', performCustomSearch);
+            document.getElementById('filterInstrument')?.addEventListener('change', applyFiltersAndDisplay);
+            document.getElementById('filterOptionType')?.addEventListener('change', applyFiltersAndDisplay);
+            document.getElementById('filterResultLimit')?.addEventListener('change', applyFiltersAndDisplay);
+            document.getElementById('filterGroupBy')?.addEventListener('change', applyFiltersAndDisplay);
+
+            // Global keyboard shortcut: Ctrl+F or Ctrl+K
+            document.addEventListener('keydown', function (e) {
+                if ((e.ctrlKey || e.metaKey) && (e.key === 'f' || e.key === 'k')) {
+                    e.preventDefault();
+                    openCustomSearch();
+                } else if (e.key === 'Escape') {
+                    closeCustomSearch();
+                }
+            });
+
+            // Click outside to close
+            document.getElementById('customSearchDialog')?.addEventListener('click', function (e) {
+                if (e.target === this) {
+                    closeCustomSearch();
+                }
+            });
+        });
+
+        // ===== ORIGINAL TRADINGVIEW INTEGRATION =====
         // Global variables
         let dataBridge = null;
         let widget = null;
-        
+        let requestIdCounter = 0;
+        const pendingCallbacks = new Map();
+
         // Custom datafeed that connects to C++ backend
         const customDatafeed = {
             onReady: (callback) => {
@@ -76,17 +1115,25 @@
                     });
                 }, 0);
             },
-            
+
             searchSymbols: (userInput, exchange, symbolType, onResultReadyCallback) => {
-                console.log('[TradingView] searchSymbols:', userInput, exchange, symbolType);
-                
+                console.log('%c[SYMBOL SEARCH] TradingView requesting search', 'color: #2962ff; font-weight: bold');
+                console.log('  Query: \"' + userInput + '\" | Exchange: ' + (exchange || 'NSE') + ' | Type: ' + (symbolType || 'ALL'));
+
+                // INTERCEPT: Open custom search dialog instead of using TradingView's built-in
+                if (userInput === '') {
+                    // Empty query from TradingView's search button - open our dialog
+                    setTimeout(() => openCustomSearch(), 100);
+                    return onResultReadyCallback([]);
+                }
+
                 // Store callback for when results arrive
                 window.pendingSearchCallback = onResultReadyCallback;
-                
-                // Request search from C++ (search in FO by default, but also includes CM)
+
+                // Request search from C++ (searches all segments)
                 const searchExchange = exchange || 'NSE';
-                const searchSegment = 'FO';  // Primary segment, CM will also be searched
-                
+                const searchSegment = 'ALL';  // C++ will search NSE CM/FO + BSE CM/FO
+
                 if (dataBridge) {
                     dataBridge.searchSymbols(userInput, searchExchange, searchSegment);
                 } else {
@@ -94,15 +1141,24 @@
                     onResultReadyCallback([]);
                 }
             },
-            
+
             resolveSymbol: (symbolName, onSymbolResolvedCallback, onResolveErrorCallback) => {
-                console.log('[TradingView] resolveSymbol:', symbolName);
-                
-                // Parse symbol (format: "SYMBOL_SEGMENT")
+                console.log('%c[resolveSymbol] Processing: ' + symbolName, 'color: #f59e0b; font-weight: bold');
+
+                // Parse ticker format: "SYMBOL_SEGMENT_TOKEN" (e.g., "BANKNIFTY_2_41234")
                 const parts = symbolName.split('_');
                 const symbol = parts[0];
                 const segment = parts.length > 1 ? parseInt(parts[1]) : 2;
-                
+                const token = parts.length > 2 ? parseInt(parts[2]) : 0;
+
+                console.log('[resolveSymbol] Parsed:', { symbol, segment, token });
+
+                // CRITICAL FIX: Call C++ loadSymbol to set token before requesting data
+                if (token > 0 && dataBridge) {
+                    console.log('%c[resolveSymbol] Loading symbol with token ' + token, 'color: #10b981');
+                    dataBridge.loadSymbol(symbol, segment, token, '5');
+                }
+
                 const symbolInfo = {
                     name: symbol,
                     ticker: symbolName,
@@ -120,63 +1176,82 @@
                     volume_precision: 0,
                     data_status: 'streaming',
                 };
-                
+
                 setTimeout(() => {
+                    console.log('[resolveSymbol] Symbol resolved:', symbolInfo);
                     onSymbolResolvedCallback(symbolInfo);
                 }, 0);
             },
-            
+
             getBars: (symbolInfo, resolution, periodParams, onHistoryCallback, onErrorCallback) => {
-                console.log('[TradingView] getBars:', symbolInfo.name, resolution, periodParams);
-                
-                // Parse symbol
+                const { from, to, countBack, firstDataRequest } = periodParams;
+
+                console.log('%c[getBars] Requesting Data', 'color: #8b5cf6; font-weight: bold');
+                console.log(`  Symbol: ${symbolInfo.name} | Res: ${resolution}`);
+                console.log(`  Range: [${new Date(from * 1000).toISOString()} to ${new Date(to * 1000).toISOString()}]`);
+                console.log(`  firstDataRequest: ${firstDataRequest} | countBack: ${countBack}`);
+
+                // Parse ticker to get segment and token
                 const parts = symbolInfo.ticker.split('_');
                 const symbol = parts[0];
                 const segment = parts.length > 1 ? parseInt(parts[1]) : 2;
-                
-                // Request historical data from C++
-                if (dataBridge) {
-                    // Store callback for when data arrives
-                    window.pendingHistoricalCallback = onHistoryCallback;
-                    
-                    dataBridge.requestHistoricalData(
-                        symbol,
-                        segment,
-                        resolution,
-                        periodParams.from * 1000,  // Convert to milliseconds
-                        periodParams.to * 1000
-                    );
-                } else {
-                    console.error('[TradingView] Data bridge not initialized');
-                    onErrorCallback('Data bridge not connected');
+                const token = parts.length > 2 ? parseInt(parts[2]) : 0;
+
+                if (!dataBridge) {
+                    console.error('[getBars] Data bridge not initialized');
+                    return onErrorCallback('Data bridge not connected');
                 }
+
+                const requestId = ++requestIdCounter;
+                pendingCallbacks.set(requestId, onHistoryCallback);
+
+                // Request historical data from C++
+                // Note: TradingView 'from' and 'to' are in seconds, C++ expects milliseconds
+                dataBridge.requestHistoricalData(
+                    symbol,
+                    segment,
+                    resolution,
+                    from * 1000,
+                    to * 1000,
+                    token,
+                    requestId
+                );
             },
-            
+
             subscribeBars: (symbolInfo, resolution, onRealtimeCallback, subscriberUID, onResetCacheNeededCallback) => {
                 console.log('[TradingView] subscribeBars:', symbolInfo.name, resolution, subscriberUID);
-                
+
                 // Store callback for real-time updates
                 window.realtimeCallback = onRealtimeCallback;
             },
-            
+
             unsubscribeBars: (subscriberUID) => {
                 console.log('[TradingView] unsubscribeBars:', subscriberUID);
                 window.realtimeCallback = null;
             }
         };
-        
+
         // Initialize QWebChannel
-        new QWebChannel(qt.webChannelTransport, function(channel) {
+        new QWebChannel(qt.webChannelTransport, function (channel) {
             dataBridge = channel.objects.dataBridge;
             console.log('[TradingView] Data bridge connected');
-            
+
             // Listen for historical data from C++
-            dataBridge.historicalDataReady.connect(function(bars) {
-                console.log('[TradingView] Received', bars.length, 'historical bars');
-                
-                if (window.pendingHistoricalCallback) {
+            dataBridge.historicalDataReady.connect(function (bars, requestId) {
+                console.log('%c[JAVASCRIPT] ========== HISTORICAL DATA RECEIVED ==========', 'color: #10b981; font-weight: bold');
+                console.log('[JAVASCRIPT] Bar count:', bars.length, 'requestId:', requestId);
+
+                const callback = pendingCallbacks.get(requestId);
+                console.log('[JAVASCRIPT] Callback found for requestId ' + requestId + ':', !!callback);
+
+                if (callback) {
+                    console.log('[JAVASCRIPT] Calling TradingView callback...');
+
                     if (bars.length === 0) {
-                        window.pendingHistoricalCallback([], { noData: true });
+                        console.log('%c[JAVASCRIPT] !!! END OF DATA REACHED OR EMPTY RANGE !!!', 'color: #f43f5e; font-weight: bold');
+                        console.log(`  RequestId: ${requestId}`);
+                        // Important: TradingView needs noData: true if no more data is available
+                        callback([], { noData: true });
                     } else {
                         // Convert bars to TradingView format
                         const tvBars = bars.map(bar => ({
@@ -187,92 +1262,113 @@
                             close: bar.close,
                             volume: bar.volume || 0
                         }));
-                        
-                        window.pendingHistoricalCallback(tvBars, { noData: false });
+
+                        console.log('[JAVASCRIPT] ✅ Sending', tvBars.length, 'bars to TradingView');
+                        callback(tvBars, { noData: false });
                     }
-                    window.pendingHistoricalCallback = null;
+                    pendingCallbacks.delete(requestId);
+                    console.log('[JAVASCRIPT] ✅ Callback completed');
+                } else {
+                    console.error('%c[JAVASCRIPT] ❌ No pending callback found for requestId: ' + requestId, 'color: #ef4444; font-weight: bold');
                 }
             });
-            
+
             // Listen for real-time bar updates from C++
-            dataBridge.realtimeBarUpdate.connect(function(bar) {
+            dataBridge.realtimeBarUpdate.connect(function (bar) {
                 console.log('[TradingView] Realtime bar update:', bar.time, bar.close);
-                
+
                 if (window.realtimeCallback) {
                     window.realtimeCallback({
                         time: bar.time,
                         open: bar.open,
                         high: bar.high,
-                        low:bar.low,
+                        low: bar.low,
                         close: bar.close,
                         volume: bar.volume || 0
                     });
                 }
             });
-            
+
             // Listen for symbol search results from C++
-            dataBridge.symbolSearchResults.connect(function(results) {
-                console.log('[TradingView] Received', results.length, 'search results');
-                
-                if (window.pendingSearchCallback) {
-                    // Convert to TradingView format
-                    const tvResults = results.map(item => ({
-                        symbol: item.symbol,
-                        full_name: item.full_name,
-                        description: item.description,
-                        exchange: item.exchange,
-                        ticker: item.symbol + '_' + item.segment,
-                        type: item.type
-                    }));
-                    
+            dataBridge.symbolSearchResults.connect(function (results) {
+                console.log('%c[SYMBOL SEARCH] Received ' + results.length + ' results', 'color: #26a69a; font-weight: bold');
+
+                // Log detailed results to console for debugging
+                if (results.length > 0) {
+                    console.group('[SEARCH RESULTS] Suggestions:');
+                    results.forEach((item, index) => {
+                        console.log(`${index + 1}. ${item.full_name} (Token: ${item.token}, Type: ${item.type})`);
+                    });
+                    console.groupEnd();
+                }
+
+                // Convert to TradingView format
+                const tvResults = results.map(item => ({
+                    symbol: item.symbol,         // Formatted symbol (e.g., "BANKNIFTY 24000 CE")
+                    full_name: item.full_name,   // Full display name with expiry
+                    description: item.description,
+                    exchange: item.exchange,
+                    ticker: item.ticker,         // CRITICAL: Use ticker from C++ (SYMBOL_SEGMENT_TOKEN)
+                    type: item.type,
+                    expiry: item.expiry || '',
+                    strike: item.strike || 0
+                }));
+
+                // Route to custom search if it's open
+                if (window.customSearchCallback) {
+                    window.customSearchCallback(tvResults);
+                    window.customSearchCallback = null;
+                }
+                // Otherwise route to TradingView's built-in dialog (fallback)
+                else if (window.pendingSearchCallback) {
                     window.pendingSearchCallback(tvResults);
                     window.pendingSearchCallback = null;
                 }
             });
-            
+
             // Initialize TradingView widget
             initTradingView();
         });
-        
+
         function initTradingView() {
             console.log('[TradingView] Initializing widget...');
-            
+
             // Hide loading indicator
             document.getElementById('loading').style.display = 'none';
-            
+
             widget = new TradingView.widget({
                 container: 'tv_chart_container',
                 locale: 'en',
                 library_path: 'charting_library/',
-                
-                // Default symbol and interval
-                symbol: 'NIFTY_2',
+
+                // Default symbol: RELIANCE NSE CM (segment 1, token 2885)
+                symbol: 'RELIANCE_1_2885',
                 interval: '5',
-                
+
                 // Custom datafeed
                 datafeed: customDatafeed,
-                
+
                 // Chart settings
                 autosize: true,
                 fullscreen: false,
-                
+
                 // Theme
                 theme: 'Dark',
-                
+
                 // Disabled features (customize as needed)
                 disabled_features: [
                     'use_localstorage_for_settings',
                     'header_symbol_search',
                     'symbol_search_hot_key',
+                    'study_templates',  // Disable study templates to avoid file:// errors
                 ],
-                
+
                 // Enabled features
                 enabled_features: [
-                    'study_templates',
                     'side_toolbar_in_fullscreen_mode',
                     'header_in_fullscreen_mode',
                 ],
-                
+
                 // Overrides for chart appearance
                 overrides: {
                     'mainSeriesProperties.candleStyle.upColor': '#26a69a',
@@ -282,33 +1378,45 @@
                     'mainSeriesProperties.candleStyle.wickUpColor': '#26a69a',
                     'mainSeriesProperties.candleStyle.wickDownColor': '#ef5350',
                 },
-                
+
                 // Time scale settings
                 time_scale: {
                     min_bar_spacing: 3,
                 },
             });
-            
+
             widget.onChartReady(() => {
                 console.log('[TradingView] Chart is ready');
-                
+
                 // Store widget globally for external access
                 window.widget = widget;
-                
+
                 // Notify C++ that chart is ready
                 if (dataBridge) {
                     dataBridge.onChartReady();
                 }
-                
+
+                // Override TradingView's search icon to open custom dialog
+                setTimeout(() => {
+                    const searchButton = document.querySelector('[data-name="search"]');
+                    if (searchButton) {
+                        console.log('[Custom Search] Overriding TradingView search button');
+                        searchButton.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            openCustomSearch();
+                        }, true);
+                    }
+                }, 1000);
+
                 // Subscribe to chart events
                 widget.activeChart().onIntervalChanged().subscribe(null, (interval, timeframeObj) => {
-                    console.log('[TradingView] Interval changed:',interval);
+                    console.log('[TradingView] Interval changed:', interval);
                 });
-                
+
                 widget.activeChart().onSymbolChanged().subscribe(null, (symbolData) => {
                     console.log('[TradingView] Symbol changed:', symbolData.ticker);
                 });
-                
+
                 // Chart click handler (for order placement)
                 widget.activeChart().crossHairMoved().subscribe(null, (params) => {
                     if (params.time && params.price && dataBridge) {
@@ -318,9 +1426,9 @@
                 });
             });
         }
-        
+
         // Error handler
-        window.onerror = function(message, source, lineno, colno, error) {
+        window.onerror = function (message, source, lineno, colno, error) {
             console.error('[TradingView] Error:', message, 'at', source, lineno, colno);
             if (dataBridge) {
                 dataBridge.sendError(message);
@@ -328,4 +1436,5 @@
         };
     </script>
 </body>
+
 </html>

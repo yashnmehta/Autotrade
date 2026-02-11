@@ -229,14 +229,28 @@ QVector<ContractData>
 NSEFORepositoryPreSorted::getContractsBySeries(const QString &series) const {
   QVector<ContractData> results;
 
-  auto it = m_seriesIndex.find(series);
-  if (it != m_seriesIndex.end()) {
-    const QVector<int64_t> &tokens = it.value();
-    results.reserve(tokens.size());
-    for (int64_t token : tokens) {
-      const ContractData *contract = getContract(token);
-      if (contract)
-        results.append(*contract);
+  // If series is empty, return all contracts (used for symbol search across all series)
+  if (series.isEmpty()) {
+    // Return all contracts from all series
+    for (auto it = m_seriesIndex.begin(); it != m_seriesIndex.end(); ++it) {
+      const QVector<int64_t> &tokens = it.value();
+      for (int64_t token : tokens) {
+        const ContractData *contract = getContract(token);
+        if (contract)
+          results.append(*contract);
+      }
+    }
+  } else {
+    // Return contracts for specific series
+    auto it = m_seriesIndex.find(series);
+    if (it != m_seriesIndex.end()) {
+      const QVector<int64_t> &tokens = it.value();
+      results.reserve(tokens.size());
+      for (int64_t token : tokens) {
+        const ContractData *contract = getContract(token);
+        if (contract)
+          results.append(*contract);
+      }
     }
   }
 

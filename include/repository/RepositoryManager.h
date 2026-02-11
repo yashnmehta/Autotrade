@@ -180,6 +180,20 @@ public:
                                      int maxResults = 50) const;
 
   /**
+   * @brief Global multi-token search across all segments
+   * @param searchText Complex query (e.g., "nifty 26000 ce 27feb")
+   * @param exchangeFilter Optional: "NSE", "BSE", or empty for All
+   * @param segmentFilter Optional: "CM", "FO", or empty for All
+   * @param expiryFilter Optional expiry date filter
+   * @param maxResults Maximum results to return
+   */
+  QVector<ContractData> searchScripsGlobal(const QString &searchText,
+                                           const QString &exchangeFilter = "",
+                                           const QString &segmentFilter = "",
+                                           const QString &expiryFilter = "",
+                                           int maxResults = 50) const;
+
+  /**
    * @brief Get all scrips for a segment and series
    * @param exchange Exchange name ("NSE" or "BSE")
    * @param segment Segment type ("CM" or "FO")

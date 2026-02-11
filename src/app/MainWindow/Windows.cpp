@@ -8,6 +8,7 @@
 #include "repository/RepositoryManager.h"
 #include "services/UdpBroadcastService.h"
 #include "ui/ATMWatchWindow.h"
+#include "ui/GlobalSearchWidget.h"
 #include "ui/OptionChainWindow.h"
 #include "ui/StrategyManagerWindow.h"
 #include "ui/TradingViewChartWidget.h"
@@ -23,6 +24,101 @@
 #include <QDebug>
 #include <QElapsedTimer> // Added for performance logging
 #include <QStatusBar>
+
+CustomMDISubWindow *MainWindow::createGlobalSearchWindow() {
+  // Check if search window already exists
+  for (auto win : m_mdiArea->windowList()) {
+    if (win->windowType() == "GlobalSearch") {
+      win->activateWindow();
+      return win;
+    }
+  }
+
+  CustomMDISubWindow *window =
+      new CustomMDISubWindow("Script Search", m_mdiArea);
+  window->setWindowType("GlobalSearch");
+
+  auto *searchWidget = new GlobalSearchWidget(window);
+
+  // When a script is selected from search...
+  connect(
+      searchWidget, &GlobalSearchWidget::scripSelected, this,
+      [this](const ContractData &contract) {
+        qDebug() << "[MainWindow] Script selected from Search:"
+                 << contract.displayName;
+
+        // 1. Find active chart
+        TradingViewChartWidget *activeChart = nullptr;
+        CustomMDISubWindow *activeSub = m_mdiArea->activeWindow();
+        if (activeSub && activeSub->windowType() == "ChartWindow") {
+          activeChart = qobject_cast<TradingViewChartWidget *>(
+              activeSub->contentWidget());
+        }
+
+        if (!activeChart) {
+          // Fallback to first chart found
+          for (auto win : m_mdiArea->windowList()) {
+            if (win->windowType() == "ChartWindow") {
+              activeChart =
+                  qobject_cast<TradingViewChartWidget *>(win->contentWidget());
+              break;
+            }
+          }
+        }
+
+        if (activeChart) {
+          int segId = 2; // Default to NSEFO
+          if (contract.exchangeInstrumentID >= 11000000) {
+            segId = (contract.strikePrice > 0 || contract.instrumentType == 1)
+                        ? 12
+                        : 11;
+          } else {
+            segId = (contract.strikePrice > 0 || contract.instrumentType == 1)
+                        ? 2
+                        : 1;
+          }
+
+          qDebug() << "[MainWindow] Updating chart with token:"
+                   << contract.exchangeInstrumentID << "segment:" << segId;
+          activeChart->loadSymbol(contract.name, segId,
+                                  contract.exchangeInstrumentID);
+        } else {
+          qDebug() << "[MainWindow] No active chart. Adding to Watchlist.";
+          // Fallback: Add to MarketWatch
+          InstrumentData data;
+          data.exchangeInstrumentID = contract.exchangeInstrumentID;
+          data.name = contract.displayName;
+          data.symbol = contract.name;
+          data.series = contract.series;
+          data.instrumentType =
+              contract.instrumentType == 1
+                  ? "Futures"
+                  : (contract.instrumentType == 2 ? "Options" : "Cash");
+          data.expiryDate = contract.expiryDate;
+          data.strikePrice = contract.strikePrice;
+          data.optionType = contract.optionType;
+          data.exchangeSegment =
+              (contract.exchangeInstrumentID >= 11000000)
+                  ? ((contract.strikePrice > 0 || contract.instrumentType == 1)
+                         ? 12
+                         : 11)
+                  : ((contract.strikePrice > 0 || contract.instrumentType == 1)
+                         ? 2
+                         : 1);
+
+          onAddToWatchRequested(data);
+        }
+      });
+
+  window->setContentWidget(searchWidget);
+  window->resize(800, 500);
+  connectWindowSignals(window);
+  m_mdiArea->addWindow(window);
+  window->show();
+  window->activateWindow();
+
+  return window;
+}
 
 // Helper to count windows
 int MainWindow::countWindowsOfType(const QString &type) {
@@ -244,9 +340,9 @@ CustomMDISubWindow *MainWindow::createMarketWatch() {
 
 CustomMDISubWindow *MainWindow::createChartWindow() {
   static int counter = 1;
-  
-  CustomMDISubWindow *window = new CustomMDISubWindow(
-      QString("Chart %1").arg(counter++), m_mdiArea);
+
+  CustomMDISubWindow *window =
+      new CustomMDISubWindow(QString("Chart %1").arg(counter++), m_mdiArea);
   window->setWindowType("ChartWindow");
 
   TradingViewChartWidget *chartWidget = new TradingViewChartWidget(window);
@@ -273,7 +369,8 @@ CustomMDISubWindow *MainWindow::createChartWindow() {
       segmentInt = 2; // NSE FO
     }
     // Pass token from context
-    chartWidget->loadSymbol(context.symbol, segmentInt, context.token, "5"); // 5-minute default
+    chartWidget->loadSymbol(context.symbol, segmentInt, context.token,
+                            "5"); // 5-minute default
   }
 
   qDebug() << "[MainWindow] Created Chart Window";

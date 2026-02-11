@@ -7,6 +7,7 @@
 #include <QElapsedTimer>
 #include <QFile>
 #include <QFileInfo>
+#include <QRegularExpression>
 #include <QSet>
 #include <QStandardPaths>
 #include <fstream>
@@ -20,6 +21,8 @@
 #include "nsefo_price_store.h"
 #include "repository/NSEFORepositoryPreSorted.h"
 #include "utils/MemoryProfiler.h"
+// Tokenizer for flexible multi-token queries
+#include "search/SearchTokenizer.h"
 
 // Initialize singleton
 RepositoryManager *RepositoryManager::s_instance = nullptr;
@@ -878,77 +881,145 @@ bool RepositoryManager::loadFromMemory(const QString &csvData) {
   return anyLoaded;
 }
 
-QVector<ContractData> RepositoryManager::searchScrips(const QString &exchange,
-                                                      const QString &segment,
-                                                      const QString &series,
-                                                      const QString &searchText,
-                                                      int maxResults) const {
+QVector<ContractData> RepositoryManager::searchScripsGlobal(
+    const QString &searchText, const QString &exchangeFilter,
+    const QString &segmentFilter, const QString &expiryFilter,
+    int maxResults) const {
+
+  QElapsedTimer timer;
+  timer.start();
+
+  QString searchStripped = searchText.trimmed();
+  if (searchStripped.isEmpty())
+    return {};
+
+  // Use flexible tokenizer for pinning fields (Strike, OptionType)
+  auto parsed = SearchTokenizer::parse(searchStripped);
+  QStringList queryTokens = searchStripped.toUpper().split(
+      QRegularExpression("\\s+"), Qt::SkipEmptyParts);
+
+  // Normalize filters to handle TradingView defaults
+  QString exNormalized = exchangeFilter.toUpper();
+  if (exNormalized == "ALL")
+    exNormalized = "";
+
+  QString segNormalized = segmentFilter.toUpper();
+  // "ALL" means search both CM and FO - keep empty!
+  if (segNormalized == "ALL") {
+    segNormalized = "";  // Search both CM and FO
+  } else if (segNormalized == "STOCKS" || segNormalized == "STOCK") {
+    segNormalized = "CM";
+  } else if (segNormalized == "OPTIONS" || segNormalized == "FUTURES") {
+    segNormalized = "FO";
+  }
+
   QVector<ContractData> results;
   results.reserve(maxResults);
 
-  QString segmentKey = getSegmentKey(exchange, segment);
-  QString searchUpper = searchText.toUpper();
+  QReadLocker lock(&m_repositoryLock);
 
-  if (segmentKey == "NSEFO" && m_nsefo->isLoaded()) {
-    // Search NSE F&O by series
-    QVector<ContractData> allContracts = m_nsefo->getContractsBySeries(series);
-
-    for (const ContractData &contract : allContracts) {
-      // Match by symbol prefix
-      if (contract.name.startsWith(searchUpper, Qt::CaseInsensitive) ||
-          contract.displayName.contains(searchUpper, Qt::CaseInsensitive)) {
-        results.append(contract);
-        if (results.size() >= maxResults) {
-          break;
-        }
-      }
+  auto searchRepo = [&](auto *repo, const char *name) {
+    if (!repo)
+      return;
+    if (!repo->isLoaded()) {
+      qDebug() << "[RepositoryManager] Skip" << name << " - NOT LOADED";
+      return;
     }
-  } else if (segmentKey == "NSECM" && m_nsecm->isLoaded()) {
-    // Search NSE CM by series
-    QVector<ContractData> allContracts = m_nsecm->getContractsBySeries(series);
 
-    for (const ContractData &contract : allContracts) {
-      // Match by symbol prefix
-      if (contract.name.startsWith(searchUpper, Qt::CaseInsensitive) ||
-          contract.displayName.contains(searchUpper, Qt::CaseInsensitive)) {
-        results.append(contract);
-        if (results.size() >= maxResults) {
-          break;
-        }
+    int repoMatchCount = 0;
+    repo->forEachContract([&](const ContractData &contract) {
+      if (results.size() >= maxResults)
+        return;
+
+      // 1. Explicit UI expiry filter
+      if (!expiryFilter.isEmpty() && contract.expiryDate != expiryFilter)
+        return;
+
+      // 2. High-confidence pinned matches from Tokenizer
+      // Strike match (if user typed something that looks like a strike)
+      if (parsed.strike > 0.0) {
+        if (contract.strikePrice <= 0.0)
+          return;
+        double diff = qAbs(contract.strikePrice - parsed.strike);
+        // Match approximate strike
+        if (!(diff < 0.01 || diff <= contract.strikePrice * 0.05))
+          return;
       }
-    }
-  } else if (segmentKey == "BSEFO" && m_bsefo->isLoaded()) {
-    // Search BSE F&O by series
-    QVector<ContractData> allContracts = m_bsefo->getContractsBySeries(series);
 
-    for (const ContractData &contract : allContracts) {
-      // Match by symbol prefix
-      if (contract.name.startsWith(searchUpper, Qt::CaseInsensitive) ||
-          contract.displayName.contains(searchUpper, Qt::CaseInsensitive)) {
-        results.append(contract);
-        if (results.size() >= maxResults) {
-          break;
-        }
+      // Option type match (if user typed CE/PE etc)
+      if (parsed.optionType > 0) {
+        QString typeStr = (parsed.optionType == 3) ? "CE" : "PE";
+        if (contract.optionType != typeStr)
+          return;
       }
-    }
-  } else if (segmentKey == "BSECM" && m_bsecm->isLoaded()) {
-    // Search BSE CM by series
-    QVector<ContractData> allContracts = m_bsecm->getContractsBySeries(series);
 
-    for (const ContractData &contract : allContracts) {
-      // Match by symbol prefix
-      if (contract.name.startsWith(searchUpper, Qt::CaseInsensitive) ||
-          contract.displayName.contains(searchUpper, Qt::CaseInsensitive)) {
-        results.append(contract);
-        if (results.size() >= maxResults) {
-          break;
-        }
+      // 3. General Multi-token match: EVERY word in query must match SOME field
+      // Priority scoring: check if first token is exact match for name
+      bool isPriority = false;
+      if (!queryTokens.isEmpty() &&
+          contract.name.compare(queryTokens[0], Qt::CaseInsensitive) == 0) {
+        isPriority = true;
       }
-    }
-  }
 
-  qDebug() << "[RepositoryManager] Search results:" << results.size() << "for"
-           << exchange << segment << series << searchText;
+      for (const QString &token : queryTokens) {
+        bool tokenMatched = false;
+
+        // Symbol match (Prefix)
+        if (contract.name.startsWith(token, Qt::CaseInsensitive))
+          tokenMatched = true;
+        // Display Name / Description match (Contains)
+        else if (contract.displayName.contains(token, Qt::CaseInsensitive))
+          tokenMatched = true;
+        else if (contract.description.contains(token, Qt::CaseInsensitive))
+          tokenMatched = true;
+        // Expiry match (Special: match "26" to "2026")
+        else if (!contract.expiryDate.isEmpty()) {
+          if (contract.expiryDate.contains(token, Qt::CaseInsensitive)) {
+            tokenMatched = true;
+          } else if (token.length() == 2 && token.at(0).isDigit() &&
+                     contract.expiryDate.contains("20" + token)) {
+            tokenMatched = true;
+          }
+        }
+        // Strike match (as string)
+        else if (contract.strikePrice > 0 &&
+                 QString::number(contract.strikePrice, 'f', 2)
+                     .startsWith(token))
+          tokenMatched = true;
+
+        if (!tokenMatched)
+          return;
+      }
+
+      if (isPriority) {
+        results.insert(0, contract); // Prioritize exact name matches
+      } else {
+        results.append(contract);
+      }
+      repoMatchCount++;
+    });
+    qDebug() << "[RepositoryManager] Search" << name << "found"
+             << repoMatchCount << "matches";
+  };
+
+  // Search relevant repositories
+  bool searchNSE = (exNormalized.isEmpty() || exNormalized == "NSE");
+  bool searchBSE = (exNormalized.isEmpty() || exNormalized == "BSE");
+  bool searchFO = (segNormalized.isEmpty() || segNormalized == "FO");
+  bool searchCM = (segNormalized.isEmpty() || segNormalized == "CM");
+
+  if (searchNSE && searchFO)
+    searchRepo(m_nsefo.get(), "NSE_FO");
+  if (results.size() < maxResults && searchNSE && searchCM)
+    searchRepo(m_nsecm.get(), "NSE_CM");
+  if (results.size() < maxResults && searchBSE && searchFO)
+    searchRepo(m_bsefo.get(), "BSE_FO");
+  if (results.size() < maxResults && searchBSE && searchCM)
+    searchRepo(m_bsecm.get(), "BSE_CM");
+
+  qDebug() << "[RepositoryManager] Global search found" << results.size()
+           << "total results for query:" << searchText << "in"
+           << timer.elapsed() << "ms";
 
   return results;
 }

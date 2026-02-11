@@ -91,6 +91,7 @@ private slots:
   CustomMDISubWindow *createOrderBookWindow();
   CustomMDISubWindow *createPositionWindow();
   CustomMDISubWindow *createStrategyManagerWindow();
+  CustomMDISubWindow *createGlobalSearchWindow();
   CustomMDISubWindow *createChartWindow();
   void focusScripBar();
   void onAddToWatchRequested(const InstrumentData &instrument);
