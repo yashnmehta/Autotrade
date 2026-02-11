@@ -1436,6 +1436,129 @@
                 dataBridge.sendError(message);
             }
         };
+    /* ===== ORDER ENTRY DIALOG ===== */
+    </script>
+
+    <!-- Order Entry Overlay -->
+    <div id="orderEntryDialog" class="custom-search-overlay" style="display:none;">
+        <div class="custom-search-container" style="width:420px; max-height:420px;">
+            <div class="custom-search-header">
+                <h2 id="orderDialogTitle">Place Order</h2>
+                <button class="custom-search-close" onclick="closeOrderDialog()">✕</button>
+            </div>
+
+            <div style="padding:12px 20px; background:#17191f;">
+                <div style="display:flex; gap:8px; margin-bottom:8px;">
+                    <select id="orderSide" class="filter-select" style="flex:1;">
+                        <option value="BUY" selected>Buy</option>
+                        <option value="SELL">Sell</option>
+                    </select>
+                    <select id="orderType" class="filter-select" style="width:140px;">
+                        <option value="MARKET">Market</option>
+                        <option value="LIMIT" selected>Limit</option>
+                        <option value="SL">Stop Loss (SL)</option>
+                    </select>
+                </div>
+
+                <div style="display:flex; gap:8px; margin-bottom:8px;">
+                    <input id="orderQty" class="custom-search-input" type="number" min="1" value="1" style="flex:1;" />
+                    <input id="orderPrice" class="custom-search-input" type="number" step="0.01" style="width:160px;" />
+                </div>
+
+                <div style="display:flex; gap:8px; margin-bottom:8px;">
+                    <input id="orderSLPrice" class="custom-search-input" type="number" step="0.01" placeholder="Stop-Loss Price (optional)" style="flex:1;" />
+                </div>
+
+                <div style="display:flex; gap:8px; justify-content:flex-end;">
+                    <button class="filter-select" onclick="closeOrderDialog()" style="background:#2a2e39;">Cancel</button>
+                    <button id="placeOrderBtn" class="filter-select" onclick="placeOrderFromDialog()" style="background:#2962ff;color:#fff;">Place Order</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Open order dialog at price
+        function openOrderDialog(price, defaultSide) {
+            document.getElementById('orderEntryDialog').style.display = 'flex';
+            document.getElementById('orderPrice').value = (price || 0).toString();
+            document.getElementById('orderSLPrice').value = '';
+            document.getElementById('orderQty').value = '1';
+            if (defaultSide) document.getElementById('orderSide').value = defaultSide;
+            document.getElementById('orderPrice').focus();
+        }
+
+        function closeOrderDialog() {
+            document.getElementById('orderEntryDialog').style.display = 'none';
+        }
+
+        // Place order - sends to C++ via QWebChannel
+        function placeOrderFromDialog() {
+            const side = document.getElementById('orderSide').value;
+            const type = document.getElementById('orderType').value;
+            const qty = parseInt(document.getElementById('orderQty').value) || 1;
+            const price = parseFloat(document.getElementById('orderPrice').value) || 0;
+            const slPrice = parseFloat(document.getElementById('orderSLPrice').value) || 0;
+
+            // Determine symbol & segment from widget
+            let symbol = '';
+            let segment = 2; // default NSE FO/CM mapping handled in C++
+            try {
+                const s = widget && widget.activeChart() && widget.activeChart().symbol();
+                symbol = s && s.ticker ? s.ticker.split('_')[0] : (window.currentSymbol || '');
+            } catch (e) {
+                symbol = window.currentSymbol || '';
+            }
+
+            // Call C++ bridge method - expected signature: placeOrder(symbol, segment, side, qty, orderType, price, slPrice)
+            if (dataBridge && dataBridge.placeOrder) {
+                try {
+                    dataBridge.placeOrder(symbol, segment, side, qty, type, price, slPrice);
+                    // Optimistic UI: add temporary marker
+                    const time = Math.floor(Date.now() / 1000);
+                    const text = (type === 'MARKET' ? 'MKT' : type) + ' ' + side + ' @' + price.toFixed(2);
+                    chartAddMarker(time, side, price, text);
+                    closeOrderDialog();
+                } catch (err) {
+                    console.error('[Order] Failed to call placeOrder:', err);
+                    alert('Order placement failed: ' + err);
+                }
+            } else {
+                alert('Order bridge not available');
+            }
+        }
+
+        // Helper: add marker on chart (uses TradingView API)
+        function chartAddMarker(time, side, price, text) {
+            try {
+                const chartApi = widget && widget.activeChart();
+                if (!chartApi) return;
+                chartApi.createShape({
+                    time: time,
+                    price: price,
+                    shape: side === 'BUY' ? 'arrow_up' : 'arrow_down',
+                    text: text
+                });
+            } catch (e) {
+                console.warn('[chartAddMarker] failed', e);
+            }
+        }
+
+        // Expose a convenience function for crosshair click -> open order
+        (function attachChartClickForOrders(){
+            try {
+                // if widget exists and supports click subscription
+                if (window.widget && widget.activeChart) {
+                    widget.activeChart().onClick().subscribe(null, function(params) {
+                        // params may vary; try to extract price/time
+                        const price = params && params.price ? params.price : (params && params.time ? null : null);
+                        if (price) openOrderDialog(price, 'BUY');
+                    });
+                }
+            } catch (e) {
+                // ignore if API not available
+            }
+        })();
     </script>
 </body>
 
