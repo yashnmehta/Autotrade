@@ -45,7 +45,7 @@ public:
     /**
      * @brief Set XTS Market Data Client for API access
      */
-    void setXTSMarketDataClient(class XTSMarketDataClient* client) { m_xtsClient = client; }
+    void setXTSMarketDataClient(class XTSMarketDataClient* client);
     
     /**
      * @brief Set Repository Manager for symbol search
@@ -60,6 +60,11 @@ public:
      * @param interval Chart interval ("1", "5", "15", "60", "D", "W")
      */
     void loadSymbol(const QString& symbol, int segment, int64_t token, const QString& interval = "5");
+    
+    /**
+     * @brief Handle real-time tick updates from XTS feed
+     */
+    void onTickUpdate(const struct XTS::Tick& tick);
     
     /**
      * @brief Change chart interval/timeframe

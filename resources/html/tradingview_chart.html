@@ -83,13 +83,14 @@
                 // Store callback for when results arrive
                 window.pendingSearchCallback = onResultReadyCallback;
                 
-                // Request search from C++ (default to NSE FO if no exchange specified)
+                // Request search from C++ (search in FO by default, but also includes CM)
                 const searchExchange = exchange || 'NSE';
-                const searchSegment = 'FO';  // Default to F&O, can be made configurable
+                const searchSegment = 'FO';  // Primary segment, CM will also be searched
                 
                 if (dataBridge) {
                     dataBridge.searchSymbols(userInput, searchExchange, searchSegment);
                 } else {
+                    console.warn('[TradingView] Data bridge not available for search');
                     onResultReadyCallback([]);
                 }
             },

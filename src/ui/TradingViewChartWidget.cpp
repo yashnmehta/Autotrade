@@ -2,6 +2,8 @@
 #include "services/HistoricalDataStore.h"
 #include "services/CandleAggregator.h"
 #include "api/NativeHTTPClient.h"
+#include "api/XTSMarketDataClient.h"
+#include "api/XTSTypes.h"
 #include "repository/RepositoryManager.h"
 #include "repository/ContractData.h"
 #include <QVBoxLayout>
@@ -112,7 +114,7 @@ TradingViewChartWidget::TradingViewChartWidget(QWidget* parent)
                 // Make HTTP request in a separate thread to avoid blocking UI
                 QtConcurrent::run([this, urlStr, authToken]() {
                     NativeHTTPClient client;
-                    client.setTimeout(10);
+                    client.setTimeout(30); // 30 second timeout for API requests
                     
                     // Add authorization header if token available
                     std::map<std::string, std::string> headers;
@@ -175,6 +177,9 @@ TradingViewChartWidget::TradingViewChartWidget(QWidget* parent)
     connect(&CandleAggregator::instance(), &CandleAggregator::candleUpdate,
             this, &TradingViewChartWidget::onCandleUpdate);
     
+    // Connect to XTS Market Data Client for real-time ticks (will be set later)
+    // Connection happens after setXTSMarketDataClient() is called
+    
     // Load chart HTML
     loadChartHTML();
     
@@ -183,6 +188,34 @@ TradingViewChartWidget::TradingViewChartWidget(QWidget* parent)
 
 TradingViewChartWidget::~TradingViewChartWidget()
 {
+    // Unsubscribe from current token if still subscribed
+    if (m_xtsClient && m_xtsClient->isLoggedIn() && m_currentToken > 0) {
+        m_xtsClient->unsubscribe(QVector<int64_t>{m_currentToken}, m_currentSegment);
+    }
+}
+
+void TradingViewChartWidget::setXTSMarketDataClient(XTSMarketDataClient* client)
+{
+    m_xtsClient = client;
+    
+    // Connect to tick updates for real-time data
+    if (m_xtsClient) {
+        connect(m_xtsClient, &XTSMarketDataClient::tickReceived,
+                this, &TradingViewChartWidget::onTickUpdate, Qt::UniqueConnection);
+        qDebug() << "[TradingViewChart] Connected to XTS tick feed";
+    }
+}
+
+void TradingViewChartWidget::setXTSMarketDataClient(XTSMarketDataClient* client)
+{
+    m_xtsClient = client;
+    
+    // Connect to tick updates for real-time data
+    if (m_xtsClient) {
+        connect(m_xtsClient, &XTSMarketDataClient::tickReceived,
+                this, &TradingViewChartWidget::onTickUpdate, Qt::UniqueConnection);
+        qDebug() << "[TradingViewChart] Connected to XTS tick feed";
+    }
 }
 
 void TradingViewChartWidget::setupWebChannel()
@@ -253,10 +286,29 @@ void TradingViewChartWidget::loadSymbol(const QString& symbol, int segment,
     m_currentToken = token;
     m_currentInterval = interval;
     
+    // Subscribe to real-time data for this token
+    if (m_xtsClient && m_xtsClient->isLoggedIn()) {
+        qDebug() << "[TradingViewChart] Subscribing to token:" << token << "segment:" << segment;
+        m_xtsClient->subscribe(QVector<int64_t>{token}, segment);
+    }
+    
     if (!m_chartReady) {
         qWarning() << "[TradingViewChart] Chart not ready yet";
         return;
     }
+    
+    // Subscribe to real-time candle updates
+    QString timeframe = interval;
+    if (interval == "1") timeframe = "1m";
+    else if (interval == "5") timeframe = "5m";
+    else if (interval == "15") timeframe = "15m";
+    else if (interval == "30") timeframe = "30m";
+    else if (interval == "60") timeframe = "1h";
+    else if (interval == "240") timeframe = "4h";
+    else if (interval == "D") timeframe = "1d";
+    
+    CandleAggregator::instance().subscribeTo(symbol, segment, {timeframe});
+    qDebug() << "[TradingViewChart] Subscribed to candles:" << symbol << segment << timeframe;
     
     QString script = QString(
         "if (window.widget) {"
@@ -410,6 +462,33 @@ void TradingViewChartWidget::onCandleUpdate(const QString& symbol, int segment,
     m_dataBridge->sendRealtimeBar(bar);
 }
 
+void TradingViewChartWidget::onTickUpdate(const XTS::Tick& tick)
+{
+    // Only process ticks for our current token
+    if (static_cast<int64_t>(tick.exchangeInstrumentID) != m_currentToken) {
+        return;
+    }
+    
+    if (tick.exchangeSegment != m_currentSegment) {
+        return;
+    }
+    
+    // Send real-time tick as partial bar update to TradingView
+    // This provides instant feedback while CandleAggregator builds proper candles
+    QJsonObject bar;
+    bar["time"] = tick.lastUpdateTime; // XTS provides milliseconds
+    bar["open"] = tick.open;
+    bar["high"] = tick.high;
+    bar["low"] = tick.low;
+    bar["close"] = tick.lastTradedPrice;
+    bar["volume"] = static_cast<qint64>(tick.volume);
+    
+    // Send to chart if ready
+    if (m_chartReady && m_dataBridge) {
+        m_dataBridge->sendRealtimeBar(bar);
+    }
+}
+
 void TradingViewChartWidget::onLoadFinished(bool success)
 {
     if (success) {
@@ -519,22 +598,37 @@ void TradingViewDataBridge::searchSymbols(const QString& searchText,
         return;
     }
     
-    // Search in repository (empty series = search all)
-    QVector<ContractData> results = widget->m_repoManager->searchScrips(
-        exchange, segment, "", searchText, 20  // Max 20 results
+    // Search in both CM and FO segments for broader results
+    QVector<ContractData> results;
+    
+    // Search in requested segment
+    QVector<ContractData> segmentResults = widget->m_repoManager->searchScrips(
+        exchange, segment, "", searchText, 15  // Max 15 from primary segment
     );
+    results.append(segmentResults);
+    
+    // Also search in alternate segment (if FO, search CM and vice versa)
+    QString altSegment = (segment == "FO") ? "CM" : "FO";
+    QVector<ContractData> altResults = widget->m_repoManager->searchScrips(
+        exchange, altSegment, "", searchText, 5  // Max 5 from alternate
+    );
+    results.append(altResults);
     
     // Convert to JSON format for TradingView
     QJsonArray jsonResults;
     for (const ContractData& contract : results) {
         QJsonObject item;
         item["symbol"] = contract.symbol;
-        item["full_name"] = QString("%1 - %2").arg(contract.symbol, contract.description);
+        item["full_name"] = QString("%1 - %2 (%3)").arg(contract.symbol, contract.description, contract.exchangeSegment);
         item["description"] = contract.description;
         item["exchange"] = contract.exchange;
         item["type"] = contract.instrumentType;
         item["token"] = static_cast<qint64>(contract.exchangeInstrumentID);
-        item["segment"] = contract.exchangeSegment;
+        
+        // Determine segment int (1=CM, 2=FO)
+        int segmentInt = (contract.exchangeSegment == "NSECM" || contract.exchangeSegment == "BSECM") ? 1 : 2;
+        item["segment"] = segmentInt;
+        item["ticker"] = QString("%1_%2").arg(contract.symbol).arg(segmentInt);
         
         jsonResults.append(item);
     }
