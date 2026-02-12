@@ -132,6 +132,12 @@ signals:
    */
   void orderRequested(const QString &side, double price);
 
+  /**
+   * @brief Emitted when user places order from chart dialog
+   * @param params Complete order parameters
+   */
+  void orderRequestedFromChart(const XTS::OrderParams &params);
+
 public slots:
   /**
    * @brief Handle new completed candle from CandleAggregator
@@ -210,6 +216,12 @@ public:
                                  const QString &segment);
   Q_INVOKABLE void loadSymbol(const QString &symbol, int segment, qint64 token,
                               const QString &interval);
+//place order require segment id , exchange instrument id (token), order type, quantity, price, stop loss price, etc. We can create a struct to hold all these parameters and pass it as a JSON object from JavaScript to C++. For simplicity, let's define a method that takes these parameters directly for now.
+
+  Q_INVOKABLE void placeOrder(const QString &symbol, int segment,
+                             const QString &side, int quantity,
+                             const QString &orderType, double price,
+                             double slPrice);
 
 public slots:
   // Called from C++ to send data to JavaScript
@@ -223,6 +235,9 @@ signals:
   void realtimeBarUpdate(const QJsonObject &bar);
   void errorOccurred(const QString &error);
   void symbolSearchResults(const QJsonArray &results);
+  void orderPlaced(const QString &orderId, const QString &status,
+                  const QString &message);
+  void orderFailed(const QString &error);
 
   // Signals to C++ (from JavaScript)
   void chartReady();

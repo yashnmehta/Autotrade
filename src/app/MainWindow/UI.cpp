@@ -265,9 +265,17 @@ void MainWindow::createMenuBar() {
   connect(wmStrategy, &QAction::triggered, this,
           &MainWindow::createStrategyManagerWindow);
 
+#ifdef HAVE_TRADINGVIEW
   QAction *wmChart = windowMenu->addAction("Chart (&TradingView)\tF7");
   connect(wmChart, &QAction::triggered, this,
           &MainWindow::createChartWindow);
+#endif
+
+#ifdef HAVE_QTCHARTS
+  QAction *wmIndicatorChart = windowMenu->addAction("&Indicator Chart\tF8");
+  connect(wmIndicatorChart, &QAction::triggered, this,
+          &MainWindow::createIndicatorChartWindow);
+#endif
 
   windowMenu->addSeparator();
   windowMenu->addAction("&Cascade", this,
