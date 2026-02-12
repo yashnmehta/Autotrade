@@ -95,8 +95,7 @@ void LoginFlowService::startMastersPhase() {
               QString("Masters ready (%1 contracts)").arg(contractCount), 80);
           emit mastersLoaded();
           continueLoginAfterMasters();
-        },
-        Qt::UniqueConnection);
+        });
 
     connect(
         masterState, &MasterDataState::loadingError, this,
@@ -112,8 +111,7 @@ void LoginFlowService::startMastersPhase() {
             updateStatus("masters", "No masters available (continuing)", 75);
             continueLoginAfterMasters();
           }
-        },
-        Qt::UniqueConnection);
+        });
 
     return;
   }
@@ -208,8 +206,7 @@ void LoginFlowService::executeLogin(
           // Still waiting for IA
           updateStatus("ia_login", "Waiting for Interactive API...", 40);
         }
-      },
-      Qt::UniqueConnection);
+      });
 
   // Connect IA login signal
   connect(
@@ -228,8 +225,7 @@ void LoginFlowService::executeLogin(
           // Still waiting for MD
           updateStatus("md_login", "Waiting for Market Data API...", 50);
         }
-      },
-      Qt::UniqueConnection);
+      });
 
   // Trigger the actual login
   updateStatus("md_login", "Connecting to Market Data API...", 10);
@@ -399,8 +395,7 @@ void LoginFlowService::startMasterDownload(const QString &mastersDir) {
           // (user can download later from settings)
           continueLoginAfterMasters();
         }
-      },
-      Qt::UniqueConnection);
+      });
 
   // Trigger the actual download
   m_mdClient->downloadMasterContracts(segments);
@@ -544,8 +539,7 @@ void LoginFlowService::continueLoginAfterMasters() {
                 });
               });
             });
-      },
-      Qt::UniqueConnection);
+      });
 
   // Trigger the actual WebSocket connection
   m_mdClient->connectWebSocket();

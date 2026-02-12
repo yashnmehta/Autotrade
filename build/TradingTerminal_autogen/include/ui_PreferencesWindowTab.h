@@ -1,7 +1,7 @@
 /********************************************************************************
 ** Form generated from reading UI file 'PreferencesWindowTab.ui'
 **
-** Created by: Qt User Interface Compiler version 5.15.18
+** Created by: Qt User Interface Compiler version 6.10.1
 **
 ** WARNING! All changes made in this file will be lost when recompiling UI file!
 ********************************************************************************/
@@ -48,61 +48,61 @@ public:
     void setupUi(QWidget *PreferencesWindowTab)
     {
         if (PreferencesWindowTab->objectName().isEmpty())
-            PreferencesWindowTab->setObjectName(QString::fromUtf8("PreferencesWindowTab"));
+            PreferencesWindowTab->setObjectName("PreferencesWindowTab");
         PreferencesWindowTab->resize(750, 650);
         verticalLayout_main = new QVBoxLayout(PreferencesWindowTab);
         verticalLayout_main->setSpacing(6);
-        verticalLayout_main->setObjectName(QString::fromUtf8("verticalLayout_main"));
+        verticalLayout_main->setObjectName("verticalLayout_main");
         verticalLayout_main->setContentsMargins(10, 10, 10, 10);
         tabWidget = new QTabWidget(PreferencesWindowTab);
-        tabWidget->setObjectName(QString::fromUtf8("tabWidget"));
+        tabWidget->setObjectName("tabWidget");
         tabGeneral = new QWidget();
-        tabGeneral->setObjectName(QString::fromUtf8("tabGeneral"));
+        tabGeneral->setObjectName("tabGeneral");
         verticalLayout_general = new QVBoxLayout(tabGeneral);
         verticalLayout_general->setSpacing(0);
-        verticalLayout_general->setObjectName(QString::fromUtf8("verticalLayout_general"));
+        verticalLayout_general->setObjectName("verticalLayout_general");
         verticalLayout_general->setContentsMargins(0, 0, 0, 0);
         tabWidget->addTab(tabGeneral, QString());
         tabOrder = new QWidget();
-        tabOrder->setObjectName(QString::fromUtf8("tabOrder"));
+        tabOrder->setObjectName("tabOrder");
         verticalLayout_order = new QVBoxLayout(tabOrder);
         verticalLayout_order->setSpacing(0);
-        verticalLayout_order->setObjectName(QString::fromUtf8("verticalLayout_order"));
+        verticalLayout_order->setObjectName("verticalLayout_order");
         verticalLayout_order->setContentsMargins(0, 0, 0, 0);
         tabWidget->addTab(tabOrder, QString());
         tabDerivatives = new QWidget();
-        tabDerivatives->setObjectName(QString::fromUtf8("tabDerivatives"));
+        tabDerivatives->setObjectName("tabDerivatives");
         verticalLayout_derivatives = new QVBoxLayout(tabDerivatives);
         verticalLayout_derivatives->setSpacing(0);
-        verticalLayout_derivatives->setObjectName(QString::fromUtf8("verticalLayout_derivatives"));
+        verticalLayout_derivatives->setObjectName("verticalLayout_derivatives");
         verticalLayout_derivatives->setContentsMargins(0, 0, 0, 0);
         tabWidget->addTab(tabDerivatives, QString());
         tabAlertsMsg = new QWidget();
-        tabAlertsMsg->setObjectName(QString::fromUtf8("tabAlertsMsg"));
+        tabAlertsMsg->setObjectName("tabAlertsMsg");
         verticalLayout_alertsmsg = new QVBoxLayout(tabAlertsMsg);
         verticalLayout_alertsmsg->setSpacing(0);
-        verticalLayout_alertsmsg->setObjectName(QString::fromUtf8("verticalLayout_alertsmsg"));
+        verticalLayout_alertsmsg->setObjectName("verticalLayout_alertsmsg");
         verticalLayout_alertsmsg->setContentsMargins(0, 0, 0, 0);
         tabWidget->addTab(tabAlertsMsg, QString());
         tabMarginPlusOrder = new QWidget();
-        tabMarginPlusOrder->setObjectName(QString::fromUtf8("tabMarginPlusOrder"));
+        tabMarginPlusOrder->setObjectName("tabMarginPlusOrder");
         verticalLayout_marginplus = new QVBoxLayout(tabMarginPlusOrder);
         verticalLayout_marginplus->setSpacing(0);
-        verticalLayout_marginplus->setObjectName(QString::fromUtf8("verticalLayout_marginplus"));
+        verticalLayout_marginplus->setObjectName("verticalLayout_marginplus");
         verticalLayout_marginplus->setContentsMargins(0, 0, 0, 0);
         tabWidget->addTab(tabMarginPlusOrder, QString());
         tabWorkSpace = new QWidget();
-        tabWorkSpace->setObjectName(QString::fromUtf8("tabWorkSpace"));
+        tabWorkSpace->setObjectName("tabWorkSpace");
         verticalLayout_workspace = new QVBoxLayout(tabWorkSpace);
         verticalLayout_workspace->setSpacing(0);
-        verticalLayout_workspace->setObjectName(QString::fromUtf8("verticalLayout_workspace"));
+        verticalLayout_workspace->setObjectName("verticalLayout_workspace");
         verticalLayout_workspace->setContentsMargins(0, 0, 0, 0);
         tabWidget->addTab(tabWorkSpace, QString());
         tabPortfolio = new QWidget();
-        tabPortfolio->setObjectName(QString::fromUtf8("tabPortfolio"));
+        tabPortfolio->setObjectName("tabPortfolio");
         verticalLayout_portfolio = new QVBoxLayout(tabPortfolio);
         verticalLayout_portfolio->setSpacing(0);
-        verticalLayout_portfolio->setObjectName(QString::fromUtf8("verticalLayout_portfolio"));
+        verticalLayout_portfolio->setObjectName("verticalLayout_portfolio");
         verticalLayout_portfolio->setContentsMargins(0, 0, 0, 0);
         tabWidget->addTab(tabPortfolio, QString());
 
@@ -110,25 +110,25 @@ public:
 
         horizontalLayout_buttons = new QHBoxLayout();
         horizontalLayout_buttons->setSpacing(6);
-        horizontalLayout_buttons->setObjectName(QString::fromUtf8("horizontalLayout_buttons"));
-        horizontalSpacer = new QSpacerItem(40, 20, QSizePolicy::Expanding, QSizePolicy::Minimum);
+        horizontalLayout_buttons->setObjectName("horizontalLayout_buttons");
+        horizontalSpacer = new QSpacerItem(40, 20, QSizePolicy::Policy::Expanding, QSizePolicy::Policy::Minimum);
 
         horizontalLayout_buttons->addItem(horizontalSpacer);
 
         pushButton_ok = new QPushButton(PreferencesWindowTab);
-        pushButton_ok->setObjectName(QString::fromUtf8("pushButton_ok"));
+        pushButton_ok->setObjectName("pushButton_ok");
         pushButton_ok->setMinimumSize(QSize(80, 0));
 
         horizontalLayout_buttons->addWidget(pushButton_ok);
 
         pushButton_cancel = new QPushButton(PreferencesWindowTab);
-        pushButton_cancel->setObjectName(QString::fromUtf8("pushButton_cancel"));
+        pushButton_cancel->setObjectName("pushButton_cancel");
         pushButton_cancel->setMinimumSize(QSize(80, 0));
 
         horizontalLayout_buttons->addWidget(pushButton_cancel);
 
         pushButton_apply = new QPushButton(PreferencesWindowTab);
-        pushButton_apply->setObjectName(QString::fromUtf8("pushButton_apply"));
+        pushButton_apply->setObjectName("pushButton_apply");
         pushButton_apply->setMinimumSize(QSize(80, 0));
 
         horizontalLayout_buttons->addWidget(pushButton_apply);

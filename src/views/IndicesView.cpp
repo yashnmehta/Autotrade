@@ -223,7 +223,7 @@ void IndicesView::removeIndex(const QString &name) {
   m_selectedIndices.remove(name);
 
   // 2. Persist to settings
-  QStringList list = m_selectedIndices.toList();
+  QStringList list = m_selectedIndices.values();
   QSettings settings("TradingCompany", "TradingTerminal");
   settings.setValue("indices/selected", list);
 

@@ -2,8 +2,8 @@
 #include <QDebug>
 
 // Public utility: Remove surrounding quotes from field values
-QString MasterFileParser::trimQuotes(const QStringRef &str) {
-  QStringRef trimmed = str.trimmed();
+QString MasterFileParser::trimQuotes(const QStringView &str) {
+  QStringView trimmed = str.trimmed();
   if (trimmed.startsWith('"') && trimmed.endsWith('"') &&
       trimmed.length() >= 2) {
     return trimmed.mid(1, trimmed.length() - 2).toString();
@@ -11,11 +11,11 @@ QString MasterFileParser::trimQuotes(const QStringRef &str) {
   return trimmed.toString();
 }
 
-bool MasterFileParser::parseLine(const QStringRef &line,
+bool MasterFileParser::parseLine(const QStringView &line,
                                  const QString &exchange,
                                  MasterContract &contract) {
   // Split by pipe delimiter without allocating new strings for each field
-  QVector<QStringRef> fields;
+  QVector<QStringView> fields;
   int start = 0;
   int end = 0;
   while ((end = line.indexOf('|', start)) != -1) {
@@ -42,7 +42,7 @@ bool MasterFileParser::parseLine(const QStringRef &line,
   return false;
 }
 
-bool MasterFileParser::parseNSECM(const QVector<QStringRef> &fields,
+bool MasterFileParser::parseNSECM(const QVector<QStringView> &fields,
                                   MasterContract &contract) {
   // NSECM format (17 fields):
   // 0: ExchangeSegment (always 1 for NSECM)
@@ -107,7 +107,7 @@ bool MasterFileParser::parseNSECM(const QVector<QStringRef> &fields,
   return true;
 }
 
-bool MasterFileParser::parseNSEFO(const QVector<QStringRef> &fields,
+bool MasterFileParser::parseNSEFO(const QVector<QStringView> &fields,
                                   MasterContract &contract) {
   // NSEFO format has VARIABLE layouts based on XTS API:
   //
@@ -282,7 +282,7 @@ bool MasterFileParser::parseNSEFO(const QVector<QStringRef> &fields,
   return true;
 }
 
-bool MasterFileParser::parseBSECM(const QVector<QStringRef> &fields,
+bool MasterFileParser::parseBSECM(const QVector<QStringView> &fields,
                                   MasterContract &contract) {
   // BSECM format (18 fields):
   // Similar to NSECM but includes ScripCode
@@ -349,7 +349,7 @@ bool MasterFileParser::parseBSECM(const QVector<QStringRef> &fields,
   return true;
 }
 
-bool MasterFileParser::parseBSEFO(const QVector<QStringRef> &fields,
+bool MasterFileParser::parseBSEFO(const QVector<QStringView> &fields,
                                   MasterContract &contract) {
   // BSEFO format follows same XTS API structure as NSEFO:
   //

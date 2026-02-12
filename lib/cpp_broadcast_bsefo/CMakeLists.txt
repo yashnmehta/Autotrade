@@ -21,14 +21,14 @@ set(HEADERS
     include/bse_price_store.h
 )
 
-# Find Qt5 Core (required for QString and utilities)
-find_package(Qt5 COMPONENTS Core REQUIRED)
+# Find Qt6 Core (required for QString and utilities)
+find_package(Qt6 COMPONENTS Core REQUIRED)
 
 # Create library
 add_library(cpp_broadcast_bsefo STATIC ${SOURCES} ${HEADERS})
 
 # Link dependencies
-target_link_libraries(cpp_broadcast_bsefo PRIVATE Qt5::Core)
+target_link_libraries(cpp_broadcast_bsefo PRIVATE Qt6::Core)
 
 # Add generic include directories if needed (e.g. for common UDP utils if used)
 # target_include_directories(cpp_broadcast_bsefo PUBLIC include)

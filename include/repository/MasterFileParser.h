@@ -3,6 +3,7 @@
 
 #include "ContractData.h"
 #include <QString>
+#include <QStringView>
 
 /**
  * @brief Utility class for parsing master contract files
@@ -22,7 +23,7 @@ public:
    * @param contract Output MasterContract
    * @return true if parsed successfully
    */
-  static bool parseLine(const QStringRef &line, const QString &exchange,
+  static bool parseLine(const QStringView &line, const QString &exchange,
                         MasterContract &contract);
 
   /**
@@ -32,19 +33,19 @@ public:
    *
    * Shared utility to avoid code duplication across repositories.
    */
-  static QString trimQuotes(const QStringRef &str);
+  static QString trimQuotes(const QStringView &str);
 
 private:
   /**
    * @brief Parse NSECM master line
    */
-  static bool parseNSECM(const QVector<QStringRef> &fields,
+  static bool parseNSECM(const QVector<QStringView> &fields,
                          MasterContract &contract);
-  static bool parseNSEFO(const QVector<QStringRef> &fields,
+  static bool parseNSEFO(const QVector<QStringView> &fields,
                          MasterContract &contract);
-  static bool parseBSECM(const QVector<QStringRef> &fields,
+  static bool parseBSECM(const QVector<QStringView> &fields,
                          MasterContract &contract);
-  static bool parseBSEFO(const QVector<QStringRef> &fields,
+  static bool parseBSEFO(const QVector<QStringView> &fields,
                          MasterContract &contract);
 
   /**

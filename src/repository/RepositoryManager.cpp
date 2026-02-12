@@ -636,16 +636,16 @@ bool RepositoryManager::loadCombinedMasterFile(const QString &filePath) {
     if (line.empty())
       continue;
 
-    // Create QString once per line and use QStringRef for parsing
+    // Create QString once per line and use QStringView for parsing
     qLine = QString::fromStdString(line);
-    QStringRef qLineRef(&qLine);
+    QStringView qLineRef(qLine);
 
-    // Check segment prefix (first field before |) using QStringRef
+    // Check segment prefix (first field before |) using QStringView
     int pipeIdx = qLineRef.indexOf('|');
     if (pipeIdx == -1)
       continue;
 
-    QStringRef segment = qLineRef.left(pipeIdx);
+    QStringView segment = qLineRef.left(pipeIdx);
     bool parsed = false;
 
     if (segment == "NSEFO") {
@@ -751,10 +751,10 @@ bool RepositoryManager::loadFromMemory(const QString &csvData) {
 
   while ((end = csvData.indexOf('\n', start)) != -1) {
     lineCount++;
-    QStringRef lineRef = csvData.midRef(start, end - start);
+    QStringView lineRef = QStringView(csvData).mid(start, end - start);
     start = end + 1;
 
-    QStringRef trimmedLine = lineRef.trimmed();
+    QStringView trimmedLine = lineRef.trimmed();
     if (trimmedLine.isEmpty())
       continue;
 
@@ -763,7 +763,7 @@ bool RepositoryManager::loadFromMemory(const QString &csvData) {
     if (pipeIdx == -1)
       continue;
 
-    QStringRef segment = trimmedLine.left(pipeIdx);
+    QStringView segment = trimmedLine.left(pipeIdx);
     bool parsed = false;
 
     if (segment == "NSEFO") {
@@ -795,13 +795,13 @@ bool RepositoryManager::loadFromMemory(const QString &csvData) {
 
   // Handle last line if no newline at end
   if (start < csvData.length()) {
-    QStringRef lineRef = csvData.midRef(start);
-    QStringRef trimmedLine = lineRef.trimmed();
+    QStringView lineRef = QStringView(csvData).mid(start);
+    QStringView trimmedLine = lineRef.trimmed();
     if (!trimmedLine.isEmpty()) {
       lineCount++;
       int pipeIdx = trimmedLine.indexOf('|');
       if (pipeIdx != -1) {
-        QStringRef segment = trimmedLine.left(pipeIdx);
+        QStringView segment = trimmedLine.left(pipeIdx);
         bool parsed = false;
         if (segment == "NSEFO") {
           parsed = MasterFileParser::parseLine(trimmedLine, "NSEFO", contract);

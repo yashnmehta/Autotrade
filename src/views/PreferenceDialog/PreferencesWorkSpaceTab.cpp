@@ -268,9 +268,10 @@ void PreferencesWorkSpaceTab::savePreferences()
     if (m_selectColorButton) {
         QString styleSheet = m_selectColorButton->styleSheet();
         // Extract color from stylesheet
-        QRegExp rx("background-color:\\s*([^;]+);");
-        if (rx.indexIn(styleSheet) != -1) {
-            QString color = rx.cap(1).trimmed();
+        QRegularExpression rx("background-color:\\s*([^;]+);");
+        auto match = rx.match(styleSheet);
+        if (match.hasMatch()) {
+            QString color = match.captured(1).trimmed();
             m_prefsManager->setValue("workspace/52week_color", color);
         }
     }
@@ -429,9 +430,10 @@ void PreferencesWorkSpaceTab::onSelectColor()
     QString styleSheet = m_selectColorButton->styleSheet();
     QColor currentColor = QColor(255, 255, 255);
     
-    QRegExp rx("background-color:\\s*rgb\\((\\d+),\\s*(\\d+),\\s*(\\d+)\\)");
-    if (rx.indexIn(styleSheet) != -1) {
-        currentColor = QColor(rx.cap(1).toInt(), rx.cap(2).toInt(), rx.cap(3).toInt());
+    QRegularExpression rx("background-color:\\s*rgb\\((\\d+),\\s*(\\d+),\\s*(\\d+)\\)");
+    auto match = rx.match(styleSheet);
+    if (match.hasMatch()) {
+        currentColor = QColor(match.captured(1).toInt(), match.captured(2).toInt(), match.captured(3).toInt());
     }
     
     // Show color dialog

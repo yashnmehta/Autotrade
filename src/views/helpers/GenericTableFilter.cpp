@@ -211,8 +211,7 @@ void GenericTableFilter::showFilterPopup()
     });
     
     // Logic: Connect Select All
-    connect(selectAllBox, &QCheckBox::stateChanged, [&, listWidget](int state) {
-        Qt::CheckState checkState = (state == Qt::Checked) ? Qt::Checked : Qt::Unchecked;
+    connect(selectAllBox, &QCheckBox::checkStateChanged, [&, listWidget](Qt::CheckState checkState) {
         
         bool isSearching = !searchBox->text().isEmpty();
         

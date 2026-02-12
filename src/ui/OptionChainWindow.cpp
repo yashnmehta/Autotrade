@@ -1098,7 +1098,7 @@ WindowContext OptionChainWindow::getSelectedContext() const {
 
     if (contract) {
       context.segment = "D"; // Derivative
-      context.instrumentType = contract->instrumentType;
+      context.instrumentType = contract->series;
       context.lotSize = contract->lotSize;
       context.tickSize = contract->tickSize;
       context.freezeQty = contract->freezeQty;

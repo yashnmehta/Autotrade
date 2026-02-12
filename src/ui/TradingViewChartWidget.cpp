@@ -691,6 +691,7 @@ void TradingViewDataBridge::searchSymbols(const QString &searchText,
   QElapsedTimer timer;
   timer.start();
 
+<<<<<<< Updated upstream
   qDebug() << "";
   qDebug() << "═══════════════════════════════════════════════════════";
   qDebug() << "[SYMBOL SEARCH] Query:" << searchText
@@ -848,14 +849,16 @@ void TradingViewDataBridge::placeOrder(const QString &symbol, int segment,
   qDebug() << "[TradingViewDataBridge] placeOrder called from JavaScript:";
   qDebug() << "  Symbol:" << symbol << "| Segment:" << segment;
   qDebug() << "  Side:" << side << "| Qty:" << quantity;
-  qDebug() << "  Type:" << orderType << "| Price:" << price << "| SL:" << slPrice;
+  qDebug() << "  Type:" << orderType << "| Price:" << price
+           << "| SL:" << slPrice;
 
   // Get parent widget to access RepositoryManager and emit to MainWindow
   TradingViewChartWidget *widget =
       qobject_cast<TradingViewChartWidget *>(parent());
-  
+
   if (!widget || !widget->m_repoManager) {
-    qWarning() << "[TradingViewDataBridge] No parent widget or RepositoryManager";
+    qWarning()
+        << "[TradingViewDataBridge] No parent widget or RepositoryManager";
     emit orderFailed("Chart widget not initialized");
     return;
   }
@@ -864,11 +867,11 @@ void TradingViewDataBridge::placeOrder(const QString &symbol, int segment,
   qint64 token = 0;
   QString exchange = (segment == 1 || segment == 2) ? "NSE" : "BSE";
   QString segmentName = (segment == 2 || segment == 12) ? "FO" : "CM";
-  
+
   // Search for the symbol to get token
-  QVector<ContractData> results = 
-      widget->m_repoManager->searchScripsGlobal(symbol, exchange, segmentName, "", 1);
-  
+  QVector<ContractData> results = widget->m_repoManager->searchScripsGlobal(
+      symbol, exchange, segmentName, "", 1);
+
   if (results.isEmpty()) {
     QString error = QString("Symbol '%1' not found in %2 %3")
                         .arg(symbol, exchange, segmentName);
@@ -880,8 +883,8 @@ void TradingViewDataBridge::placeOrder(const QString &symbol, int segment,
   const ContractData &contract = results.first();
   token = contract.exchangeInstrumentID;
 
-  qDebug() << "[TradingViewDataBridge] Resolved token:" << token
-           << "for" << contract.name;
+  qDebug() << "[TradingViewDataBridge] Resolved token:" << token << "for"
+           << contract.name;
 
   // Build OrderParams struct
   XTS::OrderParams params;
@@ -892,7 +895,7 @@ void TradingViewDataBridge::placeOrder(const QString &symbol, int segment,
   params.productType = "NRML"; // Default to NRML (can be MIS/CNC)
   params.disclosedQuantity = 0;
   params.timeInForce = "DAY";
-  
+
   // Set order type and prices
   if (orderType.toUpper() == "MARKET") {
     params.orderType = "MARKET";
@@ -902,11 +905,13 @@ void TradingViewDataBridge::placeOrder(const QString &symbol, int segment,
     params.orderType = "LIMIT";
     params.limitPrice = price;
     params.stopPrice = 0;
-  } else if (orderType.toUpper() == "SL" || orderType.toUpper() == "STOPLIMIT") {
+  } else if (orderType.toUpper() == "SL" ||
+             orderType.toUpper() == "STOPLIMIT") {
     params.orderType = "STOPLIMIT";
     params.limitPrice = price;
     params.stopPrice = slPrice;
-  } else if (orderType.toUpper() == "SL-M" || orderType.toUpper() == "STOPMARKET") {
+  } else if (orderType.toUpper() == "SL-M" ||
+             orderType.toUpper() == "STOPMARKET") {
     params.orderType = "STOPMARKET";
     params.limitPrice = 0;
     params.stopPrice = slPrice;
@@ -915,11 +920,12 @@ void TradingViewDataBridge::placeOrder(const QString &symbol, int segment,
     return;
   }
 
-  params.orderUniqueIdentifier = 
-      QString("CHART_%1_%2").arg(symbol).arg(QDateTime::currentMSecsSinceEpoch());
+  params.orderUniqueIdentifier = QString("CHART_%1_%2")
+                                     .arg(symbol)
+                                     .arg(QDateTime::currentMSecsSinceEpoch());
 
   // Emit signal to parent widget which will forward to MainWindow
   emit widget->orderRequestedFromChart(params);
-  
+
   qDebug() << "[TradingViewDataBridge] Order request emitted to MainWindow";
 }

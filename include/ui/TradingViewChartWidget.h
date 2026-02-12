@@ -14,8 +14,14 @@
 #include <QJsonObject>
 #include <QWidget>
 
+// Forward declarations
 class TradingViewDataBridge;
 class XTSMarketDataClient;
+
+// XTS namespace forward declaration
+namespace XTS {
+    struct Tick;
+}
 
 /**
  * @brief TradingView Advanced Charts integration widget
@@ -48,6 +54,7 @@ class TradingViewChartWidget : public QWidget {
   Q_OBJECT
 
 public:
+<<<<<<< Updated upstream
   explicit TradingViewChartWidget(QWidget *parent = nullptr);
   ~TradingViewChartWidget();
 
@@ -114,6 +121,81 @@ public:
    * @return true if TradingView widget is initialized
    */
   bool isReady() const { return m_chartReady; }
+=======
+    explicit TradingViewChartWidget(QWidget* parent = nullptr);
+    ~TradingViewChartWidget();
+    
+    /**
+     * @brief Set XTS Market Data Client for API access
+     */
+    void setXTSMarketDataClient(class XTSMarketDataClient* client);
+    
+    /**
+     * @brief Set Repository Manager for symbol search
+     */
+    void setRepositoryManager(class RepositoryManager* repo) { m_repoManager = repo; }
+    
+    /**
+     * @brief Get Repository Manager (used by TradingViewDataBridge)
+     */
+    class RepositoryManager* repositoryManager() const { return m_repoManager; }
+    
+    /**
+     * @brief Load a symbol on the chart
+     * @param symbol Trading symbol (e.g., "NIFTY", "BANKNIFTY")
+     * @param segment Exchange segment (1=NSECM, 2=NSEFO, etc.)
+     * @param token Exchange instrument ID (token)
+     * @param interval Chart interval ("1", "5", "15", "60", "D", "W")
+     */
+    void loadSymbol(const QString& symbol, int segment, int64_t token, const QString& interval = "5");
+    
+    /**
+     * @brief Handle real-time tick updates from XTS feed
+     */
+    void onTickUpdate(const XTS::Tick& tick);
+    
+    /**
+     * @brief Change chart interval/timeframe
+     * @param interval Interval string ("1", "5", "15", "30", "60", "D", "W")
+     */
+    void setInterval(const QString& interval);
+    
+    /**
+     * @brief Apply a theme to the chart
+     * @param theme "Light" or "Dark"
+     */
+    void setTheme(const QString& theme);
+    
+    /**
+     * @brief Add an indicator to the chart
+     * @param indicatorName TradingView indicator name (e.g., "RSI", "MACD")
+     */
+    void addIndicator(const QString& indicatorName);
+    
+    /**
+     * @brief Add an order marker on the chart
+     * @param time Unix timestamp
+     * @param price Price level
+     * @param text Marker text (e.g., "BUY", "SELL")
+     * @param color Marker color
+     * @param shape "arrow_up", "arrow_down", "circle", etc.
+     */
+    void addOrderMarker(qint64 time, double price, const QString& text,
+                       const QString& color = "#26a69a", 
+                       const QString& shape = "arrow_up");
+    
+    /**
+     * @brief Execute JavaScript in the chart context
+     * @param script JavaScript code to execute
+     */
+    void executeScript(const QString& script);
+    
+    /**
+     * @brief Check if chart is ready
+     * @return true if TradingView widget is initialized
+     */
+    bool isReady() const { return m_chartReady; }
+>>>>>>> Stashed changes
 
 signals:
   /**

@@ -9,8 +9,8 @@
 #include <string>
 
 // Helper function to remove surrounding quotes from CSV field values
-static QString trimQuotes(const QStringRef &str) {
-  QStringRef trimmed = str.trimmed();
+static QString trimQuotes(const QStringView &str) {
+  QStringView trimmed = str.trimmed();
   if (trimmed.startsWith('"') && trimmed.endsWith('"') &&
       trimmed.length() >= 2) {
     return trimmed.mid(1, trimmed.length() - 2).toString();
@@ -54,7 +54,7 @@ bool BSEFORepository::loadMasterFile(const QString &filename) {
     }
 
     qLine = QString::fromStdString(line);
-    if (MasterFileParser::parseLine(QStringRef(&qLine), "BSEFO", contract)) {
+    if (MasterFileParser::parseLine(QStringView(qLine), "BSEFO", contract)) {
       addContractInternal(contract, [](const QString &s) { return s; });
     }
   }
@@ -85,14 +85,14 @@ bool BSEFORepository::loadProcessedCSV(const QString &filename) {
       qDebug() << "[BSEFO] Loaded lines:" << lineCount;
 
     // Optimized split without QStringList
-    QVector<QStringRef> fields;
+    QVector<QStringView> fields;
     int start = 0;
     int end = 0;
     while ((end = qLine.indexOf(',', start)) != -1) {
-      fields.append(qLine.midRef(start, end - start));
+      fields.append(QStringView(qLine).mid(start, end - start));
       start = end + 1;
     }
-    fields.append(qLine.midRef(start));
+    fields.append(QStringView(qLine).mid(start));
 
     if (fields.size() < 16)
       continue;

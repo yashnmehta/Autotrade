@@ -38,8 +38,13 @@ endif()
 # Set AUTOUIC search paths for .ui files
 set(CMAKE_AUTOUIC_SEARCH_PATHS ${CMAKE_SOURCE_DIR}/resources/forms)
 
-# Find Qt5 components (UI only)
-find_package(Qt5 COMPONENTS Widgets Network WebSockets UiTools Concurrent Sql REQUIRED)
+# Set Qt6 path for macOS Homebrew
+if(APPLE)
+    set(CMAKE_PREFIX_PATH "/opt/homebrew/lib/cmake/Qt6" "/opt/homebrew/lib/cmake/Qt6WebEngineWidgets" ${CMAKE_PREFIX_PATH})
+endif()
+
+# Find Qt6 components (UI only)
+find_package(Qt6 COMPONENTS Widgets Network WebSockets UiTools Concurrent Sql WebEngineWidgets WebChannel REQUIRED)
 
 # Find Boost for native WebSocket (Beast + Asio)
 # Boost.Beast is header-only, just need Boost headers
@@ -48,7 +53,7 @@ find_package(Boost 1.70 REQUIRED)
 # Optional Qt Charts support (Native charting with QChart)
 option(ENABLE_QTCHARTS "Enable Qt Charts for native charting" ON)
 if(ENABLE_QTCHARTS)
-    find_package(Qt5Charts QUIET)
+    find_package(Qt6Charts QUIET)
     if(Qt5Charts_FOUND)
         message(STATUS "Qt Charts found. Enabling native QChart-based charting!")
         add_definitions(-DHAVE_QTCHARTS)
@@ -61,9 +66,7 @@ endif()
 # Optional QtWebEngine support (Chromium browser for TradingView)
 option(ENABLE_TRADINGVIEW "Enable TradingView Lightweight Charts integration" ON)
 if(ENABLE_TRADINGVIEW)
-    find_package(Qt5WebEngineWidgets QUIET)
-    find_package(Qt5WebChannel QUIET)
-    if(Qt5WebEngineWidgets_FOUND AND Qt5WebChannel_FOUND)
+    if(Qt6WebEngineWidgets_FOUND AND Qt6WebChannel_FOUND)
         message(STATUS "QtWebEngine found. Enabling TradingView chart integration!")
         add_definitions(-DHAVE_QTWEBENGINE)
         add_definitions(-DHAVE_TRADINGVIEW)
@@ -360,7 +363,7 @@ set(UI_HEADERS
 )
 
 # Add TradingView chart widget if enabled
-if(ENABLE_TRADINGVIEW AND Qt5WebEngineWidgets_FOUND AND Qt5WebChannel_FOUND)
+if(ENABLE_TRADINGVIEW AND (Qt5WebEngineWidgets_FOUND OR Qt6WebEngineWidgets_FOUND) AND (Qt5WebChannel_FOUND OR Qt6WebChannel_FOUND))
     list(APPEND UI_SOURCES src/ui/TradingViewChartWidget.cpp)
     list(APPEND UI_HEADERS include/ui/TradingViewChartWidget.h)
     message(STATUS "Added TradingView chart widget to build")
@@ -815,12 +818,12 @@ endif()
 
 # Link libraries
 target_link_libraries(TradingTerminal PRIVATE
-    Qt5::Widgets
-    Qt5::Network
-    Qt5::WebSockets
-    Qt5::UiTools
-    Qt5::Concurrent
-    Qt5::Sql
+    Qt6::Widgets
+    Qt6::Network
+    Qt6::WebSockets
+    Qt6::UiTools
+    Qt6::Concurrent
+    Qt6::Sql
     OpenSSL::SSL
     OpenSSL::Crypto
     Threads::Threads
@@ -830,10 +833,10 @@ target_link_libraries(TradingTerminal PRIVATE
 )
 
 # Add TradingView dependencies if enabled
-if(ENABLE_TRADINGVIEW AND Qt5WebEngineWidgets_FOUND AND Qt5WebChannel_FOUND)
+if(ENABLE_TRADINGVIEW AND Qt6WebEngineWidgets_FOUND AND Qt6WebChannel_FOUND)
     target_link_libraries(TradingTerminal PRIVATE 
-        Qt5::WebEngineWidgets 
-        Qt5::WebChannel
+        Qt6::WebEngineWidgets 
+        Qt6::WebChannel
     )
 endif()
 
@@ -888,7 +891,7 @@ endif()
 # ========================================
 if(WIN32)
     # Get Qt binary directory from qmake
-    get_target_property(QT_QMAKE_EXECUTABLE Qt5::qmake IMPORTED_LOCATION)
+    get_target_property(QT_QMAKE_EXECUTABLE Qt6::qmake IMPORTED_LOCATION)
     get_filename_component(QT_BIN_DIR "${QT_QMAKE_EXECUTABLE}" DIRECTORY)
     
     # Deployment suffix (d for MSVC Debug)

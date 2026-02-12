@@ -145,9 +145,9 @@ QVariant PositionModel::data(const QModelIndex& index, int role) const
             case User: case Client: case Name: case InstrumentType: case InstrumentName:
             case ScripName: case ProductType: case ClientGroup: case MaturityDate:
             case OptionFlag: case SMCategory:
-                return Qt::AlignLeft + Qt::AlignVCenter;
+                return QVariant(int(Qt::AlignLeft | Qt::AlignVCenter));
             default:
-                return Qt::AlignRight + Qt::AlignVCenter;
+                return QVariant(int(Qt::AlignRight | Qt::AlignVCenter));
         }
     }
     else if (role == Qt::ForegroundRole) {
