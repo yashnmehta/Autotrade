@@ -17,6 +17,7 @@ class QRect;
 #ifdef HAVE_QTWEBENGINE
 class TradingViewChartWidget;
 #endif
+class IndicatorChartWidget;
 
 class CustomMDIArea;
 class CustomMDISubWindow;
@@ -93,9 +94,11 @@ private slots:
   CustomMDISubWindow *createOrderBookWindow();
   CustomMDISubWindow *createPositionWindow();
   CustomMDISubWindow *createStrategyManagerWindow();
+  CustomMDISubWindow *createGlobalSearchWindow();
 #ifdef HAVE_QTWEBENGINE
   CustomMDISubWindow *createChartWindow();
 #endif
+  CustomMDISubWindow *createIndicatorChartWindow();
   void focusScripBar();
   void onAddToWatchRequested(const InstrumentData &instrument);
   void resetLayout();

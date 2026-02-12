@@ -12,6 +12,9 @@
 #include "utils/ConfigLoader.h"
 #include "utils/FileLogger.h"         // File logging
 #include "utils/PreferencesManager.h" // Preferences
+#ifdef HAVE_TALIB
+#include "indicators/TALibIndicators.h" // TA-Lib indicators
+#endif
 #include <QApplication>
 #include <QDebug>
 #include <QDir>
@@ -64,6 +67,19 @@ int main(int argc, char *argv[]) {
   // Register Chart/Candle types for charting system
   qRegisterMetaType<ChartData::Candle>("ChartData::Candle");
   qRegisterMetaType<ChartData::Timeframe>("ChartData::Timeframe");
+
+  // Initialize TA-Lib for technical indicators
+#ifdef HAVE_TALIB
+  fprintf(stderr, "[Main] Initializing TA-Lib...\n");
+  fflush(stderr);
+  if (TALibIndicators::initialize()) {
+    qDebug() << "[Main] TA-Lib initialized:" << TALibIndicators::getVersion();
+  } else {
+    qWarning() << "[Main] TA-Lib initialization failed. Indicators may not work.";
+  }
+#else
+  qDebug() << "[Main] TA-Lib not available (compiled without HAVE_TALIB).";
+#endif
 
   // Set application metadata
   app.setApplicationName("Trading Terminal");
@@ -372,6 +388,12 @@ int main(int argc, char *argv[]) {
       });
 
   int exitCode = app.exec();
+
+  // Cleanup TA-Lib
+#ifdef HAVE_TALIB
+  TALibIndicators::shutdown();
+  qDebug() << "[Main] TA-Lib shut down.";
+#endif
 
   // Cleanup file logging
   cleanupFileLogging();

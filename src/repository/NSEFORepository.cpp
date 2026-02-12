@@ -563,7 +563,9 @@ NSEFORepository::getContractsBySeries(const QString &series) const {
     int32_t stripeIdx = getStripeIndex(idx);
     QReadLocker locker(&m_mutexes[stripeIdx]);
 
-    if (m_valid[idx] && m_series[idx] == series) {
+    // If series is empty, return all contracts (used for symbol search across all series)
+    // Otherwise, match exact series
+    if (m_valid[idx] && (series.isEmpty() || m_series[idx] == series)) {
       ContractData contract;
       contract.exchangeInstrumentID = MIN_TOKEN + idx;
       contract.name = m_name[idx];

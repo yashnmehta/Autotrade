@@ -8,10 +8,14 @@
 #include "repository/RepositoryManager.h"
 #include "services/UdpBroadcastService.h"
 #include "ui/ATMWatchWindow.h"
+#include "ui/GlobalSearchWidget.h"
 #include "ui/OptionChainWindow.h"
 #include "ui/StrategyManagerWindow.h"
 #ifdef HAVE_QTWEBENGINE
 #include "ui/TradingViewChartWidget.h"
+#endif
+#ifdef HAVE_QTCHARTS
+#include "ui/IndicatorChartWidget.h"
 #endif
 #include "views/BuyWindow.h"
 #include "views/CustomizeDialog.h"
@@ -26,9 +30,108 @@
 #include <QElapsedTimer> // Added for performance logging
 #include <QStatusBar>
 
+CustomMDISubWindow *MainWindow::createGlobalSearchWindow() {
+  // Check if search window already exists
+  for (auto win : m_mdiArea->windowList()) {
+    if (win->windowType() == "GlobalSearch") {
+      win->activateWindow();
+      return win;
+    }
+  }
+
+  CustomMDISubWindow *window =
+      new CustomMDISubWindow("Script Search", m_mdiArea);
+  window->setWindowType("GlobalSearch");
+
+  auto *searchWidget = new GlobalSearchWidget(window);
+
+  // When a script is selected from search...
+  connect(
+      searchWidget, &GlobalSearchWidget::scripSelected, this,
+      [this](const ContractData &contract) {
+        qDebug() << "[MainWindow] Script selected from Search:"
+                 << contract.displayName;
+
+#ifdef HAVE_TRADINGVIEW
+        // 1. Find active chart
+        TradingViewChartWidget *activeChart = nullptr;
+        CustomMDISubWindow *activeSub = m_mdiArea->activeWindow();
+        if (activeSub && activeSub->windowType() == "ChartWindow") {
+          activeChart = qobject_cast<TradingViewChartWidget *>(
+              activeSub->contentWidget());
+        }
+
+        if (!activeChart) {
+          // Fallback to first chart found
+          for (auto win : m_mdiArea->windowList()) {
+            if (win->windowType() == "ChartWindow") {
+              activeChart =
+                  qobject_cast<TradingViewChartWidget *>(win->contentWidget());
+              break;
+            }
+          }
+        }
+
+        if (activeChart) {
+          int segId = 2; // Default to NSEFO
+          if (contract.exchangeInstrumentID >= 11000000) {
+            segId = (contract.strikePrice > 0 || contract.instrumentType == 1)
+                        ? 12
+                        : 11;
+          } else {
+            segId = (contract.strikePrice > 0 || contract.instrumentType == 1)
+                        ? 2
+                        : 1;
+          }
+
+          qDebug() << "[MainWindow] Updating chart with token:"
+                   << contract.exchangeInstrumentID << "segment:" << segId;
+          activeChart->loadSymbol(contract.name, segId,
+                                  contract.exchangeInstrumentID);
+        } else
+#endif
+        {
+          qDebug() << "[MainWindow] No active chart. Adding to Watchlist.";
+          // Fallback: Add to MarketWatch
+          InstrumentData data;
+          data.exchangeInstrumentID = contract.exchangeInstrumentID;
+          data.name = contract.displayName;
+          data.symbol = contract.name;
+          data.series = contract.series;
+          data.instrumentType =
+              contract.instrumentType == 1
+                  ? "Futures"
+                  : (contract.instrumentType == 2 ? "Options" : "Cash");
+          data.expiryDate = contract.expiryDate;
+          data.strikePrice = contract.strikePrice;
+          data.optionType = contract.optionType;
+          data.exchangeSegment =
+              (contract.exchangeInstrumentID >= 11000000)
+                  ? ((contract.strikePrice > 0 || contract.instrumentType == 1)
+                         ? 12
+                         : 11)
+                  : ((contract.strikePrice > 0 || contract.instrumentType == 1)
+                         ? 2
+                         : 1);
+
+          onAddToWatchRequested(data);
+        }
+      });
+
+  window->setContentWidget(searchWidget);
+  window->resize(800, 500);
+  connectWindowSignals(window);
+  m_mdiArea->addWindow(window);
+  window->show();
+  window->activateWindow();
+
+  return window;
+}
+
 // Helper to count windows
 int MainWindow::countWindowsOfType(const QString &type) {
   int count = 0;
+
   if (m_mdiArea) {
     for (auto window : m_mdiArea->windowList()) {
       if (window->windowType() == type) {
@@ -247,9 +350,9 @@ CustomMDISubWindow *MainWindow::createMarketWatch() {
 #ifdef HAVE_QTWEBENGINE
 CustomMDISubWindow *MainWindow::createChartWindow() {
   static int counter = 1;
-  
-  CustomMDISubWindow *window = new CustomMDISubWindow(
-      QString("Chart %1").arg(counter++), m_mdiArea);
+
+  CustomMDISubWindow *window =
+      new CustomMDISubWindow(QString("Chart %1").arg(counter++), m_mdiArea);
   window->setWindowType("ChartWindow");
 
   TradingViewChartWidget *chartWidget = new TradingViewChartWidget(window);
@@ -259,6 +362,10 @@ CustomMDISubWindow *MainWindow::createChartWindow() {
   window->resize(1200, 700);
 
   connectWindowSignals(window);
+
+  // Connect chart order placement to MainWindow::placeOrder
+  connect(chartWidget, &TradingViewChartWidget::orderRequestedFromChart, this,
+          &MainWindow::placeOrder);
 
   m_mdiArea->setUpdatesEnabled(false);
   m_mdiArea->addWindow(window);
@@ -276,13 +383,167 @@ CustomMDISubWindow *MainWindow::createChartWindow() {
       segmentInt = 2; // NSE FO
     }
     // Pass token from context
-    chartWidget->loadSymbol(context.symbol, segmentInt, context.token, "5"); // 5-minute default
+    chartWidget->loadSymbol(context.symbol, segmentInt, context.token,
+                            "5"); // 5-minute default
   }
 
   qDebug() << "[MainWindow] Created Chart Window";
   return window;
 }
 #endif
+
+CustomMDISubWindow *MainWindow::createIndicatorChartWindow() {
+#ifdef HAVE_QTCHARTS
+  static int counter = 1;
+
+  CustomMDISubWindow *window = new CustomMDISubWindow(
+      QString("Indicators %1").arg(counter++), m_mdiArea);
+  window->setWindowType("IndicatorChart");
+
+  IndicatorChartWidget *chartWidget = new IndicatorChartWidget(window);
+  window->setContentWidget(chartWidget);
+  window->resize(1400, 900);
+
+  connectWindowSignals(window);
+
+  // Inject dependencies
+  chartWidget->setXTSMarketDataClient(m_xtsMarketDataClient);
+  chartWidget->setRepositoryManager(RepositoryManager::getInstance());
+
+  // Connect symbol search signal
+  connect(
+      chartWidget, &IndicatorChartWidget::symbolChangeRequested, this,
+      [this, chartWidget](const QString &symbol) {
+        qDebug() << "[MainWindow] Symbol search requested:" << symbol;
+
+        RepositoryManager *repo = RepositoryManager::getInstance();
+        if (!repo) {
+          qWarning() << "[MainWindow] Repository manager not available";
+          return;
+        }
+
+        // Detect and handle "EQ" suffix for forced cash segment
+        bool forceCash = false;
+        QString searchQuery = symbol;
+        if (searchQuery.endsWith(" EQ", Qt::CaseInsensitive)) {
+          forceCash = true;
+          searchQuery = searchQuery.left(searchQuery.length() - 3).trimmed();
+          qDebug() << "[MainWindow] Forced cash segment for:" << searchQuery;
+        }
+
+        // Search for the symbol using global search
+        QVector<ContractData> results =
+            repo->searchScripsGlobal(searchQuery, "", "", "", 20);
+
+        qDebug() << "[MainWindow] Search found" << results.size() << "results";
+
+        if (results.isEmpty()) {
+          qWarning() << "[MainWindow] No results found for:" << searchQuery;
+          return;
+        }
+
+        // Filter and prioritize results
+        ContractData bestMatch;
+        bool foundMatch = false;
+
+        for (const auto &contract : results) {
+          // Skip indices (type 10) unless explicitly searched
+          if (contract.instrumentType == 10)
+            continue;
+
+          // Determine segment for this contract
+          int segment = (contract.exchangeInstrumentID >= 11000000) ? 11 : 1;
+          if (contract.strikePrice > 0 || contract.instrumentType == 1) {
+            segment = (contract.exchangeInstrumentID >= 11000000) ? 12 : 2;
+          }
+
+          if (forceCash) {
+            // Strictly prefer segment 1 (NSE CM) or 11 (BSE CM)
+            if (segment == 1 || segment == 11) {
+              bestMatch = contract;
+              foundMatch = true;
+              break; // Exact match found
+            }
+            continue;
+          }
+
+          // General search priority:
+          // 1. NSE CM Stock (instrumentType 0, segment 1)
+          // 2. Any Stock (instrumentType 0)
+          // 3. First available tradable instrument
+          if (!foundMatch) {
+            bestMatch = contract;
+            foundMatch = true;
+          }
+
+          if (contract.instrumentType == 0 && segment == 1) {
+            bestMatch = contract;
+            break; // Found primary stock, stop
+          }
+        }
+
+        if (!foundMatch) {
+          qWarning() << "[MainWindow] No suitable tradable instruments found";
+          return;
+        }
+
+        // Re-determine final segment for the best match
+        int segmentInt = (bestMatch.exchangeInstrumentID >= 11000000) ? 11 : 1;
+        if (bestMatch.strikePrice > 0 || bestMatch.instrumentType == 1) {
+          segmentInt = (bestMatch.exchangeInstrumentID >= 11000000) ? 12 : 2;
+        }
+
+        qDebug() << "[MainWindow] Final Match:" << bestMatch.name
+                 << "Token:" << bestMatch.exchangeInstrumentID
+                 << "Segment:" << segmentInt;
+
+        // Load the symbol (this will trigger OHLC fetch)
+        chartWidget->loadSymbol(bestMatch.name, segmentInt,
+                                bestMatch.exchangeInstrumentID);
+      });
+
+  m_mdiArea->setUpdatesEnabled(false);
+  m_mdiArea->addWindow(window);
+  window->setFocus();
+  window->raise();
+  window->activateWindow();
+  m_mdiArea->setUpdatesEnabled(true);
+
+  // Load a default symbol if we have context
+  WindowContext context = getBestWindowContext();
+  if (context.isValid()) {
+    // Don't load indices by default (they don't have OHLC data)
+    // Indices have tokens between 26000-36000 typically
+    bool isIndex = (context.token >= 26000 && context.token <= 36000);
+
+    if (!isIndex) {
+      // Convert segment string to int (E=1, D=2, F=2, etc.)
+      int segmentInt = 1; // Default to NSE CM
+      if (context.segment == "F" || context.segment == "2") {
+        segmentInt = 2; // NSE FO
+      }
+
+      chartWidget->loadSymbol(context.symbol, segmentInt, context.token);
+
+      qDebug() << "[MainWindow] Loaded symbol into indicator chart:"
+               << context.symbol << "segment:" << segmentInt;
+    } else {
+      qDebug() << "[MainWindow] Skipping index" << context.symbol
+               << "(indices don't have OHLC candle data)";
+      qDebug() << "[MainWindow] Use Search to load a stock: RELIANCE, TCS, "
+                  "INFY, HDFCBANK";
+    }
+  }
+
+  qDebug() << "[MainWindow] Created Indicator Chart Window";
+
+  return window;
+#else
+  qWarning() << "[MainWindow] Qt Charts not available. Cannot create "
+                "Indicator Chart.";
+  return nullptr;
+#endif
+}
 
 CustomMDISubWindow *MainWindow::createBuyWindow() {
   static int f1Counter = 0;

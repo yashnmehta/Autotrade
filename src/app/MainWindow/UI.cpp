@@ -267,14 +267,22 @@ void MainWindow::createMenuBar() {
 
 #ifdef HAVE_QTWEBENGINE
   QAction *wmChart = windowMenu->addAction("Chart (&TradingView)\tF7");
-  connect(wmChart, &QAction::triggered, this,
-          &MainWindow::createChartWindow);
+  connect(wmChart, &QAction::triggered, this, &MainWindow::createChartWindow);
 #else
   // TradingView not available - show disabled menu item with explanation
-  QAction *wmChart = windowMenu->addAction("Chart (TradingView) - Not Available on macOS");
+  QAction *wmChart =
+      windowMenu->addAction("Chart (TradingView) - Not Available on macOS");
   wmChart->setEnabled(false);
-  wmChart->setToolTip("TradingView charts require QtWebEngine which is not available for Qt5 on macOS.\n"
-                     "Use Qt Charts (native charting) instead, or use Windows version for TradingView.");
+  wmChart->setToolTip("TradingView charts require QtWebEngine which is not "
+                      "available for Qt5 on macOS.\n"
+                      "Use Qt Charts (native charting) instead, or use Windows "
+                      "version for TradingView.");
+#endif
+
+#ifdef HAVE_QTCHARTS
+  QAction *wmIndicatorChart = windowMenu->addAction("&Indicator Chart\tF8");
+  connect(wmIndicatorChart, &QAction::triggered, this,
+          &MainWindow::createIndicatorChartWindow);
 #endif
 
   windowMenu->addSeparator();

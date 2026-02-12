@@ -453,7 +453,9 @@ BSEFORepository::getContractsBySeries(const QString &series) const {
   QVector<ContractData> contracts;
 
   for (int32_t idx = 0; idx < m_contractCount; ++idx) {
-    if (m_series[idx] == series) {
+    // If series is empty, return all contracts (used for symbol search across all series)
+    // Otherwise, match exact series
+    if (series.isEmpty() || m_series[idx] == series) {
       ContractData contract;
       contract.exchangeInstrumentID = m_token[idx];
       contract.name = m_name[idx];
