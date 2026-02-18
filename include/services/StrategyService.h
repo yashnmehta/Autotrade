@@ -1,6 +1,7 @@
 #ifndef STRATEGY_SERVICE_H
 #define STRATEGY_SERVICE_H
 
+#include "api/XTSTypes.h"
 #include "models/StrategyInstance.h"
 #include "services/StrategyRepository.h"
 #include <QHash>
@@ -44,6 +45,7 @@ signals:
   void stateChanged(qint64 instanceId, StrategyState state);
   void metricsUpdated(qint64 instanceId, double mtm, double stopLoss,
                       double target);
+  void orderRequested(const XTS::OrderParams &params);
 
 private slots:
   void onUpdateTick();

@@ -78,6 +78,24 @@ struct Tick {
 };
 
 
+// OHLC Candle structure (from 1505-json-full/partial WebSocket event)
+struct OHLCCandle {
+    int exchangeSegment;
+    int64_t exchangeInstrumentID;
+    int64_t barTime;              // Unix timestamp (seconds)
+    double open;
+    double high;
+    double low;
+    double close;
+    int64_t barVolume;            // Volume in this candle
+    int64_t openInterest;
+    int64_t sumOfQtyInToPrice;    // Sum of quantity * price (for VWAP calculation)
+    
+    OHLCCandle() : exchangeSegment(0), exchangeInstrumentID(0),
+                   barTime(0), open(0.0), high(0.0), low(0.0), close(0.0),
+                   barVolume(0), openInterest(0), sumOfQtyInToPrice(0) {}
+};
+
 // Instrument data structure
 struct Instrument {
     int exchangeSegment;

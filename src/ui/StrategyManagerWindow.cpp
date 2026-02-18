@@ -4,6 +4,7 @@
 #include "services/StrategyService.h"
 #include "ui/CreateStrategyDialog.h"
 #include "ui/ModifyParametersDialog.h"
+#include "ui/StrategyBuilderDialog.h"
 #include "ui_StrategyManagerWindow.h"
 #include <QButtonGroup>
 #include <QComboBox>
@@ -101,6 +102,8 @@ void StrategyManagerWindow::setupModels() {
 void StrategyManagerWindow::setupConnections() {
   connect(ui->createButton, &QPushButton::clicked, this,
           &StrategyManagerWindow::onCreateClicked);
+  connect(ui->buildCustomButton, &QPushButton::clicked, this,
+          &StrategyManagerWindow::onBuildCustomClicked);
   connect(ui->startButton, &QPushButton::clicked, this,
           &StrategyManagerWindow::onStartClicked);
   connect(ui->pauseButton, &QPushButton::clicked, this,
@@ -201,6 +204,32 @@ void StrategyManagerWindow::onCreateClicked() {
       dialog.instanceName(), dialog.description(), dialog.strategyType(),
       dialog.symbol(), dialog.account(), dialog.segment(), dialog.stopLoss(),
       dialog.target(), dialog.entryPrice(), dialog.quantity(), params);
+}
+
+void StrategyManagerWindow::onBuildCustomClicked() {
+  StrategyBuilderDialog builder(this);
+
+  if (builder.exec() != QDialog::Accepted) {
+    return;
+  }
+
+  // Extract the strategy definition JSON and wrap it in params
+  QVariantMap params;
+  params["definition"] = builder.definitionJSON();
+  params["productType"] = builder.productType();
+
+  StrategyService::instance().createInstance(
+      builder.strategyName(),    // instanceName
+      QString(),                 // description
+      "Custom",                  // strategyType
+      builder.symbol(),          // symbol
+      builder.account(),         // account
+      builder.segment(),         // segment
+      builder.stopLoss(),        // stopLoss
+      builder.target(),          // target
+      0.0,                       // entryPrice (auto from market)
+      builder.quantity(),        // quantity
+      params);
 }
 
 void StrategyManagerWindow::onStartClicked() {

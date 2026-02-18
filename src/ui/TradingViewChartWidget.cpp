@@ -2,11 +2,15 @@
 #include "api/NativeHTTPClient.h"
 #include "api/XTSMarketDataClient.h"
 #include "api/XTSTypes.h"
+#include "models/WindowContext.h"
 #include "repository/ContractData.h"
 #include "repository/RepositoryManager.h"
 #include "services/CandleAggregator.h"
 #include "services/HistoricalDataStore.h"
+#include "views/BuyWindow.h"
+#include "views/SellWindow.h"
 #include <QCoreApplication>
+#include <QCursor>
 #include <QDateTime>
 #include <QDebug>
 #include <QElapsedTimer>
@@ -14,6 +18,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QMenu>
 #include <QUrl>
 #include <QUrlQuery>
 #include <QVBoxLayout>
@@ -56,7 +61,7 @@ TradingViewChartWidget::TradingViewChartWidget(QWidget *parent)
   });
 
   connect(m_dataBridge, &TradingViewDataBridge::chartClicked, this,
-          &TradingViewChartWidget::chartClicked);
+          &TradingViewChartWidget::onChartClickedInternal);
 
   connect(m_dataBridge, &TradingViewDataBridge::orderRequested, this,
           &TradingViewChartWidget::orderRequested);
@@ -207,8 +212,18 @@ TradingViewChartWidget::TradingViewChartWidget(QWidget *parent)
                   for (const QString &barStr : barStrings) {
                     QStringList fields = barStr.split('|', Qt::SkipEmptyParts);
                     if (fields.size() >= 6) {
+                      qint64 timestamp = fields[0].toLongLong();
+                      
+                      // CRITICAL: Skip bars with invalid timestamps
+                      // Prevents "time order violation" errors in TradingView
+                      if (timestamp == 0 || timestamp < 946684800) {
+                        qWarning() << "[TradingViewChart] Skipping bar with invalid timestamp:"
+                                   << timestamp << "Raw:" << fields[0];
+                        continue;
+                      }
+                      
                       QJsonObject bar;
-                      bar["time"] = fields[0].toLongLong() * 1000;
+                      bar["time"] = timestamp * 1000; // Convert to milliseconds
                       bar["open"] = fields[1].toDouble();
                       bar["high"] = fields[2].toDouble();
                       bar["low"] = fields[3].toDouble();
@@ -294,7 +309,12 @@ void TradingViewChartWidget::setXTSMarketDataClient(
   if (m_xtsClient) {
     connect(m_xtsClient, &XTSMarketDataClient::tickReceived, this,
             &TradingViewChartWidget::onTickUpdate, Qt::UniqueConnection);
-    qDebug() << "[TradingViewChart] Connected to XTS tick feed";
+    
+    // Connect to OHLC candle updates (1505 WebSocket events)
+    connect(m_xtsClient, &XTSMarketDataClient::candleReceived, this,
+            &TradingViewChartWidget::onCandleReceived, Qt::UniqueConnection);
+    
+    qDebug() << "[TradingViewChart] Connected to XTS tick and candle feeds";
   }
 }
 
@@ -574,11 +594,130 @@ void TradingViewChartWidget::onTickUpdate(const XTS::Tick &tick) {
   }
 }
 
+void TradingViewChartWidget::onCandleReceived(const XTS::OHLCCandle &candle) {
+  // Only process candles for our current token
+  if (candle.exchangeInstrumentID != m_currentToken) {
+    return;
+  }
+
+  if (candle.exchangeSegment != m_currentSegment) {
+    return;
+  }
+
+  // CRITICAL: Validate timestamp before sending to TradingView
+  // Invalid timestamps (0 or < year 2000) cause time order violations
+  if (candle.barTime == 0 || candle.barTime < 946684800) {
+    qWarning() << "[TradingViewChart] Invalid candle timestamp:" << candle.barTime
+               << "for token" << candle.exchangeInstrumentID << "- skipping";
+    return;
+  }
+
+  // Convert XTS candle to TradingView format
+  // XTS barTime is in seconds (Unix timestamp), TradingView expects milliseconds
+  QJsonObject bar;
+  bar["time"] = candle.barTime * 1000;
+  bar["open"] = candle.open;
+  bar["high"] = candle.high;
+  bar["low"] = candle.low;
+  bar["close"] = candle.close;
+  bar["volume"] = candle.barVolume;
+
+  qDebug() << "[TradingViewChart] Received 1-min candle for token"
+           << candle.exchangeInstrumentID << "at" << candle.barTime
+           << "OHLC:" << candle.open << candle.high << candle.low << candle.close
+           << "Volume:" << candle.barVolume;
+
+  // Send to chart if ready
+  if (m_chartReady && m_dataBridge) {
+    m_dataBridge->sendRealtimeBar(bar);
+  }
+}
+
 void TradingViewChartWidget::onLoadFinished(bool success) {
   if (success) {
     qDebug() << "[TradingViewChart] Page loaded successfully";
   } else {
     qWarning() << "[TradingViewChart] Page load failed";
+  }
+}
+
+void TradingViewChartWidget::onChartClickedInternal(qint64 time, double price) {
+  // Re-emit original signal for external listeners
+  emit chartClicked(time, price);
+  
+  // If no symbol is loaded, ignore
+  if (m_currentSymbol.isEmpty() || m_currentToken == 0) {
+    qDebug() << "[TradingViewChart] Chart clicked but no symbol loaded";
+    return;
+  }
+  
+  qDebug() << "[TradingViewChart] Chart clicked at price" << price 
+           << "for symbol" << m_currentSymbol;
+  
+  // Create context menu for order placement
+  QMenu menu(this);
+  menu.setStyleSheet("QMenu { font-size: 11pt; padding: 5px; }");
+  
+  QAction *buyAction = menu.addAction(QString("Buy %1 @ %2")
+                                       .arg(m_currentSymbol)
+                                       .arg(price, 0, 'f', 2));
+  buyAction->setIcon(QIcon(":/icons/buy.png"));
+  
+  QAction *sellAction = menu.addAction(QString("Sell %1 @ %2")
+                                        .arg(m_currentSymbol)
+                                        .arg(price, 0, 'f', 2));
+  sellAction->setIcon(QIcon(":/icons/sell.png"));
+  
+  menu.addSeparator();
+  QAction *cancelAction = menu.addAction("Cancel");
+  
+  // Show menu at cursor position
+  QAction *selectedAction = menu.exec(QCursor::pos());
+  
+  if (!selectedAction || selectedAction == cancelAction) {
+    return;
+  }
+  
+  // Create WindowContext with clicked price
+  WindowContext context;
+  context.sourceWindow = "TradingViewChart";
+  context.symbol = m_currentSymbol;
+  context.token = m_currentToken;
+  context.segment = QString::number(m_currentSegment);
+  
+  // Set clicked price as both LTP and price for order
+  context.ltp = price;
+  context.bid = price;
+  context.ask = price;
+  
+  // Get contract details from repository if available
+  if (m_repoManager) {
+    // Try to find the contract in the repository to get exchange, series, etc.
+    // For now, we'll use basic info
+    if (m_currentSegment == 1) {
+      context.exchange = "NSECM";
+    } else if (m_currentSegment == 2) {
+      context.exchange = "NSEFO";
+    } else if (m_currentSegment == 11) {
+      context.exchange = "BSECM";
+    } else if (m_currentSegment == 12) {
+      context.exchange = "BSEFO";
+    } else {
+      context.exchange = "NSECM"; // Default
+    }
+  }
+  
+  // Show appropriate order window
+  if (selectedAction == buyAction) {
+    BuyWindow *buyWin = BuyWindow::getInstance(context, this);
+    buyWin->show();
+    buyWin->raise();
+    buyWin->activateWindow();
+  } else if (selectedAction == sellAction) {
+    SellWindow *sellWin = SellWindow::getInstance(context, this);
+    sellWin->show();
+    sellWin->raise();
+    sellWin->activateWindow();
   }
 }
 

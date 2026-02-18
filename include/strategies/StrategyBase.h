@@ -1,6 +1,7 @@
 #ifndef STRATEGY_BASE_H
 #define STRATEGY_BASE_H
 
+#include "api/XTSTypes.h"
 #include "models/StrategyInstance.h"
 #include "services/FeedHandler.h"
 #include <QObject>
@@ -27,6 +28,7 @@ signals:
   void metricsUpdated(const StrategyInstance &instance, double mtm,
                       int activePositions, int pendingOrders);
   void logMessage(qint64 instanceId, const QString &message);
+  void orderRequested(const XTS::OrderParams &params);
 
 protected slots:
   virtual void onTick(const UDP::MarketTick &tick) = 0;

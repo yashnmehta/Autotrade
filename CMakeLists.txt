@@ -336,6 +336,7 @@ set(UI_SOURCES
     src/ui/CreateStrategyDialog.cpp
     src/ui/ModifyParametersDialog.cpp
     src/ui/GlobalSearchWidget.cpp
+    src/ui/StrategyBuilderDialog.cpp
 )
 
 set(UI_HEADERS
@@ -348,6 +349,7 @@ set(UI_HEADERS
     include/ui/CreateStrategyDialog.h
     include/ui/ModifyParametersDialog.h
     include/ui/GlobalSearchWidget.h
+    include/ui/StrategyBuilderDialog.h
 )
 
 # Add TradingView chart widget if enabled
@@ -508,6 +510,12 @@ set(STRATEGY_IMPL_SOURCES
     src/strategies/MomentumStrategy.cpp
     src/strategies/RangeBreakoutStrategy.cpp
     src/strategies/JodiATMStrategy.cpp
+    src/strategies/CustomStrategy.cpp
+    
+    # Custom Strategy Builder - Core Engine
+    src/strategy/StrategyParser.cpp
+    src/strategy/IndicatorEngine.cpp
+    src/strategy/OrderExecutionEngine.cpp
 )
 
 set(STRATEGY_IMPL_HEADERS
@@ -516,6 +524,13 @@ set(STRATEGY_IMPL_HEADERS
     include/strategies/MomentumStrategy.h
     include/strategies/RangeBreakoutStrategy.h
     include/strategies/JodiATMStrategy.h
+    include/strategies/CustomStrategy.h
+    
+    # Custom Strategy Builder - Core Engine
+    include/strategy/StrategyDefinition.h
+    include/strategy/StrategyParser.h
+    include/strategy/IndicatorEngine.h
+    include/strategy/OrderExecutionEngine.h
 )
 
 # ========================================

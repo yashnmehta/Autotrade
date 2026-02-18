@@ -60,6 +60,7 @@ signals:
     
     // Real-time data
     void tickReceived(const XTS::Tick &tick);
+    void candleReceived(const XTS::OHLCCandle &candle);
     
     // General errors
     void errorOccurred(const QString &error);
@@ -72,8 +73,11 @@ private slots:
 
 private:
     void processTickData(const QJsonObject &json);
+    void processCandleData(const QJsonObject &json);
     XTS::Tick parseTickFromJson(const QJsonObject &json) const;
+    XTS::OHLCCandle parseCandleFromJson(const QJsonObject &json) const;
     QJsonObject parsePipeDelimitedTickData(const QString &data) const;
+    QJsonObject parsePipeDelimitedCandleData(const QString &data) const;
 
     QString m_baseURL;
     QString m_apiKey;

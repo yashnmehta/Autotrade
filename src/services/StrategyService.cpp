@@ -122,6 +122,10 @@ bool StrategyService::startStrategy(qint64 instanceId) {
             qDebug() << "[StrategyLog]" << id << msg;
           });
 
+  // Connect order requests from strategy to service relay signal
+  connect(strategy, &StrategyBase::orderRequested, this,
+          &StrategyService::orderRequested);
+
   {
     QMutexLocker locker(&m_mutex);
     m_activeStrategies.insert(instanceId, strategy);

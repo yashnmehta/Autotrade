@@ -160,18 +160,30 @@ public slots:
    * @param tick Real-time tick data
    */
   void onTickUpdate(const XTS::Tick &tick);
+  
+  /**
+   * @brief Handle 1-minute OHLC candle from XTS WebSocket (1505 event)
+   * @param candle Completed 1-minute OHLC candle
+   */
+  void onCandleReceived(const XTS::OHLCCandle &candle);
 
 private slots:
   void onLoadFinished(bool success);
   void onJavaScriptMessage(const QString &message);
+  void onChartClickedInternal(qint64 time, double price);
 
 private:
   void setupWebChannel();
   void loadChartHTML();
   QString convertTimeframeToInterval(const QString &timeframe) const;
 
+#ifdef HAVE_TRADINGVIEW
   QWebEngineView *m_webView;
   QWebChannel *m_channel;
+#else
+  QWidget *m_webView; // Placeholder when QtWebEngine not available
+  QObject *m_channel;
+#endif
   TradingViewDataBridge *m_dataBridge;
 
   QString m_currentSymbol;

@@ -6,12 +6,14 @@
 #include "core/widgets/InfoBar.h"
 #include "nsecm_callback.h"
 #include "nsefo_callback.h"
+#include "ui/TradingViewChartWidget.h"
 
 #include "core/WindowCacheManager.h"
 #include "repository/RepositoryManager.h"
 #include "services/ATMWatchManager.h"
 #include "services/FeedHandler.h"
 #include "services/GreeksCalculationService.h"
+#include "services/StrategyService.h"
 #include "services/TradingDataService.h"
 #include "services/UdpBroadcastService.h"
 #include "utils/ConfigLoader.h"
@@ -56,6 +58,10 @@ MainWindow::MainWindow(QWidget *parent)
   connect(&FeedHandler::instance(), &FeedHandler::requestPriceSubscription,
           this, &MainWindow::onPriceSubscriptionRequest,
           Qt::QueuedConnection); // Async, thread-safe
+
+  // Connect strategy order requests to order placement pipeline
+  connect(&StrategyService::instance(), &StrategyService::orderRequested,
+          this, &MainWindow::placeOrder, Qt::QueuedConnection);
 
   // setupNetwork() will be called once configLoader is set
   // to ensure we have the correct multicast IPs and ports.
@@ -306,20 +312,54 @@ void MainWindow::placeOrder(const XTS::OrderParams &params) {
 
   qDebug() << "[MainWindow] Placing order:" << orderJson;
 
-  m_xtsInteractiveClient->placeOrder(orderJson, [this](bool success,
+  // Capture order parameters for chart marker visualization
+  XTS::OrderParams capturedParams = params;
+
+  m_xtsInteractiveClient->placeOrder(orderJson, [this, capturedParams](bool success,
                                                        const QString &orderID,
                                                        const QString &message) {
     // CRITICAL: This callback runs from HTTP background thread!
     // Must use invokeMethod to safely update UI on main thread
     QMetaObject::invokeMethod(
         this,
-        [this, success, orderID, message]() {
+        [this, success, orderID, message, capturedParams]() {
           if (success) {
             QString msg =
                 QString("Order Placed Successfully. Order ID: %1").arg(orderID);
             if (m_statusBar)
               m_statusBar->showMessage(msg, 5000);
             QMessageBox::information(this, "Order Placed", msg);
+
+            // Add order marker to all chart windows showing this symbol
+            if (m_mdiArea) {
+              QList<CustomMDISubWindow *> windows = m_mdiArea->windowList();
+              for (CustomMDISubWindow *window : windows) {
+                if (window->windowType() == "ChartWindow") {
+                  TradingViewChartWidget *chart =
+                      qobject_cast<TradingViewChartWidget *>(window->contentWidget());
+                  if (chart && chart->isReady()) {
+                    // Use current time for marker
+                    qint64 currentTime = QDateTime::currentSecsSinceEpoch();
+                    
+                    // Determine price (use limit price for limit orders, or 0 for market)
+                    double price = capturedParams.limitPrice > 0 
+                                    ? capturedParams.limitPrice 
+                                    : capturedParams.stopPrice;
+                    
+                    // Determine marker properties based on order side
+                    QString text = capturedParams.orderSide == "BUY" ? "BUY" : "SELL";
+                    QString color = capturedParams.orderSide == "BUY" ? "#26a69a" : "#ef5350";
+                    QString shape = capturedParams.orderSide == "BUY" ? "arrow_up" : "arrow_down";
+                    
+                    if (price > 0) {
+                      chart->addOrderMarker(currentTime, price, text, color, shape);
+                      qDebug() << "[MainWindow] Added order marker to chart:"
+                               << text << "@" << price;
+                    }
+                  }
+                }
+              }
+            }
 
             // Refresh orders via HTTP polling (since Interactive socket may not
             // be stable) Use a short delay to allow server to process the order

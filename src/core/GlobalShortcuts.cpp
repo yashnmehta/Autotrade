@@ -91,8 +91,7 @@ void setupMainWindowShortcuts(MainWindow *window) {
               "ApplicationShortcut context";
 
   new QShortcut(QKeySequence("Ctrl+M"), window, SLOT(createMarketWatch()));
-  new QShortcut(QKeySequence("Ctrl+S"), window,
-                SLOT(createGlobalSearchWindow()));
+  new QShortcut(QKeySequence("Ctrl+S"), window, SLOT(focusScripBar()));
   new QShortcut(QKeySequence("Ctrl+P"), window, SLOT(showPreferences()));
   new QShortcut(QKeySequence("Alt+W"), window, SLOT(loadWorkspace()));
   new QShortcut(QKeySequence("Alt+S"), window,

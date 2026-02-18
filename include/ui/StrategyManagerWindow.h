@@ -24,6 +24,7 @@ public:
 
 private slots:
   void onCreateClicked();
+  void onBuildCustomClicked();
   void onStartClicked();
   void onPauseClicked();
   void onResumeClicked();

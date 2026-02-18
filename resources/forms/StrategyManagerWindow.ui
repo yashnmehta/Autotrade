@@ -51,6 +51,18 @@ QPushButton#createButton {
 QPushButton#createButton:hover { background-color: #1d4ed8; }
 QPushButton#createButton:pressed { background-color: #1e40af; }
 
+QPushButton#buildCustomButton {
+    background-color: #7c3aed;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-weight: 700;
+    font-size: 12px;
+    padding: 8px 20px;
+}
+QPushButton#buildCustomButton:hover { background-color: #6d28d9; }
+QPushButton#buildCustomButton:pressed { background-color: #5b21b6; }
+
 QPushButton {
     background-color: #ffffff;
     color: #475569;
@@ -212,6 +224,22 @@ QScrollBar::handle:vertical:hover { background: #cbd5e1; }</string>
         </property>
         <property name="text">
          <string>Create New Strategy</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="buildCustomButton">
+        <property name="minimumSize">
+         <size>
+          <width>160</width>
+          <height>30</height>
+         </size>
+        </property>
+        <property name="text">
+         <string>⚡ Build Custom</string>
+        </property>
+        <property name="toolTip">
+         <string>Build a custom strategy using the visual builder</string>
         </property>
        </widget>
       </item>

@@ -542,6 +542,7 @@ void XTSMarketDataClient::onWSMessage(const std::string& message)
             // qDebug() << "📨 Socket.IO event data:" << qmsg;
             
             // XTS sends events like "1501-json-full", "1501-json-partial", "1502-json-full", "1502-json-partial"
+            // and "1505-json-full", "1505-json-partial" for OHLC candle data
             if (eventName == "1501-json-full" || eventName == "1501-json-partial" ||
                 eventName == "1502-json-full" || eventName == "1502-json-partial" ||
                 eventName == "xts-marketdata" || eventName == "joined") {
@@ -573,6 +574,34 @@ void XTSMarketDataClient::onWSMessage(const std::string& message)
                             QJsonObject parsedData = parsePipeDelimitedTickData(partialData);
                             if (!parsedData.isEmpty()) {
                                 processTickData(parsedData);
+                            }
+                        }
+                    }
+                }
+            } else if (eventName == "1505-json-full" || eventName == "1505-json-partial") {
+                // ===== OHLC CANDLE DATA (1-minute candles) =====
+                if (arr[1].isObject()) {
+                    QJsonObject data = arr[1].toObject();
+                    if (!data.isEmpty()) {
+                        processCandleData(data);
+                    }
+                } else if (arr[1].isString()) {
+                    // Partial candle format: "t:11_500188,o:258,h:258,l:258,c:258,bt:1548408248,bv:100,pv:25800"
+                    QString partialData = arr[1].toString();
+                    QJsonObject parsedData = parsePipeDelimitedCandleData(partialData);
+                    if (!parsedData.isEmpty()) {
+                        processCandleData(parsedData);
+                    }
+                } else if (arr[1].isArray()) {
+                    QJsonArray candleArray = arr[1].toArray();
+                    for (const QJsonValue &val : candleArray) {
+                        if (val.isObject()) {
+                            processCandleData(val.toObject());
+                        } else if (val.isString()) {
+                            QString partialData = val.toString();
+                            QJsonObject parsedData = parsePipeDelimitedCandleData(partialData);
+                            if (!parsedData.isEmpty()) {
+                                processCandleData(parsedData);
                             }
                         }
                     }
@@ -841,3 +870,102 @@ void XTSMarketDataClient::downloadMasterContracts(const QStringList &exchangeSeg
 }
 
 // Removed attemptReconnect() - native WebSocket client handles reconnection internally with exponential backoff
+
+// ==================== OHLC CANDLE DATA PROCESSING ====================
+
+void XTSMarketDataClient::processCandleData(const QJsonObject &json)
+{
+    XTS::OHLCCandle candle = parseCandleFromJson(json);
+    
+    // Validate candle data before emitting
+    // barTime must be valid Unix timestamp (> year 2000 = 946684800)
+    if (candle.exchangeInstrumentID > 0 && candle.barTime > 946684800) {
+        // Emit signal for chart widgets
+        emit candleReceived(candle);
+    } else if (candle.barTime == 0) {
+        qWarning() << "[XTS] Received candle with zero timestamp, ignoring. Token:" 
+                   << candle.exchangeInstrumentID;
+    }
+}
+
+XTS::OHLCCandle XTSMarketDataClient::parseCandleFromJson(const QJsonObject &json) const
+{
+    XTS::OHLCCandle candle;
+    
+    // Parse XTS 1505-json-full format
+    candle.exchangeSegment = json["ExchangeSegment"].toInt();
+    candle.exchangeInstrumentID = json["ExchangeInstrumentID"].toVariant().toLongLong();
+    candle.barTime = json["BarTime"].toVariant().toLongLong();
+    candle.open = json["Open"].toDouble();
+    candle.high = json["High"].toDouble();
+    candle.low = json["Low"].toDouble();
+    candle.close = json["Close"].toDouble();
+    candle.barVolume = json["BarVolume"].toVariant().toLongLong();
+    candle.openInterest = json["OpenInterest"].toVariant().toLongLong();
+    candle.sumOfQtyInToPrice = json["SumOfQtyInToPrice"].toVariant().toLongLong();
+    
+    return candle;
+}
+
+QJsonObject XTSMarketDataClient::parsePipeDelimitedCandleData(const QString &data) const
+{
+    // Parse pipe-delimited partial candle format
+    // Example: "t:11_500188,o:258,h:258,l:258,c:258,bt:1548408248,bv:100,pv:25800"
+    
+    QJsonObject result;
+    QStringList parts = data.split(',');
+    
+    for (const QString &part : parts) {
+        if (part.contains(':')) {
+            QStringList keyValue = part.split(':');
+            if (keyValue.size() == 2) {
+                QString key = keyValue[0].trimmed();
+                QString value = keyValue[1].trimmed();
+                
+                // Parse token info "t:11_500188" -> ExchangeSegment=11, ExchangeInstrumentID=500188
+                if (key == "t" && value.contains('_')) {
+                    QStringList tokenParts = value.split('_');
+                    if (tokenParts.size() == 2) {
+                        result["ExchangeSegment"] = tokenParts[0].toInt();
+                        result["ExchangeInstrumentID"] = tokenParts[1].toLongLong();
+                    }
+                }
+                // Open price
+                else if (key == "o") {
+                    result["Open"] = value.toDouble();
+                }
+                // High price
+                else if (key == "h") {
+                    result["High"] = value.toDouble();
+                }
+                // Low price
+                else if (key == "l") {
+                    result["Low"] = value.toDouble();
+                }
+                // Close price
+                else if (key == "c") {
+                    result["Close"] = value.toDouble();
+                }
+                // Bar time (Unix timestamp in seconds)
+                else if (key == "bt") {
+                    result["BarTime"] = value.toLongLong();
+                }
+                // Bar volume
+                else if (key == "bv") {
+                    result["BarVolume"] = value.toLongLong();
+                }
+                // Price * volume sum
+                else if (key == "pv") {
+                    result["SumOfQtyInToPrice"] = value.toLongLong();
+                }
+            }
+        }
+    }
+    
+    // Default OpenInterest to 0 if not provided
+    if (!result.contains("OpenInterest")) {
+        result["OpenInterest"] = 0;
+    }
+    
+    return result;
+}
