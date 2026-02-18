@@ -95,6 +95,28 @@
             }
         }
 
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideOut {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+        }
+
         /* PREMIUM SEARCH DIALOG SKIN */
         .tv-dialog {
             background-color: #1E222D !important;
@@ -1328,9 +1350,74 @@
                 }
             });
 
+            // Listen for order placement confirmation from C++
+            dataBridge.orderPlaced.connect(function (orderId, status, message) {
+                console.log('%c[ORDER PLACED] ✅ Order successful', 'color: #10b981; font-weight: bold');
+                console.log('  Order ID:', orderId);
+                console.log('  Status:', status);
+                console.log('  Message:', message);
+                
+                // Show success notification
+                showOrderNotification('Order Placed Successfully', 
+                    `Order ID: ${orderId}\\n${message}`, 'success');
+                
+                // Add permanent marker on chart
+                const time = Math.floor(Date.now() / 1000);
+                chartAddMarker(time, status.includes('BUY') ? 'BUY' : 'SELL', 
+                              0, `✓ ${orderId}`);
+            });
+
+            // Listen for order placement errors from C++
+            dataBridge.orderFailed.connect(function (error) {
+                console.error('%c[ORDER FAILED] ❌', 'color: #ef4444; font-weight: bold', error);
+                
+                // Show error notification
+                showOrderNotification('Order Failed', error, 'error');
+            });
+
             // Initialize TradingView widget
             initTradingView();
         });
+
+        // Helper: show order notification
+        function showOrderNotification(title, message, type) {
+            const color = type === 'success' ? '#10b981' : '#ef4444';
+            const icon = type === 'success' ? '✓' : '✗';
+            
+            // Create notification div
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 80px;
+                right: 20px;
+                background: linear-gradient(135deg, ${color}22 0%, ${color}11 100%);
+                border: 2px solid ${color};
+                color: #ffffff;
+                padding: 16px 24px;
+                border-radius: 8px;
+                box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+                z-index: 10001;
+                min-width: 300px;
+                animation: slideIn 0.3s ease;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto;
+            `;
+            notification.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="font-size: 24px;">${icon}</div>
+                    <div style="flex: 1;">
+                        <div style="font-weight: 600; font-size: 14px; margin-bottom: 4px;">${title}</div>
+                        <div style="font-size: 12px; opacity: 0.9; white-space: pre-line;">${message}</div>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(notification);
+            
+            // Auto-remove after 5 seconds
+            setTimeout(() => {
+                notification.style.animation = 'slideOut 0.3s ease';
+                setTimeout(() => notification.remove(), 300);
+            }, 5000);
+        }
 
         function initTradingView() {
             console.log('[TradingView] Initializing widget...');

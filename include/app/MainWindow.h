@@ -15,6 +15,7 @@ class QRect;
 
 // Forward declarations for chart widgets
 class TradingViewChartWidget;
+class IndicatorChartWidget;
 
 class CustomMDIArea;
 class CustomMDISubWindow;
@@ -93,6 +94,7 @@ private slots:
   CustomMDISubWindow *createStrategyManagerWindow();
   CustomMDISubWindow *createGlobalSearchWindow();
   CustomMDISubWindow *createChartWindow();
+  CustomMDISubWindow *createIndicatorChartWindow();
   void focusScripBar();
   void onAddToWatchRequested(const InstrumentData &instrument);
   void resetLayout();

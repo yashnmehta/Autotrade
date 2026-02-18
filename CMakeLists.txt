@@ -72,6 +72,9 @@ if(ENABLE_TRADINGVIEW)
     endif()
 endif()
 
+# include TA-Lib configuration
+include(cmake/TALibConfig.cmake)
+
 # Use OpenSSL from C:/Program Files/OpenSSL-Win64 (native Windows build)
 if(TRUE) # Enabled manual config as we found the files
     message(STATUS "Detected native Windows OpenSSL installation")
@@ -131,11 +134,13 @@ find_package(Threads REQUIRED)
 # ========================================
 # TA-Lib (Technical Analysis Library) - Optional
 # ========================================
-option(ENABLE_TALIB "Enable TA-Lib for technical indicators" ON)
+option(ENABLE_TALIB "Enable TA-Lib for technical indicators" OFF)
 if(ENABLE_TALIB)
     # Try to find TA-Lib
-    find_path(TALIB_INCLUDE_DIR ta-lib/ta_libc.h
+    find_path(TALIB_INCLUDE_DIR ta_libc.h
         PATHS
+            "C:/ta-lib/c/include"
+            "C:/Program Files/TA-Lib/c/include"
             "C:/Program Files/TA-Lib/include"
             "C:/ta-lib/include"
             "${CMAKE_SOURCE_DIR}/lib/ta-lib/include"
@@ -144,8 +149,10 @@ if(ENABLE_TALIB)
     )
     
     find_library(TALIB_LIBRARY
-        NAMES ta_lib ta_libc_cdr ta_libc
+        NAMES ta_libc_cdr ta_libc_cmd ta_lib ta_libc
         PATHS
+            "C:/ta-lib/c/lib"
+            "C:/Program Files/TA-Lib/c/lib"
             "C:/Program Files/TA-Lib/lib"
             "C:/ta-lib/lib"
             "${CMAKE_SOURCE_DIR}/lib/ta-lib/lib"
@@ -358,6 +365,24 @@ if(ENABLE_TRADINGVIEW AND Qt5WebEngineWidgets_FOUND AND Qt5WebChannel_FOUND)
     list(APPEND UI_HEADERS include/ui/TradingViewChartWidget.h)
     message(STATUS "Added TradingView chart widget to build")
 endif()
+
+# Add Indicator Chart Widget if QtCharts is available
+if(ENABLE_QTCHARTS AND Qt5Charts_FOUND)
+    list(APPEND UI_SOURCES src/ui/IndicatorChartWidget.cpp)
+    list(APPEND UI_HEADERS include/ui/IndicatorChartWidget.h)
+    message(STATUS "Added Indicator Chart Widget to build")
+endif()
+
+# ========================================
+# INDICATORS LAYER - Technical Analysis
+# ========================================
+set(INDICATOR_SOURCES
+    src/indicators/TALibIndicators.cpp
+)
+
+set(INDICATOR_HEADERS
+    include/indicators/TALibIndicators.h
+)
 
 # ========================================
 # VIEWS LAYER - Trading Windows
@@ -662,6 +687,7 @@ set(SOURCES
     ${SEARCH_SOURCES}
     ${UTILS_SOURCES}
     ${VIEW_HELPER_SOURCES}
+    ${INDICATOR_SOURCES}
 )
 
 set(HEADERS
@@ -675,6 +701,7 @@ set(HEADERS
     ${SERVICE_HEADERS}
     ${STRATEGY_IMPL_HEADERS}
     ${API_HEADERS}
+    ${INDICATOR_HEADERS}
     ${REPOSITORY_HEADERS}
     ${DATA_HEADERS}
     ${SEARCH_HEADERS}
@@ -821,6 +848,19 @@ if(ENABLE_TRADINGVIEW AND Qt5WebEngineWidgets_FOUND AND Qt5WebChannel_FOUND)
         Qt5::WebEngineWidgets 
         Qt5::WebChannel
     )
+endif()
+
+# Add QtCharts if enabled
+if(ENABLE_QTCHARTS AND Qt5Charts_FOUND)
+    target_link_libraries(TradingTerminal PRIVATE Qt5::Charts)
+endif()
+
+# Add TA-Lib if found
+if(TALIB_FOUND)
+    target_link_libraries(TradingTerminal PRIVATE ${TALIB_LIBRARY})
+    target_include_directories(TradingTerminal PRIVATE ${TALIB_INCLUDE_DIR})
+    target_compile_definitions(TradingTerminal PRIVATE HAVE_TALIB)
+    message(STATUS "TA-Lib indicators ENABLED via HAVE_TALIB")
 endif()
 
 if(WIN32)

@@ -979,3 +979,86 @@ void TradingViewDataBridge::loadSymbol(const QString &symbol, int segment,
     qWarning() << "[TradingViewDataBridge] Failed to get parent widget";
   }
 }
+
+void TradingViewDataBridge::placeOrder(const QString &symbol, int segment,
+                                       const QString &side, int quantity,
+                                       const QString &orderType, double price,
+                                       double slPrice) {
+  qDebug() << "[TradingViewDataBridge] placeOrder called from JavaScript:";
+  qDebug() << "  Symbol:" << symbol << "| Segment:" << segment;
+  qDebug() << "  Side:" << side << "| Qty:" << quantity;
+  qDebug() << "  Type:" << orderType << "| Price:" << price << "| SL:" << slPrice;
+
+  // Get parent widget to access RepositoryManager and emit to MainWindow
+  TradingViewChartWidget *widget =
+      qobject_cast<TradingViewChartWidget *>(parent());
+  
+  if (!widget || !widget->m_repoManager) {
+    qWarning() << "[TradingViewDataBridge] No parent widget or RepositoryManager";
+    emit orderFailed("Chart widget not initialized");
+    return;
+  }
+
+  // Resolve token for the symbol if not provided
+  qint64 token = 0;
+  QString exchange = (segment == 1 || segment == 2) ? "NSE" : "BSE";
+  QString segmentName = (segment == 2 || segment == 12) ? "FO" : "CM";
+  
+  // Search for the symbol to get token
+  QVector<ContractData> results = 
+      widget->m_repoManager->searchScripsGlobal(symbol, exchange, segmentName, "", 1);
+  
+  if (results.isEmpty()) {
+    QString error = QString("Symbol '%1' not found in %2 %3")
+                        .arg(symbol, exchange, segmentName);
+    qWarning() << "[TradingViewDataBridge]" << error;
+    emit orderFailed(error);
+    return;
+  }
+
+  const ContractData &contract = results.first();
+  token = contract.exchangeInstrumentID;
+
+  qDebug() << "[TradingViewDataBridge] Resolved token:" << token
+           << "for" << contract.name;
+
+  // Build OrderParams struct
+  XTS::OrderParams params;
+  params.exchangeSegment = QString::number(segment);
+  params.exchangeInstrumentID = token;
+  params.orderSide = side.toUpper(); // "BUY" or "SELL"
+  params.orderQuantity = quantity;
+  params.productType = "NRML"; // Default to NRML (can be MIS/CNC)
+  params.disclosedQuantity = 0;
+  params.timeInForce = "DAY";
+  
+  // Set order type and prices
+  if (orderType.toUpper() == "MARKET") {
+    params.orderType = "MARKET";
+    params.limitPrice = 0;
+    params.stopPrice = 0;
+  } else if (orderType.toUpper() == "LIMIT") {
+    params.orderType = "LIMIT";
+    params.limitPrice = price;
+    params.stopPrice = 0;
+  } else if (orderType.toUpper() == "SL" || orderType.toUpper() == "STOPLIMIT") {
+    params.orderType = "STOPLIMIT";
+    params.limitPrice = price;
+    params.stopPrice = slPrice;
+  } else if (orderType.toUpper() == "SL-M" || orderType.toUpper() == "STOPMARKET") {
+    params.orderType = "STOPMARKET";
+    params.limitPrice = 0;
+    params.stopPrice = slPrice;
+  } else {
+    emit orderFailed("Unknown order type: " + orderType);
+    return;
+  }
+
+  params.orderUniqueIdentifier = 
+      QString("CHART_%1_%2").arg(symbol).arg(QDateTime::currentMSecsSinceEpoch());
+
+  // Emit signal to parent widget which will forward to MainWindow
+  emit widget->orderRequestedFromChart(params);
+  
+  qDebug() << "[TradingViewDataBridge] Order request emitted to MainWindow";
+}
