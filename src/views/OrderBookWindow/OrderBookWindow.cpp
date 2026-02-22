@@ -68,7 +68,7 @@ void OrderBookWindow::setupUI() {
 QWidget* OrderBookWindow::createFilterWidget() {
     QWidget *container = new QWidget(this);
     container->setObjectName("filterContainer");
-    container->setStyleSheet("QWidget#filterContainer { background-color: #2d2d2d; border-bottom: 1px solid #3f3f46; } QLabel { color: #d4d4d8; font-size: 11px; } QDateTimeEdit, QComboBox { background-color: #3f3f46; color: #ffffff; border: 1px solid #52525b; border-radius: 3px; font-size: 11px; } QPushButton { border-radius: 3px; font-weight: 600; font-size: 11px; padding: 5px 12px; }");
+    container->setStyleSheet("QWidget#filterContainer { background-color: #f8fafc; border-bottom: 1px solid #e2e8f0; } QLabel { color: #475569; font-size: 11px; } QDateTimeEdit, QComboBox { background-color: #ffffff; color: #1e293b; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 11px; } QPushButton { border-radius: 4px; font-weight: 600; font-size: 11px; padding: 5px 12px; }");
     QVBoxLayout *mainLayout = new QVBoxLayout(container);
     mainLayout->setContentsMargins(12, 10, 12, 10);
     mainLayout->setSpacing(8);
@@ -85,7 +85,7 @@ QWidget* OrderBookWindow::createFilterWidget() {
     filterLayout->addStretch();
     
     m_applyFilterBtn = new QPushButton("Apply"); m_applyFilterBtn->setStyleSheet("background-color: #16a34a; color: white;");
-    m_clearFilterBtn = new QPushButton("Clear"); m_clearFilterBtn->setStyleSheet("background-color: #52525b; color: white;");
+    m_clearFilterBtn = new QPushButton("Clear"); m_clearFilterBtn->setStyleSheet("background-color: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 4px;");
     m_exportBtn = new QPushButton("Export"); m_exportBtn->setStyleSheet("background-color: #d97706; color: white;");
     filterLayout->addWidget(m_applyFilterBtn); filterLayout->addWidget(m_clearFilterBtn); filterLayout->addWidget(m_exportBtn);
     mainLayout->addLayout(filterLayout);

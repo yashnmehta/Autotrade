@@ -62,11 +62,11 @@ QWidget *PositionWindow::createFilterWidget() {
   QWidget *container = new QWidget(this);
   container->setObjectName("filterContainer");
   container->setStyleSheet(
-      "QWidget#filterContainer { background-color: #2d2d2d; border-bottom: 1px "
-      "solid #3f3f46; } QLabel { color: #d4d4d8; font-size: 11px; } QComboBox "
-      "{ background-color: #3f3f46; color: #ffffff; border: 1px solid #52525b; "
-      "border-radius: 3px; font-size: 11px; } QPushButton { border-radius: "
-      "3px; font-weight: 600; font-size: 11px; padding: 5px 12px; }");
+      "QWidget#filterContainer { background-color: #f8fafc; border-bottom: 1px "
+      "solid #e2e8f0; } QLabel { color: #475569; font-size: 11px; } QComboBox "
+      "{ background-color: #ffffff; color: #1e293b; border: 1px solid #cbd5e1; "
+      "border-radius: 4px; font-size: 11px; } QPushButton { border-radius: "
+      "4px; font-weight: 600; font-size: 11px; padding: 5px 12px; }");
   QHBoxLayout *layout = new QHBoxLayout(container);
   layout->setContentsMargins(12, 10, 12, 10);
 

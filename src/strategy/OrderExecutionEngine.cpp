@@ -82,7 +82,7 @@ double OrderExecutionEngine::calculateLimitPrice(
 
   switch (config.mode) {
 
-  case Passive:
+  case OEEPricingMode::Passive:
     // Place at best bid (buy) / best ask (sell) — join the queue
     if (isBuy) {
       return roundToTick(bestBid, tickSize, false);
@@ -90,7 +90,7 @@ double OrderExecutionEngine::calculateLimitPrice(
       return roundToTick(bestAsk, tickSize, true);
     }
 
-  case Aggressive:
+  case OEEPricingMode::Aggressive:
     // Cross the spread with extra buffer ticks
     if (isBuy) {
       // Buy aggressive: go above best ask
@@ -102,7 +102,7 @@ double OrderExecutionEngine::calculateLimitPrice(
       return roundToTick(price, tickSize, false);
     }
 
-  case Smart:
+  case OEEPricingMode::Smart:
   default:
     // Auto-decide based on spread width
     //   - Tight spread (≤ 2 ticks): use passive + 1 tick (join near top)

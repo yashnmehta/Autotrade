@@ -265,3 +265,37 @@ QString ConfigLoader::getBasePriceMode() const
     // Default to cash for backward compatibility
     return getValue("ATM_WATCH", "base_price_mode", "cash").toLower();
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Feed Mode Configuration
+// ═══════════════════════════════════════════════════════════════════════════
+
+QString ConfigLoader::getFeedMode() const
+{
+    return getValue("FEED", "mode", "hybrid").toLower().trimmed();
+}
+
+int ConfigLoader::getFeedMaxTokensPerSegment() const
+{
+    return getInt("FEED", "max_tokens_per_segment", 200);
+}
+
+int ConfigLoader::getFeedMaxRestCallsPerSec() const
+{
+    return getInt("FEED", "max_rest_calls_per_sec", 10);
+}
+
+int ConfigLoader::getFeedBatchSize() const
+{
+    return getInt("FEED", "batch_size", 50);
+}
+
+int ConfigLoader::getFeedBatchIntervalMs() const
+{
+    return getInt("FEED", "batch_interval_ms", 200);
+}
+
+int ConfigLoader::getFeedCooldownOnRateLimitMs() const
+{
+    return getInt("FEED", "cooldown_on_rate_limit_ms", 5000);
+}

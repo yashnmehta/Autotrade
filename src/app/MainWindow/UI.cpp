@@ -158,20 +158,20 @@ void MainWindow::createMenuBar() {
                            "  background: transparent;"
                            "}"
                            "QMenuBar::item:selected {"
-                           "  background: #3e3e42;"
-                           "  color: #ffffff;"
+                           "  background: #dbeafe;"
+                           "  color: #1e40af;"
                            "}"
                            "QMenu {"
                            "  background: #ffffff;"
                            "  color: #1a1a1a;"
-                           "  border: 1px solid #cccccc;"
+                           "  border: 1px solid #e2e8f0;"
                            "}"
                            "QMenu::item {"
                            "  padding: 4px 20px 4px 6px;"
                            "}"
                            "QMenu::item:selected {"
-                           "  background: #094771;"
-                           "  color: #ffffff;"
+                           "  background: #dbeafe;"
+                           "  color: #1e40af;"
                            "}");
 
   m_menuBar->setFixedHeight(32);
@@ -309,25 +309,26 @@ void MainWindow::createToolBar() {
   m_toolBar->setIconSize(QSize(16, 16));
   m_toolBar->setFixedHeight(32);
 
-  // DARK STYLE
+  // Light theme toolbar style
   m_toolBar->setStyleSheet("QWidget { "
-                           "   background-color: #e1e1e1; "
+                           "   background-color: #f8fafc; "
                            "} "
                            "QToolBar { "
-                           "   background-color: #e1e1e1; "
+                           "   background-color: #f8fafc; "
                            "   border: none; "
-                           "   color: #1e1e1e; "
+                           "   color: #1e293b; "
                            "} "
                            "QToolButton { "
-                           "   color: #1e1e1e; "
+                           "   color: #1e293b; "
                            "   border: none; "
                            "   padding: 2px; "
                            "} "
                            "QToolButton:hover { "
-                           "   background-color: #505050; "
+                           "   background-color: #e2e8f0; "
                            "} "
                            "QToolButton:pressed { "
-                           "   background-color: #094771; "
+                           "   background-color: #dbeafe; "
+                           "   color: #1e40af; "
                            "}");
 
   // Add toolbar actions with text (icons can be added if available in qrc)
@@ -344,12 +345,12 @@ void MainWindow::createToolBar() {
 void MainWindow::createConnectionBar() {
   m_connectionBar = new QWidget(this);
   m_connectionBar->setFixedHeight(28);
-  // Dark style
+  // Light theme style
   m_connectionBar->setStyleSheet("QWidget { "
-                                 "   background-color: #e1e1e1; "
+                                 "   background-color: #f8fafc; "
                                  "} "
                                  "QLabel { "
-                                 "   color: #1e1e1e; "
+                                 "   color: #475569; "
                                  "   padding: 2px 6px; "
                                  "   font-size: 10px; "
                                  "}");
@@ -372,11 +373,11 @@ void MainWindow::createConnectionBar() {
 
 void MainWindow::createStatusBar() {
   m_statusBar = new QStatusBar(this);
-  // Dark style
+  // Light theme style
   m_statusBar->setStyleSheet("QStatusBar { "
-                             "   background-color: #1e1e1e; "
-                             "   color: #d4d4d8; "
-                             "   border-top: 1px solid #3f3f46; "
+                             "   background-color: #f8fafc; "
+                             "   color: #475569; "
+                             "   border-top: 1px solid #e2e8f0; "
                              "} "
                              "QStatusBar::item { "
                              "   border: none; "
@@ -397,8 +398,8 @@ void MainWindow::createInfoBar() {
 
   // Apply styling to InfoBar widget itself (Container frame)
   m_infoBar->setStyleSheet(
-      "QWidget { background-color: #e1e1e1; border-top: 1px solid #3f3f46; }"
-      "QLabel { color: #1a1a1a; font-size: 11px; }");
+      "QWidget { background-color: #f8fafc; border-top: 1px solid #e2e8f0; }"
+      "QLabel { color: #334155; font-size: 11px; }");
 
   m_infoDock->setWidget(m_infoBar);
 

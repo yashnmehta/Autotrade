@@ -99,8 +99,23 @@ public:
    * @param token Exchange instrument ID
    * @return ContractData pointer (nullptr if not found)
    * @note Thread-safe for concurrent reads
+   * @warning The returned pointer references a thread_local buffer that is
+   *          overwritten on the next call to getContract() on the same thread.
+   *          Do NOT store the pointer or call getContract() twice and compare
+   *          results.  Use getContractCopy() when you need to keep the data.
    */
   const ContractData *getContract(int64_t token) const;
+
+  /**
+   * @brief Get a value copy of contract data by token (thread-safe).
+   * @param token Exchange instrument ID
+   * @return ContractData by value (empty/default if not found, check
+   *         exchangeInstrumentID != 0 to detect "not found")
+   *
+   * Prefer this over getContract() for any code that stores the result
+   * or calls getContract() more than once per logical operation.
+   */
+  ContractData getContractCopy(int64_t token) const;
 
   /**
    * @brief Check if contract exists

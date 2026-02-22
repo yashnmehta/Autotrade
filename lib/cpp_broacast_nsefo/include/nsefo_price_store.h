@@ -172,31 +172,46 @@ public:
     // =========================================================
 
     /**
-     * @brief Get the complete fused state of a token
-     * @return const pointer to live record (valid until next write)
-     * @deprecated Use getUnifiedSnapshot() for thread-safe access
-     */
-    const UnifiedTokenState* getUnifiedState(uint32_t token) const {
-        if (token < MIN_TOKEN || token > MAX_TOKEN) return nullptr;
-        
-        std::shared_lock lock(mutex_); // Shared Read
-        const auto* rowPtr = store_[token - MIN_TOKEN];
-        if (!rowPtr) return nullptr;
-        return (rowPtr->token == token) ? rowPtr : nullptr;
-    }
-    
-    /**
-     * @brief Get thread-safe snapshot copy of token state
-     * @return Copy of token state, guaranteed consistent under lock
-     * @note Returns empty state (token=0) if not found
+     * @brief Get thread-safe snapshot copy of token state.
+     * @return Copy of token state, guaranteed consistent under lock.
+     *         Returns empty state (token=0) if not found.
      */
     [[nodiscard]] UnifiedTokenState getUnifiedSnapshot(uint32_t token) const {
         if (token < MIN_TOKEN || token > MAX_TOKEN) return UnifiedTokenState{};
-        
+
         std::shared_lock lock(mutex_); // Shared Read
         const auto* rowPtr = store_[token - MIN_TOKEN];
         if (!rowPtr || rowPtr->token != token) return UnifiedTokenState{};
-        return *rowPtr; // Copy under lock - thread safe
+        return *rowPtr; // Copy under lock – thread safe
+    }
+
+    /**
+     * @brief UNSAFE raw pointer access for legacy callers.
+     *
+     * DEPRECATED – The returned pointer is only valid while the shared_mutex
+     * read lock is held inside this function. The moment the caller dereferences
+     * it another thread may be writing to that slot, causing data races.
+     *
+     * Use getUnifiedSnapshot() for all new code.
+     *
+     * Kept only to avoid a large-scale migration; all existing callers go via
+     * PriceStoreGateway which is being migrated to getUnifiedSnapshot().
+     *
+     * @return Pointer to live record, or nullptr. Do NOT cache this pointer.
+     * @deprecated Use getUnifiedSnapshot() instead.
+     */
+    [[deprecated("Use getUnifiedSnapshot() – raw pointer is not race-free")]]
+    const UnifiedTokenState* getUnifiedState(uint32_t token) const {
+        if (token < MIN_TOKEN || token > MAX_TOKEN) return nullptr;
+
+        // NOTE: The lock is released before returning – the caller sees the
+        // pointer but no longer holds the read lock.  This is inherently
+        // unsafe; this method exists only to support legacy call sites while
+        // they are migrated to getUnifiedSnapshot().
+        std::shared_lock lock(mutex_);
+        const auto* rowPtr = store_[token - MIN_TOKEN];
+        if (!rowPtr || rowPtr->token != token) return nullptr;
+        return rowPtr;
     }
     
     // =========================================================

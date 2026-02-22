@@ -60,6 +60,14 @@ public:
     // PriceCache Mode
     bool getUseLegacyPriceCache() const;
 
+    // Feed Mode
+    QString getFeedMode() const;         // "hybrid" or "xts_only"
+    int getFeedMaxTokensPerSegment() const;
+    int getFeedMaxRestCallsPerSec() const;
+    int getFeedBatchSize() const;
+    int getFeedBatchIntervalMs() const;
+    int getFeedCooldownOnRateLimitMs() const;
+
     // ATM Watch Config
     QString getBasePriceMode() const;
 

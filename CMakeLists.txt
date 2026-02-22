@@ -75,14 +75,14 @@ endif()
 # include TA-Lib configuration
 include(cmake/TALibConfig.cmake)
 
-# Use OpenSSL from C:/Program Files/OpenSSL-Win64 (native Windows build)
-if(TRUE) # Enabled manual config as we found the files
+# Use OpenSSL from C:/Program Files/OpenSSL-Win64 (native Windows build only)
+if(WIN32)
     message(STATUS "Detected native Windows OpenSSL installation")
     set(OPENSSL_ROOT_DIR "C:/Program Files/OpenSSL-Win64" CACHE PATH "OpenSSL root directory" FORCE)
     set(OPENSSL_INCLUDE_DIR "C:/Program Files/OpenSSL-Win64/include" CACHE PATH "OpenSSL include directory" FORCE)
     set(OPENSSL_CRYPTO_LIBRARY "C:/Program Files/OpenSSL-Win64/lib/VC/x64/MD/libcrypto.lib" CACHE FILEPATH "OpenSSL crypto library" FORCE)
     set(OPENSSL_SSL_LIBRARY "C:/Program Files/OpenSSL-Win64/lib/VC/x64/MD/libssl.lib" CACHE FILEPATH "OpenSSL SSL library" FORCE)
-    
+
     # Verify OpenSSL files exist
     if(NOT EXISTS "${OPENSSL_INCLUDE_DIR}/openssl/ssl.h")
         message(FATAL_ERROR "OpenSSL headers not found at ${OPENSSL_INCLUDE_DIR}/openssl/ssl.h")
@@ -93,17 +93,11 @@ if(TRUE) # Enabled manual config as we found the files
     if(NOT EXISTS "${OPENSSL_SSL_LIBRARY}")
         message(FATAL_ERROR "OpenSSL SSL library not found at ${OPENSSL_SSL_LIBRARY}")
     endif()
-    
+
     message(STATUS "Using native Windows OpenSSL 1.1.1")
-    message(STATUS "  Include dir: ${OPENSSL_INCLUDE_DIR}")
-    message(STATUS "  Crypto library: ${OPENSSL_CRYPTO_LIBRARY}")
-    message(STATUS "  SSL library: ${OPENSSL_SSL_LIBRARY}")
-    
-    # Set the found flag manually since we're bypassing find_package
     set(OPENSSL_FOUND TRUE CACHE BOOL "OpenSSL found" FORCE)
     set(OPENSSL_VERSION "1.1.1" CACHE STRING "OpenSSL version" FORCE)
-    
-    # Create imported targets manually (required for target_link_libraries)
+
     if(NOT TARGET OpenSSL::SSL)
         add_library(OpenSSL::SSL UNKNOWN IMPORTED)
         set_target_properties(OpenSSL::SSL PROPERTIES
@@ -111,7 +105,7 @@ if(TRUE) # Enabled manual config as we found the files
             INTERFACE_INCLUDE_DIRECTORIES "${OPENSSL_INCLUDE_DIR}"
         )
     endif()
-    
+
     if(NOT TARGET OpenSSL::Crypto)
         add_library(OpenSSL::Crypto UNKNOWN IMPORTED)
         set_target_properties(OpenSSL::Crypto PROPERTIES
@@ -119,12 +113,9 @@ if(TRUE) # Enabled manual config as we found the files
             INTERFACE_INCLUDE_DIRECTORIES "${OPENSSL_INCLUDE_DIR}"
         )
     endif()
-# MSYS2 OpenSSL configuration removed to avoid toolchain mismatch.
-# Relying on find_package(OpenSSL) or manual configuration via CMake variables.
-
 endif()
 
-# Only call find_package if OpenSSL wasn't manually configured
+# On non-Windows (macOS, Linux) use find_package to locate OpenSSL
 if(NOT OPENSSL_FOUND)
     find_package(OpenSSL REQUIRED)
 endif()
@@ -263,6 +254,8 @@ include_directories(
     ${CMAKE_SOURCE_DIR}/include/repository
     ${CMAKE_SOURCE_DIR}/include/utils
     ${CMAKE_SOURCE_DIR}/include/data
+    ${CMAKE_SOURCE_DIR}/include/strategy
+    ${CMAKE_SOURCE_DIR}/include/strategies
     ${CMAKE_SOURCE_DIR}/lib/common/include
     ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/include
     ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_nsecm/include
@@ -343,7 +336,15 @@ set(UI_SOURCES
     src/ui/CreateStrategyDialog.cpp
     src/ui/ModifyParametersDialog.cpp
     src/ui/GlobalSearchWidget.cpp
-    src/ui/StrategyBuilderDialog.cpp
+    src/ui/ConditionBuilderWidget.cpp
+    src/ui/StrategyTemplateBuilderDialog.cpp
+    src/ui/ParamEditorDialog.cpp
+    src/ui/IndicatorCatalog.cpp
+    src/ui/IndicatorPickerDialog.cpp
+    src/ui/IndicatorRowWidget.cpp
+    src/ui/StrategyDeployDialog.cpp
+    src/ui/SymbolBindingWidget.cpp
+    src/ui/TemplateManagerDialog.cpp
 )
 
 set(UI_HEADERS
@@ -356,7 +357,15 @@ set(UI_HEADERS
     include/ui/CreateStrategyDialog.h
     include/ui/ModifyParametersDialog.h
     include/ui/GlobalSearchWidget.h
-    include/ui/StrategyBuilderDialog.h
+    include/ui/ConditionBuilderWidget.h
+    include/ui/StrategyTemplateBuilderDialog.h
+    include/ui/ParamEditorDialog.h
+    include/ui/IndicatorCatalog.h
+    include/ui/IndicatorPickerDialog.h
+    include/ui/IndicatorRowWidget.h
+    include/ui/StrategyDeployDialog.h
+    include/ui/SymbolBindingWidget.h
+    include/ui/TemplateManagerDialog.h
 )
 
 # Add TradingView chart widget if enabled
@@ -493,6 +502,7 @@ set(SERVICE_SOURCES
 
     src/services/FeedHandler.cpp
     src/services/UdpBroadcastService.cpp
+    src/services/XTSFeedBridge.cpp
     src/services/MasterLoaderWorker.cpp
     src/services/MasterDataState.cpp
     src/services/ATMWatchManager.cpp
@@ -512,6 +522,7 @@ set(SERVICE_HEADERS
 
     include/services/FeedHandler.h
     include/services/UdpBroadcastService.h
+    include/services/XTSFeedBridge.h
     include/services/MasterLoaderWorker.h
     include/services/MasterDataState.h
     include/services/ATMWatchManager.h
@@ -532,30 +543,33 @@ set(SERVICE_HEADERS
 set(STRATEGY_IMPL_SOURCES
     src/strategies/StrategyBase.cpp
     src/strategies/StrategyFactory.cpp
-    src/strategies/MomentumStrategy.cpp
-    src/strategies/RangeBreakoutStrategy.cpp
-    src/strategies/JodiATMStrategy.cpp
-    src/strategies/CustomStrategy.cpp
-    
-    # Custom Strategy Builder - Core Engine
-    src/strategy/StrategyParser.cpp
+    src/strategies/TemplateStrategy.cpp
+    src/strategies/LiveFormulaContext.cpp
+
+    # Core engines
     src/strategy/IndicatorEngine.cpp
     src/strategy/OrderExecutionEngine.cpp
+    src/strategy/FormulaEngine.cpp
+
+    # Strategy Template System (Phase 1 — new architecture)
+    src/services/StrategyTemplateRepository.cpp
 )
 
 set(STRATEGY_IMPL_HEADERS
     include/strategies/StrategyBase.h
     include/strategies/StrategyFactory.h
-    include/strategies/MomentumStrategy.h
-    include/strategies/RangeBreakoutStrategy.h
-    include/strategies/JodiATMStrategy.h
-    include/strategies/CustomStrategy.h
-    
-    # Custom Strategy Builder - Core Engine
-    include/strategy/StrategyDefinition.h
-    include/strategy/StrategyParser.h
+    include/strategies/TemplateStrategy.h
+    include/strategies/LiveFormulaContext.h
+
+    # Core engines
+    include/strategy/ConditionNode.h
+    include/strategy/StrategyTemplate.h
     include/strategy/IndicatorEngine.h
     include/strategy/OrderExecutionEngine.h
+    include/strategy/FormulaEngine.h
+
+    # Strategy Template System (Phase 1 — new architecture)
+    include/services/StrategyTemplateRepository.h
 )
 
 # ========================================
@@ -642,6 +656,7 @@ set(UTILS_SOURCES
     src/utils/PreferencesManager.cpp
     src/utils/SoundManager.cpp
     src/utils/WindowManager.cpp
+    src/utils/LicenseManager.cpp
 )
 
 set(UTILS_HEADERS
@@ -651,6 +666,7 @@ set(UTILS_HEADERS
     include/utils/PreferencesManager.h
     include/utils/SoundManager.h
     include/utils/WindowManager.h
+    include/utils/LicenseManager.h
     include/models/WindowContext.h
 )
 
@@ -723,6 +739,7 @@ set(FORMS
     resources/forms/PreferencesPortfolioTab.ui
     resources/forms/StrategyManagerWindow.ui
     resources/forms/CreateStrategyDialog.ui
+    resources/forms/StrategyTemplateBuilderDialog.ui
 )
 
 # Resource files

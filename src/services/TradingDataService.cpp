@@ -145,5 +145,9 @@ void TradingDataService::onPositionEvent(const XTS::Position& position)
         currentPositions = m_positions;
     }
     
+    qDebug() << "[TradingDataService] Position event: instrumentID="
+             << position.exchangeInstrumentID
+             << "segment=" << position.exchangeSegment
+             << "product=" << position.productType;
     emit positionsUpdated(currentPositions);
 }

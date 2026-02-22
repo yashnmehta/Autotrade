@@ -29,7 +29,9 @@ void GlobalSearchWidget::setupUI() {
   m_searchEdit->setPlaceholderText(
       "Search scripts (e.g., NIFTY 17FEB 26000 CE)");
   m_searchEdit->setMinimumHeight(35);
-  m_searchEdit->setStyleSheet("font-size: 14px; padding: 5px;");
+  m_searchEdit->setStyleSheet(
+      "font-size: 14px; padding: 5px; background:#ffffff; border:1px solid #cbd5e1;"
+      "border-radius:4px; color:#0f172a;");
   searchLayout->addWidget(m_searchEdit);
   mainLayout->addLayout(searchLayout);
 
@@ -63,16 +65,26 @@ void GlobalSearchWidget::setupUI() {
   m_resultsTable->setAlternatingRowColors(true);
   mainLayout->addWidget(m_resultsTable);
 
-  // Styling
-  setStyleSheet("QWidget { background-color: #1e1e1e; color: #d4d4d4; }"
-                "QLineEdit { background-color: #2d2d2d; border: 1px solid "
-                "#3e3e42; border-radius: 4px; color: #ffffff; }"
-                "QComboBox { background-color: #2d2d2d; border: 1px solid "
-                "#3e3e42; border-radius: 4px; padding: 2px 5px; }"
-                "QTableWidget { background-color: #1e1e1e; border: 1px solid "
-                "#3e3e42; gridline-color: #3e3e42; }"
-                "QHeaderView::section { background-color: #2d2d2d; color: "
-                "#d4d4d4; padding: 5px; border: 1px solid #3e3e42; }");
+  // Styling (Light Theme)
+  setStyleSheet(
+      "QWidget { background-color: #ffffff; color: #1e293b; }"
+      "QLineEdit { background-color: #ffffff; border: 1px solid #cbd5e1; "
+      "border-radius: 4px; color: #0f172a; padding: 5px 8px; }"
+      "QLineEdit:focus { border-color: #3b82f6; }"
+      "QComboBox { background-color: #ffffff; border: 1px solid #cbd5e1; "
+      "border-radius: 4px; padding: 4px 8px; color: #0f172a; }"
+      "QComboBox::drop-down { border: none; }"
+      "QComboBox QAbstractItemView { background: #ffffff; color: #0f172a; "
+      "border: 1px solid #e2e8f0; selection-background-color: #dbeafe; "
+      "selection-color: #1e40af; }"
+      "QTableWidget { background-color: #ffffff; border: 1px solid #e2e8f0; "
+      "gridline-color: #f1f5f9; color: #1e293b; }"
+      "QTableWidget::item:selected { background: #dbeafe; color: #1e40af; }"
+      "QTableWidget::item:hover { background: #f8fafc; }"
+      "QHeaderView::section { background-color: #f8fafc; color: #475569; "
+      "padding: 5px; border: none; border-bottom: 2px solid #e2e8f0; "
+      "font-weight: 600; }"
+      "QLabel { color: #475569; }");
 
   // Connections
   connect(m_searchEdit, &QLineEdit::textChanged, this,

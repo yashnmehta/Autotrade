@@ -38,7 +38,7 @@ void ATMWatchSettingsDialog::setupUI() {
     strikeLayout->addRow("Strike Range:", m_strikeRangeSpinBox);
     
     m_strikeRangeExampleLabel = new QLabel(this);
-    m_strikeRangeExampleLabel->setStyleSheet("QLabel { color: gray; font-size: 9pt; }");
+    m_strikeRangeExampleLabel->setStyleSheet("QLabel { color: #64748b; font-size: 9pt; }");
     m_strikeRangeExampleLabel->setWordWrap(true);
     strikeLayout->addRow("", m_strikeRangeExampleLabel);
     
@@ -76,7 +76,7 @@ void ATMWatchSettingsDialog::setupUI() {
     
     QLabel* thresholdNote = new QLabel(
         "Recalculates when price moves by multiplier × strike interval", this);
-    thresholdNote->setStyleSheet("QLabel { color: gray; font-size: 9pt; }");
+    thresholdNote->setStyleSheet("QLabel { color: #64748b; font-size: 9pt; }");
     thresholdNote->setWordWrap(true);
     updateLayout->addRow("", thresholdNote);
     
@@ -115,7 +115,7 @@ void ATMWatchSettingsDialog::setupUI() {
     greeksLayout->addRow(m_showGreeksColumnsCheckbox);
     
     QLabel* greeksNote = new QLabel("Greeks features will be available in Phase 4", this);
-    greeksNote->setStyleSheet("QLabel { color: gray; font-size: 9pt; font-style: italic; }");
+    greeksNote->setStyleSheet("QLabel { color: #64748b; font-size: 9pt; font-style: italic; }");
     greeksLayout->addRow("", greeksNote);
     
     m_greeksGroup->setLayout(greeksLayout);

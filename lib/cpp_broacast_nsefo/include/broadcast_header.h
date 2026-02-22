@@ -1,15 +1,18 @@
-// broadcast header
-struct BroadcastHeader {
-    uint8_t reserved1[2];
-    uint8_t reserved2[2];
-    uint32_t logTime;
-    uint8_t alphaChar[2];
-    uint16_t transactionCode;
-    uint16_t errorCode;
-    uint32_t bcSeqNo;
-    uint8_t reserved3;
-    uint8_t reserved4[3];
-    uint8_t timeStamp2[8];
-    uint8_t filler[8];
-    uint16_t messageLength;
-};
+// DEPRECATED: This file is a legacy duplicate of protocol.h / nse_common.h.
+//
+// Use the following instead:
+//   - BCAST_HEADER  →  #include "nse_common.h"   (used by all parsers)
+//   - BroadcastHeader (protocol.h version) → #include "protocol.h"
+//
+// This header is kept to avoid breaking any old includes but should NOT be
+// used in new code.
+
+#ifndef BROADCAST_HEADER_H_LEGACY
+#define BROADCAST_HEADER_H_LEGACY
+
+#pragma message("broadcast_header.h is deprecated – include nse_common.h for BCAST_HEADER instead")
+
+// Re-export via nse_common.h to avoid the duplicate definition
+#include "nse_common.h"
+
+#endif // BROADCAST_HEADER_H_LEGACY

@@ -42,6 +42,16 @@ void UDPStats::recordPacket() {
     totalPackets++;
 }
 
+void UDPStats::recordSequenceGap(uint32_t expected, uint32_t actual) {
+    sequenceGaps++;
+    if (actual > expected) {
+        droppedMessages += (actual - expected);
+    }
+    std::cerr << "[SeqGap] expected=" << expected << " actual=" << actual
+              << " dropped≈" << (actual > expected ? actual - expected : 1)
+              << " (total gaps=" << sequenceGaps << ")" << std::endl;
+}
+
 void UDPStats::print() {
     auto now = std::chrono::steady_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::seconds>(now - startTime).count();
@@ -52,6 +62,8 @@ void UDPStats::print() {
     std::cout << "Runtime: " << duration << "s" << std::endl;
     std::cout << "Total Packets: " << totalPackets << std::endl;
     std::cout << "Total Bytes: " << totalBytes / 1024.0 / 1024.0 << " MB" << std::endl;
+    std::cout << "Sequence Gaps: " << sequenceGaps
+              << " | Estimated Dropped Messages: " << droppedMessages << std::endl;
     
     std::cout << "\nCode   Name                            Count       Comp(KB)    Raw(KB)" << std::endl;
     std::cout << "--------------------------------------------------------------------------------" << std::endl;
@@ -80,6 +92,8 @@ std::ostream& operator<<(std::ostream& os, const UDPStats& stats) {
     os << "Compressed: " << stats.compressedPackets << " | Decompressed: " << stats.decompressedPackets 
        << " | Failures: " << stats.decompressionFailures << std::endl;
     os << "Total Bytes: " << stats.totalBytes / 1024.0 / 1024.0 << " MB" << std::endl;
+    os << "Sequence Gaps: " << stats.sequenceGaps
+       << " | Estimated Dropped Messages: " << stats.droppedMessages << std::endl;
     
     if (!stats.messageStats.empty()) {
         os << "\nCode   Name                            Count       Comp(KB)    Raw(KB)" << std::endl;

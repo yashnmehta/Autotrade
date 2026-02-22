@@ -7,18 +7,26 @@
 #include <iostream>
 #include <iomanip>
 #include <vector>
+#include <atomic>
 
 namespace nsefo {
 
 void parse_compressed_message(const char* data, int16_t length, UDPStats& stats) {
-    // Statistics tracking
-    static int total_messages = 0;
-    static int successful_decompressions = 0;
-    static int failed_decompressions = 0;
-    static int lookbehind_errors = 0;
-    static int other_errors = 0;
-    
-    total_messages++;
+    // Decompression error counters – use atomics so this function is safe
+    // even if called from multiple threads in a future multi-feed scenario.
+    static std::atomic<int> total_messages{0};
+    static std::atomic<int> successful_decompressions{0};
+    static std::atomic<int> failed_decompressions{0};
+    static std::atomic<int> lookbehind_errors{0};
+    static std::atomic<int> other_errors{0};
+
+    // Per-feed sequence tracking to detect dropped messages.
+    // Key: bcSeqNo from BCAST_HEADER (offset 14 within the header).
+    // We track the last seen sequence number and flag gaps.
+    static std::atomic<uint32_t> lastSeqNo{0};
+    static std::atomic<bool> seqNoInitialized{false};
+
+    int msgCount = ++total_messages;
     
     // Decompress using official LZO library
     std::vector<uint8_t> input(data, data + length);
@@ -27,21 +35,21 @@ void parse_compressed_message(const char* data, int16_t length, UDPStats& stats)
     int result;
     try {
         result = common::LzoDecompressor::decompressWithLibrary(input, output);
-        successful_decompressions++;
+        ++successful_decompressions;
     } catch (const std::exception& e) {
-        failed_decompressions++;
+        ++failed_decompressions;
         std::string error_msg = e.what();
         if (error_msg.find("lookbehind") != std::string::npos) {
-            lookbehind_errors++;
+            ++lookbehind_errors;
         } else {
-            other_errors++;
+            ++other_errors;
         }
-        
+
         // Show first 10 errors for debugging
-        static int error_count = 0;
-        error_count++;
-        if (error_count <= 10) {
-            std::cout << "\n[Decompression Error #" << error_count << "] " << error_msg << std::endl;
+        static std::atomic<int> error_count{0};
+        int ec = ++error_count;
+        if (ec <= 10) {
+            std::cout << "\n[Decompression Error #" << ec << "] " << error_msg << std::endl;
             std::cout << "Input length: " << length << " bytes" << std::endl;
             std::cout << "First 16 bytes: ";
             for (int i = 0; i < std::min((int)length, 16); i++) {
@@ -49,16 +57,19 @@ void parse_compressed_message(const char* data, int16_t length, UDPStats& stats)
             }
             std::cout << std::endl;
         }
-        
+
         // Print statistics every 100 messages
-        if (total_messages % 100 == 0) {
-            double success_rate = (successful_decompressions * 100.0) / total_messages;
-            double lookbehind_rate = (lookbehind_errors * 100.0) / total_messages;
-            std::cout << "\n=== Decompression Statistics (after " << total_messages << " messages) ===" << std::endl;
-            std::cout << "Success: " << successful_decompressions << " (" << std::fixed << std::setprecision(2) << success_rate << "%)" << std::endl;
-            std::cout << "Failed: " << failed_decompressions << " (" << std::fixed << std::setprecision(2) << (100.0 - success_rate) << "%)" << std::endl;
-            std::cout << "  - Lookbehind errors: " << lookbehind_errors << " (" << std::fixed << std::setprecision(2) << lookbehind_rate << "%)" << std::endl;
-            std::cout << "  - Other errors: " << other_errors << std::endl;
+        if (msgCount % 1000 == 0) {
+            int succ = successful_decompressions.load();
+            int fail = failed_decompressions.load();
+            int lb   = lookbehind_errors.load();
+            double success_rate = (succ * 100.0) / msgCount;
+            double lookbehind_rate = (lb * 100.0) / msgCount;
+            std::cout << "\n=== Decompression Statistics (after " << msgCount << " messages) ===" << std::endl;
+            std::cout << "Success: " << succ << " (" << std::fixed << std::setprecision(2) << success_rate << "%)" << std::endl;
+            std::cout << "Failed: "  << fail << " (" << std::fixed << std::setprecision(2) << (100.0 - success_rate) << "%)" << std::endl;
+            std::cout << "  - Lookbehind errors: " << lb << " (" << std::fixed << std::setprecision(2) << lookbehind_rate << "%)" << std::endl;
+            std::cout << "  - Other errors: " << other_errors.load() << std::endl;
             std::cout << std::endl;
         }
         return;
@@ -85,6 +96,32 @@ void parse_compressed_message(const char* data, int16_t length, UDPStats& stats)
     
     // Extract Transaction Code from offset 10 of the BCAST_HEADER
     uint16_t txCode = be16toh_func(*((uint16_t*)(message_data + CommonConfig::BCAST_HEADER_TXCODE_OFFSET)));
+
+    // -------------------------------------------------------
+    // Sequence gap detection via bcSeqNo (offset 14 of BCAST_HEADER).
+    // bcSeqNo is a per-feed monotonically increasing counter; any skip
+    // indicates dropped/lost packets at the OS or network level.
+    // -------------------------------------------------------
+    {
+        // BCAST_HEADER layout: reserved1(2)+reserved2(2)+logTime(4)+alphaChar(2)+transCode(2)+errorCode(2)+bcSeqNo(4)
+        // Offset of bcSeqNo = 2+2+4+2+2+2 = 14
+        constexpr size_t BCAST_HEADER_SEQNO_OFFSET = 14;
+        if (message_size >= BCAST_HEADER_SEQNO_OFFSET + sizeof(uint32_t)) {
+            uint32_t currentSeqNo = be32toh_func(
+                *reinterpret_cast<const uint32_t*>(message_data + BCAST_HEADER_SEQNO_OFFSET));
+
+            if (!seqNoInitialized.exchange(true)) {
+                lastSeqNo.store(currentSeqNo);
+            } else {
+                uint32_t expected = lastSeqNo.load() + 1;
+                // Allow wrapping (uint32 overflow)
+                if (currentSeqNo != expected && currentSeqNo != lastSeqNo.load()) {
+                    stats.recordSequenceGap(expected, currentSeqNo);
+                }
+                lastSeqNo.store(currentSeqNo);
+            }
+        }
+    }
 
     if (txCode != 7208 and txCode != 17202 and txCode != 7220 and txCode != 7211)
     {

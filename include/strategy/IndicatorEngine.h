@@ -2,10 +2,23 @@
 #define INDICATOR_ENGINE_H
 
 #include "data/CandleData.h"
-#include "strategy/StrategyDefinition.h"
 #include <QHash>
-#include <QObject>
+#include <QString>
+#include <QStringList>
 #include <QVector>
+
+/**
+ * @brief Configuration for a single indicator to compute.
+ */
+struct IndicatorConfig {
+  QString id;            // Unique ID: "RSI_14", "SMA_20"
+  QString type;          // "RSI", "SMA", "EMA", "MACD", "BB", "ATR", etc.
+  int period  = 14;      // Primary period
+  int period2 = 0;       // Secondary period (e.g. MACD signal line)
+  int period3 = 0;       // Tertiary period
+  QString priceField = "close"; // "close", "high", "low", "open", "hl2", "hlc3"
+  double param1 = 0.0;   // Extra param (e.g. BB stddev multiplier)
+};
 
 /**
  * @brief Computes technical indicators from candle history

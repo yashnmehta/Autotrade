@@ -23,16 +23,16 @@ GenericProfileDialog::GenericProfileDialog(const QString &windowName,
     setModal(true);
     resize(700, 500);
     
-    // Use the same styling as Market Watch's dialog
+    // Use the same light-theme styling as Market Watch's dialog
     setStyleSheet(
-        "QDialog { background-color: #1e1e1e; color: #cccccc; }"
-        "QLabel { color: #e0e0e0; font-size: 13px; font-weight: 500; }"
-        "QComboBox { background-color: #2d2d30; color: #cccccc; border: 1px solid #454545; border-radius: 2px; padding: 6px 10px; }"
-        "QListWidget { background-color: #252526; color: #cccccc; border: 1px solid #454545; border-radius: 2px; }"
-        "QListWidget::item:selected { background-color: #094771; color: #ffffff; }"
-        "QPushButton { background-color: #0e639c; color: #ffffff; border: 1px solid #0e639c; border-radius: 2px; padding: 7px 18px; min-width: 75px; }"
-        "QPushButton:hover { background-color: #1177bb; }"
-        "QPushButton:disabled { background-color: #2d2d30; color: #656565; }"
+        "QDialog { background-color: #ffffff; color: #1e293b; }"
+        "QLabel { color: #334155; font-size: 13px; font-weight: 500; }"
+        "QComboBox { background-color: #ffffff; color: #1e293b; border: 1px solid #cbd5e1; border-radius: 4px; padding: 6px 10px; }"
+        "QListWidget { background-color: #ffffff; color: #1e293b; border: 1px solid #e2e8f0; border-radius: 4px; }"
+        "QListWidget::item:selected { background-color: #dbeafe; color: #1e40af; }"
+        "QPushButton { background-color: #2563eb; color: #ffffff; border: 1px solid #2563eb; border-radius: 4px; padding: 7px 18px; min-width: 75px; }"
+        "QPushButton:hover { background-color: #1d4ed8; }"
+        "QPushButton:disabled { background-color: #f1f5f9; color: #94a3b8; border: 1px solid #e2e8f0; }"
     );
     
     setupUI();

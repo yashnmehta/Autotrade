@@ -27,8 +27,12 @@ public:
     void disconnectWebSocket();
 
     // Market data subscription
-    void subscribe(const QVector<int64_t> &instrumentIDs, int exchangeSegment);
-    void unsubscribe(const QVector<int64_t> &instrumentIDs, int exchangeSegment);
+    // xtsMessageCode: 1501=Touchline, 1502=MarketDepth, 1505=Candle,
+    //                 1510=OpenInterest, 1512=LTP (lightest)
+    void subscribe(const QVector<int64_t> &instrumentIDs, int exchangeSegment,
+                   int xtsMessageCode = 1502);
+    void unsubscribe(const QVector<int64_t> &instrumentIDs, int exchangeSegment,
+                     int xtsMessageCode = 1502);
 
     // Instrument search/fetch
     void getInstruments(int exchangeSegment);

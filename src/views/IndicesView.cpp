@@ -141,21 +141,21 @@ void IndicesView::setupUI() {
   m_view->setEditTriggers(QAbstractItemView::NoEditTriggers);
 
   setStyleSheet(
-      "background-color: #1e1e1e; color: #cccccc; border: 1px solid #3e3e42;");
+      "background-color: #ffffff; color: #1e293b; border: 1px solid #e2e8f0;");
   m_view->setStyleSheet("QTableView { "
-                        "   background-color: #1e1e1e; "
-                        "   gridline-color: #333333; "
-                        "   color: #e0e0e0; "
+                        "   background-color: #ffffff; "
+                        "   gridline-color: #f1f5f9; "
+                        "   color: #1e293b; "
                         "   border: none; "
                         "} "
                         "QTableView::item:selected { "
-                        "   background-color: #094771; "
-                        "   color: white; "
+                        "   background-color: #dbeafe; "
+                        "   color: #1e40af; "
                         "} "
                         "QHeaderView::section { "
-                        "   background-color: #252526; "
-                        "   color: #cccccc; "
-                        "   border: 1px solid #3e3e42; "
+                        "   background-color: #f8fafc; "
+                        "   color: #475569; "
+                        "   border: 1px solid #e2e8f0; "
                         "}");
 
   // Column sizing
@@ -170,10 +170,10 @@ void IndicesView::setupUI() {
 
   // View styling
   m_view->setStyleSheet(
-      "QTableView { background-color: #ffffff; color: #000000; border: none; "
+      "QTableView { background-color: #ffffff; color: #1e293b; border: none; "
       "font-weight: bold; font-family: 'Inter', sans-serif; }"
-      "QTableView::item { padding: 4px; border-bottom: 1px solid #eeeeee; }"
-      "QTableView::item:selected { background-color: #e5f3ff; color: #000000; "
+      "QTableView::item { padding: 4px; border-bottom: 1px solid #f1f5f9; }"
+      "QTableView::item:selected { background-color: #dbeafe; color: #1e40af; "
       "}");
 
   // Enable custom context menu

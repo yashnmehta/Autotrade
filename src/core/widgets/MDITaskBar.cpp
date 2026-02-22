@@ -6,7 +6,7 @@ MDITaskBar::MDITaskBar(QWidget *parent)
     : QWidget(parent)
 {
     setFixedHeight(32);
-    setStyleSheet("background-color: #2d2d30; border-top: 1px solid #3e3e42;");
+    setStyleSheet("background-color: #f8fafc; border-top: 1px solid #e2e8f0;");
     
     m_layout = new QHBoxLayout(this);
     m_layout->setContentsMargins(5, 2, 5, 2);
@@ -27,18 +27,20 @@ void MDITaskBar::addWindow(CustomMDISubWindow *window)
     
     button->setStyleSheet(
         "QPushButton { "
-        "   background-color: #3e3e42; "
-        "   color: #ffffff; "
-        "   border: 1px solid #555555; "
-        "   border-radius: 2px; "
+        "   background-color: #f1f5f9; "
+        "   color: #334155; "
+        "   border: 1px solid #e2e8f0; "
+        "   border-radius: 4px; "
         "   padding: 2px 8px; "
         "   text-align: left; "
         "} "
         "QPushButton:hover { "
-        "   background-color: #505053; "
+        "   background-color: #e2e8f0; "
+        "   color: #1e293b; "
         "} "
         "QPushButton:pressed { "
-        "   background-color: #007acc; "
+        "   background-color: #dbeafe; "
+        "   color: #1e40af; "
         "}"
     );
     
