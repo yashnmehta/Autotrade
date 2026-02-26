@@ -15,6 +15,8 @@
 #include <QDialogButtonBox>
 #include <QSettings>
 #include <QLabel>
+#include <QJsonDocument>
+#include <QSet>
 #include <cmath>
 #include <limits>
 
@@ -23,119 +25,127 @@
 #include "services/FeedHandler.h"
 #include "services/GreeksCalculationService.h"
 #include "services/TokenSubscriptionManager.h"
+#include "views/GenericProfileDialog.h"
 #include <QTimer>
 
 // ============================================================================
-// Simple Column Visibility Dialog for OptionChain
+// Column ID → Put-table model-column mapping
 // ============================================================================
-class OptionChainColumnDialog : public QDialog {
-  Q_OBJECT
-public:
-  explicit OptionChainColumnDialog(QWidget *parent = nullptr) : QDialog(parent) {
-    setWindowTitle("Column Visibility");
-    setModal(true);
-    setMinimumWidth(500);
-    
-    QVBoxLayout *mainLayout = new QVBoxLayout(this);
-    
-    // Call columns
-    QLabel *callLabel = new QLabel("Call Columns:", this);
-    callLabel->setStyleSheet("QLabel { font-weight: bold; color: #334155; font-size: 11pt; }");
-    mainLayout->addWidget(callLabel);
-    
-    QGridLayout *callLayout = new QGridLayout();
-    // Columns: (0)OI (1)Chng in OI (2)Volume (3)IV (4)BidIV (5)AskIV (6)Delta (7)Gamma (8)Vega (9)Theta (10)LTP (11)Chng (12)BID QTY (13)BID (14)ASK (15)ASK QTY
-    // Note: column 0 is checkbox (skip it), so actual data columns start at 1
-    QStringList callCols = {"OI", "Chng in OI", "Volume", "IV", "BidIV", "AskIV", "Delta", "Gamma", "Vega", "Theta", "LTP", "Chng", "BID QTY", "BID", "ASK", "ASK QTY"};
-    for (int i = 0; i < callCols.size(); ++i) {
-      QCheckBox *cb = new QCheckBox(callCols[i], this);
-      cb->setChecked(true);
-      m_callChecks[i + 1] = cb;  // +1 because checkbox col is 0
-      callLayout->addWidget(cb, i / 4, i % 4);
+// Call table:  col 0 = checkbox, cols 1-16 = OI..ASK_QTY  →  callIndex = colId + 1
+// Put  table:  cols 0-15 = BID_QTY..OI (mirrored), col 16 = checkbox
+int OptionChainWindow::putColumnIndex(int colId)
+{
+    // Column IDs 0-15 match the old OptionChainColumn enum
+    static const int map[] = {
+        /* OI          0 */ 15,
+        /* CHNG_IN_OI  1 */ 14,
+        /* VOLUME      2 */ 13,
+        /* IV          3 */  6,
+        /* BID_IV      4 */  7,
+        /* ASK_IV      5 */  8,
+        /* DELTA       6 */  9,
+        /* GAMMA       7 */ 10,
+        /* VEGA        8 */ 11,
+        /* THETA       9 */ 12,
+        /* LTP        10 */  5,
+        /* CHNG       11 */  4,
+        /* BID_QTY    12 */  0,
+        /* BID        13 */  1,
+        /* ASK        14 */  2,
+        /* ASK_QTY    15 */  3,
+    };
+    if (colId < 0 || colId >= 16) return -1;
+    return map[colId];
+}
+
+// ============================================================================
+// Column metadata & preset factories
+// ============================================================================
+QList<GenericColumnInfo> OptionChainWindow::buildColumnMetadata()
+{
+    // IDs 0-15 mirror the old OptionChainColumn enum values
+    return {
+        { 0,  "OI",          70,  true  },
+        { 1,  "Chng in OI",  80,  true  },
+        { 2,  "Volume",      70,  true  },
+        { 3,  "IV",          60,  true  },
+        { 4,  "Bid IV",      60,  false },
+        { 5,  "Ask IV",      60,  false },
+        { 6,  "Delta",       65,  false },
+        { 7,  "Gamma",       65,  false },
+        { 8,  "Vega",        65,  false },
+        { 9,  "Theta",       65,  false },
+        { 10, "LTP",         70,  true  },
+        { 11, "Chng",        70,  true  },
+        { 12, "Bid Qty",     70,  true  },
+        { 13, "Bid",         70,  true  },
+        { 14, "Ask",         70,  true  },
+        { 15, "Ask Qty",     70,  true  },
+    };
+}
+
+GenericTableProfile OptionChainWindow::createPreset_Default(const QList<GenericColumnInfo> &cols)
+{
+    return GenericTableProfile::createDefault(cols);
+}
+
+GenericTableProfile OptionChainWindow::createPreset_Compact(const QList<GenericColumnInfo> &cols)
+{
+    GenericTableProfile p("Compact");
+    p.setDescription("Minimal columns for quick overview");
+    QList<int> order;
+    QSet<int> vis = { 0/*OI*/, 2/*Volume*/, 10/*LTP*/, 11/*Chng*/, 13/*Bid*/, 14/*Ask*/ };
+    for (const auto &c : cols) {
+        order.append(c.id);
+        p.setColumnVisible(c.id, vis.contains(c.id));
+        p.setColumnWidth(c.id, c.defaultWidth);
     }
-    mainLayout->addLayout(callLayout);
-    
-    mainLayout->addSpacing(10);
-    
-    // Put columns
-    QLabel *putLabel = new QLabel("Put Columns:", this);
-    putLabel->setStyleSheet("QLabel { font-weight: bold; color: #334155; font-size: 11pt; }");
-    mainLayout->addWidget(putLabel);
-    
-    QGridLayout *putLayout = new QGridLayout();
-    // PUT: (0)BID QTY (1)BID (2)ASK (3)ASK QTY (4)Chng (5)LTP (6)IV (7)BidIV (8)AskIV (9)Delta (10)Gamma (11)Vega (12)Theta (13)Volume (14)Chng in OI (15)OI
-    // Last column (16) is checkbox (skip it)
-    QStringList putCols = {"BID QTY", "BID", "ASK", "ASK QTY", "Chng", "LTP", "IV", "BidIV", "AskIV", "Delta", "Gamma", "Vega", "Theta", "Volume", "Chng in OI", "OI"};
-    for (int i = 0; i < putCols.size(); ++i) {
-      QCheckBox *cb = new QCheckBox(putCols[i], this);
-      cb->setChecked(true);
-      m_putChecks[i] = cb;
-      putLayout->addWidget(cb, i / 4, i % 4);
+    p.setColumnOrder(order);
+    return p;
+}
+
+GenericTableProfile OptionChainWindow::createPreset_Greeks(const QList<GenericColumnInfo> &cols)
+{
+    GenericTableProfile p("Greeks");
+    p.setDescription("Greek values and implied volatility");
+    QList<int> order;
+    QSet<int> vis = { 0/*OI*/, 3/*IV*/, 4/*BidIV*/, 5/*AskIV*/,
+                      6/*Delta*/, 7/*Gamma*/, 8/*Vega*/, 9/*Theta*/, 10/*LTP*/ };
+    for (const auto &c : cols) {
+        order.append(c.id);
+        p.setColumnVisible(c.id, vis.contains(c.id));
+        p.setColumnWidth(c.id, c.defaultWidth);
     }
-    mainLayout->addLayout(putLayout);
-    
-    mainLayout->addStretch();
-    
-    // Buttons
-    QDialogButtonBox *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
-    connect(buttons, &QDialogButtonBox::accepted, this, &QDialog::accept);
-    connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
-    mainLayout->addWidget(buttons);
-    
-    loadSettings();
-  }
-  
-  void loadSettings() {
-    QSettings settings("configs/config.ini", QSettings::IniFormat);
-    settings.beginGroup("OPTION_CHAIN_COLUMNS");
-    for (auto it = m_callChecks.begin(); it != m_callChecks.end(); ++it) {
-      QString key = QString("call_col_%1").arg(it.key());
-      bool visible = settings.value(key, true).toBool();
-      it.value()->setChecked(visible);
+    p.setColumnOrder(order);
+    return p;
+}
+
+GenericTableProfile OptionChainWindow::createPreset_Trading(const QList<GenericColumnInfo> &cols)
+{
+    GenericTableProfile p("Trading");
+    p.setDescription("Full trading view with OI and bid/ask");
+    QList<int> order;
+    QSet<int> vis = { 0/*OI*/, 1/*ChngInOI*/, 2/*Volume*/, 3/*IV*/,
+                      10/*LTP*/, 11/*Chng*/, 12/*BidQty*/, 13/*Bid*/, 14/*Ask*/, 15/*AskQty*/ };
+    for (const auto &c : cols) {
+        order.append(c.id);
+        p.setColumnVisible(c.id, vis.contains(c.id));
+        p.setColumnWidth(c.id, c.defaultWidth);
     }
-    for (auto it = m_putChecks.begin(); it != m_putChecks.end(); ++it) {
-      QString key = QString("put_col_%1").arg(it.key());
-      bool visible = settings.value(key, true).toBool();
-      it.value()->setChecked(visible);
+    p.setColumnOrder(order);
+    return p;
+}
+
+void OptionChainWindow::captureColumnWidths()
+{
+    for (int colId = 0; colId < 16; ++colId) {
+        int callIdx = colId + 1;
+        if (callIdx < m_callTable->model()->columnCount()) {
+            int w = m_callTable->columnWidth(callIdx);
+            if (w > 0) m_columnProfile.setColumnWidth(colId, w);
+        }
     }
-    settings.endGroup();
-  }
-  
-  void saveSettings() {
-    QSettings settings("configs/config.ini", QSettings::IniFormat);
-    settings.beginGroup("OPTION_CHAIN_COLUMNS");
-    for (auto it = m_callChecks.begin(); it != m_callChecks.end(); ++it) {
-      QString key = QString("call_col_%1").arg(it.key());
-      settings.setValue(key, it.value()->isChecked());
-    }
-    for (auto it = m_putChecks.begin(); it != m_putChecks.end(); ++it) {
-      QString key = QString("put_col_%1").arg(it.key());
-      settings.setValue(key, it.value()->isChecked());
-    }
-    settings.endGroup();
-    settings.sync();
-  }
-  
-  QMap<int, bool> getCallVisibility() const {
-    QMap<int, bool> result;
-    for (auto it = m_callChecks.begin(); it != m_callChecks.end(); ++it) {
-      result[it.key()] = it.value()->isChecked();
-    }
-    return result;
-  }
-  
-  QMap<int, bool> getPutVisibility() const {
-    QMap<int, bool> result;
-    for (auto it = m_putChecks.begin(); it != m_putChecks.end(); ++it) {
-      result[it.key()] = it.value()->isChecked();
-    }
-    return result;
-  }
-  
-private:
-  QMap<int, QCheckBox*> m_callChecks;
-  QMap<int, QCheckBox*> m_putChecks;
-};
+}
 
 // ============================================================================
 // OptionChainDelegate Implementation
@@ -238,13 +248,43 @@ OptionChainWindow::OptionChainWindow(QWidget *parent)
       m_putTable(nullptr), m_callModel(nullptr), m_strikeModel(nullptr),
       m_putModel(nullptr), m_callDelegate(nullptr), m_putDelegate(nullptr),
       m_atmStrike(0.0), m_exchangeSegment(2), m_selectedCallRow(-1),
-      m_selectedPutRow(-1) {
+      m_selectedPutRow(-1), m_profileManager(nullptr) {
   setupUI();
   setupModels();
   setupConnections();
   setupShortcuts();
 
-  // Load column visibility from settings
+  // ── Build column metadata & register preset profiles ─────────────────
+  QList<GenericColumnInfo> colMeta = buildColumnMetadata();
+  m_profileManager = new GenericProfileManager("profiles", "OptionChain");
+  m_profileManager->addPreset(createPreset_Default(colMeta));
+  m_profileManager->addPreset(createPreset_Compact(colMeta));
+  m_profileManager->addPreset(createPreset_Greeks(colMeta));
+  m_profileManager->addPreset(createPreset_Trading(colMeta));
+  m_profileManager->loadCustomProfiles();
+
+  // Restore last-used profile (from QSettings JSON, or fall back to manager default)
+  {
+    QSettings settings("configs/config.ini", QSettings::IniFormat);
+    settings.beginGroup("OPTION_CHAIN_PROFILE");
+    QString json = settings.value("profile_json").toString();
+    settings.endGroup();
+
+    bool restored = false;
+    if (!json.isEmpty()) {
+      QJsonDocument doc = QJsonDocument::fromJson(json.toUtf8());
+      if (!doc.isNull()) {
+        m_columnProfile.fromJson(doc.object());
+        restored = true;
+      }
+    }
+    if (!restored) {
+      QString defName = m_profileManager->loadDefaultProfileName();
+      m_columnProfile = m_profileManager->getProfile(defName);
+    }
+  }
+
+  // Apply column visibility from the loaded profile
   applyColumnVisibility();
 
   // Populate symbols (silently, without triggering partial refreshes)
@@ -257,7 +297,9 @@ OptionChainWindow::OptionChainWindow(QWidget *parent)
   resize(1600, 800);
 }
 
-OptionChainWindow::~OptionChainWindow() {}
+OptionChainWindow::~OptionChainWindow() {
+  delete m_profileManager;
+}
 
 void OptionChainWindow::setupUI() {
   QVBoxLayout *mainLayout = new QVBoxLayout(this);
@@ -824,16 +866,42 @@ void OptionChainWindow::keyPressEvent(QKeyEvent *event) {
 
   // ── F1: Buy CE (call focused) | PE (put focused) | CE (strike focused) ────
   if (event->key() == Qt::Key_F1) {
+    // Build context from the currently selected row
+    int targetRow = -1;
+    QString optType;
     if (m_callTable->hasFocus() && m_selectedCallRow >= 0) {
-      emit tradeRequested(m_currentSymbol, m_currentExpiry,
-                          getStrikeAtRow(m_selectedCallRow), "CE");
+      targetRow = m_selectedCallRow;
+      optType = "CE";
     } else if (m_putTable->hasFocus() && m_selectedPutRow >= 0) {
-      emit tradeRequested(m_currentSymbol, m_currentExpiry,
-                          getStrikeAtRow(m_selectedPutRow), "PE");
-    } else if (m_strikeTable->hasFocus() &&
-               m_strikeTable->currentIndex().isValid()) {
-      emit tradeRequested(m_currentSymbol, m_currentExpiry,
-                          getStrikeAtRow(m_strikeTable->currentIndex().row()), "CE");
+      targetRow = m_selectedPutRow;
+      optType = "PE";
+    } else if (m_strikeTable->hasFocus() && m_strikeTable->currentIndex().isValid()) {
+      targetRow = m_strikeTable->currentIndex().row();
+      optType = "CE";
+    } else if (m_selectedCallRow >= 0) {
+      // Fallback: use last selected call row even if table doesn't have focus
+      targetRow = m_selectedCallRow;
+      optType = "CE";
+    } else if (m_selectedPutRow >= 0) {
+      targetRow = m_selectedPutRow;
+      optType = "PE";
+    }
+
+    if (targetRow >= 0) {
+      // Temporarily set the selected row so getSelectedContext picks it up
+      int prevCallRow = m_selectedCallRow;
+      int prevPutRow = m_selectedPutRow;
+      if (optType == "CE") {
+        m_selectedCallRow = targetRow;
+        m_callTable->selectRow(targetRow);
+      } else {
+        m_selectedPutRow = targetRow;
+        m_putTable->selectRow(targetRow);
+      }
+      WindowContext ctx = getSelectedContext();
+      if (ctx.isValid()) {
+        emit buyRequested(ctx);
+      }
     }
     event->accept();
     return;
@@ -841,16 +909,37 @@ void OptionChainWindow::keyPressEvent(QKeyEvent *event) {
 
   // ── F2: Sell CE/PE ────────────────────────────────────────────────────────
   if (event->key() == Qt::Key_F2) {
+    int targetRow = -1;
+    QString optType;
     if (m_callTable->hasFocus() && m_selectedCallRow >= 0) {
-      emit tradeRequested(m_currentSymbol, m_currentExpiry,
-                          getStrikeAtRow(m_selectedCallRow), "CE");
+      targetRow = m_selectedCallRow;
+      optType = "CE";
     } else if (m_putTable->hasFocus() && m_selectedPutRow >= 0) {
-      emit tradeRequested(m_currentSymbol, m_currentExpiry,
-                          getStrikeAtRow(m_selectedPutRow), "PE");
-    } else if (m_strikeTable->hasFocus() &&
-               m_strikeTable->currentIndex().isValid()) {
-      emit tradeRequested(m_currentSymbol, m_currentExpiry,
-                          getStrikeAtRow(m_strikeTable->currentIndex().row()), "PE");
+      targetRow = m_selectedPutRow;
+      optType = "PE";
+    } else if (m_strikeTable->hasFocus() && m_strikeTable->currentIndex().isValid()) {
+      targetRow = m_strikeTable->currentIndex().row();
+      optType = "PE";
+    } else if (m_selectedCallRow >= 0) {
+      targetRow = m_selectedCallRow;
+      optType = "CE";
+    } else if (m_selectedPutRow >= 0) {
+      targetRow = m_selectedPutRow;
+      optType = "PE";
+    }
+
+    if (targetRow >= 0) {
+      if (optType == "CE") {
+        m_selectedCallRow = targetRow;
+        m_callTable->selectRow(targetRow);
+      } else {
+        m_selectedPutRow = targetRow;
+        m_putTable->selectRow(targetRow);
+      }
+      WindowContext ctx = getSelectedContext();
+      if (ctx.isValid()) {
+        emit sellRequested(ctx);
+      }
     }
     event->accept();
     return;
@@ -1434,7 +1523,7 @@ WindowContext OptionChainWindow::getSelectedContext() const {
   int token = 0;
 
   // Prioritize Call selection
-  if (m_selectedCallRow >= 0 && m_callTable->selectionModel()->hasSelection()) {
+  if (m_selectedCallRow >= 0) {
     strike = getStrikeAtRow(m_selectedCallRow);
     optionType = "CE";
     if (m_strikeData.contains(strike)) {
@@ -1446,8 +1535,7 @@ WindowContext OptionChainWindow::getSelectedContext() const {
     }
   }
   // Check Put selection
-  else if (m_selectedPutRow >= 0 &&
-           m_putTable->selectionModel()->hasSelection()) {
+  else if (m_selectedPutRow >= 0) {
     strike = getStrikeAtRow(m_selectedPutRow);
     optionType = "PE";
     if (m_strikeData.contains(strike)) {
@@ -1717,34 +1805,53 @@ void OptionChainWindow::populateExpiries(const QString &symbol) {
 }
 
 void OptionChainWindow::applyColumnVisibility() {
+  // Apply the current m_columnProfile to both Call and Put tables.
+  // Call table: col 0 = checkbox (always visible), data cols 1-16.
+  // Put  table: cols 0-15 = data (mirrored), col 16 = checkbox (always visible).
+
+  for (int colId = 0; colId < 16; ++colId) {
+    bool visible = m_columnProfile.isColumnVisible(colId);
+
+    // Call table index = colId + 1 (skip checkbox at 0)
+    int callIdx = colId + 1;
+    if (callIdx > 0 && callIdx < m_callModel->columnCount())
+      m_callTable->setColumnHidden(callIdx, !visible);
+
+    // Put table index via mapping
+    int putIdx = putColumnIndex(colId);
+    if (putIdx >= 0 && putIdx < m_putModel->columnCount() - 1)
+      m_putTable->setColumnHidden(putIdx, !visible);
+
+    // Apply column widths
+    int w = m_columnProfile.columnWidth(colId);
+    if (w > 0) {
+      if (callIdx > 0 && callIdx < m_callModel->columnCount())
+        m_callTable->setColumnWidth(callIdx, w);
+      if (putIdx >= 0 && putIdx < m_putModel->columnCount() - 1)
+        m_putTable->setColumnWidth(putIdx, w);
+    }
+  }
+
+  // Persist the profile as JSON in QSettings so it survives restarts
   QSettings settings("configs/config.ini", QSettings::IniFormat);
-  settings.beginGroup("OPTION_CHAIN_COLUMNS");
-  
-  // Call table - column 0 is checkbox (always visible), data columns start at 1
-  for (int col = 1; col < m_callModel->columnCount(); ++col) {
-    QString key = QString("call_col_%1").arg(col);
-    bool visible = settings.value(key, true).toBool();
-    m_callTable->setColumnHidden(col, !visible);
-  }
-  
-  // Put table - last column is checkbox (always visible), data columns are 0 to columnCount-2
-  for (int col = 0; col < m_putModel->columnCount() - 1; ++col) {
-    QString key = QString("put_col_%1").arg(col);
-    bool visible = settings.value(key, true).toBool();
-    m_putTable->setColumnHidden(col, !visible);
-  }
-  
+  settings.beginGroup("OPTION_CHAIN_PROFILE");
+  QJsonDocument doc(m_columnProfile.toJson());
+  settings.setValue("profile_json", QString::fromUtf8(doc.toJson(QJsonDocument::Compact)));
   settings.endGroup();
-  qDebug() << "[OptionChain] Column visibility applied from settings";
+  settings.sync();
+
+  qDebug() << "[OptionChain] Column visibility applied from profile:" << m_columnProfile.name();
 }
 
 void OptionChainWindow::showColumnDialog() {
-  OptionChainColumnDialog dialog(this);
+  // Capture current widths before showing dialog
+  captureColumnWidths();
+
+  QList<GenericColumnInfo> colMeta = buildColumnMetadata();
+  GenericProfileDialog dialog("Option Chain", colMeta, m_profileManager, m_columnProfile, this);
   if (dialog.exec() == QDialog::Accepted) {
-    dialog.saveSettings();
+    m_columnProfile = dialog.getProfile();
     applyColumnVisibility();
-    qInfo() << "[OptionChain] Column visibility updated";
+    qInfo() << "[OptionChain] Column profile updated:" << m_columnProfile.name();
   }
 }
-
-#include "OptionChainWindow.moc"

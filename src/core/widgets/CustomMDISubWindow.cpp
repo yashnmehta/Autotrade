@@ -230,17 +230,17 @@ void CustomMDISubWindow::closeEvent(QCloseEvent *event) {
     // Activate the initiating window (if any) to restore focus
     // Use locally stored initiating window first, with WindowManager fallback
     QWidget* initiatingWindow = m_initiatingWindow;
-    qDebug() << "[MDISubWindow][FOCUS-DEBUG] closeEvent for" << title()
+    qWarning() << "[MDISubWindow][FOCUS-DEBUG] closeEvent for" << title()
              << "| m_initiatingWindow:" << (m_initiatingWindow ? m_initiatingWindow->metaObject()->className() : "nullptr")
              << (m_initiatingWindow ? m_initiatingWindow->objectName() : "");
     if (!initiatingWindow && m_contentWidget) {
         initiatingWindow = WindowManager::instance().getInitiatingWindow(m_contentWidget);
-        qDebug() << "[MDISubWindow][FOCUS-DEBUG]   WindowManager fallback:"
+        qWarning() << "[MDISubWindow][FOCUS-DEBUG]   WindowManager fallback:"
                  << (initiatingWindow ? initiatingWindow->metaObject()->className() : "nullptr")
                  << (initiatingWindow ? initiatingWindow->objectName() : "");
     }
     if (!initiatingWindow) {
-        qDebug() << "[MDISubWindow][FOCUS-DEBUG]   *** NO initiating window found! Focus will be LOST ***";
+        qWarning() << "[MDISubWindow][FOCUS-DEBUG]   *** NO initiating window found! Focus will be LOST ***";
     }
     if (initiatingWindow) {
         QTimer::singleShot(50, [initiatingWindow, this]() {
@@ -261,7 +261,7 @@ void CustomMDISubWindow::closeEvent(QCloseEvent *event) {
                 
                 // Restore last focused widget (auto-tracked by WindowManager)
                 WindowManager::instance().restoreFocusState(initiatingWindow);
-                qDebug() << "[MDISubWindow][FOCUS-DEBUG] ✓ Activated initiating window:"
+                qWarning() << "[MDISubWindow][FOCUS-DEBUG] ✓ Activated initiating window:"
                          << activateTarget->metaObject()->className()
                          << "contentWidget:" << (initiatingWindow->metaObject()->className())
                          << initiatingWindow->objectName();
@@ -302,7 +302,7 @@ void CustomMDISubWindow::keyPressEvent(QKeyEvent *event) {
   // F1/F2 fallback: if the content widget didn't handle these keys,
   // they bubble here. Create Buy/Sell window via MainWindow.
   if (event->key() == Qt::Key_F1 || event->key() == Qt::Key_F2) {
-    qDebug() << "[MDISubWindow][FOCUS-DEBUG] F1/F2 fallback from" << title()
+    qWarning() << "[MDISubWindow][FOCUS-DEBUG] F1/F2 fallback from" << title()
              << "type:" << m_windowType
              << "contentWidget:" << (m_contentWidget ? m_contentWidget->metaObject()->className() : "nullptr");
     QWidget *topLevel = window();
@@ -318,7 +318,7 @@ void CustomMDISubWindow::keyPressEvent(QKeyEvent *event) {
                                           Q_ARG(QWidget*, m_contentWidget));
       if (!ok) {
         // Fallback to old method if new method not available yet
-        qDebug() << "[MDISubWindow][FOCUS-DEBUG] New method not found, falling back";
+        qWarning() << "[MDISubWindow][FOCUS-DEBUG] New method not found, falling back";
         const char *slot = (event->key() == Qt::Key_F1) ? "createBuyWindow"
                                                          : "createSellWindow";
         QMetaObject::invokeMethod(topLevel, slot);
@@ -350,7 +350,7 @@ void CustomMDISubWindow::setContentWidget(QWidget *widget) {
     // Centralized: auto-register content widget with WindowManager
     QString name = m_windowType.isEmpty() ? title() : m_windowType;
     WindowManager::instance().registerWindow(m_contentWidget, name);
-    qDebug() << "[MDISubWindow][FOCUS-DEBUG] setContentWidget registered"
+    qWarning() << "[MDISubWindow][FOCUS-DEBUG] setContentWidget registered"
              << m_contentWidget->metaObject()->className()
              << "as" << name << "for MDI:" << title();
 
@@ -371,7 +371,7 @@ void CustomMDISubWindow::setInitiatingWindow(QWidget *initiatingWindow) {
     WindowManager::instance().registerWindow(m_contentWidget, name,
                                              initiatingWindow);
   }
-  qDebug() << "[MDISubWindow][FOCUS-DEBUG] setInitiatingWindow for" << title()
+  qWarning() << "[MDISubWindow][FOCUS-DEBUG] setInitiatingWindow for" << title()
            << "| initiating:" << (initiatingWindow ? initiatingWindow->metaObject()->className() : "nullptr")
            << (initiatingWindow ? initiatingWindow->objectName() : "")
            << "| contentWidget:" << (m_contentWidget ? m_contentWidget->metaObject()->className() : "nullptr");

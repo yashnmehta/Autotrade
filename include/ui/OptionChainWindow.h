@@ -19,6 +19,8 @@
 #include "udp/UDPTypes.h"
 #include "repository/ContractData.h"
 #include "models/WindowContext.h"
+#include "models/GenericTableProfile.h"
+#include "models/GenericProfileManager.h"
 
 /**
  * @brief Data structure for a single strike in the option chain
@@ -137,6 +139,8 @@ public:
 signals:
     void tradeRequested(const QString &symbol, const QString &expiry, 
                        double strike, const QString &optionType);
+    void buyRequested(const WindowContext &context);
+    void sellRequested(const WindowContext &context);
     void calculatorRequested(const QString &symbol, const QString &expiry,
                             double strike, const QString &optionType);
     void refreshRequested();
@@ -212,6 +216,21 @@ private:
     int m_selectedCallRow;
     int m_selectedPutRow;
     bool m_syncingScroll = false; // Re-entrancy guard for tri-directional scroll sync
+    
+    // Column profile (governs visibility + widths for both Call and Put tables)
+    GenericTableProfile m_columnProfile;
+    GenericProfileManager *m_profileManager;
+    
+    // Helper: map symmetric column ID (0-15) to Put table model index
+    static int putColumnIndex(int colId);
+    
+    // Column metadata & preset factories
+    static QList<GenericColumnInfo> buildColumnMetadata();
+    static GenericTableProfile createPreset_Default(const QList<GenericColumnInfo> &cols);
+    static GenericTableProfile createPreset_Compact(const QList<GenericColumnInfo> &cols);
+    static GenericTableProfile createPreset_Greeks(const QList<GenericColumnInfo> &cols);
+    static GenericTableProfile createPreset_Trading(const QList<GenericColumnInfo> &cols);
+    void captureColumnWidths();
     
     // Column indices for Call table
     enum CallColumns {

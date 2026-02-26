@@ -8,16 +8,30 @@
 #include "models/GenericTableProfile.h"
 #include "models/GenericProfileManager.h"
 
+/**
+ * @brief Universal dual-list column profile dialog.
+ *
+ * Works for any window type — MarketWatch, OptionChain, OrderBook, etc.
+ * The caller provides:
+ *   - a window name (for file namespacing)
+ *   - the full list of available columns (GenericColumnInfo)
+ *   - a pointer to the GenericProfileManager (owns presets + custom)
+ *   - the currently active profile
+ *
+ * The dialog handles preset/custom profile switching, add/remove/reorder
+ * columns, save/delete custom profiles, and returns the accepted profile.
+ */
 class GenericProfileDialog : public QDialog
 {
     Q_OBJECT
 
 public:
-    GenericProfileDialog(const QString &windowName, 
-                         const QList<GenericColumnInfo> &allColumns, 
-                         const GenericTableProfile &currentProfile, 
+    GenericProfileDialog(const QString &windowTitle,
+                         const QList<GenericColumnInfo> &allColumns,
+                         GenericProfileManager *manager,
+                         const GenericTableProfile &currentProfile,
                          QWidget *parent = nullptr);
-    
+
     GenericTableProfile getProfile() const { return m_profile; }
     bool wasAccepted() const { return m_accepted; }
 
@@ -40,11 +54,11 @@ private:
     void updateAvailableColumns();
     void updateSelectedColumns();
     void refreshProfileList();
-    
-    QString m_windowName;
+    QString columnNameById(int id) const;
+
     QList<GenericColumnInfo> m_allColumns;
+    GenericProfileManager *m_manager;          ///< NOT owned — caller keeps alive
     GenericTableProfile m_profile;
-    GenericProfileManager m_manager;
     bool m_accepted;
 
     QComboBox *m_profileCombo;

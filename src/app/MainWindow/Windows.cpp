@@ -19,6 +19,7 @@
 #endif
 #include "views/BuyWindow.h"
 #include "views/CustomizeDialog.h"
+#include "views/MarketMovementWindow.h"
 #include "views/MarketWatchWindow.h"
 #include "views/OrderBookWindow.h"
 #include "views/PositionWindow.h"
@@ -29,6 +30,7 @@
 #include <QDebug>
 #include <QElapsedTimer> // Added for performance logging
 #include <QStatusBar>
+
 
 CustomMDISubWindow *MainWindow::createGlobalSearchWindow() {
   // Check if search window already exists
@@ -200,6 +202,22 @@ void MainWindow::connectWindowSignals(CustomMDISubWindow *window) {
       connect(atm, &ATMWatchWindow::snapQuoteRequested, this,
               [this, atm](const WindowContext &ctx) {
                 createSnapQuoteWindowWithContext(ctx, atm);
+              });
+    }
+  }
+
+  // Auto-connect OptionChainWindow signals (Buy/Sell from F1/F2)
+  if (window->contentWidget() && window->windowType() == "OptionChain") {
+    OptionChainWindow *oc =
+        qobject_cast<OptionChainWindow *>(window->contentWidget());
+    if (oc) {
+      connect(oc, &OptionChainWindow::buyRequested, this,
+              [this, oc](const WindowContext &ctx) {
+                createBuyWindowWithContext(ctx, oc);
+              });
+      connect(oc, &OptionChainWindow::sellRequested, this,
+              [this, oc](const WindowContext &ctx) {
+                createSellWindowWithContext(ctx, oc);
               });
     }
   }
@@ -589,15 +607,21 @@ CustomMDISubWindow *MainWindow::createBuyWindow() {
     activeMarketWatch->storeFocusedRow();
   }
 
+  // Get currently active content widget for focus restoration on close
+  QWidget *currentlyActive = nullptr;
+  if (m_mdiArea && m_mdiArea->activeWindow()) {
+    currentlyActive = m_mdiArea->activeWindow()->contentWidget();
+  }
+
   WindowContext context = getBestWindowContext();
 
-  // Pass the active MarketWatch as the initiating window for focus restoration
-  qDebug() << "[MainWindow][FOCUS-DEBUG] createBuyWindow: activeMarketWatch ="
-           << (activeMarketWatch ? activeMarketWatch->objectName() : "nullptr")
-           << "| will be used as initiating window";
+  // Pass currently active widget as initiating window for focus restoration
+  QWidget *initiating = currentlyActive ? currentlyActive : activeMarketWatch;
+  qWarning() << "[MainWindow][FOCUS-DEBUG] createBuyWindow: initiating ="
+             << (initiating ? initiating->metaObject()->className()
+                            : "nullptr");
   CustomMDISubWindow *cached = WindowCacheManager::instance().showBuyWindow(
-      context.isValid() ? &context : nullptr,
-      activeMarketWatch); // Pass initiating window
+      context.isValid() ? &context : nullptr, initiating);
   if (cached) {
     return cached; // Cache handled it
   }
@@ -667,12 +691,18 @@ CustomMDISubWindow *MainWindow::createSellWindow() {
     activeMarketWatch->storeFocusedRow();
   }
 
+  // Get currently active content widget for focus restoration on close
+  QWidget *currentlyActive = nullptr;
+  if (m_mdiArea && m_mdiArea->activeWindow()) {
+    currentlyActive = m_mdiArea->activeWindow()->contentWidget();
+  }
+
   WindowContext context = getBestWindowContext();
 
-  // Pass the active MarketWatch as the initiating window for focus restoration
+  // Pass currently active widget as initiating window for focus restoration
+  QWidget *initiating = currentlyActive ? currentlyActive : activeMarketWatch;
   CustomMDISubWindow *cached = WindowCacheManager::instance().showSellWindow(
-      context.isValid() ? &context : nullptr,
-      activeMarketWatch); // Pass initiating window
+      context.isValid() ? &context : nullptr, initiating);
   if (cached) {
     return cached; // Cache handled it
   }
@@ -738,13 +768,20 @@ CustomMDISubWindow *MainWindow::createSnapQuoteWindow() {
     activeMarketWatch->storeFocusedRow();
   }
 
+  // Get currently active content widget for focus restoration on close
+  QWidget *currentlyActive = nullptr;
+  if (m_mdiArea && m_mdiArea->activeWindow()) {
+    currentlyActive = m_mdiArea->activeWindow()->contentWidget();
+  }
+
   WindowContext context = getBestWindowContext();
 
-  // ⭐ CHECK CACHE
+  // ⭐ CHECK CACHE — pass currently active widget for focus restoration, not
+  // just MW
+  QWidget *initiating = currentlyActive ? currentlyActive : activeMarketWatch;
   CustomMDISubWindow *cached =
       WindowCacheManager::instance().showSnapQuoteWindow(
-          context.isValid() ? &context : nullptr,
-          activeMarketWatch); // Pass initiating window
+          context.isValid() ? &context : nullptr, initiating);
   if (cached) {
     qDebug() << "[PERF] ⚡ Cache HIT! Time:"
              << QDateTime::currentMSecsSinceEpoch() << "(~10-20ms)";
@@ -848,6 +885,12 @@ CustomMDISubWindow *MainWindow::createSnapQuoteWindow() {
 
   window->setContentWidget(snapWindow);
   window->resize(860, 300);
+  // Set initiating window for focus restoration (legacy non-cached path)
+  if (currentlyActive) {
+    window->setInitiatingWindow(currentlyActive);
+  } else if (activeMarketWatch) {
+    window->setInitiatingWindow(activeMarketWatch);
+  }
   connectWindowSignals(window);
 
   // ⭐ Mark cached window for reset when closed
@@ -868,6 +911,12 @@ CustomMDISubWindow *MainWindow::createSnapQuoteWindow() {
 }
 
 CustomMDISubWindow *MainWindow::createOptionChainWindow() {
+  // Get currently active content widget for focus restoration on close
+  QWidget *currentlyActive = nullptr;
+  if (m_mdiArea && m_mdiArea->activeWindow()) {
+    currentlyActive = m_mdiArea->activeWindow()->contentWidget();
+  }
+
   CustomMDISubWindow *window =
       new CustomMDISubWindow("Option Chain", m_mdiArea);
   window->setWindowType("OptionChain");
@@ -876,6 +925,9 @@ CustomMDISubWindow *MainWindow::createOptionChainWindow() {
   // Logic to set symbol/expiry from context is simplified here
 
   window->setContentWidget(optionWindow);
+  if (currentlyActive) {
+    window->setInitiatingWindow(currentlyActive);
+  }
   window->resize(1600, 800);
   connectWindowSignals(window);
   m_mdiArea->addWindow(window);
@@ -898,12 +950,21 @@ MainWindow::createOptionChainWindowForSymbol(const QString &symbol,
 }
 
 CustomMDISubWindow *MainWindow::createATMWatchWindow() {
+  // Get currently active content widget for focus restoration on close
+  QWidget *currentlyActive = nullptr;
+  if (m_mdiArea && m_mdiArea->activeWindow()) {
+    currentlyActive = m_mdiArea->activeWindow()->contentWidget();
+  }
+
   CustomMDISubWindow *window = new CustomMDISubWindow("ATM Watch", m_mdiArea);
   window->setWindowType("ATMWatch");
 
   ATMWatchWindow *atmWindow = new ATMWatchWindow(window);
 
   window->setContentWidget(atmWindow);
+  if (currentlyActive) {
+    window->setInitiatingWindow(currentlyActive);
+  }
   window->resize(1200, 600);
   connectWindowSignals(window);
   m_mdiArea->addWindow(window);
@@ -1207,12 +1268,15 @@ void MainWindow::createSnapQuoteWindowWithContext(const WindowContext &context,
   createSnapQuoteWindow();
 }
 
-// ─── Widget-aware window creation (called from CustomMDISubWindow F1/F2 fallback) ───
+// ─── Widget-aware window creation (called from CustomMDISubWindow F1/F2
+// fallback) ───
 
 void MainWindow::createBuyWindowFromWidget(QWidget *initiatingWidget) {
-  qDebug() << "[MainWindow][FOCUS-DEBUG] createBuyWindowFromWidget: initiating ="
-           << (initiatingWidget ? initiatingWidget->metaObject()->className() : "nullptr")
-           << (initiatingWidget ? initiatingWidget->objectName() : "");
+  qWarning()
+      << "[MainWindow][FOCUS-DEBUG] createBuyWindowFromWidget: initiating ="
+      << (initiatingWidget ? initiatingWidget->metaObject()->className()
+                           : "nullptr")
+      << (initiatingWidget ? initiatingWidget->objectName() : "");
 
   WindowContext context = getBestWindowContext();
   CustomMDISubWindow *cached = WindowCacheManager::instance().showBuyWindow(
@@ -1225,9 +1289,11 @@ void MainWindow::createBuyWindowFromWidget(QWidget *initiatingWidget) {
 }
 
 void MainWindow::createSellWindowFromWidget(QWidget *initiatingWidget) {
-  qDebug() << "[MainWindow][FOCUS-DEBUG] createSellWindowFromWidget: initiating ="
-           << (initiatingWidget ? initiatingWidget->metaObject()->className() : "nullptr")
-           << (initiatingWidget ? initiatingWidget->objectName() : "");
+  qWarning()
+      << "[MainWindow][FOCUS-DEBUG] createSellWindowFromWidget: initiating ="
+      << (initiatingWidget ? initiatingWidget->metaObject()->className()
+                           : "nullptr")
+      << (initiatingWidget ? initiatingWidget->objectName() : "");
 
   WindowContext context = getBestWindowContext();
   CustomMDISubWindow *cached = WindowCacheManager::instance().showSellWindow(
@@ -1236,4 +1302,52 @@ void MainWindow::createSellWindowFromWidget(QWidget *initiatingWidget) {
     return;
   }
   createSellWindow();
+}
+CustomMDISubWindow *MainWindow::createMarketMovementWindow() {
+  WindowContext context = getBestWindowContext();
+
+  // Check if valid option instrument is selected
+  if (!context.isValid()) {
+    QMessageBox::warning(
+        this, "Market Movement",
+        "Please select an option instrument from Market Watch first.");
+    return nullptr;
+  }
+
+  // Verify it's an option (must have strike price and option type)
+  if (context.instrumentType != "OPTSTK" &&
+      context.instrumentType != "OPTIDX") {
+    QMessageBox::warning(
+        this, "Market Movement",
+        "This window is only for option instruments (OPTSTK).\n"
+        "Please select an option from Market Watch.");
+    return nullptr;
+  }
+
+  // Create unique title with instrument details
+  QString title =
+      QString("Market Movement - %1 %2 %3 %4")
+          .arg(context.symbol)
+          .arg(context.expiry)
+          .arg(context.strikePrice > 0 ? QString::number(context.strikePrice)
+                                       : "")
+          .arg(context.optionType);
+
+  CustomMDISubWindow *window = new CustomMDISubWindow(title, m_mdiArea);
+  window->setWindowType("MarketMovement");
+
+  MarketMovementWindow *marketMovement =
+      new MarketMovementWindow(context, window);
+
+  window->setContentWidget(marketMovement);
+  window->resize(1000, 600);
+
+  connectWindowSignals(window);
+  m_mdiArea->addWindow(window);
+  window->show();
+
+  qDebug() << "[MainWindow] Market Movement window created for"
+           << context.symbol;
+
+  return window;
 }

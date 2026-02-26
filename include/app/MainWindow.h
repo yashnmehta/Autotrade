@@ -97,6 +97,7 @@ private slots:
   CustomMDISubWindow *createGlobalSearchWindow();
   CustomMDISubWindow *createChartWindow();
   CustomMDISubWindow *createIndicatorChartWindow();
+  CustomMDISubWindow *createMarketMovementWindow();
   void focusScripBar();
   void onAddToWatchRequested(const InstrumentData &instrument);
   void resetLayout();
@@ -138,13 +139,14 @@ private slots:
 
   // Context-aware window creation with explicit initiating window
   void createBuyWindowWithContext(const WindowContext &context,
-                                 QWidget *initiatingWindow);
-  void createSellWindowWithContext(const WindowContext &context,
                                   QWidget *initiatingWindow);
+  void createSellWindowWithContext(const WindowContext &context,
+                                   QWidget *initiatingWindow);
   void createSnapQuoteWindowWithContext(const WindowContext &context,
-                                       QWidget *initiatingWindow);
+                                        QWidget *initiatingWindow);
 
-  // Widget-aware window creation (invoked from CustomMDISubWindow F1/F2 fallback)
+  // Widget-aware window creation (invoked from CustomMDISubWindow F1/F2
+  // fallback)
   Q_INVOKABLE void createBuyWindowFromWidget(QWidget *initiatingWidget);
   Q_INVOKABLE void createSellWindowFromWidget(QWidget *initiatingWidget);
 

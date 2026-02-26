@@ -7,11 +7,11 @@
 #include <QVariant>
 #include <QJsonObject>
 #include <QJsonArray>
+#include "models/GenericTableProfile.h"
+#include "models/GenericProfileManager.h"
 
 /**
- * @brief Enumeration of all available market watch columns
- * 
- * Comprehensive list of 40+ columns for market watch display
+ * @brief Context tag for profile dialogs (kept for backward compat)
  */
 enum class ProfileContext {
     MarketWatch,
@@ -103,7 +103,7 @@ enum class MarketWatchColumn {
 };
 
 /**
- * @brief Column metadata and configuration
+ * @brief Column metadata and configuration (enum → display info)
  */
 struct ColumnInfo {
     MarketWatchColumn id;
@@ -129,110 +129,38 @@ struct ColumnInfo {
 };
 
 /**
- * @brief Column profile for market watch display configuration
- * 
- * Manages which columns are visible, their order, and widths
+ * @brief Static helpers for MarketWatch column metadata.
+ *
+ * The profile storage itself is now handled by GenericTableProfile +
+ * GenericProfileManager.  This class ONLY provides static column info
+ * and preset profile factories.
  */
 class MarketWatchColumnProfile
 {
 public:
-    MarketWatchColumnProfile();
-    explicit MarketWatchColumnProfile(const QString &name, ProfileContext context = ProfileContext::MarketWatch);
-    
-    // Context
-    ProfileContext context() const { return m_context; }
-    void setContext(ProfileContext context) { m_context = context; }
-
-    // Profile Management
-    QString name() const { return m_name; }
-    void setName(const QString &name) { m_name = name; }
-    
-    QString description() const { return m_description; }
-    void setDescription(const QString &desc) { m_description = desc; }
-    
-    // Column Visibility
-    void setColumnVisible(MarketWatchColumn col, bool visible);
-    bool isColumnVisible(MarketWatchColumn col) const;
-    QList<MarketWatchColumn> visibleColumns() const;
-    int visibleColumnCount() const;
-    
-    // Column Order
-    void setColumnOrder(const QList<MarketWatchColumn> &order);
-    QList<MarketWatchColumn> columnOrder() const { return m_columnOrder; }
-    void moveColumn(int fromIndex, int toIndex);
-    
-    // Column Width
-    void setColumnWidth(MarketWatchColumn col, int width);
-    int columnWidth(MarketWatchColumn col) const;
-    
-    // Preset Profiles
-    static MarketWatchColumnProfile createDefaultProfile();
-    static MarketWatchColumnProfile createCompactProfile();
-    static MarketWatchColumnProfile createDetailedProfile();
-    static MarketWatchColumnProfile createFOProfile();        // F&O focused
-    static MarketWatchColumnProfile createEquityProfile();    // Equity focused
-    static MarketWatchColumnProfile createTradingProfile();   // Active trading
-    
-    // Serialization
-    QJsonObject toJson() const;
-    bool fromJson(const QJsonObject &json);
-    
-    // Save/Load from file
-    bool saveToFile(const QString &filepath) const;
-    bool loadFromFile(const QString &filepath);
-    
-    // Column Information
+    // Column information
     static ColumnInfo getColumnInfo(MarketWatchColumn col);
     static QString getColumnName(MarketWatchColumn col);
     static QString getColumnShortName(MarketWatchColumn col);
     static QList<MarketWatchColumn> getAllColumns();
-    
+
+    // ── Bridge to generic profile system ─────────────────────────────────
+    static QList<GenericColumnInfo> buildGenericMetadata();
+
+    // Preset GenericTableProfile factories
+    static GenericTableProfile createDefaultProfile();
+    static GenericTableProfile createCompactProfile();
+    static GenericTableProfile createDetailedProfile();
+    static GenericTableProfile createFOProfile();
+    static GenericTableProfile createEquityProfile();
+    static GenericTableProfile createTradingProfile();
+
+    // Convenience: register all presets on a GenericProfileManager
+    static void registerPresets(GenericProfileManager &mgr);
+
 private:
-    QString m_name;
-    ProfileContext m_context;
-    QString m_description;
-    QMap<MarketWatchColumn, bool> m_visibility;
-    QMap<MarketWatchColumn, int> m_widths;
-    QList<MarketWatchColumn> m_columnOrder;
-    
-    void initializeDefaults();
     static void initializeColumnMetadata();
     static QMap<MarketWatchColumn, ColumnInfo> s_columnMetadata;
 };
-
-/**
- * @brief Profile manager for loading/saving multiple profiles
- */
-class MarketWatchProfileManager
-{
-public:
-    static MarketWatchProfileManager& instance();
-    
-    // Profile CRUD operations
-    void addProfile(const MarketWatchColumnProfile &profile);
-    bool removeProfile(const QString &name);
-    MarketWatchColumnProfile getProfile(const QString &name) const;
-    QStringList profileNames() const;
-    bool hasProfile(const QString &name) const;
-    
-    // Current profile management
-    void setCurrentProfile(const QString &name);
-    QString currentProfileName() const { return m_currentProfileName; }
-    MarketWatchColumnProfile currentProfile() const;
-    
-    // Persistence
-    bool saveAllProfiles(const QString &directory) const;
-    bool loadAllProfiles(const QString &directory);
-    
-    // Default profiles
-    void loadDefaultProfiles();
-    
-private:
-    MarketWatchProfileManager();
-    ~MarketWatchProfileManager() = default;
-    
-    QMap<QString, MarketWatchColumnProfile> m_profiles;
-    QString m_currentProfileName;
-};
-
+ nbmmmmmmmm
 #endif // MARKETWATCHCOLUMNPROFILE_H

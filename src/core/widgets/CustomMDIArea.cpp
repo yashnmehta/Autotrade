@@ -53,6 +53,9 @@ CustomMDIArea::CustomMDIArea(QWidget *parent)
             for (CustomMDISubWindow *window : m_windows) {
               if (window->x() <= -1000) continue; // Skip off-screen cached windows
               if (window == now || window->isAncestorOf(now)) {
+                qWarning() << "[MDIArea][FOCUS-DEBUG] focusChanged: now =" << now->metaObject()->className()
+                           << now->objectName() << "-> activating MDI:" << window->title()
+                           << "(current active:" << (m_activeWindow ? m_activeWindow->title() : "none") << ")";
                 activateWindow(window);
                 // Centralized: keep WindowManager stack in sync via content widget
                 if (window->contentWidget()) {
@@ -159,6 +162,8 @@ void CustomMDIArea::activateWindow(CustomMDISubWindow *window) {
   }
 
   // Activate new window
+  qWarning() << "[MDIArea][FOCUS-DEBUG] activateWindow:" << window->title()
+             << "(was:" << (m_activeWindow ? m_activeWindow->title() : "none") << ")";
   m_activeWindow = window;
   window->raise();
   window->activateWindow();

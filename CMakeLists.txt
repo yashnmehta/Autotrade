@@ -425,6 +425,7 @@ set(VIEW_SOURCES
     src/views/CustomizeDialog.cpp
     src/views/IndicesView.cpp
     src/views/AllIndicesWindow.cpp
+    src/views/MarketMovementWindow.cpp
 )
 
 set(VIEW_HEADERS
@@ -448,6 +449,7 @@ set(VIEW_HEADERS
     include/views/CustomizeDialog.h
     include/views/IndicesView.h
     include/views/AllIndicesWindow.h
+    include/views/MarketMovementWindow.h
 )
 
 # ========================================

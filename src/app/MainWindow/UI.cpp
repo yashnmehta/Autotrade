@@ -481,10 +481,12 @@ void MainWindow::saveCurrentWorkspace() {
   // the saved profile
   settings.beginGroup("global_profiles");
   QStringList types = {"OrderBook", "TradeBook", "PositionWindow"};
-  GenericProfileManager pm("profiles");
   for (const auto &type : types) {
-    GenericTableProfile p;
-    if (pm.loadProfile(type, pm.getDefaultProfileName(type), p)) {
+    GenericProfileManager pm("profiles", type);
+    pm.loadCustomProfiles();
+    QString defName = pm.loadDefaultProfileName();
+    if (pm.hasProfile(defName)) {
+      GenericTableProfile p = pm.getProfile(defName);
       settings.setValue(
           type, QJsonDocument(p.toJson()).toJson(QJsonDocument::Compact));
     }
@@ -522,7 +524,6 @@ bool MainWindow::loadWorkspaceByName(const QString &name) {
   QSettings settings("TradingCompany", "TradingTerminal");
   settings.beginGroup("workspaces/" + name + "/global_profiles");
 
-  GenericProfileManager pm("profiles");
   QStringList types = settings.childKeys(); // "OrderBook", etc.
   for (const auto &type : types) {
     QByteArray data = settings.value(type).toByteArray();
@@ -531,8 +532,9 @@ bool MainWindow::loadWorkspaceByName(const QString &name) {
       GenericTableProfile p;
       p.fromJson(doc.object());
       // Save as default so new windows use it
-      pm.saveProfile(type, p);
-      pm.saveDefaultProfile(type, p.name());
+      GenericProfileManager typePm("profiles", type);
+      typePm.saveCustomProfile(p);
+      typePm.saveDefaultProfileName(p.name());
     }
   }
   settings.endGroup();

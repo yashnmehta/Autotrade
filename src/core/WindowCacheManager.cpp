@@ -233,7 +233,7 @@ WindowCacheManager::showBuyWindow(const WindowContext *context,
   if (initiatingWindow) {
     m_cachedBuyMdiWindow->setInitiatingWindow(initiatingWindow);
   } else {
-    qDebug() << "[WindowCacheManager][FOCUS-DEBUG] showBuyWindow called with NO initiating window!";
+    qWarning() << "[WindowCacheManager][FOCUS-DEBUG] showBuyWindow called with NO initiating window!";
   }
 
   qint64 t1 = timer.elapsed();
@@ -364,7 +364,7 @@ WindowCacheManager::showSellWindow(const WindowContext *context,
   if (initiatingWindow) {
     m_cachedSellMdiWindow->setInitiatingWindow(initiatingWindow);
   } else {
-    qDebug() << "[WindowCacheManager][FOCUS-DEBUG] showSellWindow called with NO initiating window!";
+    qWarning() << "[WindowCacheManager][FOCUS-DEBUG] showSellWindow called with NO initiating window!";
   }
 
   qint64 t1 = timer.elapsed();
@@ -576,7 +576,7 @@ WindowCacheManager::showSnapQuoteWindow(const WindowContext *context,
   if (initiatingWindow && entry.mdiWindow) {
     entry.mdiWindow->setInitiatingWindow(initiatingWindow);
   } else if (!initiatingWindow) {
-    qDebug() << "[WindowCacheManager][FOCUS-DEBUG] showSnapQuoteWindow called with NO initiating window!";
+    qWarning() << "[WindowCacheManager][FOCUS-DEBUG] showSnapQuoteWindow called with NO initiating window!";
   }
 
   qint64 t4 = timer.elapsed();

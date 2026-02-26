@@ -5,186 +5,232 @@
 #include <QInputDialog>
 #include <QMessageBox>
 #include <QDebug>
-#include <QFile>
-#include <QMenu>
 
-GenericProfileDialog::GenericProfileDialog(const QString &windowName, 
-                                         const QList<GenericColumnInfo> &allColumns, 
-                                         const GenericTableProfile &currentProfile, 
-                                         QWidget *parent)
+// ============================================================================
+// Constructor
+// ============================================================================
+GenericProfileDialog::GenericProfileDialog(const QString &windowTitle,
+                                           const QList<GenericColumnInfo> &allColumns,
+                                           GenericProfileManager *manager,
+                                           const GenericTableProfile &currentProfile,
+                                           QWidget *parent)
     : QDialog(parent)
-    , m_windowName(windowName)
     , m_allColumns(allColumns)
+    , m_manager(manager)
     , m_profile(currentProfile)
-    , m_manager("profiles")
     , m_accepted(false)
 {
-    setWindowTitle(windowName + " - Column Selection");
+    setWindowTitle(windowTitle + " — Column Selection");
     setModal(true);
     resize(700, 500);
-    
-    // Use the same light-theme styling as Market Watch's dialog
+
+    // ── Light-theme stylesheet (shared palette) ──────────────────────────
     setStyleSheet(
         "QDialog { background-color: #ffffff; color: #1e293b; }"
         "QLabel { color: #334155; font-size: 13px; font-weight: 500; }"
-        "QComboBox { background-color: #ffffff; color: #1e293b; border: 1px solid #cbd5e1; border-radius: 4px; padding: 6px 10px; }"
-        "QListWidget { background-color: #ffffff; color: #1e293b; border: 1px solid #e2e8f0; border-radius: 4px; }"
+        "QComboBox {"
+        "    background-color: #ffffff; color: #1e293b;"
+        "    border: 1px solid #cbd5e1; border-radius: 4px;"
+        "    padding: 6px 10px; min-height: 24px; font-size: 13px;"
+        "}"
+        "QComboBox:hover { border: 1px solid #94a3b8; }"
+        "QComboBox:focus { border: 1px solid #3b82f6; }"
+        "QComboBox::drop-down { subcontrol-origin: padding; subcontrol-position: top right; width: 20px; border: none; }"
+        "QComboBox::down-arrow { image: none; border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 5px solid #64748b; margin-right: 5px; }"
+        "QComboBox QAbstractItemView { background-color: #ffffff; color: #1e293b; selection-background-color: #dbeafe; selection-color: #1e40af; border: 1px solid #e2e8f0; }"
+        "QComboBox QAbstractItemView::item { min-height: 24px; padding: 4px 8px; }"
+        "QListWidget { background-color: #ffffff; color: #1e293b; border: 1px solid #e2e8f0; border-radius: 4px; outline: none; font-size: 13px; padding: 2px; }"
+        "QListWidget::item { padding: 6px 10px; border: none; border-radius: 2px; margin: 1px; }"
         "QListWidget::item:selected { background-color: #dbeafe; color: #1e40af; }"
-        "QPushButton { background-color: #2563eb; color: #ffffff; border: 1px solid #2563eb; border-radius: 4px; padding: 7px 18px; min-width: 75px; }"
-        "QPushButton:hover { background-color: #1d4ed8; }"
+        "QListWidget::item:hover:!selected { background-color: #f1f5f9; }"
+        "QListWidget::item:focus { outline: none; }"
+        "QPushButton { background-color: #2563eb; color: #ffffff; border: 1px solid #2563eb; border-radius: 4px; padding: 7px 18px; font-size: 13px; font-weight: 500; min-width: 75px; min-height: 28px; }"
+        "QPushButton:hover { background-color: #1d4ed8; border: 1px solid #1d4ed8; }"
+        "QPushButton:pressed { background-color: #1e40af; border: 1px solid #1e40af; }"
         "QPushButton:disabled { background-color: #f1f5f9; color: #94a3b8; border: 1px solid #e2e8f0; }"
+        "QPushButton:focus { outline: none; border: 1px solid #3b82f6; }"
     );
-    
+
     setupUI();
     setupConnections();
     loadProfile(currentProfile);
 }
 
-void GenericProfileDialog::setupUI() {
+// ============================================================================
+// UI
+// ============================================================================
+void GenericProfileDialog::setupUI()
+{
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
-    
+
+    // ── Top: profile combo + buttons ─────────────────────────────────────
     QHBoxLayout *profileLayout = new QHBoxLayout();
-    profileLayout->addWidget(new QLabel("Profile:"));
+    profileLayout->addWidget(new QLabel("Column Profile:"));
+
     m_profileCombo = new QComboBox(this);
     m_profileCombo->setMinimumWidth(200);
     profileLayout->addWidget(m_profileCombo);
-    
-    m_saveButton = new QPushButton("Save", this);
-    m_deleteButton = new QPushButton("Delete", this);
+
+    m_saveButton       = new QPushButton("Save", this);
+    m_deleteButton     = new QPushButton("Delete", this);
     m_setDefaultButton = new QPushButton("Set Default", this);
-    
+
     profileLayout->addWidget(m_saveButton);
     profileLayout->addWidget(m_deleteButton);
     profileLayout->addWidget(m_setDefaultButton);
     profileLayout->addStretch();
     mainLayout->addLayout(profileLayout);
-    
+
+    // ── Middle: dual list ────────────────────────────────────────────────
     QHBoxLayout *listsLayout = new QHBoxLayout();
-    
+
     QVBoxLayout *availLayout = new QVBoxLayout();
     availLayout->addWidget(new QLabel("Available Columns"));
     m_availableList = new QListWidget(this);
     m_availableList->setSelectionMode(QAbstractItemView::ExtendedSelection);
     availLayout->addWidget(m_availableList);
     listsLayout->addLayout(availLayout);
-    
-    QVBoxLayout *btnLayout = new QVBoxLayout();
-    btnLayout->addStretch();
-    m_addButton = new QPushButton("Add >", this);
+
+    QVBoxLayout *arrowLayout = new QVBoxLayout();
+    arrowLayout->addStretch();
+    m_addButton    = new QPushButton("Add >", this);
     m_removeButton = new QPushButton("< Remove", this);
-    btnLayout->addWidget(m_addButton);
-    btnLayout->addWidget(m_removeButton);
-    btnLayout->addStretch();
-    listsLayout->addLayout(btnLayout);
-    
+    arrowLayout->addWidget(m_addButton);
+    arrowLayout->addWidget(m_removeButton);
+    arrowLayout->addStretch();
+    listsLayout->addLayout(arrowLayout);
+
     QVBoxLayout *selLayout = new QVBoxLayout();
     selLayout->addWidget(new QLabel("Selected Columns"));
     m_selectedList = new QListWidget(this);
     m_selectedList->setSelectionMode(QAbstractItemView::ExtendedSelection);
     selLayout->addWidget(m_selectedList);
     listsLayout->addLayout(selLayout);
-    
+
     QVBoxLayout *moveLayout = new QVBoxLayout();
     moveLayout->addStretch();
-    m_moveUpButton = new QPushButton("Move Up", this);
+    m_moveUpButton   = new QPushButton("Move Up", this);
     m_moveDownButton = new QPushButton("Move Down", this);
     moveLayout->addWidget(m_moveUpButton);
     moveLayout->addWidget(m_moveDownButton);
     moveLayout->addStretch();
     listsLayout->addLayout(moveLayout);
-    
+
     mainLayout->addLayout(listsLayout);
-    
+
+    // ── Bottom: OK / Cancel ──────────────────────────────────────────────
     QHBoxLayout *bottomLayout = new QHBoxLayout();
     bottomLayout->addStretch();
-    m_okButton = new QPushButton("OK", this);
+    m_okButton     = new QPushButton("OK", this);
     m_cancelButton = new QPushButton("Cancel", this);
+    m_okButton->setDefault(true);
     bottomLayout->addWidget(m_okButton);
     bottomLayout->addWidget(m_cancelButton);
     mainLayout->addLayout(bottomLayout);
-    
+
     refreshProfileList();
 }
 
-void GenericProfileDialog::setupConnections() {
+// ============================================================================
+// Connections
+// ============================================================================
+void GenericProfileDialog::setupConnections()
+{
     connect(m_profileCombo, &QComboBox::currentTextChanged, this, &GenericProfileDialog::onProfileChanged);
-    connect(m_addButton, &QPushButton::clicked, this, &GenericProfileDialog::onAddColumn);
-    connect(m_removeButton, &QPushButton::clicked, this, &GenericProfileDialog::onRemoveColumn);
-    connect(m_moveUpButton, &QPushButton::clicked, this, &GenericProfileDialog::onMoveUp);
+    connect(m_addButton,      &QPushButton::clicked, this, &GenericProfileDialog::onAddColumn);
+    connect(m_removeButton,   &QPushButton::clicked, this, &GenericProfileDialog::onRemoveColumn);
+    connect(m_moveUpButton,   &QPushButton::clicked, this, &GenericProfileDialog::onMoveUp);
     connect(m_moveDownButton, &QPushButton::clicked, this, &GenericProfileDialog::onMoveDown);
-    connect(m_saveButton, &QPushButton::clicked, this, &GenericProfileDialog::onSaveProfile);
-    connect(m_deleteButton, &QPushButton::clicked, this, &GenericProfileDialog::onDeleteProfile);
+    connect(m_saveButton,     &QPushButton::clicked, this, &GenericProfileDialog::onSaveProfile);
+    connect(m_deleteButton,   &QPushButton::clicked, this, &GenericProfileDialog::onDeleteProfile);
     connect(m_setDefaultButton, &QPushButton::clicked, this, &GenericProfileDialog::onSetAsDefault);
-    connect(m_okButton, &QPushButton::clicked, this, &GenericProfileDialog::onAccepted);
-    connect(m_cancelButton, &QPushButton::clicked, this, &GenericProfileDialog::onRejected);
+    connect(m_okButton,       &QPushButton::clicked, this, &GenericProfileDialog::onAccepted);
+    connect(m_cancelButton,   &QPushButton::clicked, this, &GenericProfileDialog::onRejected);
 }
 
-void GenericProfileDialog::loadProfile(const GenericTableProfile &profile) {
+// ============================================================================
+// Helpers
+// ============================================================================
+QString GenericProfileDialog::columnNameById(int id) const
+{
+    for (const auto &c : m_allColumns) {
+        if (c.id == id) return c.name;
+    }
+    return QString("Column %1").arg(id);
+}
+
+void GenericProfileDialog::loadProfile(const GenericTableProfile &profile)
+{
     m_profile = profile;
     updateAvailableColumns();
     updateSelectedColumns();
 }
 
-void GenericProfileDialog::updateAvailableColumns() {
+void GenericProfileDialog::updateAvailableColumns()
+{
     m_availableList->clear();
-    QList<int> visible = m_profile.columnOrder();
     for (const auto &info : m_allColumns) {
         if (!m_profile.isColumnVisible(info.id)) {
-            QListWidgetItem *item = new QListWidgetItem(info.name);
+            auto *item = new QListWidgetItem(info.name);
             item->setData(Qt::UserRole, info.id);
             m_availableList->addItem(item);
         }
     }
 }
 
-void GenericProfileDialog::updateSelectedColumns() {
+void GenericProfileDialog::updateSelectedColumns()
+{
     m_selectedList->clear();
     for (int id : m_profile.columnOrder()) {
         if (m_profile.isColumnVisible(id)) {
-            for (const auto &info : m_allColumns) {
-                if (info.id == id) {
-                    QListWidgetItem *item = new QListWidgetItem(info.name);
-                    item->setData(Qt::UserRole, id);
-                    m_selectedList->addItem(item);
-                    break;
-                }
-            }
+            auto *item = new QListWidgetItem(columnNameById(id));
+            item->setData(Qt::UserRole, id);
+            m_selectedList->addItem(item);
         }
     }
 }
 
-void GenericProfileDialog::refreshProfileList() {
+void GenericProfileDialog::refreshProfileList()
+{
+    m_profileCombo->blockSignals(true);
     m_profileCombo->clear();
-    m_profileCombo->addItem("Default");
-    m_profileCombo->addItems(m_manager.listProfiles(m_windowName));
-    
-    int idx = m_profileCombo->findText(m_profile.name());
-    if (idx >= 0) m_profileCombo->setCurrentIndex(idx);
-}
 
-void GenericProfileDialog::onProfileChanged(const QString &profileName) {
-    if (profileName == "Default") {
-        GenericTableProfile def("Default");
-        for (const auto &info : m_allColumns) {
-            def.setColumnVisible(info.id, info.visibleByDefault);
-            def.setColumnWidth(info.id, info.defaultWidth);
-        }
-        QList<int> order;
-        for (const auto &info : m_allColumns) order.append(info.id);
-        def.setColumnOrder(order);
-        loadProfile(def);
-    } else {
-        GenericTableProfile prof;
-        if (m_manager.loadProfile(m_windowName, profileName, prof)) {
-            loadProfile(prof);
-        }
+    // Presets first
+    for (const QString &name : m_manager->presetNames())
+        m_profileCombo->addItem(name);
+
+    // Custom profiles (with separator)
+    QStringList custom = m_manager->customProfileNames();
+    if (!custom.isEmpty()) {
+        m_profileCombo->insertSeparator(m_profileCombo->count());
+        for (const QString &name : custom)
+            m_profileCombo->addItem(name);
     }
+
+    // Select current
+    int idx = m_profileCombo->findText(m_profile.name());
+    if (idx >= 0)
+        m_profileCombo->setCurrentIndex(idx);
+
+    m_profileCombo->blockSignals(false);
 }
 
-void GenericProfileDialog::onAddColumn() {
+// ============================================================================
+// Slots
+// ============================================================================
+void GenericProfileDialog::onProfileChanged(const QString &profileName)
+{
+    if (!m_manager->hasProfile(profileName)) return;
+    loadProfile(m_manager->getProfile(profileName));
+}
+
+void GenericProfileDialog::onAddColumn()
+{
     auto items = m_availableList->selectedItems();
+    if (items.isEmpty()) return;
+
     QList<int> order = m_profile.columnOrder();
-    for (auto item : items) {
+    for (auto *item : items) {
         int id = item->data(Qt::UserRole).toInt();
         m_profile.setColumnVisible(id, true);
         if (!order.contains(id)) order.append(id);
@@ -194,96 +240,121 @@ void GenericProfileDialog::onAddColumn() {
     updateSelectedColumns();
 }
 
-void GenericProfileDialog::onRemoveColumn() {
+void GenericProfileDialog::onRemoveColumn()
+{
     auto items = m_selectedList->selectedItems();
-    for (auto item : items) {
+    if (items.isEmpty()) return;
+
+    if (m_profile.visibleColumnCount() - items.size() < 1) {
+        QMessageBox::warning(this, "Cannot Remove",
+                             "At least one column must remain visible.");
+        return;
+    }
+
+    for (auto *item : items) {
         m_profile.setColumnVisible(item->data(Qt::UserRole).toInt(), false);
     }
     updateAvailableColumns();
     updateSelectedColumns();
 }
 
-// Operating directly on UI list for instant feedback and reliability
-void GenericProfileDialog::onMoveUp() {
+void GenericProfileDialog::onMoveUp()
+{
     int row = m_selectedList->currentRow();
     if (row <= 0) return;
-    
-    QListWidgetItem *item = m_selectedList->takeItem(row);
+    auto *item = m_selectedList->takeItem(row);
     m_selectedList->insertItem(row - 1, item);
     m_selectedList->setCurrentRow(row - 1);
 }
 
-void GenericProfileDialog::onMoveDown() {
+void GenericProfileDialog::onMoveDown()
+{
     int row = m_selectedList->currentRow();
     if (row < 0 || row >= m_selectedList->count() - 1) return;
-    
-    QListWidgetItem *item = m_selectedList->takeItem(row);
+    auto *item = m_selectedList->takeItem(row);
     m_selectedList->insertItem(row + 1, item);
     m_selectedList->setCurrentRow(row + 1);
 }
 
-void GenericProfileDialog::onSaveProfile() {
+void GenericProfileDialog::onSaveProfile()
+{
     bool ok;
-    QString name = QInputDialog::getText(this, "Save Profile", "Name:", QLineEdit::Normal, m_profile.name(), &ok);
-    if (ok && !name.isEmpty()) {
-        if (name == "Default") {
-            QMessageBox::warning(this, "Error", "Cannot overwrite 'Default' profile");
-            return;
-        }
-        
-        m_profile.setName(name);
-        
-        // Reconstruct order from UI
-        QList<int> newOrder;
-        for(int i = 0; i < m_selectedList->count(); ++i) {
-            newOrder.append(m_selectedList->item(i)->data(Qt::UserRole).toInt());
-        }
-        // Append hidden columns
-        QList<int> fullOrder = m_profile.columnOrder();
-        for(int id : fullOrder) {
-            if (!m_profile.isColumnVisible(id)) newOrder.append(id);
-        }
-        m_profile.setColumnOrder(newOrder);
-        
-        m_manager.saveProfile(m_windowName, m_profile);
-        refreshProfileList();
-    }
-}
+    QString name = QInputDialog::getText(this, "Save Profile",
+                                         "Profile name:", QLineEdit::Normal,
+                                         m_profile.name(), &ok);
+    if (!ok || name.isEmpty()) return;
 
-void GenericProfileDialog::onDeleteProfile() {
-    QString name = m_profileCombo->currentText();
-    if (name == "Default") {
-        QMessageBox::warning(this, "Error", "Cannot delete 'Default' profile");
+    if (m_manager->isPreset(name)) {
+        QMessageBox::warning(this, "Invalid Name",
+                             "Cannot overwrite a preset profile. Choose a different name.");
         return;
     }
-    
-    if (QMessageBox::question(this, "Confirm", "Delete profile '" + name + "'?") == QMessageBox::Yes) {
-        QString path = "profiles/" + m_windowName + "_" + name + ".json";
-        if (QFile::remove(path)) {
+
+    m_profile.setName(name);
+
+    // Rebuild order from UI (visible in UI order, then hidden in current order)
+    QList<int> newOrder;
+    for (int i = 0; i < m_selectedList->count(); ++i)
+        newOrder.append(m_selectedList->item(i)->data(Qt::UserRole).toInt());
+    for (int id : m_profile.columnOrder()) {
+        if (!m_profile.isColumnVisible(id))
+            newOrder.append(id);
+    }
+    m_profile.setColumnOrder(newOrder);
+
+    m_manager->saveCustomProfile(m_profile);
+
+    QMessageBox::information(this, "Profile Saved",
+                             QString("Profile '%1' has been saved.").arg(name));
+    refreshProfileList();
+}
+
+void GenericProfileDialog::onDeleteProfile()
+{
+    QString name = m_profileCombo->currentText();
+
+    if (m_manager->isPreset(name)) {
+        QMessageBox::warning(this, "Cannot Delete",
+                             "Preset profiles cannot be deleted.");
+        return;
+    }
+
+    auto reply = QMessageBox::question(this, "Delete Profile",
+                                       QString("Delete profile '%1'?").arg(name),
+                                       QMessageBox::Yes | QMessageBox::No);
+    if (reply == QMessageBox::Yes) {
+        if (m_manager->deleteCustomProfile(name)) {
             refreshProfileList();
             m_profileCombo->setCurrentIndex(0);
         }
     }
 }
 
-void GenericProfileDialog::onSetAsDefault() {
-    m_manager.saveDefaultProfile(m_windowName, m_profile.name());
+void GenericProfileDialog::onSetAsDefault()
+{
+    m_manager->saveDefaultProfileName(m_profileCombo->currentText());
+    QMessageBox::information(this, "Default Set",
+                             QString("Profile '%1' set as default.").arg(m_profileCombo->currentText()));
 }
 
-void GenericProfileDialog::onAccepted() { 
-    // Reconstruct order from UI
+void GenericProfileDialog::onAccepted()
+{
+    // Rebuild final column order from UI
     QList<int> newOrder;
-    for(int i = 0; i < m_selectedList->count(); ++i) {
+    for (int i = 0; i < m_selectedList->count(); ++i)
         newOrder.append(m_selectedList->item(i)->data(Qt::UserRole).toInt());
-    }
-    // Append hidden columns
-    QList<int> fullOrder = m_profile.columnOrder();
-    for(int id : fullOrder) {
-        if (!m_profile.isColumnVisible(id)) newOrder.append(id);
+    for (int id : m_profile.columnOrder()) {
+        if (!m_profile.isColumnVisible(id))
+            newOrder.append(id);
     }
     m_profile.setColumnOrder(newOrder);
-    
-    m_accepted = true; 
-    accept(); 
+
+    m_accepted = true;
+    accept();
 }
-void GenericProfileDialog::onRejected() { m_accepted = false; reject(); }
+
+void GenericProfileDialog::onRejected()
+{
+    m_accepted = false;
+    reject();
+}

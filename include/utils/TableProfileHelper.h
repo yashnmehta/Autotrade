@@ -11,8 +11,12 @@
 class TableProfileHelper {
 public:
     static void loadProfile(const QString& windowName, QTableView* tableView, QAbstractItemModel* model, GenericTableProfile& profile) {
-        GenericProfileManager manager("profiles");
-        if (!manager.loadProfile(windowName, manager.getDefaultProfileName(windowName), profile)) {
+        GenericProfileManager manager("profiles", windowName);
+        manager.loadCustomProfiles();
+        QString defName = manager.loadDefaultProfileName();
+        if (manager.hasProfile(defName)) {
+            profile = manager.getProfile(defName);
+        } else {
             profile = GenericTableProfile("Default");
             QList<int> defaultOrder;
             for (int i = 0; i < model->columnCount(); ++i) {
@@ -70,9 +74,9 @@ public:
 
     static void saveCurrentProfile(const QString& windowName, QTableView* tableView, QAbstractItemModel* model, GenericTableProfile& profile) {
         captureProfile(tableView, model, profile);
-        GenericProfileManager manager("profiles");
-        manager.saveProfile(windowName, profile);
-        manager.saveDefaultProfile(windowName, profile.name());
+        GenericProfileManager manager("profiles", windowName);
+        manager.saveCustomProfile(profile);
+        manager.saveDefaultProfileName(profile.name());
     }
 
     static bool showProfileDialog(const QString& windowName, QTableView* tableView, QAbstractItemModel* model, GenericTableProfile& profile, QWidget* parent) {
@@ -89,15 +93,17 @@ public:
             allColumns.append(info);
         }
 
-        GenericProfileDialog dialog(windowName, allColumns, profile, parent);
+        GenericProfileManager manager("profiles", windowName);
+        manager.loadCustomProfiles();
+
+        GenericProfileDialog dialog(windowName, allColumns, &manager, profile, parent);
         if (dialog.exec() == QDialog::Accepted) {
             profile = dialog.getProfile();
             applyProfile(tableView, model, profile);
             
             // Save as default
-            GenericProfileManager manager("profiles");
-            manager.saveProfile(windowName, profile);
-            manager.saveDefaultProfile(windowName, profile.name());
+            manager.saveCustomProfile(profile);
+            manager.saveDefaultProfileName(profile.name());
             return true;
         }
         return false;

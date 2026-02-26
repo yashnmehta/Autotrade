@@ -109,6 +109,8 @@ void setupMainWindowShortcuts(MainWindow *window) {
                 SLOT(createTradeBookWindow()));
   new QShortcut(QKeySequence(Qt::Key_F10), window,
                 SLOT(createOrderBookWindow()));
+  new QShortcut(QKeySequence("Shift+F12"), window,
+                SLOT(createMarketMovementWindow()));
 
 #ifdef Q_OS_MAC
   new QShortcut(QKeySequence("Meta+F6"), window, SLOT(createPositionWindow()));
