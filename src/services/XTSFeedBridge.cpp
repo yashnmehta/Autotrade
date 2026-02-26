@@ -290,7 +290,8 @@ void XTSFeedBridge::processPendingQueue() {
 // REST API Calls
 // ═════════════════════════════════════════════════════════════════════════
 
-void XTSFeedBridge::sendBatchSubscribe(int exchangeSegment, const QVector<uint32_t>& tokens) {
+void XTSFeedBridge::sendBatchSubscribe(int exchangeSegment, const QVector<uint32_t>& tokens,
+                                        int xtsMessageCode) {
     if (!m_mdClient) return;
 
     // Convert to int64_t vector for XTSMarketDataClient API
@@ -302,6 +303,7 @@ void XTSFeedBridge::sendBatchSubscribe(int exchangeSegment, const QVector<uint32
 
     qDebug() << "[XTSFeedBridge] REST subscribe — segment:" << exchangeSegment
              << "tokens:" << tokens.size()
+             << "msgCode:" << xtsMessageCode
              << "first:" << (tokens.isEmpty() ? 0 : tokens.first());
 
     // Track rate limit
@@ -315,7 +317,7 @@ void XTSFeedBridge::sendBatchSubscribe(int exchangeSegment, const QVector<uint32
     // We use a shared connection to handle the response
     auto conn = std::make_shared<QMetaObject::Connection>();
     *conn = connect(m_mdClient, &XTSMarketDataClient::subscriptionCompleted,
-                    this, [this, tokens, exchangeSegment, conn](bool success, const QString& error) {
+                    this, [this, tokens, exchangeSegment, xtsMessageCode, conn](bool success, const QString& error) {
         // Disconnect this one-shot handler
         disconnect(*conn);
 
@@ -329,8 +331,8 @@ void XTSFeedBridge::sendBatchSubscribe(int exchangeSegment, const QVector<uint32
             }
             qDebug() << "[XTSFeedBridge] ✅ Subscribed" << tokens.size()
                      << "tokens on segment" << exchangeSegment
-                     << "(active:" << m_segments[exchangeSegment].activeSet.size()
-                     << "/" << m_config.maxTokensPerSegment << ")";
+                     << "(global active:" << totalActiveCount()
+                     << "/" << m_config.maxTotalSubscriptions << ")";
         } else {
             m_restCallsFailed++;
 
@@ -345,11 +347,11 @@ void XTSFeedBridge::sendBatchSubscribe(int exchangeSegment, const QVector<uint32
                 
                 // Re-queue the tokens for retry
                 QMutexLocker relock(&m_mutex);
-                auto& seg = m_segments[exchangeSegment];
                 for (uint32_t token : tokens) {
                     PendingSubscription ps;
                     ps.token = token;
                     ps.exchangeSegment = exchangeSegment;
+                    ps.xtsMessageCode = xtsMessageCode;
                     ps.retryCount = 1;
                     ps.queuedAtMs = QDateTime::currentMSecsSinceEpoch();
                     m_pendingQueue.push(ps);
@@ -384,10 +386,11 @@ void XTSFeedBridge::sendBatchSubscribe(int exchangeSegment, const QVector<uint32
     });
 
     // Fire the REST call
-    m_mdClient->subscribe(instrumentIDs, exchangeSegment);
+    m_mdClient->subscribe(instrumentIDs, exchangeSegment, xtsMessageCode);
 }
 
-void XTSFeedBridge::sendBatchUnsubscribe(int exchangeSegment, const QVector<uint32_t>& tokens) {
+void XTSFeedBridge::sendBatchUnsubscribe(int exchangeSegment, const QVector<uint32_t>& tokens,
+                                          int xtsMessageCode) {
     if (!m_mdClient) return;
 
     QVector<int64_t> instrumentIDs;
@@ -397,9 +400,10 @@ void XTSFeedBridge::sendBatchUnsubscribe(int exchangeSegment, const QVector<uint
     }
 
     qDebug() << "[XTSFeedBridge] REST unsubscribe — segment:" << exchangeSegment
-             << "tokens:" << tokens.size();
+             << "tokens:" << tokens.size()
+             << "msgCode:" << xtsMessageCode;
 
-    m_mdClient->unsubscribe(instrumentIDs, exchangeSegment);
+    m_mdClient->unsubscribe(instrumentIDs, exchangeSegment, xtsMessageCode);
 }
 
 // ═════════════════════════════════════════════════════════════════════════
@@ -417,34 +421,44 @@ void XTSFeedBridge::enterCooldown(int cooldownMs) {
 // LRU Eviction
 // ═════════════════════════════════════════════════════════════════════════
 
-int XTSFeedBridge::evictTokensIfNeeded(int exchangeSegment, int needed) {
+int XTSFeedBridge::evictTokensIfNeeded(int needed) {
     QMutexLocker lock(&m_mutex);
-    auto it = m_segments.find(exchangeSegment);
-    if (it == m_segments.end()) return 0;
 
-    auto& seg = it.value();
     int evicted = 0;
-    QVector<uint32_t> tokensToUnsub;
+    QMap<int, QVector<uint32_t>> evictedBySegment;
 
-    while (evicted < needed && !seg.lruOrder.isEmpty()) {
-        uint32_t victim = seg.evictLRU();
-        if (victim > 0) {
-            tokensToUnsub.append(victim);
-            evicted++;
-            m_totalEvicted++;
+    // Round-robin across segments: pick the globally-oldest token each iteration
+    // Simple approach: collect LRU heads from all segments and sort by age
+    // Since we don't store timestamps per token, evict round-robin across segs
+    while (evicted < needed) {
+        bool anyEvicted = false;
+        for (auto it = m_segments.begin(); it != m_segments.end(); ++it) {
+            if (evicted >= needed) break;
+            auto& seg = it.value();
+            if (!seg.lruOrder.isEmpty()) {
+                uint32_t victim = seg.evictLRU();
+                if (victim > 0) {
+                    evictedBySegment[it.key()].append(victim);
+                    evicted++;
+                    m_totalEvicted++;
+                    anyEvicted = true;
+                }
+            }
         }
+        if (!anyEvicted) break;  // No more tokens to evict
     }
 
     if (evicted > 0) {
-        qDebug() << "[XTSFeedBridge] 🔄 Evicted" << evicted
-                 << "LRU tokens from segment" << exchangeSegment;
-        emit tokensEvicted(evicted, exchangeSegment);
+        qDebug() << "[XTSFeedBridge] 🔄 Evicted" << evicted << "LRU tokens globally";
     }
 
-    // Fire unsubscribe REST call (outside lock)
+    // Fire unsubscribe REST calls per segment (outside lock)
     lock.unlock();
-    if (!tokensToUnsub.isEmpty()) {
-        sendBatchUnsubscribe(exchangeSegment, tokensToUnsub);
+    for (auto it = evictedBySegment.begin(); it != evictedBySegment.end(); ++it) {
+        if (!it.value().isEmpty()) {
+            emit tokensEvicted(it.value().size(), it.key());
+            sendBatchUnsubscribe(it.key(), it.value(), m_config.defaultMessageCode);
+        }
     }
 
     return evicted;
@@ -457,17 +471,17 @@ int XTSFeedBridge::evictTokensIfNeeded(int exchangeSegment, int needed) {
 XTSFeedBridge::Stats XTSFeedBridge::getStats() const {
     QMutexLocker lock(&m_mutex);
     Stats stats;
-    stats.totalEvicted = m_totalEvicted;
-    stats.restCallsMade = m_restCallsMade;
+    stats.totalEvicted    = m_totalEvicted;
+    stats.restCallsMade   = m_restCallsMade;
     stats.restCallsFailed = m_restCallsFailed;
-    stats.rateLimitHits = m_rateLimitHits;
-    stats.totalPending = static_cast<int>(m_pendingQueue.size());
+    stats.rateLimitHits   = m_rateLimitHits;
+    stats.totalPending    = static_cast<int>(m_pendingQueue.size());
+    stats.totalCapacity   = m_config.maxTotalSubscriptions;
 
     for (auto it = m_segments.begin(); it != m_segments.end(); ++it) {
         int seg = it.key();
         const SegmentState& state = it.value();
         stats.perSegmentCount[seg] = state.activeSet.size();
-        stats.perSegmentCap[seg] = m_config.maxTokensPerSegment;
         stats.totalSubscribed += state.activeSet.size();
     }
 
@@ -480,21 +494,17 @@ void XTSFeedBridge::dumpStats() const {
     qDebug() << "║           XTSFeedBridge Statistics                    ║";
     qDebug() << "╠═══════════════════════════════════════════════════════╣";
     qDebug() << "║ Mode:" << (m_feedMode.load() == FeedMode::XTS_ONLY ? "XTS_ONLY" : "HYBRID");
-    qDebug() << "║ Subscribed:" << s.totalSubscribed << " Pending:" << s.totalPending;
+    qDebug() << "║ Subscribed:" << s.totalSubscribed << "/" << s.totalCapacity
+             << " Pending:" << s.totalPending;
     qDebug() << "║ REST calls:" << s.restCallsMade << " Failed:" << s.restCallsFailed;
     qDebug() << "║ Rate limit hits:" << s.rateLimitHits << " Evictions:" << s.totalEvicted;
     for (auto it = s.perSegmentCount.begin(); it != s.perSegmentCount.end(); ++it) {
-        qDebug() << "║   Segment" << it.key() << ":" << it.value()
-                 << "/" << s.perSegmentCap.value(it.key(), 0);
+        qDebug() << "║   Segment" << it.key() << ":" << it.value();
     }
     qDebug() << "╚═══════════════════════════════════════════════════════╝";
 }
 
 void XTSFeedBridge::emitStatsUpdate() {
     Stats s = getStats();
-    int capacity = 0;
-    for (auto it = s.perSegmentCap.begin(); it != s.perSegmentCap.end(); ++it) {
-        capacity += it.value();
-    }
-    emit subscriptionStatsChanged(s.totalSubscribed, s.totalPending, capacity);
+    emit subscriptionStatsChanged(s.totalSubscribed, s.totalPending, s.totalCapacity);
 }

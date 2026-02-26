@@ -275,9 +275,12 @@ QString ConfigLoader::getFeedMode() const
     return getValue("FEED", "mode", "hybrid").toLower().trimmed();
 }
 
-int ConfigLoader::getFeedMaxTokensPerSegment() const
+int ConfigLoader::getFeedMaxTotalSubscriptions() const
 {
-    return getInt("FEED", "max_tokens_per_segment", 200);
+    // First try the new global key, then fall back to the legacy per-segment key
+    int val = getInt("FEED", "max_total_subscriptions", -1);
+    if (val > 0) return val;
+    return getInt("FEED", "max_tokens_per_segment", 1000);
 }
 
 int ConfigLoader::getFeedMaxRestCallsPerSec() const

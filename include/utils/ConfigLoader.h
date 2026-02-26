@@ -62,7 +62,7 @@ public:
 
     // Feed Mode
     QString getFeedMode() const;         // "hybrid" or "xts_only"
-    int getFeedMaxTokensPerSegment() const;
+    int getFeedMaxTotalSubscriptions() const;  // XTS global cap (default 1000)
     int getFeedMaxRestCallsPerSec() const;
     int getFeedBatchSize() const;
     int getFeedBatchIntervalMs() const;

@@ -4,9 +4,10 @@
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QUrlQuery>
+#include <QtConcurrent/QtConcurrent>
 #include <QDebug>
 #include <iostream>
-#include <thread>
+#include <thread>  // for std::this_thread::sleep_for
 
 XTSInteractiveClient::XTSInteractiveClient(const QString &baseURL,
                                              const QString &apiKey,
@@ -32,8 +33,8 @@ XTSInteractiveClient::~XTSInteractiveClient()
 
 void XTSInteractiveClient::login()
 {
-    // Run login in separate thread
-    std::thread([this]() {
+    // Run login in thread pool (safe — no detached thread lifetime issues)
+    QtConcurrent::run([this]() {
         std::string url = (m_baseURL + "/interactive/user/session").toStdString();
         
         QJsonObject loginData;
@@ -89,7 +90,7 @@ void XTSInteractiveClient::login()
             qWarning() << error;
             emit loginCompleted(false, error);
         }
-    }).detach();
+    });
 }
 
 void XTSInteractiveClient::getPositions(const QString &dayOrNet,
@@ -548,7 +549,7 @@ void XTSInteractiveClient::onWSConnected()
     // This is REQUIRED by XTS to keep the connection alive and receive order updates
     // Format: 42["join",{"userID":"<user>","publishFormat":"JSON"}]
     // We send after a small delay to ensure Socket.IO namespace is connected first
-    std::thread([this]() {
+    QtConcurrent::run([this]() {
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
         
         if (!m_wsConnected) return;
@@ -570,7 +571,7 @@ void XTSInteractiveClient::onWSConnected()
         m_nativeWS->sendText(eventStr.toStdString());
         qDebug() << "📤 Sent Interactive Socket.IO join event:" << eventStr;
         
-    }).detach();
+    });
     
     if (m_wsConnectCallback) {
         m_wsConnectCallback(true, "Connected");

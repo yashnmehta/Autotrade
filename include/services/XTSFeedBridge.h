@@ -114,13 +114,15 @@ public:
 
     struct Config {
         int maxTotalSubscriptions = 1000;  // XTS GLOBAL limit (all segments combined)
-        int maxRestCallsPerSec   = 10;    // REST rate limit (conservative)
-        int batchSize            = 50;    // Tokens per REST subscribe call
-        int batchIntervalMs      = 200;   // Min ms between REST calls
-        int cooldownOnRateLimitMs = 5000; // Back-off on HTTP 429
-        int retryDelayMs         = 2000;  // Retry failed subscriptions
-        int maxRetries           = 3;     // Max retries per batch
-        int defaultMessageCode   = 1501;  // 1512=LTP(lightest), 1501=Touchline, 1502=Depth
+        int maxRestCallsPerSec    = 10;    // REST rate limit (conservative)
+        int batchSize             = 50;    // Tokens per REST subscribe call
+        int batchIntervalMs       = 200;   // Min ms between REST calls
+        int cooldownOnRateLimitMs = 5000;  // Back-off on HTTP 429
+        int retryDelayMs          = 2000;  // Retry failed subscriptions
+        int maxRetries            = 3;     // Max retries per batch
+        int defaultMessageCode    = 1501;  // 1512=LTP(lightest), 1501=Touchline, 1502=Depth
+        // NOTE: XTS enforces a single GLOBAL cap of 1000, not per-segment caps.
+        // maxTotalSubscriptions is the only hard limit.
     };
 
     void setConfig(const Config& config);
@@ -132,7 +134,7 @@ public:
 
     struct Stats {
         int totalSubscribed = 0;          // GLOBAL count across all segments
-        int totalCapacity   = 1000;       // XTS global limit
+        int totalCapacity   = 1000;       // XTS global limit (mirrors Config::maxTotalSubscriptions)
         int totalPending    = 0;          // Waiting in queue
         int totalEvicted    = 0;          // LRU evictions
         int restCallsMade   = 0;          // Total REST subscribe calls
@@ -225,7 +227,8 @@ private:
     void enterCooldown(int cooldownMs);
 
     /**
-     * @brief Evict LRU tokens to make room for new subscriptions (GLOBAL cap)
+     * @brief Evict LRU tokens (globally across all segments) to make room.
+     * Picks the globally oldest tokens first (round-robin across segments).
      * @return Number of tokens evicted
      */
     int evictTokensIfNeeded(int needed);

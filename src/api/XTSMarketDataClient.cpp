@@ -5,9 +5,9 @@
 #include <QJsonArray>
 #include <QUrlQuery>
 #include <QtMath>
+#include <QtConcurrent/QtConcurrent>
 #include <QDebug>
 #include <iostream>
-#include <thread>
 
 XTSMarketDataClient::XTSMarketDataClient(const QString &baseURL,
                                            const QString &apiKey,
@@ -35,7 +35,7 @@ XTSMarketDataClient::~XTSMarketDataClient()
 void XTSMarketDataClient::login()
 {
     // Run in separate thread to not block UI
-    std::thread([this]() {
+    QtConcurrent::run([this]() {
         std::string url = (m_baseURL + "/auth/login").toStdString();
         
         QJsonObject loginData;
@@ -76,7 +76,7 @@ void XTSMarketDataClient::login()
             qWarning() << error;
             emit loginCompleted(false, error);
         }
-    }).detach();
+    });
 }
 
 void XTSMarketDataClient::connectWebSocket()
@@ -144,7 +144,7 @@ void XTSMarketDataClient::subscribe(const QVector<int64_t> &instrumentIDs, int e
     }
     
     // Run in separate thread
-    std::thread([this, instrumentIDs, exchangeSegment, xtsMessageCode]() {
+    QtConcurrent::run([this, instrumentIDs, exchangeSegment, xtsMessageCode]() {
         std::string url = (m_baseURL + "/instruments/subscription").toStdString();
         
         QJsonObject reqObj;
@@ -222,7 +222,7 @@ void XTSMarketDataClient::subscribe(const QVector<int64_t> &instrumentIDs, int e
         }
         
         emit subscriptionCompleted(false, "Subscription failed");
-    }).detach();
+    });
 }
 
 void XTSMarketDataClient::unsubscribe(const QVector<int64_t> &instrumentIDs, int exchangeSegment,
@@ -234,7 +234,7 @@ void XTSMarketDataClient::unsubscribe(const QVector<int64_t> &instrumentIDs, int
     }
 
     // XTS API docs: Unsubscribe is PUT /instruments/subscription (not WebSocket)
-    std::thread([this, instrumentIDs, exchangeSegment, xtsMessageCode]() {
+    QtConcurrent::run([this, instrumentIDs, exchangeSegment, xtsMessageCode]() {
         std::string url = (m_baseURL + "/instruments/subscription").toStdString();
 
         QJsonObject reqObj;
@@ -276,7 +276,7 @@ void XTSMarketDataClient::unsubscribe(const QVector<int64_t> &instrumentIDs, int
         }
 
         emit unsubscriptionCompleted(false, "Unsubscription failed");
-    }).detach();
+    });
 }
 
 
@@ -289,7 +289,7 @@ void XTSMarketDataClient::getInstruments(int exchangeSegment)
     }
 
     // Run in separate thread
-    std::thread([this, exchangeSegment]() {
+    QtConcurrent::run([this, exchangeSegment]() {
         std::string url = (m_baseURL + "/marketdata/instruments/master?exchangeSegment=" + QString::number(exchangeSegment)).toStdString();
         
         std::map<std::string, std::string> headers;
@@ -324,7 +324,7 @@ void XTSMarketDataClient::getInstruments(int exchangeSegment)
         } else {
             emit instrumentsReceived(false, QVector<XTS::Instrument>(), obj["description"].toString());
         }
-    }).detach();
+    });
 }
 
 void XTSMarketDataClient::searchInstruments(const QString &searchString, int exchangeSegment)
@@ -335,7 +335,7 @@ void XTSMarketDataClient::searchInstruments(const QString &searchString, int exc
     }
 
     // Run in separate thread
-    std::thread([this, searchString, exchangeSegment]() {
+    QtConcurrent::run([this, searchString, exchangeSegment]() {
         std::string url = (m_baseURL + "/marketdata/search/instrumentsbystring").toStdString();
         
         QJsonObject searchData;
@@ -377,7 +377,7 @@ void XTSMarketDataClient::searchInstruments(const QString &searchString, int exc
         } else {
             emit instrumentsReceived(false, QVector<XTS::Instrument>(), obj["description"].toString());
         }
-    }).detach();
+    });
 }
 
 void XTSMarketDataClient::getQuote(int64_t exchangeInstrumentID, int exchangeSegment)
@@ -388,7 +388,7 @@ void XTSMarketDataClient::getQuote(int64_t exchangeInstrumentID, int exchangeSeg
     }
 
     // Run in separate thread
-    std::thread([this, exchangeInstrumentID, exchangeSegment]() {
+    QtConcurrent::run([this, exchangeInstrumentID, exchangeSegment]() {
         std::string url = (m_baseURL + "/instruments/quotes").toStdString();
         
         QJsonObject reqObj;
@@ -448,7 +448,7 @@ void XTSMarketDataClient::getQuote(int64_t exchangeInstrumentID, int exchangeSeg
         } else {
             emit quoteReceived(false, QJsonObject(), obj["description"].toString());
         }
-    }).detach();
+    });
 }
 
 void XTSMarketDataClient::getQuoteBatch(const QVector<int64_t> &instrumentIDs, int exchangeSegment)
@@ -459,7 +459,7 @@ void XTSMarketDataClient::getQuoteBatch(const QVector<int64_t> &instrumentIDs, i
     }
 
     // Run in separate thread
-    std::thread([this, instrumentIDs, exchangeSegment]() {
+    QtConcurrent::run([this, instrumentIDs, exchangeSegment]() {
         std::string url = (m_baseURL + "/instruments/quotes").toStdString();
         
         QJsonObject reqObj;
@@ -517,7 +517,7 @@ void XTSMarketDataClient::getQuoteBatch(const QVector<int64_t> &instrumentIDs, i
         } else {
             emit quoteBatchReceived(false, QVector<QJsonObject>(), obj["description"].toString());
         }
-    }).detach();
+    });
 }
 
 void XTSMarketDataClient::onWSConnected()
@@ -851,7 +851,7 @@ void XTSMarketDataClient::downloadMasterContracts(const QStringList &exchangeSeg
     
     std::cout << "[XTS] Starting master download in background thread..." << std::endl;
     
-    std::thread([this, url, token, body]() {
+    QtConcurrent::run([this, url, token, body]() {
         std::map<std::string, std::string> headers;
         headers["Content-Type"] = "application/json";
         headers["Authorization"] = token;
@@ -895,7 +895,7 @@ void XTSMarketDataClient::downloadMasterContracts(const QStringList &exchangeSeg
         // Emit signal with downloaded data
         emit masterContractsDownloaded(true, csvData, QString());
         
-    }).detach(); // Detach thread to run independently
+    }); // Detach thread to run independently
 }
 
 // Removed attemptReconnect() - native WebSocket client handles reconnection internally with exponential backoff

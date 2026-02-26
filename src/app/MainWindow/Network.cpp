@@ -55,7 +55,7 @@ void MainWindow::initializeXTSFeedBridge() {
 
     // 2. Load rate-limit config from config.ini
     XTSFeedBridge::Config cfg;
-    cfg.maxTokensPerSegment   = m_configLoader->getFeedMaxTokensPerSegment();
+    cfg.maxTotalSubscriptions = m_configLoader->getFeedMaxTotalSubscriptions();
     cfg.maxRestCallsPerSec    = m_configLoader->getFeedMaxRestCallsPerSec();
     cfg.batchSize             = m_configLoader->getFeedBatchSize();
     cfg.batchIntervalMs       = m_configLoader->getFeedBatchIntervalMs();
