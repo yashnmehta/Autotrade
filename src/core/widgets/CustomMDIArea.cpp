@@ -14,14 +14,14 @@
 CustomMDIArea::CustomMDIArea(QWidget *parent)
     : QWidget(parent), m_activeWindow(nullptr), m_nextX(20), m_nextY(20),
       m_snapPreview(nullptr) {
-  // Dark premium background (VS Code style)
-  setStyleSheet("background-color: #9b9b9b;");
+  // Light theme background
+  setStyleSheet("background-color: #f1f5f9;");
 
   // Create snap preview overlay with refined visuals
   m_snapPreview = new QWidget(this);
   m_snapPreview->setStyleSheet(
-      "background-color: rgba(0, 122, 204, 40);" // More subtle alpha
-      "border: 1px solid #007acc;"               // Thinner border
+      "background-color: rgba(59, 130, 246, 40);"
+      "border: 1px solid #3b82f6;"
       "border-radius: 4px;");
   m_snapPreview->hide();
 

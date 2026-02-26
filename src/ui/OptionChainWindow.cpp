@@ -47,21 +47,20 @@ void OptionChainDelegate::paint(QPainter *painter,
 
   // Get the value and determine color
   QString text = index.data(Qt::DisplayRole).toString();
-  QColor bgColor = QColor("#2A3A50"); // Default background
-  QColor textColor = Qt::white;
+  QColor bgColor = QColor("transparent"); // Light theme: transparent default
+  QColor textColor = QColor("#1e293b");   // Dark text for light theme
 
   // Column-specific background colors
 
   // Check for dynamic tick update color first
   int direction = index.data(Qt::UserRole + 1).toInt();
   if (direction == 1) {
-    bgColor = QColor("#0000FF"); // Blue for Up
+    bgColor = QColor("#dbeafe"); // Light blue for Up tick
+    textColor = QColor("#1d4ed8");
   } else if (direction == 2) {
-    bgColor = QColor("#FF0000"); // Red for Down
+    bgColor = QColor("#fee2e2"); // Light red for Down tick
+    textColor = QColor("#dc2626");
   } // else transparent
-  else {
-    bgColor = QColor("transparent");
-  }
 
   // Check for numeric values indicating change
   bool isChangeColumn = false;
@@ -73,16 +72,16 @@ void OptionChainDelegate::paint(QPainter *painter,
 
     if (ok && value != 0.0) {
       if (value > 0) {
-        textColor = QColor("#00FF00"); // Green for positive
+        textColor = QColor("#16a34a"); // Green for positive
       } else {
-        textColor = QColor("#FF4444"); // Red for negative
+        textColor = QColor("#dc2626"); // Red for negative
       }
     }
   }
 
   // Draw background
   if (option.state & QStyle::State_Selected) {
-    bgColor = QColor("#3A5A70"); // Highlighted selection
+    bgColor = QColor("#dbeafe"); // Light blue selection
   }
 
   painter->fillRect(option.rect, bgColor);
@@ -142,59 +141,59 @@ void OptionChainWindow::setupUI() {
   // Title
   m_titleLabel = new QLabel("NIFTY");
   m_titleLabel->setStyleSheet(
-      "QLabel { font-size: 16px; font-weight: bold; color: #FFFFFF; }");
+      "QLabel { font-size: 16px; font-weight: bold; color: #1e293b; }");
   headerLayout->addWidget(m_titleLabel);
 
   headerLayout->addStretch();
 
   // Symbol selection
   QLabel *symbolLabel = new QLabel("Symbol:");
-  symbolLabel->setStyleSheet("QLabel { color: #FFFFFF; font-weight: bold; }");
+  symbolLabel->setStyleSheet("QLabel { color: #475569; font-weight: bold; }");
   headerLayout->addWidget(symbolLabel);
 
   m_symbolCombo = new QComboBox();
   m_symbolCombo->setMinimumWidth(120);
   m_symbolCombo->setStyleSheet(
-      "QComboBox { background: #252526; color: #FFFFFF; border: 1px solid "
-      "#3e3e42; padding: 4px; }"
+      "QComboBox { background: #ffffff; color: #0f172a; border: 1px solid "
+      "#cbd5e1; padding: 4px; border-radius: 4px; }"
       "QComboBox::drop-down { border: none; }"
-      "QComboBox QAbstractItemView { background-color: #252526; color: "
-      "#FFFFFF; selection-background-color: #094771; }");
+      "QComboBox QAbstractItemView { background-color: #ffffff; color: "
+      "#0f172a; selection-background-color: #dbeafe; selection-color: #1e40af; }");
   headerLayout->addWidget(m_symbolCombo);
 
   // Expiry selection
   QLabel *expiryLabel = new QLabel("Expiry:");
-  expiryLabel->setStyleSheet("QLabel { color: #FFFFFF; font-weight: bold; }");
+  expiryLabel->setStyleSheet("QLabel { color: #475569; font-weight: bold; }");
   headerLayout->addWidget(expiryLabel);
 
   m_expiryCombo = new QComboBox();
   m_expiryCombo->setMinimumWidth(120);
   m_expiryCombo->setStyleSheet(
-      "QComboBox { background: #252526; color: #FFFFFF; border: 1px solid "
-      "#3e3e42; padding: 4px; }"
+      "QComboBox { background: #ffffff; color: #0f172a; border: 1px solid "
+      "#cbd5e1; padding: 4px; border-radius: 4px; }"
       "QComboBox::drop-down { border: none; }"
-      "QComboBox QAbstractItemView { background-color: #252526; color: "
-      "#FFFFFF; selection-background-color: #094771; }");
+      "QComboBox QAbstractItemView { background-color: #ffffff; color: "
+      "#0f172a; selection-background-color: #dbeafe; selection-color: #1e40af; }");
   headerLayout->addWidget(m_expiryCombo);
 
   // Refresh button
   m_refreshButton = new QPushButton("Refresh");
   m_refreshButton->setStyleSheet(
-      "QPushButton { background: #333333; color: #FFFFFF; border: 1px solid "
-      "#454545; "
-      "padding: 5px 12px; border-radius: 2px; }"
-      "QPushButton:hover { background: #3e3e42; }"
-      "QPushButton:pressed { background: #094771; }");
+      "QPushButton { background: #f1f5f9; color: #334155; border: 1px solid "
+      "#cbd5e1; "
+      "padding: 5px 12px; border-radius: 4px; font-weight: 600; }"
+      "QPushButton:hover { background: #e2e8f0; color: #0f172a; }"
+      "QPushButton:pressed { background: #dbeafe; border-color: #3b82f6; }");
   headerLayout->addWidget(m_refreshButton);
 
   // Calculator button
   m_calculatorButton = new QPushButton("View Calculators");
   m_calculatorButton->setStyleSheet(
-      "QPushButton { background: #333333; color: #FFFFFF; border: 1px solid "
-      "#454545; "
-      "padding: 5px 12px; border-radius: 2px; }"
-      "QPushButton:hover { background: #3e3e42; }"
-      "QPushButton:pressed { background: #094771; }");
+      "QPushButton { background: #f1f5f9; color: #334155; border: 1px solid "
+      "#cbd5e1; "
+      "padding: 5px 12px; border-radius: 4px; font-weight: 600; }"
+      "QPushButton:hover { background: #e2e8f0; color: #0f172a; }"
+      "QPushButton:pressed { background: #dbeafe; border-color: #3b82f6; }");
   headerLayout->addWidget(m_calculatorButton);
 
   mainLayout->addLayout(headerLayout);
@@ -206,23 +205,24 @@ void OptionChainWindow::setupUI() {
   tableLayout->setSpacing(0);
   tableLayout->setContentsMargins(0, 0, 0, 0);
 
-  // Common Table Sheet
+  // Common Table Sheet (Light Theme)
   QString tableStyle = "QTableView {"
-                       "   background-color: #1e1e1e;"
-                       "   color: #cccccc;"
-                       "   gridline-color: #2d2d2d;"
-                       "   border: 1px solid #3e3e42;"
-                       "   selection-background-color: #094771;"
-                       "   selection-color: #ffffff;"
+                       "   background-color: #ffffff;"
+                       "   color: #1e293b;"
+                       "   gridline-color: #f1f5f9;"
+                       "   border: 1px solid #e2e8f0;"
+                       "   selection-background-color: #dbeafe;"
+                       "   selection-color: #1e40af;"
                        "}"
                        "QTableView::item {"
                        "   padding: 4px;"
                        "}"
                        "QHeaderView::section {"
-                       "   background-color: #252526;"
-                       "   color: #858585;"
+                       "   background-color: #f8fafc;"
+                       "   color: #475569;"
                        "   padding: 4px;"
-                       "   border: 1px solid #3e3e42;"
+                       "   border: none;"
+                       "   border-bottom: 2px solid #e2e8f0;"
                        "   font-weight: bold;"
                        "   font-size: 11px;"
                        "}";
@@ -255,22 +255,23 @@ void OptionChainWindow::setupUI() {
   m_strikeTable->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
   m_strikeTable->viewport()->installEventFilter(this);
   m_strikeTable->setStyleSheet("QTableView {"
-                               "   background-color: #252526;"
-                               "   color: #ffffff;"
-                               "   gridline-color: #2d2d2d;"
-                               "   border: 1px solid #3e3e42;"
+                               "   background-color: #f8fafc;"
+                               "   color: #0f172a;"
+                               "   gridline-color: #e2e8f0;"
+                               "   border: 1px solid #e2e8f0;"
                                "   font-weight: bold;"
                                "   font-size: 12px;"
-                               "   selection-background-color: #094771;"
+                               "   selection-background-color: #dbeafe;"
                                "}"
                                "QTableView::item {"
                                "   padding: 4px;"
                                "}"
                                "QHeaderView::section {"
-                               "   background-color: #2d2d2d;"
-                               "   color: #cccccc;"
+                               "   background-color: #f1f5f9;"
+                               "   color: #475569;"
                                "   padding: 4px;"
-                               "   border: 1px solid #3e3e42;"
+                               "   border: none;"
+                               "   border-bottom: 2px solid #e2e8f0;"
                                "   font-weight: bold;"
                                "}");
   tableLayout->addWidget(m_strikeTable, 1);
@@ -309,8 +310,8 @@ void OptionChainWindow::setupUI() {
   QWidget::setTabOrder(m_strikeTable,      m_putTable);
   QWidget::setTabOrder(m_putTable,         m_symbolCombo);
 
-  // Set main widget style
-  setStyleSheet("QWidget { background-color: #1e1e1e; }");
+  // Set main widget style (Light Theme)
+  setStyleSheet("QWidget { background-color: #ffffff; }");
 }
 
 void OptionChainWindow::setupModels() {

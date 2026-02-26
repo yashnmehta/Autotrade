@@ -229,7 +229,8 @@ void AllIndicesWindow::setupUI()
     connect(m_applyBtn, &QPushButton::clicked, this, &AllIndicesWindow::onApplyClicked);
 
     m_applyBtn->setDefault(true);
-    m_applyBtn->setStyleSheet("QPushButton { background-color: #4CAF50; color: white; font-weight: bold; padding: 5px 15px; }");
+    m_applyBtn->setStyleSheet("QPushButton { background-color: #16a34a; color: white; font-weight: bold; padding: 5px 15px; border-radius: 4px; border: none; }"
+                              "QPushButton:hover { background-color: #15803d; }");
 
     mainLayout->addLayout(btnLayout);
 

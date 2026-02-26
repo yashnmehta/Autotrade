@@ -60,27 +60,27 @@ void CustomMarketWatch::setSourceModel(QAbstractItemModel *model)
 
 void CustomMarketWatch::applyDefaultStyling()
 {
-    // Dark theme styling
+    // Light theme styling
     setAlternatingRowColors(false);
     setShowGrid(false);
     setStyleSheet(
         "QTableView {"
-        "    background-color: #1e1e1e;"
-        "    color: #ffffff;"
-        "    gridline-color: #3f3f46;"
-        "    selection-background-color: #094771;"
-        "    selection-color: #ffffff;"
+        "    background-color: #ffffff;"
+        "    color: #1e293b;"
+        "    gridline-color: #f1f5f9;"
+        "    selection-background-color: #dbeafe;"
+        "    selection-color: #1e40af;"
         "    outline: 0;"
         "}"
         "QHeaderView::section {"
-        "    background-color: #2d2d30;"
-        "    color: #ffffff;"
+        "    background-color: #f8fafc;"
+        "    color: #475569;"
         "    padding: 4px;"
-        "    border: 1px solid #3f3f46;"
+        "    border: 1px solid #e2e8f0;"
         "    font-weight: bold;"
         "}"
         "QHeaderView::section:hover {"
-        "    background-color: #3e3e42;"
+        "    background-color: #e2e8f0;"
         "}"
     );
     
@@ -125,19 +125,20 @@ QMenu* CustomMarketWatch::createContextMenu()
     QMenu *menu = new QMenu(this);
     menu->setStyleSheet(
         "QMenu {"
-        "    background-color: #252526;"
-        "    color: #ffffff;"
-        "    border: 1px solid #3e3e42;"
+        "    background-color: #ffffff;"
+        "    color: #1e293b;"
+        "    border: 1px solid #e2e8f0;"
         "}"
         "QMenu::item {"
         "    padding: 6px 20px;"
         "}"
         "QMenu::item:selected {"
-        "    background-color: #094771;"
+        "    background-color: #dbeafe;"
+        "    color: #1e40af;"
         "}"
         "QMenu::separator {"
         "    height: 1px;"
-        "    background: #3e3e42;"
+        "    background: #e2e8f0;"
         "    margin: 4px 0px;"
         "}"
     );

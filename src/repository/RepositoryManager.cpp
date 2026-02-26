@@ -28,8 +28,13 @@
 RepositoryManager *RepositoryManager::s_instance = nullptr;
 
 RepositoryManager *RepositoryManager::getInstance() {
+  // Double-checked locking with a local static guarantees thread-safe
+  // one-time construction on all C++11-conformant compilers (§6.7 [stmt.dcl]).
+  // The s_instance raw pointer is kept for API compatibility (callers receive
+  // a naked pointer), but the object lifetime is managed by the static below.
+  static RepositoryManager localInstance;
   if (!s_instance) {
-    s_instance = new RepositoryManager();
+    s_instance = &localInstance;
   }
   return s_instance;
 }

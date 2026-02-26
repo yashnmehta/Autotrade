@@ -141,6 +141,7 @@ private:
   void setupShortcuts();
   void setupConnections();
   void setupNetwork();
+  void initializeXTSFeedBridge();
   void createMenuBar();
   void createToolBar();
   void createConnectionBar();

@@ -2,10 +2,12 @@
 #include "models/StrategyFilterProxyModel.h"
 #include "models/StrategyTableModel.h"
 #include "services/StrategyService.h"
-#include "strategy/StrategyParser.h"
+#include "services/StrategyTemplateRepository.h"
 #include "ui/CreateStrategyDialog.h"
 #include "ui/ModifyParametersDialog.h"
-#include "ui/StrategyBuilderDialog.h"
+#include "ui/StrategyDeployDialog.h"
+#include "ui/StrategyTemplateBuilderDialog.h"
+#include "ui/TemplateManagerDialog.h"
 #include "ui_StrategyManagerWindow.h"
 #include <QButtonGroup>
 #include <QComboBox>
@@ -36,17 +38,17 @@ public:
       painter->setRenderHint(QPainter::Antialiasing);
 
       QString status = index.data().toString();
-      QColor bgColor = QColor("#454545");
+      QColor bgColor = QColor("#64748b");
       QColor textColor = Qt::white;
 
       if (status == "Running")
-        bgColor = QColor("#2e7d32");
+        bgColor = QColor("#16a34a");
       else if (status == "Paused")
-        bgColor = QColor("#ef6c00");
+        bgColor = QColor("#ea580c");
       else if (status == "Stopped")
-        bgColor = QColor("#c62828");
+        bgColor = QColor("#dc2626");
       else if (status == "Created")
-        bgColor = QColor("#1565c0");
+        bgColor = QColor("#2563eb");
 
       QRect rect = option.rect.adjusted(4, 4, -4, -4);
       painter->setBrush(bgColor);
@@ -108,10 +110,13 @@ void StrategyManagerWindow::setupModels() {
 void StrategyManagerWindow::setupConnections() {
   connect(ui->createButton, &QPushButton::clicked, this,
           &StrategyManagerWindow::onCreateClicked);
+  // Both "Build Custom" and "Deploy Template" now open the unified
+  // Template Manager dialog which supports create, edit, clone, delete,
+  // and deploy — all in one place.
   connect(ui->buildCustomButton, &QPushButton::clicked, this,
-          &StrategyManagerWindow::onBuildCustomClicked);
-  connect(ui->loadJsonButton, &QPushButton::clicked, this,
-          &StrategyManagerWindow::onLoadFromJsonClicked);
+          &StrategyManagerWindow::onManageTemplatesClicked);
+  connect(ui->deployTemplateButton, &QPushButton::clicked, this,
+          &StrategyManagerWindow::onManageTemplatesClicked);
   connect(ui->startButton, &QPushButton::clicked, this,
           &StrategyManagerWindow::onStartClicked);
   connect(ui->pauseButton, &QPushButton::clicked, this,
@@ -215,29 +220,107 @@ void StrategyManagerWindow::onCreateClicked() {
 }
 
 void StrategyManagerWindow::onBuildCustomClicked() {
-  StrategyBuilderDialog builder(this);
+    StrategyTemplateBuilderDialog dlg(this);
 
-  if (builder.exec() != QDialog::Accepted) {
-    return;
-  }
+    if (dlg.exec() != QDialog::Accepted)
+        return;
 
-  // Extract the strategy definition JSON and wrap it in params
-  QVariantMap params;
-  params["definition"] = builder.definitionJSON();
-  params["productType"] = builder.productType();
+    StrategyTemplate tmpl = dlg.buildTemplate();
 
-  StrategyService::instance().createInstance(
-      builder.strategyName(),    // instanceName
-      QString(),                 // description
-      "Custom",                  // strategyType
-      builder.symbol(),          // symbol
-      builder.account(),         // account
-      builder.segment(),         // segment
-      builder.stopLoss(),        // stopLoss
-      builder.target(),          // target
-      0.0,                       // entryPrice (auto from market)
-      builder.quantity(),        // quantity
-      params);
+    // Persist the template
+    StrategyTemplateRepository &repo = StrategyTemplateRepository::instance();
+    if (!repo.isOpen()) {
+        QMessageBox::critical(this, "Save Failed",
+            "Could not open the strategy template database.\n"
+            "Check application write permissions.");
+        return;
+    }
+
+    if (!repo.saveTemplate(tmpl)) {
+        QMessageBox::critical(this, "Save Failed",
+            "Template could not be saved to the database.");
+        return;
+    }
+
+    QMessageBox::information(this, "Template Saved",
+        QString("Strategy template <b>%1</b> saved successfully.<br><br>"
+                "You can now deploy it via <i>Deploy Template</i>.")
+            .arg(tmpl.name.toHtmlEscaped()));
+}
+
+void StrategyManagerWindow::onDeployTemplateClicked()
+{
+    StrategyDeployDialog dlg(this);
+
+    if (dlg.exec() != QDialog::Accepted)
+        return;
+
+    StrategyInstance inst = dlg.buildInstance();
+
+    // Give it the next available ID
+    int nextId = 1;
+    for (const auto &existing : m_model->allInstances())
+        if (existing.instanceId >= nextId) nextId = existing.instanceId + 1;
+    // StrategyService assigns the real ID on create – we just fill visible fields
+
+    QVariantMap params = inst.parameters;
+
+    StrategyService::instance().createInstance(
+        inst.instanceName, inst.description,
+        inst.strategyType,
+        inst.symbol,
+        inst.account,
+        inst.segment,
+        inst.stopLoss,
+        inst.target,
+        inst.entryPrice,
+        inst.quantity,
+        params);
+
+    QMessageBox::information(this, "Strategy Deployed",
+        QString("Strategy <b>%1</b> has been created from template <b>%2</b>.<br>"
+                "Use <i>Start</i> to activate it.")
+            .arg(inst.instanceName.toHtmlEscaped())
+            .arg(inst.strategyType.toHtmlEscaped()));
+}
+
+void StrategyManagerWindow::onManageTemplatesClicked()
+{
+    TemplateManagerDialog mgr(this);
+
+    if (mgr.exec() != QDialog::Accepted)
+        return;
+
+    if (mgr.resultAction() == TemplateManagerDialog::Action::Deploy) {
+        // User chose to deploy a template — open the deploy dialog
+        // pre-seeded with the selected template
+        StrategyDeployDialog dlg(this);
+
+        if (dlg.exec() != QDialog::Accepted)
+            return;
+
+        StrategyInstance inst = dlg.buildInstance();
+
+        QVariantMap params = inst.parameters;
+
+        StrategyService::instance().createInstance(
+            inst.instanceName, inst.description,
+            inst.strategyType,
+            inst.symbol,
+            inst.account,
+            inst.segment,
+            inst.stopLoss,
+            inst.target,
+            inst.entryPrice,
+            inst.quantity,
+            params);
+
+        QMessageBox::information(this, "Strategy Deployed",
+            QString("Strategy <b>%1</b> has been created from template <b>%2</b>.<br>"
+                    "Use <i>Start</i> to activate it.")
+                .arg(inst.instanceName.toHtmlEscaped())
+                .arg(inst.strategyType.toHtmlEscaped()));
+    }
 }
 
 void StrategyManagerWindow::onLoadFromJsonClicked() {
@@ -454,9 +537,9 @@ void StrategyManagerWindow::updateSummary() {
                                 .arg(totalMtm, 0, 'f', 2));
 
   if (totalMtm > 0)
-    ui->SummaryLabel->setStyleSheet("color: #4caf50;");
+    ui->SummaryLabel->setStyleSheet("color: #16a34a;");
   else if (totalMtm < 0)
-    ui->SummaryLabel->setStyleSheet("color: #f44336;");
+    ui->SummaryLabel->setStyleSheet("color: #dc2626;");
   else
-    ui->SummaryLabel->setStyleSheet("color: #AAAAAA;");
+    ui->SummaryLabel->setStyleSheet("color: #64748b;");
 }

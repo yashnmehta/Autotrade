@@ -135,7 +135,8 @@ void XTSMarketDataClient::disconnectWebSocket()
     }
 }
 
-void XTSMarketDataClient::subscribe(const QVector<int64_t> &instrumentIDs, int exchangeSegment)
+void XTSMarketDataClient::subscribe(const QVector<int64_t> &instrumentIDs, int exchangeSegment,
+                                     int xtsMessageCode)
 {
     if (m_token.isEmpty()) {
         emit subscriptionCompleted(false, "Not logged in");
@@ -143,7 +144,7 @@ void XTSMarketDataClient::subscribe(const QVector<int64_t> &instrumentIDs, int e
     }
     
     // Run in separate thread
-    std::thread([this, instrumentIDs, exchangeSegment]() {
+    std::thread([this, instrumentIDs, exchangeSegment, xtsMessageCode]() {
         std::string url = (m_baseURL + "/instruments/subscription").toStdString();
         
         QJsonObject reqObj;
@@ -155,7 +156,7 @@ void XTSMarketDataClient::subscribe(const QVector<int64_t> &instrumentIDs, int e
             instruments.append(inst);
         }
         reqObj["instruments"] = instruments;
-        reqObj["xtsMessageCode"] = 1502;
+        reqObj["xtsMessageCode"] = xtsMessageCode;
         
         QJsonDocument doc(reqObj);
         std::string body = doc.toJson().toStdString();
@@ -224,30 +225,58 @@ void XTSMarketDataClient::subscribe(const QVector<int64_t> &instrumentIDs, int e
     }).detach();
 }
 
-void XTSMarketDataClient::unsubscribe(const QVector<int64_t> &instrumentIDs, int exchangeSegment)
+void XTSMarketDataClient::unsubscribe(const QVector<int64_t> &instrumentIDs, int exchangeSegment,
+                                       int xtsMessageCode)
 {
-    if (!m_wsConnected) {
-        emit unsubscriptionCompleted(false, "WebSocket not connected");
+    if (m_token.isEmpty()) {
+        emit unsubscriptionCompleted(false, "Not logged in");
         return;
     }
 
-    QJsonObject unsubscribeMsg;
-    unsubscribeMsg["type"] = "unsubscribe";
-    
-    QJsonArray instruments;
-    for (int64_t id : instrumentIDs) {
-        QJsonObject inst;
-        inst["exchangeSegment"] = exchangeSegment;
-        inst["exchangeInstrumentID"] = (qint64)id;
-        instruments.append(inst);
-    }
-    unsubscribeMsg["instruments"] = instruments;
+    // XTS API docs: Unsubscribe is PUT /instruments/subscription (not WebSocket)
+    std::thread([this, instrumentIDs, exchangeSegment, xtsMessageCode]() {
+        std::string url = (m_baseURL + "/instruments/subscription").toStdString();
 
-    QJsonDocument doc(unsubscribeMsg);
-    std::string jsonMsg = doc.toJson(QJsonDocument::Compact).toStdString();
-    m_nativeWS->sendText(jsonMsg);
+        QJsonObject reqObj;
+        QJsonArray instruments;
+        for (int64_t id : instrumentIDs) {
+            QJsonObject inst;
+            inst["exchangeSegment"] = exchangeSegment;
+            inst["exchangeInstrumentID"] = (qint64)id;
+            instruments.append(inst);
+        }
+        reqObj["instruments"] = instruments;
+        reqObj["xtsMessageCode"] = xtsMessageCode;
 
-    emit unsubscriptionCompleted(true, "Unsubscription request sent");
+        QJsonDocument doc(reqObj);
+        std::string body = doc.toJson().toStdString();
+
+        std::map<std::string, std::string> headers;
+        headers["Content-Type"] = "application/json";
+        headers["Authorization"] = m_token.toStdString();
+
+        auto response = m_httpClient->put(url, body, headers);
+
+        if (!response.success) {
+            qWarning() << "[XTS] Unsubscribe failed:" << QString::fromStdString(response.error);
+            emit unsubscriptionCompleted(false, QString::fromStdString(response.error));
+            return;
+        }
+
+        QJsonDocument responseDoc = QJsonDocument::fromJson(QByteArray::fromStdString(response.body));
+        if (!responseDoc.isNull() && responseDoc.isObject()) {
+            QJsonObject obj = responseDoc.object();
+            if (obj["type"].toString() == "success") {
+                qDebug() << "[XTS] ✅ Unsubscribed" << instrumentIDs.size()
+                         << "instruments from segment" << exchangeSegment
+                         << "(code:" << xtsMessageCode << ")";
+                emit unsubscriptionCompleted(true, "Unsubscription successful");
+                return;
+            }
+        }
+
+        emit unsubscriptionCompleted(false, "Unsubscription failed");
+    }).detach();
 }
 
 

@@ -153,8 +153,8 @@ QVariant PositionModel::data(const QModelIndex& index, int role) const
     else if (role == Qt::ForegroundRole) {
         if (col == MTMGL || col == NetMTM || col == ActualMTM) {
             double val = (col == MTMGL) ? pos.mtm : (col == NetMTM ? pos.netMtm : pos.actualMtm);
-            return val > 0 ? QColor("#2e7d32") : // Premium Dark Green
-                   val < 0 ? QColor("#c62828") : // Premium Dark Red
+            return val > 0 ? QColor("#16a34a") : // Green for positive
+                   val < 0 ? QColor("#dc2626") : // Red for negative
                    QColor(Qt::black);
         }
     }

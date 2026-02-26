@@ -5,25 +5,28 @@
 
 CustomTitleBar::CustomTitleBar(QWidget *parent)
     : QWidget(parent), m_isDragging(false) {
-  setFixedHeight(32);
+  setFixedHeight(34);
   // Ensure styled background is used so stylesheet background-color is painted
   setAttribute(Qt::WA_StyledBackground, true);
   setAutoFillBackground(true);
   m_isActive = true;
-  // Default style (active) - Premium dark gray
-  setStyleSheet("background-color: #3e3e42; color: #ffffff; border-bottom: 2px "
-                "solid #007acc;");
+  // Default style (active) — Clean light theme with blue accent
+  setStyleSheet("background-color: qlineargradient(x1:0,y1:0,x2:0,y2:1,"
+                "stop:0 #ffffff, stop:1 #f8fafc);"
+                "color: #0f172a;"
+                "border-bottom: 2px solid #3b82f6;");
 
   QHBoxLayout *layout = new QHBoxLayout(this);
   // Add small top and right margins (2px) to allow top/right edge resizing
   // while keeping the buttons visually nearly flush.
-  layout->setContentsMargins(10, 2, 2, 0);
+  layout->setContentsMargins(12, 2, 2, 0);
   layout->setSpacing(0);
 
   // Title Label
   m_titleLabel = new QLabel("Trading Terminal", this);
   m_titleLabel->setStyleSheet(
-      "font-size: 13px; color: #ffffff; font-weight: bold;");
+      "font-size: 13px; color: #1e293b; font-weight: 600;"
+      "background: transparent; border: none;");
   layout->addWidget(m_titleLabel);
 
   layout->addStretch();
@@ -33,32 +36,41 @@ CustomTitleBar::CustomTitleBar(QWidget *parent)
   m_maximizeButton = new QPushButton("□", this);
   m_closeButton = new QPushButton("✕", this);
 
-  // Button Styling
-  QString buttonStyle = "QPushButton { "
-                        "   background-color: transparent; "
-                        "   color: #ffffff; "
-                        "   border: none; "
-                        "   padding: 0px 16px; "
-                        "   font-size: 16px; "
-                        "} "
-                        "QPushButton:hover { "
-                        "   background-color: #3e3e42; "
+  // Button Styling — light theme
+  QString buttonStyle = "QPushButton {"
+                        "  background-color: transparent;"
+                        "  color: #475569;"
+                        "  border: none;"
+                        "  padding: 0px 16px;"
+                        "  font-size: 15px;"
+                        "}"
+                        "QPushButton:hover {"
+                        "  background-color: #e2e8f0;"
+                        "  color: #0f172a;"
                         "}";
 
-  QString closeButtonStyle = buttonStyle + "QPushButton:hover { "
-                                           "   background-color: #e81123; "
-                                           "}";
+  QString closeButtonStyle = "QPushButton {"
+                             "  background-color: transparent;"
+                             "  color: #475569;"
+                             "  border: none;"
+                             "  padding: 0px 16px;"
+                             "  font-size: 15px;"
+                             "}"
+                             "QPushButton:hover {"
+                             "  background-color: #ef4444;"
+                             "  color: #ffffff;"
+                             "}";
 
   m_minimizeButton->setStyleSheet(buttonStyle);
-  m_minimizeButton->setFixedSize(46, 28); // Reduced from 32
+  m_minimizeButton->setFixedSize(46, 30);
   m_minimizeButton->setFocusPolicy(Qt::NoFocus);
 
   m_maximizeButton->setStyleSheet(buttonStyle);
-  m_maximizeButton->setFixedSize(46, 28); // Reduced from 32
+  m_maximizeButton->setFixedSize(46, 30);
   m_maximizeButton->setFocusPolicy(Qt::NoFocus);
 
   m_closeButton->setStyleSheet(closeButtonStyle);
-  m_closeButton->setFixedSize(46, 28); // Reduced from 32
+  m_closeButton->setFixedSize(46, 30);
   m_closeButton->setFocusPolicy(Qt::NoFocus);
 
   layout->addWidget(m_minimizeButton);
@@ -81,48 +93,46 @@ void CustomTitleBar::setActive(bool active) {
   m_isActive = active;
 
   if (m_isActive) {
-    // Active titlebar: Distinct lighter gray with a blue accent line at bottom
-    setStyleSheet("background-color: #4d4d4d; "
-                  "color: #ffffff; "
-                  "border-bottom: 2px solid #0e0e0e;" // Premium blue accent
-    );
+    // Active titlebar: Clean white with blue accent bottom border
+    setStyleSheet("background-color: qlineargradient(x1:0,y1:0,x2:0,y2:1,"
+                  "stop:0 #ffffff, stop:1 #f8fafc);"
+                  "color: #0f172a;"
+                  "border-bottom: 2px solid #3b82f6;");
     m_titleLabel->setStyleSheet(
-        "font-size:13px; color: #ffffff; font-weight: bold;");
+        "font-size:13px; color: #1e293b; font-weight: 600;"
+        "background: transparent; border: none;");
     m_minimizeButton->setStyleSheet(
-        "QPushButton { background-color: transparent; color: #ffffff; border: "
-        "none; padding: 0px 16px; font-size: 16px; }"
-        "QPushButton:hover { background-color: #505050; }");
+        "QPushButton { background-color: transparent; color: #475569; border: "
+        "none; padding: 0px 16px; font-size: 15px; }"
+        "QPushButton:hover { background-color: #e2e8f0; color: #0f172a; }");
     m_maximizeButton->setStyleSheet(
-        "QPushButton { background-color: transparent; color: #ffffff; border: "
-        "none; padding: 0px 16px; font-size: 16px; }"
-        "QPushButton:hover { background-color: #505050; }");
+        "QPushButton { background-color: transparent; color: #475569; border: "
+        "none; padding: 0px 16px; font-size: 15px; }"
+        "QPushButton:hover { background-color: #e2e8f0; color: #0f172a; }");
     m_closeButton->setStyleSheet(
-        "QPushButton { background-color: transparent; color: #ffffff; border: "
-        "none; padding: 0px 16px; font-size: 16px; }"
-        "QPushButton:hover { background-color: #e81123; }");
+        "QPushButton { background-color: transparent; color: #475569; border: "
+        "none; padding: 0px 16px; font-size: 15px; }"
+        "QPushButton:hover { background-color: #ef4444; color: #ffffff; }");
   } else {
-    // Inactive: Subtle darker gray, blends more with the theme
-    setStyleSheet("background-color: #323232; "
-                  "color: #888888; "
-                  "border: 2px solid #2c2c2c;" // Premium blue accent
-    );
-
+    // Inactive: Slightly muted light gray, text faded
+    setStyleSheet("background-color: #f1f5f9;"
+                  "color: #94a3b8;"
+                  "border-bottom: 2px solid #e2e8f0;");
     m_titleLabel->setStyleSheet(
-        "font-size:13px; color: #888888; font-weight: normal;"
-        "border: 0px;");
+        "font-size:13px; color: #94a3b8; font-weight: normal;"
+        "background: transparent; border: none;");
     m_minimizeButton->setStyleSheet(
-        "QPushButton { background-color: transparent; color: #888888; border: "
-        "none; padding: 0px 16px; font-size: 16px; }"
-        "QPushButton:hover { background-color: #2a2a2d; }");
+        "QPushButton { background-color: transparent; color: #94a3b8; border: "
+        "none; padding: 0px 16px; font-size: 15px; }"
+        "QPushButton:hover { background-color: #e2e8f0; color: #64748b; }");
     m_maximizeButton->setStyleSheet(
-        "QPushButton { background-color: transparent; color: #888888; border: "
-        "none; padding: 0px 16px; font-size: 16px; }"
-        "QPushButton:hover { background-color: #2a2a2d; }");
+        "QPushButton { background-color: transparent; color: #94a3b8; border: "
+        "none; padding: 0px 16px; font-size: 15px; }"
+        "QPushButton:hover { background-color: #e2e8f0; color: #64748b; }");
     m_closeButton->setStyleSheet(
-        "QPushButton { background-color: transparent; color: #888888; border: "
-        "none; padding: 0px 16px; font-size: 16px; }"
-        "QPushButton:hover { background-color: #c42b1c; }"); // Muted red for
-                                                             // inactive
+        "QPushButton { background-color: transparent; color: #94a3b8; border: "
+        "none; padding: 0px 16px; font-size: 15px; }"
+        "QPushButton:hover { background-color: #dc2626; color: #ffffff; }");
   }
 }
 

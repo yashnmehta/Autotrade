@@ -142,10 +142,10 @@ CustomMDISubWindow::CustomMDISubWindow(const QString &title, QWidget *parent)
     }
   });
 
-  // Styling with VS Code-like borders
+  // Styling with light-theme borders
   setStyleSheet("CustomMDISubWindow { "
-                "   background-color: #1e1e1e; "
-                "   border: 2px solid #007acc; "
+                "   background-color: #ffffff; "
+                "   border: 2px solid #3b82f6; "
                 "}");
 
   resize(800, 600);
@@ -158,9 +158,9 @@ void CustomMDISubWindow::setActive(bool active) {
 
   if (!m_isPinned) {
     // Use a single style update to prevent flickering
-    QString borderColor = active ? "#007acc" : "#3e3e42";
+    QString borderColor = active ? "#3b82f6" : "#e2e8f0";
     setStyleSheet(QString("CustomMDISubWindow { "
-                          "   background-color: #1e1e1e; "
+                          "   background-color: #ffffff; "
                           "   border: 2px solid %1; "
                           "}")
                       .arg(borderColor));
@@ -491,15 +491,15 @@ void CustomMDISubWindow::setPinned(bool pinned) {
   if (m_isPinned) {
     raise();
     setStyleSheet("CustomMDISubWindow { "
-                  "   background-color: #1e1e1e; "
-                  "   border: 2px solid #ce9178; " // Subtle orange for pinned
+                  "   background-color: #ffffff; "
+                  "   border: 2px solid #ea580c; " // Orange for pinned
                   "   margin: 0px; "
                   "   padding: 0px; "
                   "}");
   } else {
     setStyleSheet("CustomMDISubWindow { "
-                  "   background-color: #1e1e1e; "
-                  "   border: 2px solid #007acc; " // VS Code blue
+                  "   background-color: #ffffff; "
+                  "   border: 2px solid #3b82f6; "
                   "   margin: 0px; "
                   "   padding: 0px; "
                   "}");

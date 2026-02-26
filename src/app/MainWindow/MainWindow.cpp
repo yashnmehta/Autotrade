@@ -6,7 +6,9 @@
 #include "core/widgets/InfoBar.h"
 #include "nsecm_callback.h"
 #include "nsefo_callback.h"
+#ifdef HAVE_TRADINGVIEW
 #include "ui/TradingViewChartWidget.h"
+#endif
 
 #include "core/WindowCacheManager.h"
 #include "repository/RepositoryManager.h"
@@ -16,6 +18,7 @@
 #include "services/StrategyService.h"
 #include "services/TradingDataService.h"
 #include "services/UdpBroadcastService.h"
+#include "services/XTSFeedBridge.h"
 #include "utils/ConfigLoader.h"
 #include "utils/LatencyTracker.h"
 #include "views/IndicesView.h"
@@ -146,6 +149,9 @@ void MainWindow::setConfigLoader(ConfigLoader *loader) {
   // Start UDP broadcast receivers AFTER main window is fully shown
   // Using QTimer to ensure window is rendered and responsive first
   setupNetwork();
+
+  // ✅ Initialize XTSFeedBridge (XTS-only fallback for internet users)
+  initializeXTSFeedBridge();
 }
 
 void MainWindow::refreshScripBar() {
@@ -335,6 +341,7 @@ void MainWindow::placeOrder(const XTS::OrderParams &params) {
               QList<CustomMDISubWindow *> windows = m_mdiArea->windowList();
               for (CustomMDISubWindow *window : windows) {
                 if (window->windowType() == "ChartWindow") {
+#ifdef HAVE_TRADINGVIEW
                   TradingViewChartWidget *chart =
                       qobject_cast<TradingViewChartWidget *>(window->contentWidget());
                   if (chart && chart->isReady()) {
@@ -357,7 +364,8 @@ void MainWindow::placeOrder(const XTS::OrderParams &params) {
                                << text << "@" << price;
                     }
                   }
-                }
+#endif // HAVE_TRADINGVIEW
+                } // if ChartWindow
               }
             }
 

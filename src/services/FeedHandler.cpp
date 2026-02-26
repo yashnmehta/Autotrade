@@ -3,6 +3,7 @@
 #include "utils/LatencyTracker.h"
 #include "utils/PreferencesManager.h"
 #include "services/UdpBroadcastService.h"
+#include "services/XTSFeedBridge.h"
 
 #include <QDebug>
 
@@ -15,7 +16,12 @@ FeedHandler::FeedHandler() {
     qDebug() << "[FeedHandler] Initialized - Composite Key (Segment+Token) based";
 }
 void FeedHandler::registerTokenWithUdpService(uint32_t token, int segment) {
+    // Always register with UDP service (no-op if UDP is not active)
     UdpBroadcastService::instance().subscribeToken(token, segment);
+
+    // Also notify XTSFeedBridge — in XTS_ONLY mode this triggers REST subscribe;
+    // in HYBRID mode the bridge ignores it (UDP handles everything).
+    XTSFeedBridge::instance().requestSubscribe(token, segment);
 }
 
 FeedHandler::~FeedHandler() {

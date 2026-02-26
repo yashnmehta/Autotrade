@@ -137,13 +137,13 @@ void ATMWatchWindow::setupUI() {
   // Toolbar at Top
   m_toolbar = new QToolBar(this);
   m_toolbar->setStyleSheet(
-      "QToolBar { background-color: #252526; border: 1px solid #3e3e42; "
+      "QToolBar { background-color: #f8fafc; border: 1px solid #e2e8f0; "
       "padding: 2px; }"
-      "QToolButton { background-color: #252526; color: #FFFFFF; border: 1px "
-      "solid #3e3e42; "
-      "padding: 4px 8px; margin: 2px; }"
-      "QToolButton:hover { background-color: #3e3e42; }"
-      "QToolButton:pressed { background-color: #094771; }");
+      "QToolButton { background-color: #f1f5f9; color: #334155; border: 1px "
+      "solid #cbd5e1; "
+      "padding: 4px 8px; margin: 2px; border-radius: 4px; }"
+      "QToolButton:hover { background-color: #e2e8f0; color: #0f172a; }"
+      "QToolButton:pressed { background-color: #dbeafe; border-color: #3b82f6; }");
 
   QAction *settingsAction = m_toolbar->addAction("⚙ Settings");
   connect(settingsAction, &QAction::triggered, this,
@@ -161,33 +161,33 @@ void ATMWatchWindow::setupUI() {
 
   // Exchange Selection
   QLabel *exchangeLabel = new QLabel("Exchange:");
-  exchangeLabel->setStyleSheet("color: #FFFFFF; font-weight: bold;");
+  exchangeLabel->setStyleSheet("color: #475569; font-weight: bold;");
   m_exchangeCombo = new QComboBox();
   m_exchangeCombo->addItems({"NSE", "BSE"});
   m_exchangeCombo->setStyleSheet(
-      "QComboBox { background-color: #252526; color: #FFFFFF; border: 1px "
-      "solid #3e3e42; padding: 4px; }"
+      "QComboBox { background-color: #ffffff; color: #0f172a; border: 1px "
+      "solid #cbd5e1; padding: 4px; border-radius: 4px; }"
       "QComboBox::drop-down { border: none; }"
-      "QComboBox QAbstractItemView { background-color: #252526; color: "
-      "#FFFFFF; selection-background-color: #094771; }");
+      "QComboBox QAbstractItemView { background-color: #ffffff; color: "
+      "#0f172a; selection-background-color: #dbeafe; selection-color: #1e40af; }");
   m_exchangeCombo->setMinimumWidth(80);
 
   // Expiry Selection
   QLabel *expiryLabel = new QLabel("Expiry:");
-  expiryLabel->setStyleSheet("color: #FFFFFF; font-weight: bold;");
+  expiryLabel->setStyleSheet("color: #475569; font-weight: bold;");
   m_expiryCombo = new QComboBox();
   m_expiryCombo->addItem("Current (Nearest)", "CURRENT");
   m_expiryCombo->setStyleSheet(
-      "QComboBox { background-color: #252526; color: #FFFFFF; border: 1px "
-      "solid #3e3e42; padding: 4px; }"
+      "QComboBox { background-color: #ffffff; color: #0f172a; border: 1px "
+      "solid #cbd5e1; padding: 4px; border-radius: 4px; }"
       "QComboBox::drop-down { border: none; }"
-      "QComboBox QAbstractItemView { background-color: #252526; color: "
-      "#FFFFFF; selection-background-color: #094771; }");
+      "QComboBox QAbstractItemView { background-color: #ffffff; color: "
+      "#0f172a; selection-background-color: #dbeafe; selection-color: #1e40af; }");
   m_expiryCombo->setMinimumWidth(150);
 
   // Status Label
   m_statusLabel = new QLabel("Loading...");
-  m_statusLabel->setStyleSheet("color: #858585; font-style: italic;");
+  m_statusLabel->setStyleSheet("color: #64748b; font-style: italic;");
 
   filterLayout->addWidget(exchangeLabel);
   filterLayout->addWidget(m_exchangeCombo);
@@ -213,10 +213,11 @@ void ATMWatchWindow::setupUI() {
     table->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     table->viewport()->installEventFilter(this);
     table->setStyleSheet(
-        "QTableView { background-color: #1e1e1e; color: #FFFFFF; "
-        "gridline-color: #2d2d2d; border: 1px solid #3e3e42; }"
-        "QHeaderView::section { background-color: #252526; color: #858585; "
-        "padding: 4px; border: 1px solid #3e3e42; font-weight: bold; }");
+        "QTableView { background-color: #ffffff; color: #1e293b; "
+        "gridline-color: #f1f5f9; border: 1px solid #e2e8f0; }"
+        "QTableView::item:selected { background: #dbeafe; color: #1e40af; }"
+        "QHeaderView::section { background-color: #f8fafc; color: #475569; "
+        "padding: 4px; border: none; border-bottom: 2px solid #e2e8f0; font-weight: bold; }");
   };
 
   m_callTable = new QTableView();
@@ -230,7 +231,7 @@ void ATMWatchWindow::setupUI() {
   // Symbols table (Middle) should show vertical scrollbar
   m_symbolTable->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
   m_symbolTable->setStyleSheet(m_symbolTable->styleSheet() +
-                               "QTableView { color: #00A1FF; }");
+                               "QTableView { color: #2563eb; }");
 
   tableLayout->addWidget(m_callTable, 2);
   tableLayout->addWidget(m_symbolTable, 1);
@@ -268,7 +269,7 @@ void ATMWatchWindow::setupUI() {
   QWidget::setTabOrder(m_callTable,     m_putTable);
   QWidget::setTabOrder(m_putTable,      m_exchangeCombo);
 
-  setStyleSheet("QWidget { background-color: #1e1e1e; }");
+  setStyleSheet("QWidget { background-color: #ffffff; }");
 }
 
 void ATMWatchWindow::setupModels() {
@@ -1146,9 +1147,10 @@ void ATMWatchWindow::onShowContextMenu(const QPoint &pos) {
 
   QMenu contextMenu(this);
   contextMenu.setStyleSheet(
-      "QMenu { background-color: #2A3A50; color: #FFFFFF; border: 1px solid "
-      "#3A4A60; }"
-      "QMenu::item:selected { background-color: #3A4A60; }");
+      "QMenu { background-color: #ffffff; color: #1e293b; border: 1px solid "
+      "#e2e8f0; border-radius: 4px; }"
+      "QMenu::item { padding: 6px 16px; }"
+      "QMenu::item:selected { background-color: #dbeafe; color: #1e40af; }");
 
   QAction *openChainAction = contextMenu.addAction("📊 Open Option Chain");
   QAction *recalculateAction = contextMenu.addAction("🔄 Recalculate ATM");

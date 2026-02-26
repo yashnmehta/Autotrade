@@ -11,6 +11,7 @@
 #include "ui/SplashScreen.h"
 #include "utils/ConfigLoader.h"
 #include "utils/FileLogger.h"         // File logging
+#include "utils/LicenseManager.h"     // Licensing check
 #include "utils/PreferencesManager.h" // Preferences
 #ifdef HAVE_TALIB
 #include "indicators/TALibIndicators.h" // TA-Lib indicators
@@ -20,6 +21,7 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QMessageBox>
 #include <QStandardPaths>
 #include <QThread>
 #include <QTimer>
@@ -67,6 +69,12 @@ int main(int argc, char *argv[]) {
   // Register Chart/Candle types for charting system
   qRegisterMetaType<ChartData::Candle>("ChartData::Candle");
   qRegisterMetaType<ChartData::Timeframe>("ChartData::Timeframe");
+
+  // Register LicenseManager result type for potential async check signals
+  qRegisterMetaType<LicenseManager::CheckResult>("LicenseManager::CheckResult");
+
+  // Register LoginFlowService fetch-error type for cross-thread signals
+  qRegisterMetaType<LoginFlowService::FetchError>("LoginFlowService::FetchError");
 
   // Initialize TA-Lib for technical indicators
 #ifdef HAVE_TALIB
@@ -175,6 +183,66 @@ int main(int argc, char *argv[]) {
   }
   splash->setProgress(10);
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // Phase 1b: Licensing check
+  //
+  // Runs synchronously after config is loaded so we have access to any stored
+  // license key, but BEFORE the master pre-load and login window are shown.
+  // The stub always returns valid=true.  Replace LicenseManager::performLocalCheck()
+  // to add real key verification without touching this flow.
+  // ─────────────────────────────────────────────────────────────────────────
+  fprintf(stderr, "[Main] Running license check...\n");
+  fflush(stderr);
+
+  splash->setStatus("Verifying license...");
+  splash->setProgress(12);
+
+  LicenseManager &licenseManager = LicenseManager::instance();
+  licenseManager.initialize(config);   // reads key from config (if any)
+
+  LicenseManager::CheckResult licResult = licenseManager.checkLicense();
+
+  if (!licResult.valid) {
+    // License is invalid — show a message box and exit cleanly.
+    // The splash is still visible at this point so it acts as the background.
+    qCritical() << "[Main] ❌ License check FAILED:" << licResult.reason;
+    fprintf(stderr, "[Main] License check FAILED: %s\n",
+            qPrintable(licResult.reason));
+    fflush(stderr);
+
+    splash->setStatus("License check failed");
+    splash->setProgress(15);
+
+    // Give the splash a moment to repaint, then show the error and quit.
+    QTimer::singleShot(300, [&app, licResult, splash]() {
+      // Use a plain QMessageBox so there is no dependency on MainWindow.
+      QMessageBox msgBox;
+      msgBox.setWindowTitle("License Error");
+      msgBox.setIcon(QMessageBox::Critical);
+      msgBox.setText("This application is not licensed to run on this machine.");
+      msgBox.setInformativeText(licResult.reason);
+      msgBox.setStandardButtons(QMessageBox::Ok);
+      msgBox.exec();
+
+      splash->close();
+      app.quit();
+    });
+
+    return app.exec();   // run event loop only long enough to show the dialog
+  }
+
+  // License is valid — log and continue
+  qDebug() << "[Main] ✅ License check passed."
+           << (licResult.isTrial ? "(Trial mode)" : "(Full license)")
+           << (licResult.expiresAt.isValid()
+                   ? QString("| Expires: %1").arg(licResult.expiresAt.toString(Qt::ISODate))
+                   : QString("| Perpetual"));
+  fprintf(stderr, "[Main] License check PASSED\n");
+  fflush(stderr);
+
+  splash->setStatus("License verified");
+  splash->setProgress(15);
+
   // Preload masters during splash (event-driven, non-blocking)
   splash->setStatus("Initializing...");
   splash->preloadMasters();
@@ -281,6 +349,62 @@ int main(int argc, char *argv[]) {
           loginWindow->showContinueButton();
           loginWindow->enableLoginButton();
         });
+
+        // ── Data-sync error callback ───────────────────────────────────────
+        // Called when one or more REST fetches fail (or time out).
+        // Shows a clear dialog telling the user exactly which data is missing,
+        // and gives them the choice to Retry or Continue anyway with partial data.
+        loginService->setFetchErrorCallback(
+            [loginWindow, loginService, mainWindow, tradingDataService,
+             config](const LoginFlowService::FetchError &err) {
+              // Build a human-readable failure summary
+              QStringList failedItems;
+              if (err.positionsFailed) failedItems << "Positions";
+              if (err.ordersFailed)    failedItems << "Orders";
+              if (err.tradesFailed)    failedItems << "Trades";
+
+              QString failedStr = failedItems.join(", ");
+              QString detail    = err.summary();
+
+              qWarning() << "[Main] Data sync failed for:" << failedStr;
+
+              // Show a clear error message with Retry / Continue options
+              QMessageBox msgBox(loginWindow);
+              msgBox.setWindowTitle("Data Sync Incomplete");
+              msgBox.setIcon(QMessageBox::Warning);
+              msgBox.setText(
+                  QString("<b>Could not load: %1</b>").arg(failedStr));
+              msgBox.setInformativeText(
+                  detail + "\n\n"
+                  "You can <b>Retry</b> to fetch the data again,\n"
+                  "or <b>Continue</b> to open the terminal with partial data\n"
+                  "(missing data will appear empty until the next refresh).");
+
+              QPushButton *retryBtn =
+                  msgBox.addButton("Retry", QMessageBox::AcceptRole);
+              QPushButton *continueBtn =
+                  msgBox.addButton("Continue Anyway", QMessageBox::DestructiveRole);
+              msgBox.setDefaultButton(retryBtn);
+              msgBox.exec();
+
+              if (msgBox.clickedButton() == retryBtn) {
+                // Re-arm snapshot buffer and re-fire all REST requests.
+                // The IA WebSocket stays connected; events keep buffering.
+                loginWindow->setMDStatus("Retrying data sync...", false);
+                loginWindow->setIAStatus("Retrying data sync...", false);
+                loginService->retryDataFetch();
+              } else {
+                // User chose to continue with whatever data arrived.
+                // Wire clients and show the Continue button.
+                CandleAggregator::instance().initialize(true);
+                mainWindow->setXTSClients(loginService->getMarketDataClient(),
+                                          loginService->getInteractiveClient());
+                mainWindow->setTradingDataService(tradingDataService);
+                mainWindow->setConfigLoader(config);
+                loginWindow->showContinueButton();
+                loginWindow->enableLoginButton();
+              }
+            });
 
         // Setup login button callback
         loginWindow->setOnLoginClicked([loginWindow, loginService, config]() {
