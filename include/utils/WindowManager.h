@@ -4,6 +4,8 @@
 #include <QObject>
 #include <QWidget>
 #include <QList>
+#include <QMap>
+#include <QPointer>
 #include <QDebug>
 #include <QDateTime>
 
@@ -79,6 +81,28 @@ public:
      */
     QWidget* getInitiatingWindow(QWidget* window) const;
 
+    /**
+     * @brief Manually save the current focus state for a window
+     * @param window The registered window whose focus to capture
+     */
+    void saveFocusState(QWidget* window);
+
+    /**
+     * @brief Restore the last focused widget for a window
+     * Uses the auto-captured focus state from QApplication::focusChanged.
+     * Falls back to first QTableView, then window itself.
+     * @param window The window to restore focus to
+     * @return true if saved widget focus was restored
+     */
+    bool restoreFocusState(QWidget* window);
+
+private slots:
+    /**
+     * @brief Auto-capture focus changes to track last focused widget per window
+     * Connected to QApplication::focusChanged()
+     */
+    void onFocusChanged(QWidget* old, QWidget* now);
+
 private:
     WindowManager(QObject* parent = nullptr);
     ~WindowManager();
@@ -96,6 +120,7 @@ private:
 
     QList<WindowEntry> m_windowStack;
     QMap<QWidget*, QWidget*> m_initiatingWindows;  // child -> parent mapping
+    QMap<QWidget*, QPointer<QWidget>> m_lastFocusedWidgets;  // window -> last focused child widget
 };
 
 #endif // WINDOWMANAGER_H

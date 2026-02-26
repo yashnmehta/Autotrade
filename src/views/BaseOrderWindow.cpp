@@ -703,127 +703,74 @@ bool BaseOrderWindow::eventFilter(QObject *obj, QEvent *event) {
 bool BaseOrderWindow::focusNextPrevChild(bool next) {
   QWidget *curr = QApplication::focusWidget();
 
-  if (next) {
-    // Forward navigation (Tab): Extended path
-    // Total Qty → Price → Pro/CLI → Product → Validity → User Remarks → Submit
-    QList<QWidget *> forwardWidgets;
+  // Unified widget chain for both forward and backward Tab navigation.
+  // Order: Exchange → OrdType → Token → InstrName → Expiry → Strike →
+  //        OptType → Qty → Price → ProCli → Product → Validity → Remarks → Submit
+  QList<QWidget *> chain;
 
-    if (m_leQty && m_leQty->isEnabled())
-      forwardWidgets << m_leQty;
-    if (m_leRate && m_leRate->isEnabled())
-      forwardWidgets << m_leRate;
-    if (m_cbProCli && m_cbProCli->isEnabled())
-      forwardWidgets << m_cbProCli;
-    if (m_cbProduct && m_cbProduct->isEnabled())
-      forwardWidgets << m_cbProduct;
-    if (m_cbValidity && m_cbValidity->isEnabled())
-      forwardWidgets << m_cbValidity;
-    if (m_leRemarks && m_leRemarks->isEnabled())
-      forwardWidgets << m_leRemarks;
-    if (m_pbSubmit && m_pbSubmit->isEnabled())
-      forwardWidgets << m_pbSubmit;
+  if (m_cbEx && m_cbEx->isEnabled() && m_cbEx->isVisible())
+    chain << m_cbEx;
+  if (m_cbOrdType && m_cbOrdType->isEnabled() && m_cbOrdType->isVisible())
+    chain << m_cbOrdType;
+  if (m_leToken && m_leToken->isEnabled() && m_leToken->isVisible())
+    chain << m_leToken;
+  if (m_cbInstrName && m_cbInstrName->isEnabled() && m_cbInstrName->isVisible())
+    chain << m_cbInstrName;
+  if (m_cbExp && m_cbExp->isEnabled() && m_cbExp->isVisible())
+    chain << m_cbExp;
+  if (m_cbStrike && m_cbStrike->isEnabled() && m_cbStrike->isVisible())
+    chain << m_cbStrike;
+  if (m_cbOptType && m_cbOptType->isEnabled() && m_cbOptType->isVisible())
+    chain << m_cbOptType;
+  if (m_leQty && m_leQty->isEnabled())
+    chain << m_leQty;
+  if (m_leRate && m_leRate->isEnabled())
+    chain << m_leRate;
+  if (m_cbProCli && m_cbProCli->isEnabled())
+    chain << m_cbProCli;
+  if (m_cbProduct && m_cbProduct->isEnabled())
+    chain << m_cbProduct;
+  if (m_cbValidity && m_cbValidity->isEnabled())
+    chain << m_cbValidity;
+  if (m_leRemarks && m_leRemarks->isEnabled())
+    chain << m_leRemarks;
+  if (m_pbSubmit && m_pbSubmit->isEnabled())
+    chain << m_pbSubmit;
 
-    if (!forwardWidgets.isEmpty()) {
-      int idx = forwardWidgets.indexOf(curr);
+  if (chain.isEmpty())
+    return QWidget::focusNextPrevChild(next);
 
-      qDebug() << "[BaseOrderWindow] Tab pressed. Current widget:"
-               << (curr ? curr->objectName() : "NULL")
-               << "Found at index:" << idx
-               << "Total widgets:" << forwardWidgets.size();
+  int idx = chain.indexOf(curr);
 
-      if (idx != -1) {
-        // Found current widget - move to next in sequence
-        int nextIdx = (idx + 1) % forwardWidgets.size();
-        QWidget *nextWidget = forwardWidgets[nextIdx];
-        nextWidget->setFocus();
-
-        qDebug() << "[BaseOrderWindow] Moving to widget:"
-                 << nextWidget->objectName();
-
-        QLineEdit *le = qobject_cast<QLineEdit *>(nextWidget);
-        if (le) {
-          le->deselect();
-          le->setCursorPosition(le->text().length());
-        }
-
-        return true;
-      } else if (curr == nullptr || !this->isAncestorOf(curr)) {
-        // No focus or focus outside this window - set to first widget
-        qDebug() << "[BaseOrderWindow] Focus outside window, setting to first "
-                    "widget:"
-                 << forwardWidgets[0]->objectName();
-        forwardWidgets[0]->setFocus();
-        QLineEdit *le = qobject_cast<QLineEdit *>(forwardWidgets[0]);
-        if (le) {
-          le->deselect();
-          le->setCursorPosition(le->text().length());
-        }
-        return true;
-      }
+  if (idx == -1) {
+    // Focus is outside our chain — jump to first (Tab) or last (Shift+Tab)
+    QWidget *target = next ? chain.first() : chain.last();
+    target->setFocus();
+    QLineEdit *le = qobject_cast<QLineEdit *>(target);
+    if (le) {
+      le->deselect();
+      le->setCursorPosition(le->text().length());
     }
-  } else {
-    // Backward navigation (Shift+Tab): Complete path
-    // Submit → User Remarks → Validity → Order Type → Pro/CLI → Price → Total
-    // Qty → Opt Type → Strike Price → Expiry Date → Inst Type → Token → Type →
-    // Exchange
-    QList<QWidget *> backwardWidgets;
-
-    // Second row fields (in reverse order for backward navigation)
-    if (m_pbSubmit && m_pbSubmit->isEnabled())
-      backwardWidgets << m_pbSubmit;
-    if (m_leRemarks && m_leRemarks->isEnabled())
-      backwardWidgets << m_leRemarks;
-    if (m_cbValidity && m_cbValidity->isEnabled())
-      backwardWidgets << m_cbValidity;
-    if (m_cbProduct && m_cbProduct->isEnabled())
-      backwardWidgets << m_cbProduct;
-    if (m_cbProCli && m_cbProCli->isEnabled())
-      backwardWidgets << m_cbProCli;
-
-    // First row fields (right to left)
-    if (m_leRate && m_leRate->isEnabled())
-      backwardWidgets << m_leRate;
-    if (m_leQty && m_leQty->isEnabled())
-      backwardWidgets << m_leQty;
-    if (m_cbOptType && m_cbOptType->isEnabled())
-      backwardWidgets << m_cbOptType;
-    if (m_cbStrike && m_cbStrike->isEnabled())
-      backwardWidgets << m_cbStrike;
-    if (m_cbExp && m_cbExp->isEnabled())
-      backwardWidgets << m_cbExp;
-    if (m_cbInstrName && m_cbInstrName->isEnabled())
-      backwardWidgets << m_cbInstrName;
-    if (m_leToken && m_leToken->isEnabled())
-      backwardWidgets << m_leToken;
-    if (m_cbOrdType && m_cbOrdType->isEnabled())
-      backwardWidgets << m_cbOrdType;
-    if (m_cbEx && m_cbEx->isEnabled())
-      backwardWidgets << m_cbEx;
-
-    if (!backwardWidgets.isEmpty()) {
-      int idx = backwardWidgets.indexOf(curr);
-      if (idx != -1) {
-        if (idx < backwardWidgets.size() - 1) {
-          // Move to next widget in backward sequence
-          int nextIdx = idx + 1;
-          backwardWidgets[nextIdx]->setFocus();
-
-          QLineEdit *le = qobject_cast<QLineEdit *>(backwardWidgets[nextIdx]);
-          if (le) {
-            le->deselect();
-            le->setCursorPosition(le->text().length());
-          }
-
-          return true;
-        }
-        // If at last widget (Exchange), let Qt handle further backward
-        // navigation
-      }
-    }
+    return true;
   }
 
-  // Use default Qt behavior for widgets not in our custom paths
-  return QWidget::focusNextPrevChild(next);
+  int nextIdx;
+  if (next) {
+    nextIdx = (idx + 1) % chain.size(); // Wrap forward
+  } else {
+    nextIdx = (idx - 1 + chain.size()) % chain.size(); // Wrap backward
+  }
+
+  QWidget *nextWidget = chain[nextIdx];
+  nextWidget->setFocus();
+
+  QLineEdit *le = qobject_cast<QLineEdit *>(nextWidget);
+  if (le) {
+    le->deselect();
+    le->setCursorPosition(le->text().length());
+  }
+
+  return true;
 }
 
 void BaseOrderWindow::keyPressEvent(QKeyEvent *event) {
@@ -833,17 +780,21 @@ void BaseOrderWindow::keyPressEvent(QKeyEvent *event) {
     while (p) {
       if (p->inherits("CustomMDISubWindow")) {
         p->close();
+        event->accept();
         return;
       }
       p = p->parentWidget();
     }
     close();
+    event->accept();
   } else if (event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter) {
     // Trigger submit when Enter is pressed
     qDebug() << "[BaseOrderWindow] Enter key pressed - triggering submit";
     onSubmitClicked();
-  } else
+    event->accept();
+  } else {
     QWidget::keyPressEvent(event);
+  }
 }
 
 void BaseOrderWindow::showEvent(QShowEvent *event) {

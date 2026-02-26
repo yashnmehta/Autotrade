@@ -1,16 +1,20 @@
 #include "utils/WindowManager.h"
+#include <QApplication>
 #include <QDateTime>
 #include <QTimer>
 #include <QTableView>
 
 WindowManager::WindowManager(QObject* parent)
     : QObject(parent) {
-    qDebug() << "[WindowManager] Initialized";
+    // Auto-track focus changes across all windows
+    connect(qApp, &QApplication::focusChanged, this, &WindowManager::onFocusChanged);
+    qDebug() << "[WindowManager] Initialized with widget-level focus tracking";
 }
 
 WindowManager::~WindowManager() {
     m_windowStack.clear();
     m_initiatingWindows.clear();
+    m_lastFocusedWidgets.clear();
 }
 
 WindowManager& WindowManager::instance() {
@@ -70,6 +74,10 @@ void WindowManager::unregisterWindow(QWidget* window) {
             
             // Check if this window had an initiating window
             QWidget* initiatingWindow = m_initiatingWindows.value(window, nullptr);
+
+            // Clean up focus state for the closed window
+            m_lastFocusedWidgets.remove(window);
+
             if (initiatingWindow) {
                 // Remove the mapping
                 m_initiatingWindows.remove(window);
@@ -78,18 +86,23 @@ void WindowManager::unregisterWindow(QWidget* window) {
                 if (initiatingWindow->isVisible() && !initiatingWindow->isHidden()) {
                     QTimer::singleShot(50, [initiatingWindow, name, this]() {
                         if (initiatingWindow && !initiatingWindow->isHidden()) {
-                            initiatingWindow->activateWindow();
-                            initiatingWindow->raise();
-                            
-                            // Find the table view inside MarketWatch and set focus on it for keyboard nav
-                            QTableView* tableView = initiatingWindow->findChild<QTableView*>();
-                            if (tableView) {
-                                tableView->setFocus(Qt::ActiveWindowFocusReason);
-                                qDebug() << "[WindowManager] ✓ Activated initiating window and set focus on table view";
-                            } else {
-                                initiatingWindow->setFocus(Qt::ActiveWindowFocusReason);
-                                qDebug() << "[WindowManager] ✓ Activated initiating window (no table view found)";
+                            // If initiatingWindow is a content widget (not top-level),
+                            // activate its parent CustomMDISubWindow for proper z-order
+                            QWidget *activateTarget = initiatingWindow;
+                            QWidget *p = initiatingWindow->parentWidget();
+                            while (p) {
+                                if (p->inherits("CustomMDISubWindow")) {
+                                    activateTarget = p;
+                                    break;
+                                }
+                                p = p->parentWidget();
                             }
+                            activateTarget->activateWindow();
+                            activateTarget->raise();
+                            
+                            // Restore last focused widget (tracked via focusChanged signal)
+                            restoreFocusState(initiatingWindow);
+                            qDebug() << "[WindowManager] ✓ Activated initiating window with focus restoration";
                         }
                     });
                     return;
@@ -107,9 +120,10 @@ void WindowManager::unregisterWindow(QWidget* window) {
                         if (nextWindow && !nextWindow->isHidden()) {
                             nextWindow->activateWindow();
                             nextWindow->raise();
-                            nextWindow->setFocus(Qt::ActiveWindowFocusReason);
-                            qDebug() << "[WindowManager] ✓ Activated previous window:"
-                                     << m_windowStack.first().name;
+                            
+                            // Restore last focused widget (tracked via focusChanged signal)
+                            restoreFocusState(nextWindow);
+                            qDebug() << "[WindowManager] ✓ Activated previous window with focus restoration";
                         }
                     });
                 } else {
@@ -184,4 +198,63 @@ QWidget* WindowManager::getInitiatingWindow(QWidget* window) const {
         return nullptr;
     }
     return m_initiatingWindows.value(window, nullptr);
+}
+
+// ─── Widget-level focus tracking ────────────────────────────────────────────
+
+void WindowManager::onFocusChanged(QWidget* old, QWidget* /*now*/) {
+    if (!old) return;
+
+    // Find which registered window the losing-focus widget belongs to
+    for (const auto& entry : m_windowStack) {
+        if (entry.window && (entry.window == old || entry.window->isAncestorOf(old))) {
+            m_lastFocusedWidgets[entry.window] = old;
+            break;
+        }
+    }
+}
+
+void WindowManager::saveFocusState(QWidget* window) {
+    if (!window) return;
+
+    QWidget* focused = QApplication::focusWidget();
+    if (focused && (focused == window || window->isAncestorOf(focused))) {
+        m_lastFocusedWidgets[window] = focused;
+        qDebug() << "[WindowManager] Manually saved focus state for"
+                 << window->objectName() << "-> widget:"
+                 << focused->objectName() << focused->metaObject()->className();
+    }
+}
+
+bool WindowManager::restoreFocusState(QWidget* window) {
+    if (!window) return false;
+
+    // 1. Try saved widget from auto-tracking
+    auto it = m_lastFocusedWidgets.find(window);
+    if (it != m_lastFocusedWidgets.end() && !it.value().isNull()) {
+        QWidget* widget = it.value();
+        if (!widget->isHidden()) {
+            widget->setFocus(Qt::ActiveWindowFocusReason);
+            qDebug() << "[WindowManager] ✓ Restored focus to:"
+                     << widget->objectName()
+                     << "(" << widget->metaObject()->className() << ")"
+                     << "in window:" << window->objectName();
+            return true;
+        }
+    }
+
+    // 2. Fallback: first QTableView child (common for data windows)
+    QTableView* tableView = window->findChild<QTableView*>();
+    if (tableView) {
+        tableView->setFocus(Qt::ActiveWindowFocusReason);
+        qDebug() << "[WindowManager] Restored focus to QTableView (fallback)"
+                 << "in window:" << window->objectName();
+        return true;
+    }
+
+    // 3. Final fallback: window itself
+    window->setFocus(Qt::ActiveWindowFocusReason);
+    qDebug() << "[WindowManager] Restored focus to window itself (fallback):"
+             << window->objectName();
+    return false;
 }

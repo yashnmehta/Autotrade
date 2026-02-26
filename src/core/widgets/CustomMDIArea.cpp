@@ -2,6 +2,7 @@
 #include "core/WindowConstants.h"
 #include "core/widgets/CustomMDISubWindow.h"
 #include "core/widgets/MDITaskBar.h"
+#include "utils/WindowManager.h"
 #include <QDebug>
 #include <QResizeEvent>
 #include <QSettings>
@@ -53,6 +54,10 @@ CustomMDIArea::CustomMDIArea(QWidget *parent)
               if (window->x() <= -1000) continue; // Skip off-screen cached windows
               if (window == now || window->isAncestorOf(now)) {
                 activateWindow(window);
+                // Centralized: keep WindowManager stack in sync via content widget
+                if (window->contentWidget()) {
+                  WindowManager::instance().bringToTop(window->contentWidget());
+                }
                 break;
               }
             }

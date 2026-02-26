@@ -415,11 +415,13 @@ void OrderBookWindow::keyPressEvent(QKeyEvent *event) {
     
     if (event->key() == Qt::Key_Delete) {
         onCancelOrder();
+        event->accept();
         return;
     }
     
     if (event->modifiers() & Qt::ShiftModifier) {
         if (event->key() == Qt::Key_F1 || event->key() == Qt::Key_F2) {
+            event->accept(); // Consume early — all paths below handle the key
             QVector<XTS::Order> selectedOrders = getSelectedOrders();
             if (selectedOrders.isEmpty()) {
                 QMessageBox::warning(this, "Modify Order", "Please select an order to modify.");

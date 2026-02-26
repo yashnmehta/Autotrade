@@ -58,6 +58,12 @@ public:
   void setCached(bool cached) { m_isCached = cached; }
   bool isCached() const { return m_isCached; }
 
+  // Focus Management — Centralized through MDI wrapper
+  // Sets the initiating window (the window that opened this one).
+  // Used for focus restoration when this window is closed.
+  void setInitiatingWindow(QWidget *initiatingWindow);
+  QWidget *initiatingWindow() const { return m_initiatingWindow; }
+
   // Title Bar Visibility
   Q_INVOKABLE void updateTitleBarVisibility();
 
@@ -97,6 +103,7 @@ private:
   bool m_isMaximized;
   bool m_isPinned;
   bool m_isCached;        // Flag for cached windows (don't destroy on close)
+  QWidget *m_initiatingWindow = nullptr; // Window that opened this one (for focus restore)
   QRect m_normalGeometry; // For restoring from maximize
 
   // Dragging/Resizing (Native C++)

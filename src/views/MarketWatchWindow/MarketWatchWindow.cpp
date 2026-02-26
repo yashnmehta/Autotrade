@@ -6,7 +6,6 @@
 #include "services/TokenSubscriptionManager.h"
 #include "utils/PreferencesManager.h"
 #include "utils/WindowSettingsHelper.h"
-#include "utils/WindowManager.h"
 #include <QDateTime>
 #include <QDebug>
 #include <QElapsedTimer>
@@ -108,15 +107,9 @@ MarketWatchWindow::MarketWatchWindow(QWidget *parent)
   qint64 totalTime = constructionTimer.elapsed();
   /* qDebug() << "[PERF] [MARKETWATCH_CONSTRUCT] TOTAL TIME:" << totalTime <<
    * "ms"; */
-
-  // Register this window with the global WindowManager
-  WindowManager::instance().registerWindow(this, windowTitle());
 }
 
 MarketWatchWindow::~MarketWatchWindow() {
-  // Unregister from WindowManager
-  WindowManager::instance().unregisterWindow(this);
-
   // Stop timer if using zero-copy mode
   if (m_zeroCopyUpdateTimer) {
     m_zeroCopyUpdateTimer->stop();
@@ -157,9 +150,6 @@ void MarketWatchWindow::keyPressEvent(QKeyEvent *event) {
 
 void MarketWatchWindow::focusInEvent(QFocusEvent *event) {
   CustomMarketWatch::focusInEvent(event);
-  
-  // Notify WindowManager that this window has gained focus
-  WindowManager::instance().bringToTop(this);
   
   // Restore focus to the last focused row when the Market Watch gains focus
   // Use a delayed timer to ensure the model is fully ready
@@ -278,10 +268,6 @@ void MarketWatchWindow::onModelReset() { viewport()->update(); }
 
 void MarketWatchWindow::closeEvent(QCloseEvent *event) {
   WindowSettingsHelper::saveWindowSettings(this, "MarketWatch");
-  
-  // Unregister from WindowManager before closing
-  WindowManager::instance().unregisterWindow(this);
-  
   QWidget::closeEvent(event);
 }
 

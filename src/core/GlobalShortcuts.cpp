@@ -67,28 +67,20 @@ void setupMainWindowShortcuts(MainWindow *window) {
   if (!window)
     return;
 
-  // Buy Window: F1 or + key
-  // Use ApplicationShortcut to work even when input fields have focus
-  QShortcut *buyF1 =
-      new QShortcut(QKeySequence(Qt::Key_F1), window, SLOT(createBuyWindow()));
-  buyF1->setContext(Qt::ApplicationShortcut);
+  // Buy/Sell: F1/F2 are NOT registered as QShortcuts here.
+  // Reason: ApplicationShortcut consumed the key before ANY widget could
+  // handle it in keyPressEvent, making context-sensitive F1/F2 handling
+  // impossible in OptionChainWindow, ATMWatchWindow, BuyWindow, SellWindow.
+  //
+  // Instead, F1/F2 propagate through the widget tree:
+  //   1. Content widget handles it (OptionChain, ATMWatch, Buy, Sell)
+  //   2. If unhandled, CustomMDISubWindow provides fallback (create Buy/Sell)
+  //
+  // +/- keys are NOT global shortcuts — they must be typable in QLineEdits.
+  // BaseOrderWindow::eventFilter handles +/- in Qty/Price fields specifically.
 
-  QShortcut *buyPlus = new QShortcut(QKeySequence(Qt::Key_Plus), window,
-                                     SLOT(createBuyWindow()));
-  buyPlus->setContext(Qt::ApplicationShortcut);
-
-  // Sell Window: F2 or - key
-  // Use ApplicationShortcut to work even when input fields have focus
-  QShortcut *sellF2 =
-      new QShortcut(QKeySequence(Qt::Key_F2), window, SLOT(createSellWindow()));
-  sellF2->setContext(Qt::ApplicationShortcut);
-
-  QShortcut *sellMinus = new QShortcut(QKeySequence(Qt::Key_Minus), window,
-                                       SLOT(createSellWindow()));
-  sellMinus->setContext(Qt::ApplicationShortcut);
-
-  qDebug() << "[GlobalShortcuts] Buy/Sell shortcuts configured with "
-              "ApplicationShortcut context";
+  qDebug() << "[GlobalShortcuts] F1/F2 handled via keyPressEvent chain, "
+              "+/- removed as global shortcuts";
 
   new QShortcut(QKeySequence("Ctrl+M"), window, SLOT(createMarketWatch()));
   new QShortcut(QKeySequence("Ctrl+S"), window, SLOT(focusScripBar()));
@@ -152,8 +144,15 @@ void setupMarketWatchShortcuts(MarketWatchWindow *window) {
 void setupSnapQuoteShortcuts(SnapQuoteWindow *window) {
   if (!window)
     return;
-  new QShortcut(QKeySequence(Qt::Key_Escape), window, SLOT(close()));
-  new QShortcut(QKeySequence(Qt::Key_F5), window, SLOT(onRefreshClicked()));
+  // Escape is NOT registered here — CustomMDISubWindow::keyPressEvent
+  // already handles Escape → close(). A redundant QShortcut would cause
+  // double-close attempts.
+
+  // F5 scoped to SnapQuoteWindow subtree so it doesn't conflict with
+  // MainWindow's F5 → createSnapQuoteWindow
+  auto *refreshSC =
+      new QShortcut(QKeySequence(Qt::Key_F5), window, SLOT(onRefreshClicked()));
+  refreshSC->setContext(Qt::WidgetWithChildrenShortcut);
 }
 
 // --- BOOK WINDOW SHORTCUTS (Base functionality) ---

@@ -6,7 +6,6 @@
 #include "core/widgets/CustomMDISubWindow.h"
 #include "models/WindowContext.h"
 #include "services/UdpBroadcastService.h" // ⚡ For real-time UDP updates
-#include "utils/WindowManager.h"
 #include "views/BuyWindow.h"
 #include "views/SellWindow.h"
 #include "views/SnapQuoteWindow.h"
@@ -230,13 +229,11 @@ WindowCacheManager::showBuyWindow(const WindowContext *context,
     return nullptr;
   }
 
-  // Register with WindowManager, passing the initiating window for focus
-  // restoration
+  // Set initiating window on MDI wrapper for focus restoration
   if (initiatingWindow) {
-    WindowManager::instance().registerWindow(m_cachedBuyWindow, "Buy Window",
-                                             initiatingWindow);
+    m_cachedBuyMdiWindow->setInitiatingWindow(initiatingWindow);
     qDebug()
-        << "[WindowCacheManager] Registered Buy window with initiating window";
+        << "[WindowCacheManager] Set initiating window for Buy window";
   }
 
   qint64 t1 = timer.elapsed();
@@ -363,13 +360,11 @@ WindowCacheManager::showSellWindow(const WindowContext *context,
     return nullptr;
   }
 
-  // Register with WindowManager, passing the initiating window for focus
-  // restoration
+  // Set initiating window on MDI wrapper for focus restoration
   if (initiatingWindow) {
-    WindowManager::instance().registerWindow(m_cachedSellWindow, "Sell Window",
-                                             initiatingWindow);
+    m_cachedSellMdiWindow->setInitiatingWindow(initiatingWindow);
     qDebug()
-        << "[WindowCacheManager] Registered Sell window with initiating window";
+        << "[WindowCacheManager] Set initiating window for Sell window";
   }
 
   qint64 t1 = timer.elapsed();
@@ -577,15 +572,11 @@ WindowCacheManager::showSnapQuoteWindow(const WindowContext *context,
   entry.lastUsedTime = QDateTime::currentDateTime();
   entry.isVisible = true;
 
-  // Register with WindowManager, passing the initiating window for focus
-  // restoration
-  if (initiatingWindow && entry.window) {
-    QString windowName =
-        QString("Window_%1").arg(reinterpret_cast<quintptr>(entry.window));
-    WindowManager::instance().registerWindow(entry.window, windowName,
-                                             initiatingWindow);
-    qDebug() << "[WindowCacheManager] Registered SnapQuote window"
-             << (selectedIndex + 1) << "with initiating window";
+  // Set initiating window on MDI wrapper for focus restoration
+  if (initiatingWindow && entry.mdiWindow) {
+    entry.mdiWindow->setInitiatingWindow(initiatingWindow);
+    qDebug() << "[WindowCacheManager] Set initiating window for SnapQuote"
+             << (selectedIndex + 1);
   }
 
   qint64 t4 = timer.elapsed();

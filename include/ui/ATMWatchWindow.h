@@ -125,6 +125,9 @@ public:
 
 signals:
   void openOptionChainRequested(const QString &symbol, const QString &expiry);
+  void buyRequested(const WindowContext &context);
+  void sellRequested(const WindowContext &context);
+  void snapQuoteRequested(const WindowContext &context);
 
 private slots:
   void onATMUpdated();

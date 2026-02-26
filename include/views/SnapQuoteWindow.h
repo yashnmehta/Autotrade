@@ -13,7 +13,7 @@
 #include "models/WindowContext.h"
 #include "api/XTSTypes.h"
 #include "udp/UDPTypes.h"
-#include "app/ScripBar.h"
+#include "app/SnapQuoteScripBar.h"
 
 class XTSMarketDataClient;
 
@@ -83,8 +83,9 @@ signals:
 protected:
     // ⚡ Override showEvent to defer expensive ScripBar population
     void showEvent(QShowEvent *event) override;
-    void focusInEvent(QFocusEvent *event) override;
     void closeEvent(QCloseEvent *event) override;
+    // Keep Tab focus trapped inside SnapQuoteWindow (never escapes to other MDI windows)
+    bool focusNextPrevChild(bool next) override;
 
 private:
     void populateComboBoxes();
@@ -99,7 +100,7 @@ private:
     QWidget *m_formWidget;
     
     // Header widgets
-    ScripBar *m_scripBar;
+    SnapQuoteScripBar *m_scripBar;
     QPushButton *m_pbRefresh;
     
     // LTP Section

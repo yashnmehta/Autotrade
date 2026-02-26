@@ -18,5 +18,5 @@ one more thing is that xts market data socket will be one object serving market 
 wether it is xts market data socket,interactive socket or any udp readers all should be run on their seprate threads
 ###################################
 
-
+focus manahement
 

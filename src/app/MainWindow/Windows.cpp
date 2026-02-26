@@ -186,6 +186,21 @@ void MainWindow::connectWindowSignals(CustomMDISubWindow *window) {
     if (atm) {
       connect(atm, &ATMWatchWindow::openOptionChainRequested, this,
               &MainWindow::createOptionChainWindowForSymbol);
+
+      // Route Buy/Sell/SnapQuote requests through MainWindow for proper
+      // focus management (ATMWatch is set as initiating window)
+      connect(atm, &ATMWatchWindow::buyRequested, this,
+              [this, atm](const WindowContext &ctx) {
+                createBuyWindowWithContext(ctx, atm);
+              });
+      connect(atm, &ATMWatchWindow::sellRequested, this,
+              [this, atm](const WindowContext &ctx) {
+                createSellWindowWithContext(ctx, atm);
+              });
+      connect(atm, &ATMWatchWindow::snapQuoteRequested, this,
+              [this, atm](const WindowContext &ctx) {
+                createSnapQuoteWindowWithContext(ctx, atm);
+              });
     }
   }
 
@@ -1146,4 +1161,45 @@ void MainWindow::onRestoreWindowRequested(
 
     settings.endGroup();
   }
+}
+
+// ─── Context-aware window creation with explicit initiating window ─────────
+
+void MainWindow::createBuyWindowWithContext(const WindowContext &context,
+                                            QWidget *initiatingWindow) {
+  // Use WindowCacheManager with the explicit initiating window
+  CustomMDISubWindow *cached = WindowCacheManager::instance().showBuyWindow(
+      context.isValid() ? &context : nullptr, initiatingWindow);
+  if (cached) {
+    return; // Cache handled it
+  }
+
+  // Fallback: create through normal path
+  // The context will be picked up from getBestWindowContext() inside
+  createBuyWindow();
+}
+
+void MainWindow::createSellWindowWithContext(const WindowContext &context,
+                                             QWidget *initiatingWindow) {
+  CustomMDISubWindow *cached = WindowCacheManager::instance().showSellWindow(
+      context.isValid() ? &context : nullptr, initiatingWindow);
+  if (cached) {
+    return;
+  }
+
+  createSellWindow();
+}
+
+void MainWindow::createSnapQuoteWindowWithContext(const WindowContext &context,
+                                                  QWidget *initiatingWindow) {
+  CustomMDISubWindow *cached =
+      WindowCacheManager::instance().showSnapQuoteWindow(
+          context.isValid() ? &context : nullptr, initiatingWindow);
+  if (cached) {
+    return;
+  }
+
+  // Fallback to normal creation — createSnapQuoteWindow will use
+  // getBestWindowContext
+  createSnapQuoteWindow();
 }

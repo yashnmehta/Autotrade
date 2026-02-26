@@ -1,4 +1,5 @@
 #include "views/SnapQuoteWindow.h"
+#include "app/SnapQuoteScripBar.h"
 #include <QComboBox>
 #include <QDebug>
 #include <QFile>
@@ -32,7 +33,7 @@ void SnapQuoteWindow::initUI() {
       new QHBoxLayout(headerWidget);
     }
 
-    m_scripBar = new ScripBar(this, ScripBar::DisplayMode);
+    m_scripBar = new SnapQuoteScripBar(this);
     m_scripBar->setXTSClient(m_xtsClient);
 
     // Add ScripBar to header layout

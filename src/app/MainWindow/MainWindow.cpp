@@ -21,6 +21,7 @@
 #include "services/XTSFeedBridge.h"
 #include "utils/ConfigLoader.h"
 #include "utils/LatencyTracker.h"
+#include "utils/WindowManager.h"
 #include "views/IndicesView.h"
 #include "views/MarketWatchWindow.h" // Needed for getActiveMarketWatch cast
 #include <QAction>
@@ -632,11 +633,25 @@ void MainWindow::openBatchSellWindowForModification(
 // setupShortcuts() is defined in core/GlobalShortcuts.cpp
 
 void MainWindow::onScripBarEscapePressed() {
-  MarketWatchWindow *activeMW = getActiveMarketWatch();
-  if (activeMW) {
-    qDebug() << "[MainWindow] Shifting focus from ScripBar back to MarketWatch";
-    activeMW->setFocus();
+  // Restore focus to the last active MDI window + its last focused widget
+  QWidget* activeWin = WindowManager::instance().getActiveWindow();
+  if (activeWin) {
+    // Find the MDI sub-window that contains this content widget
+    if (auto* parent = qobject_cast<CustomMDISubWindow*>(activeWin->parentWidget())) {
+      parent->activateWindow();
+      parent->raise();
+    } else {
+      activeWin->activateWindow();
+      activeWin->raise();
+    }
+    WindowManager::instance().restoreFocusState(activeWin);
+    qDebug() << "[MainWindow] ScripBar Esc → restored focus to last active window";
   } else {
-    qDebug() << "[MainWindow] No active MarketWatch to focus on ESC";
+    // Fallback: focus any MarketWatch
+    MarketWatchWindow *activeMW = getActiveMarketWatch();
+    if (activeMW) {
+      activeMW->setFocus();
+      qDebug() << "[MainWindow] ScripBar Esc → fallback to MarketWatch";
+    }
   }
 }

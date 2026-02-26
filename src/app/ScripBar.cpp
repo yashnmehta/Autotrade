@@ -930,6 +930,17 @@ void ScripBar::focusInput() {
   }
 }
 
+void ScripBar::focusSymbol() {
+  if (!m_symbolCombo) return;
+  // If editable (SearchMode), focus the embedded line edit directly
+  if (auto* le = m_symbolCombo->lineEdit()) {
+    le->setFocus(Qt::OtherFocusReason);
+    le->selectAll();
+  } else {
+    m_symbolCombo->setFocus(Qt::OtherFocusReason);
+  }
+}
+
 QString ScripBar::getCurrentExchange() const { return m_currentExchange; }
 
 QString ScripBar::getCurrentSegment() const { return m_currentSegment; }

@@ -144,12 +144,23 @@ void CustomScripComboBox::keyPressEvent(QKeyEvent *event)
 {
     switch (event->key()) {
         case Qt::Key_Escape:
-            hidePopup();
+            if (m_isPopupVisible) {
+                // Popup is open → just close it (1st Esc). Absorb the event.
+                hidePopup();
+                if (auto* le = lineEdit()) {
+                    le->deselect();
+                }
+                event->accept();
+                return;
+            }
+            // Popup was already closed → emit signal for ScripBar listeners,
+            // but do NOT accept the event so it bubbles up to the parent
+            // window (CustomMDISubWindow) which will close the window.
             if (auto* le = lineEdit()) {
                 le->deselect();
             }
             emit escapePressed();
-            event->accept();
+            event->ignore();
             return;
             
         case Qt::Key_Return:

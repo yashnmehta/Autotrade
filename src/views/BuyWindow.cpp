@@ -4,7 +4,6 @@
 #include "utils/PreferencesManager.h"
 #include "utils/SoundManager.h"
 #include "utils/WindowSettingsHelper.h"
-#include "utils/WindowManager.h"
 #include "core/widgets/CustomMDISubWindow.h"
 #include <QMessageBox>
 #include <QDebug>
@@ -19,9 +18,6 @@ BuyWindow::BuyWindow(QWidget *parent)
     setInstance(this);
     WindowSettingsHelper::loadAndApplyWindowSettings(this, "BuyWindow");
     
-    // Register with WindowManager
-    WindowManager::instance().registerWindow(this, "Buy Window");
-    
     qDebug() << "[BuyWindow] Created";
 }
 
@@ -32,9 +28,6 @@ BuyWindow::BuyWindow(const WindowContext &context, QWidget *parent)
 }
 
 BuyWindow::~BuyWindow() {
-    // Unregister from WindowManager
-    WindowManager::instance().unregisterWindow(this);
-    
     if (s_instance == this) s_instance = nullptr;
 }
 
@@ -169,6 +162,7 @@ void BuyWindow::calculateDefaultPrice(const WindowContext &context) {
 void BuyWindow::keyPressEvent(QKeyEvent *event) {
     if (event->key() == Qt::Key_F2 || event->key() == Qt::Key_Minus) {
         if (m_context.isValid()) emit requestSellWithContext(m_context);
+        event->accept();
         close();
     } else {
         BaseOrderWindow::keyPressEvent(event);
@@ -177,18 +171,7 @@ void BuyWindow::keyPressEvent(QKeyEvent *event) {
 
 void BuyWindow::closeEvent(QCloseEvent *event) {
     WindowSettingsHelper::saveWindowSettings(this, "BuyWindow");
-    
-    // Don't unregister from WindowManager here for cached windows
-    // The WindowCacheManager will handle the window lifecycle
-    
     BaseOrderWindow::closeEvent(event);
-}
-
-void BuyWindow::focusInEvent(QFocusEvent *event) {
-    BaseOrderWindow::focusInEvent(event);
-    
-    // Notify WindowManager that this window has gained focus
-    WindowManager::instance().bringToTop(this);
 }
 
 // Singleton Boilerplate

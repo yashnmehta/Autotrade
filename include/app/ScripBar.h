@@ -52,8 +52,11 @@ public:
   // Refresh symbols when repository loads
   void refreshSymbols();
 
-  // Focus on the input field
+  // Focus on the input field (exchange combo)
   void focusInput();
+
+  // Focus on the symbol combo (for SnapQuote default focus)
+  void focusSymbol();
 
   // Set the scrip details programmatically
   // ⚡ In DisplayMode: O(1) token lookup, no cache rebuild
@@ -76,13 +79,28 @@ private slots:
   void onAddToWatchClicked();
   void activateSearchMode();
 
+protected:
+  // Combo widgets — exposed so subclasses (e.g. SnapQuoteScripBar) can
+  // implement custom focus / tab-order / key-binding behaviour without
+  // duplicating the setup logic.
+  CustomScripComboBox *m_exchangeCombo    = nullptr;
+  CustomScripComboBox *m_segmentCombo     = nullptr;
+  CustomScripComboBox *m_instrumentCombo  = nullptr;
+  CustomScripComboBox *m_bseScripCodeCombo = nullptr; // BSE + E only
+  CustomScripComboBox *m_symbolCombo      = nullptr;
+  CustomScripComboBox *m_expiryCombo      = nullptr;
+  CustomScripComboBox *m_strikeCombo      = nullptr;
+  CustomScripComboBox *m_optionTypeCombo  = nullptr;
+  QLineEdit           *m_tokenEdit        = nullptr;  // read-only token display
+  QPushButton         *m_addToWatchButton = nullptr;
+
 private:
   void setupUI();
   void populateExchanges();
   void populateSegments(const QString &exchange);
   void populateInstruments(const QString &segment);
   void populateSymbols(const QString &instrument);
-  void populateBseScripCodes(); // Populate BSE scrip codes for search
+  void populateBseScripCodes();
   void populateExpiries(const QString &symbol);
   void populateStrikes(const QString &expiry);
   void populateOptionTypes(const QString &strike);
@@ -91,44 +109,23 @@ private:
 
   QString getCurrentExchange() const;
   QString getCurrentSegment() const;
-  // ✅ Removed: getCurrentExchangeSegmentCode() - use
-  // RepositoryManager::getExchangeSegmentID() ✅ Removed:
-  // mapInstrumentToSeries() - use RepositoryManager::mapInstrumentToSeries()
 
-  // Async search from XTS (future implementation)
   void searchInstrumentsAsync(const QString &searchText);
   void onInstrumentsReceived(const QVector<InstrumentData> &instruments);
 
-  QHBoxLayout *m_layout;
-  XTSMarketDataClient *m_xtsClient;
+  // ⚡ DisplayMode helper: Display single contract via O(1) lookup, no cache rebuild
+  void displaySingleContract(const InstrumentData &data);
 
-  // Cache for instrument data
+  QHBoxLayout *m_layout              = nullptr;
+  XTSMarketDataClient *m_xtsClient   = nullptr;
+
   QVector<InstrumentData> m_instrumentCache;
   QVector<InstrumentData> m_filteredInstruments;
 
-  CustomScripComboBox *m_exchangeCombo;
-  CustomScripComboBox *m_segmentCombo;
-  CustomScripComboBox *m_instrumentCombo;
-  CustomScripComboBox
-      *m_bseScripCodeCombo; // BSE scrip code search (BSE + E only)
-  CustomScripComboBox *m_symbolCombo;
-  CustomScripComboBox *m_expiryCombo;
-  CustomScripComboBox *m_strikeCombo;
-  CustomScripComboBox *m_optionTypeCombo;
-  QLineEdit *m_tokenEdit; // Shows selected token
-
-  // Current selection state
   QString m_currentExchange;
   QString m_currentSegment;
-  ScripBarMode m_mode =
-      SearchMode; // ⚡ Default to SearchMode for backward compatibility
-  InstrumentData m_displayData; // ⚡ Cached data for DisplayMode
-
-  QPushButton *m_addToWatchButton;
-
-  // ⚡ DisplayMode helper: Display single contract via O(1) lookup, no cache
-  // rebuild
-  void displaySingleContract(const InstrumentData &data);
+  ScripBarMode m_mode = SearchMode;
+  InstrumentData m_displayData;
 };
 
 #endif // SCRIPBAR_H

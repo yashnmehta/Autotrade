@@ -315,11 +315,13 @@ set(APP_SOURCES
     src/app/MainWindow/Network.cpp
     src/app/MainWindow/WindowCycling.cpp
     src/app/ScripBar.cpp
+    src/app/SnapQuoteScripBar.cpp
 )
 
 set(APP_HEADERS
     include/app/MainWindow.h
     include/app/ScripBar.h
+    include/app/SnapQuoteScripBar.h
 )
 
 # ========================================

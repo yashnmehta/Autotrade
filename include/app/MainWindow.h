@@ -136,6 +136,14 @@ private slots:
                                   uint16_t segment);
   void onScripBarEscapePressed();
 
+  // Context-aware window creation with explicit initiating window
+  void createBuyWindowWithContext(const WindowContext &context,
+                                 QWidget *initiatingWindow);
+  void createSellWindowWithContext(const WindowContext &context,
+                                  QWidget *initiatingWindow);
+  void createSnapQuoteWindowWithContext(const WindowContext &context,
+                                       QWidget *initiatingWindow);
+
 private:
   void setupContent();
   void setupShortcuts();

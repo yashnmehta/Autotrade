@@ -1,7 +1,6 @@
 #include "views/SnapQuoteWindow.h"
 #include "repository/RepositoryManager.h"
 #include "services/FeedHandler.h"
-#include "utils/WindowManager.h"
 #include <QDebug>
 #include <QShowEvent>
 #include <QTimer>
@@ -10,26 +9,17 @@
 SnapQuoteWindow::SnapQuoteWindow(QWidget *parent)
     : QWidget(parent), m_formWidget(nullptr), m_token(0), m_xtsClient(nullptr) {
   initUI();
-
-  // Register with WindowManager
-  WindowManager::instance().registerWindow(this, windowTitle());
 }
 
 SnapQuoteWindow::SnapQuoteWindow(const WindowContext &context, QWidget *parent)
     : QWidget(parent), m_formWidget(nullptr), m_token(0), m_xtsClient(nullptr) {
   initUI();
   loadFromContext(context);
-
-  // Register with WindowManager
-  WindowManager::instance().registerWindow(this, windowTitle());
 }
 
 SnapQuoteWindow::~SnapQuoteWindow() {
   // Unsubscribe from UDP feed
   unsubscribeFromToken();
-
-  // Unregister from WindowManager
-  WindowManager::instance().unregisterWindow(this);
 }
 
 void SnapQuoteWindow::setScripDetails(const QString &exchange,
@@ -102,37 +92,34 @@ void SnapQuoteWindow::setScripBarDisplayMode(bool displayMode) {
 void SnapQuoteWindow::showEvent(QShowEvent *event) {
   QWidget::showEvent(event);
 
-  // Notify WindowManager that this window is now active
-  WindowManager::instance().bringToTop(this);
-
-  // ⚡ If we have pending ScripBar update, schedule it asynchronously
-  // (NON-BLOCKING!)
-  if (m_needsScripBarUpdate && m_scripBar) {
-    qDebug() << "[SnapQuoteWindow] ⚡ Scheduling async ScripBar update";
-
-    // Use QTimer::singleShot to defer to next event loop (instant show!)
-    QTimer::singleShot(0, this, [this]() {
-      if (m_scripBar && m_needsScripBarUpdate) {
-        qDebug() << "[SnapQuoteWindow] ⚡ Executing async ScripBar update";
-        m_scripBar->setScripDetails(m_pendingScripData);
-        m_needsScripBarUpdate = false;
-        qDebug() << "[SnapQuoteWindow] ⚡ ScripBar populated (async complete)";
-      }
-    });
-  }
+  // ⚡ Defer ScripBar population + focus to next event loop (instant show!)
+  qDebug() << "[SnapQuoteWindow] ⚡ Scheduling async ScripBar update + focus";
+  QTimer::singleShot(0, this, [this]() {
+    if (m_scripBar && m_needsScripBarUpdate) {
+      qDebug() << "[SnapQuoteWindow] ⚡ Executing async ScripBar update";
+      m_scripBar->setScripDetails(m_pendingScripData);
+      m_needsScripBarUpdate = false;
+      qDebug() << "[SnapQuoteWindow] ⚡ ScripBar populated (async complete)";
+    }
+    // Always set focus on the symbol combo when SnapQuote is shown
+    if (m_scripBar) {
+      m_scripBar->focusDefault();
+      qDebug() << "[SnapQuoteWindow] Default focus applied (symbolCombo)";
+    }
+  });
 }
 
-void SnapQuoteWindow::focusInEvent(QFocusEvent *event) {
-  QWidget::focusInEvent(event);
-
-  // Notify WindowManager that this window has gained focus
-  WindowManager::instance().bringToTop(this);
+bool SnapQuoteWindow::focusNextPrevChild(bool /*next*/) {
+  // SnapQuoteScripBar::focusNextPrevChild() handles Tab within the combos.
+  // If a Tab reaches the window level (e.g. from pbRefresh or similar),
+  // redirect it back to the symbol combo so focus stays inside SnapQuote.
+  if (m_scripBar) {
+    m_scripBar->focusDefault();
+  }
+  return true; // Consumed — focus never escapes SnapQuoteWindow
 }
 
 void SnapQuoteWindow::closeEvent(QCloseEvent *event) {
-  // Don't unregister from WindowManager here for cached windows
-  // The WindowCacheManager will handle the window lifecycle
-  // Only unregister when actually being destroyed
-
+  // Focus management is handled centrally by CustomMDISubWindow wrapper
   QWidget::closeEvent(event);
 }

@@ -28,9 +28,8 @@ CustomMarketWatch::CustomMarketWatch(QWidget *parent)
     applyDefaultStyling();
     setupHeader();
     
-    // Install event filter for drag-and-drop
+    // Install event filter for drag-and-drop on viewport only
     viewport()->installEventFilter(this);
-    installEventFilter(this);
     
     setAcceptDrops(true);
     setDropIndicatorShown(true);

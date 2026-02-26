@@ -6,9 +6,6 @@
 #include "services/GreeksCalculationService.h"
 #include "ui/ATMWatchSettingsDialog.h"
 #include "ui/OptionChainWindow.h"
-#include "views/BuyWindow.h"
-#include "views/SellWindow.h"
-#include "views/SnapQuoteWindow.h"
 #include <QAction>
 #include <QApplication>
 #include <QClipboard>
@@ -73,6 +70,7 @@ void ATMWatchWindow::setupShortcuts() {
 
   // ── Ctrl+Right: Call → Symbol → Put → (wraps to Call) ───────────────────
   auto *nextSC = new QShortcut(QKeySequence(Qt::CTRL | Qt::Key_Right), this);
+  nextSC->setContext(Qt::WidgetWithChildrenShortcut);
   connect(nextSC, &QShortcut::activated, this, [this, getActiveTable, getRow, focusTable]() {
     QTableView *cur = getActiveTable();
     int row = getRow(cur);
@@ -83,6 +81,7 @@ void ATMWatchWindow::setupShortcuts() {
 
   // ── Ctrl+Left: Put → Symbol → Call → (wraps to Put) ─────────────────────
   auto *prevSC = new QShortcut(QKeySequence(Qt::CTRL | Qt::Key_Left), this);
+  prevSC->setContext(Qt::WidgetWithChildrenShortcut);
   connect(prevSC, &QShortcut::activated, this, [this, getActiveTable, getRow, focusTable]() {
     QTableView *cur = getActiveTable();
     int row = getRow(cur);
@@ -94,6 +93,7 @@ void ATMWatchWindow::setupShortcuts() {
   // ── F5: Refresh (removed — F5 is the global SnapQuote shortcut) ──────────
   //    Use the toolbar Refresh button or Ctrl+R instead.
   auto *refreshSC = new QShortcut(QKeySequence(Qt::CTRL | Qt::Key_R), this);
+  refreshSC->setContext(Qt::WidgetWithChildrenShortcut);
   connect(refreshSC, &QShortcut::activated, this, &ATMWatchWindow::refreshData);
 
   // ── Alt+E: REMOVED — Alt+[E,F,V,W,D,H] are reserved by the menu bar mnemonics
@@ -118,6 +118,7 @@ void ATMWatchWindow::setupShortcuts() {
 
   // ── Ctrl+G: Jump to first (ATM) row ──────────────────────────────────────
   auto *gotoSC = new QShortcut(QKeySequence(Qt::CTRL | Qt::Key_G), this);
+  gotoSC->setContext(Qt::WidgetWithChildrenShortcut);
   connect(gotoSC, &QShortcut::activated, this, [this]() {
     if (m_symbolModel->rowCount() <= 0) return;
     m_symbolTable->setFocus();
@@ -1551,13 +1552,14 @@ void ATMWatchWindow::keyPressEvent(QKeyEvent *event) {
   // ── F1 Buy | F2 Sell | F6 SnapQuote | Delete remove watch ───────────────
   if (event->key() == Qt::Key_F1 || event->key() == Qt::Key_F2 ||
       event->key() == Qt::Key_F6 || event->key() == Qt::Key_Delete) {
+    event->accept(); // Consume early — all paths below handle the key
     WindowContext context = getCurrentContext();
 
     if (event->key() == Qt::Key_Delete) {
       if (context.isValid()) {
         ATMWatchManager::getInstance().removeWatch(context.symbol);
-        return;
       }
+      return;
     }
 
     if (!context.isValid()) {
@@ -1566,13 +1568,11 @@ void ATMWatchWindow::keyPressEvent(QKeyEvent *event) {
     }
 
     if (event->key() == Qt::Key_F1) { // Buy
-      BuyWindow::getInstance(context, this)->show();
+      emit buyRequested(context);
     } else if (event->key() == Qt::Key_F2) { // Sell
-      SellWindow::getInstance(context, this)->show();
+      emit sellRequested(context);
     } else if (event->key() == Qt::Key_F6) { // SnapQuote
-      auto w = new SnapQuoteWindow(context, this);
-      w->setAttribute(Qt::WA_DeleteOnClose);
-      w->show();
+      emit snapQuoteRequested(context);
     }
     return;
   }

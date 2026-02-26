@@ -15,7 +15,6 @@
 #include <QPainter>
 #include <QPainterPath>
 #include <QSettings>
-#include <QTableView>
 #include <QTimer>
 
 CustomMDISubWindow::CustomMDISubWindow(const QString &title, QWidget *parent)
@@ -168,6 +167,10 @@ void CustomMDISubWindow::setActive(bool active) {
 }
 
 CustomMDISubWindow::~CustomMDISubWindow() {
+  // Centralized: unregister content widget from WindowManager
+  if (m_contentWidget) {
+    WindowManager::instance().unregisterWindow(m_contentWidget);
+  }
   qDebug() << "CustomMDISubWindow destroyed:" << title();
 }
 
@@ -225,22 +228,31 @@ void CustomMDISubWindow::closeEvent(QCloseEvent *event) {
         << "[MDISubWindow] ⚡ Moved off-screen (still visible, fast re-show!)";
 
     // Activate the initiating window (if any) to restore focus
-    QWidget* initiatingWindow = WindowManager::instance().getInitiatingWindow(this);
+    // Use locally stored initiating window first, with WindowManager fallback
+    QWidget* initiatingWindow = m_initiatingWindow;
+    if (!initiatingWindow && m_contentWidget) {
+        initiatingWindow = WindowManager::instance().getInitiatingWindow(m_contentWidget);
+    }
     if (initiatingWindow) {
-        QTimer::singleShot(50, [initiatingWindow, this]() {
+        QTimer::singleShot(50, [initiatingWindow]() {
             if (initiatingWindow && !initiatingWindow->isHidden()) {
-                initiatingWindow->activateWindow();
-                initiatingWindow->raise();
-                
-                // Find the table view inside MarketWatch and set focus on it for keyboard nav
-                QTableView* tableView = initiatingWindow->findChild<QTableView*>();
-                if (tableView) {
-                    tableView->setFocus(Qt::ActiveWindowFocusReason);
-                    qDebug() << "[MDISubWindow] ✓ Activated initiating window and set focus on table view";
-                } else {
-                    initiatingWindow->setFocus(Qt::ActiveWindowFocusReason);
-                    qDebug() << "[MDISubWindow] ✓ Activated initiating window (no table view found)";
+                // If initiatingWindow is a content widget (not top-level),
+                // activate its parent CustomMDISubWindow for proper z-order
+                QWidget *activateTarget = initiatingWindow;
+                QWidget *p = initiatingWindow->parentWidget();
+                while (p) {
+                    if (p->inherits("CustomMDISubWindow")) {
+                        activateTarget = p;
+                        break;
+                    }
+                    p = p->parentWidget();
                 }
+                activateTarget->activateWindow();
+                activateTarget->raise();
+                
+                // Restore last focused widget (auto-tracked by WindowManager)
+                WindowManager::instance().restoreFocusState(initiatingWindow);
+                qDebug() << "[MDISubWindow] ✓ Activated initiating window with focus restoration";
             }
         });
     }
@@ -267,9 +279,30 @@ void CustomMDISubWindow::keyPressEvent(QKeyEvent *event) {
     if (m_windowType != "MarketWatch") {
       qDebug() << "[MDISubWindow] Escape pressed - closing" << title();
       close();
+      event->accept();
+    } else {
+      // MarketWatch ignores Escape — let it propagate
+      event->ignore();
     }
     return;
   }
+
+  // F1/F2 fallback: if the content widget didn't handle these keys,
+  // they bubble here. Create Buy/Sell window via MainWindow.
+  if (event->key() == Qt::Key_F1 || event->key() == Qt::Key_F2) {
+    QWidget *topLevel = window();
+    while (topLevel && !topLevel->inherits("MainWindow")) {
+      topLevel = topLevel->parentWidget();
+    }
+    if (topLevel) {
+      const char *slot = (event->key() == Qt::Key_F1) ? "createBuyWindow"
+                                                       : "createSellWindow";
+      QMetaObject::invokeMethod(topLevel, slot);
+      event->accept();
+      return;
+    }
+  }
+
   QWidget::keyPressEvent(event);
 }
 
@@ -289,12 +322,27 @@ void CustomMDISubWindow::setContentWidget(QWidget *widget) {
     // Ensure content widget has its own bg or transparency correctly
     m_contentWidget->setAttribute(Qt::WA_StyledBackground, true);
 
+    // Centralized: auto-register content widget with WindowManager
+    QString name = m_windowType.isEmpty() ? title() : m_windowType;
+    WindowManager::instance().registerWindow(m_contentWidget, name);
+
     // Set focus to content widget
     QTimer::singleShot(0, m_contentWidget, [this]() {
       if (m_contentWidget) {
         m_contentWidget->setFocus();
       }
     });
+  }
+}
+
+void CustomMDISubWindow::setInitiatingWindow(QWidget *initiatingWindow) {
+  m_initiatingWindow = initiatingWindow;
+  // Also register the relationship in WindowManager so focus restoration works
+  if (m_contentWidget && initiatingWindow) {
+    QString name = m_windowType.isEmpty() ? title() : m_windowType;
+    WindowManager::instance().registerWindow(m_contentWidget, name,
+                                             initiatingWindow);
+    qDebug() << "[MDISubWindow] Set initiating window for" << title();
   }
 }
 
@@ -443,6 +491,10 @@ void CustomMDISubWindow::mouseReleaseEvent(QMouseEvent *event) {
 
 void CustomMDISubWindow::focusInEvent(QFocusEvent *event) {
   emit windowActivated();
+  // Centralized: keep WindowManager stack in sync with content widget
+  if (m_contentWidget) {
+    WindowManager::instance().bringToTop(m_contentWidget);
+  }
   QWidget::focusInEvent(event);
 }
 
