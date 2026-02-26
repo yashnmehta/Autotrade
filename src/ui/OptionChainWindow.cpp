@@ -290,7 +290,7 @@ void OptionChainWindow::setupUI() {
       "#cbd5e1; padding: 4px; border-radius: 4px; }"
       "QComboBox::drop-down { border: none; }"
       "QComboBox QAbstractItemView { background-color: #ffffff; color: "
-      "#0f172a; selection-background-color: #dbeafe; selection-color: #1e40af; }");
+      "#0f172a; selection-background-color: #bfdbfe; selection-color: #1e40af; }");
   headerLayout->addWidget(m_symbolCombo);
 
   // Expiry selection
@@ -305,7 +305,7 @@ void OptionChainWindow::setupUI() {
       "#cbd5e1; padding: 4px; border-radius: 4px; }"
       "QComboBox::drop-down { border: none; }"
       "QComboBox QAbstractItemView { background-color: #ffffff; color: "
-      "#0f172a; selection-background-color: #dbeafe; selection-color: #1e40af; }");
+      "#0f172a; selection-background-color: #bfdbfe; selection-color: #1e40af; }");
   headerLayout->addWidget(m_expiryCombo);
 
   // Refresh button
@@ -354,7 +354,7 @@ void OptionChainWindow::setupUI() {
                        "   color: #1e293b;"
                        "   gridline-color: #f1f5f9;"
                        "   border: 1px solid #e2e8f0;"
-                       "   selection-background-color: #dbeafe;"
+                       "   selection-background-color: #bfdbfe;"
                        "   selection-color: #1e40af;"
                        "}"
                        "QTableView::item {"
@@ -404,7 +404,7 @@ void OptionChainWindow::setupUI() {
                                "   border: 1px solid #e2e8f0;"
                                "   font-weight: bold;"
                                "   font-size: 12px;"
-                               "   selection-background-color: #dbeafe;"
+                               "   selection-background-color: #bfdbfe;"
                                "}"
                                "QTableView::item {"
                                "   padding: 4px;"

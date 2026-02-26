@@ -173,7 +173,7 @@ void ATMWatchWindow::setupUI() {
       "solid #cbd5e1; padding: 4px; border-radius: 4px; }"
       "QComboBox::drop-down { border: none; }"
       "QComboBox QAbstractItemView { background-color: #ffffff; color: "
-      "#0f172a; selection-background-color: #dbeafe; selection-color: #1e40af; }");
+      "#0f172a; selection-background-color: #bfdbfe; selection-color: #1e40af; }");
   m_exchangeCombo->setMinimumWidth(80);
 
   // Expiry Selection
@@ -186,7 +186,7 @@ void ATMWatchWindow::setupUI() {
       "solid #cbd5e1; padding: 4px; border-radius: 4px; }"
       "QComboBox::drop-down { border: none; }"
       "QComboBox QAbstractItemView { background-color: #ffffff; color: "
-      "#0f172a; selection-background-color: #dbeafe; selection-color: #1e40af; }");
+      "#0f172a; selection-background-color: #bfdbfe; selection-color: #1e40af; }");
   m_expiryCombo->setMinimumWidth(150);
 
   // Status Label
@@ -219,8 +219,8 @@ void ATMWatchWindow::setupUI() {
     table->setStyleSheet(
         "QTableView { background-color: #ffffff; color: #1e293b; "
         "gridline-color: #f1f5f9; border: 1px solid #e2e8f0; "
-        "selection-background-color: #dbeafe; selection-color: #1e40af; }"
-        "QTableView::item:selected { background: #dbeafe; color: #1e40af; }"
+        "selection-background-color: #bfdbfe; selection-color: #1e40af; }"
+        "QTableView::item:selected { background: #bfdbfe; color: #1e40af; }"
         "QHeaderView::section { background-color: #f8fafc; color: #475569; "
         "padding: 4px; border: none; border-bottom: 2px solid #e2e8f0; font-weight: bold; }");
   };
@@ -238,8 +238,8 @@ void ATMWatchWindow::setupUI() {
   m_symbolTable->setStyleSheet(
       "QTableView { background-color: #f0f4ff; color: #1e293b; "
       "gridline-color: #e2e8f0; border: 1px solid #cbd5e1; "
-      "selection-background-color: #dbeafe; selection-color: #1e40af; }"
-      "QTableView::item:selected { background: #dbeafe; color: #1e40af; }"
+      "selection-background-color: #bfdbfe; selection-color: #1e40af; }"
+      "QTableView::item:selected { background: #bfdbfe; color: #1e40af; }"
       "QHeaderView::section { background-color: #e8ecf4; color: #334155; "
       "padding: 4px; border: none; border-bottom: 2px solid #cbd5e1; font-weight: bold; }");
 
@@ -1190,7 +1190,7 @@ void ATMWatchWindow::onShowContextMenu(const QPoint &pos) {
       "QMenu { background-color: #ffffff; color: #1e293b; border: 1px solid "
       "#e2e8f0; border-radius: 4px; }"
       "QMenu::item { padding: 6px 16px; }"
-      "QMenu::item:selected { background-color: #dbeafe; color: #1e40af; }");
+      "QMenu::item:selected { background-color: #bfdbfe; color: #1e40af; }");
 
   QAction *openChainAction = contextMenu.addAction("📊 Open Option Chain");
   QAction *recalculateAction = contextMenu.addAction("🔄 Recalculate ATM");
