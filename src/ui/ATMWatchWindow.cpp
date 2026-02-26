@@ -88,8 +88,9 @@ void ATMWatchWindow::setupShortcuts() {
     else                           focusTable(m_putTable,    row); // Call or none → Put
   });
 
-  // ── F5: Refresh ──────────────────────────────────────────────────────────
-  auto *refreshSC = new QShortcut(QKeySequence(Qt::Key_F5), this);
+  // ── F5: Refresh (removed — F5 is the global SnapQuote shortcut) ──────────
+  //    Use the toolbar Refresh button or Ctrl+R instead.
+  auto *refreshSC = new QShortcut(QKeySequence(Qt::CTRL | Qt::Key_R), this);
   connect(refreshSC, &QShortcut::activated, this, &ATMWatchWindow::refreshData);
 
   // ── Alt+E: REMOVED — Alt+[E,F,V,W,D,H] are reserved by the menu bar mnemonics
@@ -213,8 +214,9 @@ void ATMWatchWindow::setupUI() {
     table->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     table->viewport()->installEventFilter(this);
     table->setStyleSheet(
-        "QTableView { background-color: #1e293b; color: #bdbdbd; "
-        "gridline-color: #f1f5f9; border: 1px solid #e2e8f0; }"
+        "QTableView { background-color: #ffffff; color: #1e293b; "
+        "gridline-color: #f1f5f9; border: 1px solid #e2e8f0; "
+        "selection-background-color: #dbeafe; selection-color: #1e40af; }"
         "QTableView::item:selected { background: #dbeafe; color: #1e40af; }"
         "QHeaderView::section { background-color: #f8fafc; color: #475569; "
         "padding: 4px; border: none; border-bottom: 2px solid #e2e8f0; font-weight: bold; }");
@@ -279,7 +281,9 @@ void ATMWatchWindow::setupModels() {
                                           "Gamma", "Vega", "Theta", "LTP",
                                           "Bid", "Ask"});
   m_callTable->setModel(m_callModel);
-  m_callTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+  m_callTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Interactive);
+  m_callTable->horizontalHeader()->setStretchLastSection(true);
+  m_callTable->horizontalHeader()->setSectionsMovable(true);
 
   m_callDelegate = new ATMWatchDelegate(false, this);
   m_callTable->setItemDelegate(m_callDelegate);
@@ -289,7 +293,9 @@ void ATMWatchWindow::setupModels() {
   m_symbolModel->setHorizontalHeaderLabels(
       {"Symbol", "Spot/Fut", "ATM", "Expiry"});
   m_symbolTable->setModel(m_symbolModel);
-  m_symbolTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+  m_symbolTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Interactive);
+  m_symbolTable->horizontalHeader()->setStretchLastSection(true);
+  m_symbolTable->horizontalHeader()->setSectionsMovable(true);
 
   m_symbolDelegate = new ATMWatchDelegate(true, this);
   m_symbolTable->setItemDelegate(m_symbolDelegate);
@@ -300,7 +306,9 @@ void ATMWatchWindow::setupModels() {
                                          "OI", "IV", "Delta", "Gamma", "Vega",
                                          "Theta"});
   m_putTable->setModel(m_putModel);
-  m_putTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+  m_putTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Interactive);
+  m_putTable->horizontalHeader()->setStretchLastSection(true);
+  m_putTable->horizontalHeader()->setSectionsMovable(true);
 
   m_putDelegate = new ATMWatchDelegate(false, this);
   m_putTable->setItemDelegate(m_putDelegate);
@@ -1473,18 +1481,26 @@ WindowContext ATMWatchWindow::getCurrentContext() {
 }
 
 void ATMWatchWindow::keyPressEvent(QKeyEvent *event) {
-  // ── F5: Refresh ──────────────────────────────────────────────────
+  // ── F5: removed from keyPressEvent — F5 is global SnapQuote ─────
+  // Refresh is now Ctrl+R
   if (event->key() == Qt::Key_F5) {
-    refreshData();
-    event->accept();
+    // Let event propagate to global shortcut (SnapQuote)
+    QWidget::keyPressEvent(event);
     return;
   }
 
-  // ── Escape: return focus to symbol table ───────────────────────────────
+  // ── Escape: close the parent MDI subwindow ─────────────────────────────
   if (event->key() == Qt::Key_Escape) {
-    m_symbolTable->setFocus();
-    if (m_symbolModel->rowCount() > 0 && !m_symbolTable->currentIndex().isValid())
-      m_symbolTable->selectRow(0);
+    QWidget *p = parentWidget();
+    while (p) {
+      if (p->inherits("CustomMDISubWindow")) {
+        p->close();
+        event->accept();
+        return;
+      }
+      p = p->parentWidget();
+    }
+    close(); // Fallback: close self
     event->accept();
     return;
   }

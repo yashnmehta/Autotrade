@@ -327,8 +327,10 @@ void OptionChainWindow::setupModels() {
 
   m_callTable->setModel(m_callModel);
 
-  // Set column widths
-  m_callTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+  // Set column widths — Interactive resize + movable headers
+  m_callTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Interactive);
+  m_callTable->horizontalHeader()->setStretchLastSection(true);
+  m_callTable->horizontalHeader()->setSectionsMovable(true);
   m_callTable->setColumnWidth(0, 30); // Checkbox column
   m_callTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Fixed);
 
@@ -345,6 +347,7 @@ void OptionChainWindow::setupModels() {
 
   m_strikeTable->setModel(m_strikeModel);
   m_strikeTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+  m_strikeTable->horizontalHeader()->setSectionsMovable(false); // Strike stays fixed
 
   // ========================================================================
   // Put Model
@@ -358,8 +361,10 @@ void OptionChainWindow::setupModels() {
 
   m_putTable->setModel(m_putModel);
 
-  // Set column widths
-  m_putTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+  // Set column widths — Interactive resize + movable headers
+  m_putTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Interactive);
+  m_putTable->horizontalHeader()->setStretchLastSection(true);
+  m_putTable->horizontalHeader()->setSectionsMovable(true);
   m_putTable->setColumnWidth(PUT_COLUMN_COUNT - 1, 30); // Checkbox column
   m_putTable->horizontalHeader()->setSectionResizeMode(PUT_COLUMN_COUNT - 1,
                                                        QHeaderView::Fixed);
@@ -583,8 +588,8 @@ void OptionChainWindow::setupShortcuts() {
     else                           focusTable(m_putTable,    row); // Call or none → Put
   });
 
-  // ── F5: Refresh ───────────────────────────────────────────────────────────
-  auto *refreshSC = new QShortcut(QKeySequence(Qt::Key_F5), this);
+  // ── Ctrl+R: Refresh (F5 is reserved for global SnapQuote) ──────────────────
+  auto *refreshSC = new QShortcut(QKeySequence(Qt::CTRL | Qt::Key_R), this);
   refreshSC->setContext(Qt::WidgetWithChildrenShortcut);
   connect(refreshSC, &QShortcut::activated, this, &OptionChainWindow::onRefreshClicked);
 
@@ -652,24 +657,24 @@ void OptionChainWindow::showEvent(QShowEvent *event) {
 }
 
 void OptionChainWindow::keyPressEvent(QKeyEvent *event) {
-  // ── F5: Refresh ───────────────────────────────────────────────────────────
+  // ── F5: let global SnapQuote shortcut handle it ───────────────────────────
   if (event->key() == Qt::Key_F5) {
-    onRefreshClicked();
-    event->accept();
+    QWidget::keyPressEvent(event);
     return;
   }
 
-  // ── Escape: focus call table ──────────────────────────────────────────────
+  // ── Escape: close the parent MDI subwindow ────────────────────────────────
   if (event->key() == Qt::Key_Escape) {
-    m_callTable->setFocus();
-    if (m_callModel->rowCount() > 0 && !m_callTable->currentIndex().isValid()) {
-      int targetRow = 0;
-      if (m_atmStrike > 0.0) {
-        int atmIdx = m_strikes.indexOf(m_atmStrike);
-        if (atmIdx >= 0) targetRow = atmIdx;
+    QWidget *p = parentWidget();
+    while (p) {
+      if (p->inherits("CustomMDISubWindow")) {
+        p->close();
+        event->accept();
+        return;
       }
-      m_callTable->selectRow(targetRow);
+      p = p->parentWidget();
     }
+    close();
     event->accept();
     return;
   }

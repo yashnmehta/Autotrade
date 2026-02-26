@@ -34,49 +34,43 @@ public:
              const QModelIndex &index) const override {
     painter->save();
 
+    // Light-theme defaults
+    QColor bgColor = Qt::transparent;
+    QColor textColor("#1e293b"); // Primary text
+
     // Check for dynamic tick update color
     int direction = index.data(Qt::UserRole + 1).toInt();
-    QColor bgColor = Qt::transparent;
 
-    if (!m_isMiddle) {
-      if (direction == 1) {
-        bgColor = QColor("#0000FF"); // Blue for Up
-      } else if (direction == 2) {
-        bgColor = QColor("#FF0000"); // Red for Down
-      }
+    if (direction == 1) {
+      bgColor = QColor("#dbeafe"); // Light blue for Up tick
+      textColor = QColor("#1d4ed8");
+    } else if (direction == 2) {
+      bgColor = QColor("#fee2e2"); // Light red for Down tick
+      textColor = QColor("#dc2626");
     }
 
+    // Draw background
     if (bgColor != Qt::transparent) {
       painter->fillRect(option.rect, bgColor);
     } else if (option.state & QStyle::State_Selected) {
-      painter->fillRect(option.rect, QColor("#3A5A70"));
+      painter->fillRect(option.rect, QColor("#dbeafe")); // Selection
+      textColor = QColor("#1e40af");
     } else if (m_isMiddle) {
-      painter->fillRect(option.rect,
-                        QColor("#222222")); // Slightly greyer for middle
+      painter->fillRect(option.rect, QColor("#f8fafc")); // Surface for middle
     }
 
     // Draw text
     QString text = index.data(Qt::DisplayRole).toString();
-    QColor textColor = Qt::white;
 
-    // Change color logic (for Chng column)
+    // Change color logic (for Chg column)
     QString headerText =
         index.model()->headerData(index.column(), Qt::Horizontal).toString();
     if (headerText == "Chg") {
       bool ok;
       double value = text.toDouble(&ok);
       if (ok && value != 0.0) {
-        textColor = (value > 0) ? QColor("#00FF00") : QColor("#FF4444");
+        textColor = (value > 0) ? QColor("#16a34a") : QColor("#dc2626");
       }
-    }
-
-    // Specific highlight for LTP, Bid, Ask
-    if (headerText == "LTP" || headerText == "Bid" || headerText == "Ask" ||
-        headerText == "Spot/Fut") {
-      // Already handled by bgColor if direction is set
-    } else {
-      // For other columns, we might NOT want the blue/red background if it's
-      // too noisy But the user asked for background changes for values.
     }
 
     painter->setPen(textColor);
