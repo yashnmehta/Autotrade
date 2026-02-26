@@ -29,6 +29,39 @@ StrategyDefinition StrategyParser::parseJSON(const QJsonObject &json,
     return def;
   }
 
+  // ✅ NEW: Check strategy mode (POC Task 2.2)
+  QString modeStr = json["mode"].toString("indicator").toLower();
+  if (modeStr == "options") {
+    def.mode = StrategyDefinition::Mode::Options;
+    
+    // Parse options-specific fields
+    if (json.contains("options_config")) {
+      QJsonObject optConfig = json["options_config"].toObject();
+      def.atmRecalcPeriodSec = optConfig["atm_recalc_period_sec"].toInt(30);
+    }
+    
+    // Parse legs
+    if (json.contains("legs")) {
+      def.optionLegs = parseOptionLegs(json["legs"].toArray());
+    }
+    
+    if (def.optionLegs.isEmpty()) {
+      errorMsg = "Options mode requires at least one leg";
+      return def;
+    }
+    
+    // Options mode complete - skip indicator parsing
+    // Parse risk params if present
+    if (json.contains("risk_management")) {
+      def.riskManagement = parseRiskParams(json["risk_management"].toObject());
+    }
+    
+    return def;
+  }
+  
+  // Traditional indicator mode continues below
+  def.mode = StrategyDefinition::Mode::Indicator;
+
   // ── User parameters ──
   if (json.contains("parameters")) {
     QJsonObject params = json["parameters"].toObject();
@@ -275,6 +308,60 @@ RiskParams StrategyParser::parseRiskParams(const QJsonObject &json) {
   }
 
   return rp;
+}
+
+// ═══════════════════════════════════════════════════════════
+// ✅ NEW: OPTIONS MODE PARSING (POC Task 2.2)
+// ═══════════════════════════════════════════════════════════
+
+OptionLeg StrategyParser::parseOptionLeg(const QJsonObject &json) {
+  OptionLeg leg;
+  
+  leg.legId = json["leg_id"].toString();
+  leg.side = json["side"].toString().toUpper();  // "BUY" or "SELL"
+  leg.optionType = json["option_type"].toString().toUpper();  // "CE", "PE", "FUT"
+  leg.quantity = json["quantity"].toInt(0);
+  
+  // Per-leg symbol override (optional - falls back to strategy symbol if empty)
+  leg.symbol = json["symbol"].toString();
+  
+  // Strike selection mode
+  QString strikeModeStr = json["strike_mode"].toString("atm_relative").toLower();
+  if (strikeModeStr == "atm_relative" || strikeModeStr == "atm") {
+    leg.strikeMode = StrikeSelectionMode::ATMRelative;
+    leg.atmOffset = json["atm_offset"].toInt(0);
+  } else if (strikeModeStr == "fixed_strike" || strikeModeStr == "fixed") {
+    leg.strikeMode = StrikeSelectionMode::FixedStrike;
+    leg.fixedStrike = json["fixed_strike"].toInt(0);
+  } else if (strikeModeStr == "premium_based" || strikeModeStr == "premium") {
+    leg.strikeMode = StrikeSelectionMode::PremiumBased;
+    leg.targetPremium = json["target_premium"].toDouble(0.0);
+  }
+  
+  // Expiry type
+  QString expiryStr = json["expiry"].toString("current_weekly").toLower();
+  if (expiryStr == "current_weekly" || expiryStr == "weekly") {
+    leg.expiry = ExpiryType::CurrentWeekly;
+  } else if (expiryStr == "next_weekly") {
+    leg.expiry = ExpiryType::NextWeekly;
+  } else if (expiryStr == "current_monthly" || expiryStr == "monthly") {
+    leg.expiry = ExpiryType::CurrentMonthly;
+  } else if (expiryStr == "specific_date" || expiryStr == "specific") {
+    leg.expiry = ExpiryType::SpecificDate;
+    leg.specificExpiry = json["specific_expiry"].toString();
+  }
+  
+  return leg;
+}
+
+QVector<OptionLeg> StrategyParser::parseOptionLegs(const QJsonArray &arr) {
+  QVector<OptionLeg> legs;
+  for (const QJsonValue &val : arr) {
+    if (val.isObject()) {
+      legs.append(parseOptionLeg(val.toObject()));
+    }
+  }
+  return legs;
 }
 
 // ═══════════════════════════════════════════════════════════

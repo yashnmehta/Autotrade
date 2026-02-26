@@ -13,6 +13,8 @@
 #include <QScrollBar>
 #include <QStyledItemDelegate>
 #include <QMap>
+#include <QKeyEvent>
+#include <QShortcut>
 #include "api/XTSTypes.h"
 #include "udp/UDPTypes.h"
 #include "repository/ContractData.h"
@@ -148,16 +150,18 @@ private slots:
     void onCallTableClicked(const QModelIndex &index);
     void onPutTableClicked(const QModelIndex &index);
     void onStrikeTableClicked(const QModelIndex &index);
-    void synchronizeScrollBars(int value);
     void onTickUpdate(const UDP::MarketTick &tick);
 
 protected:
     bool eventFilter(QObject *obj, QEvent *event) override;
+    void keyPressEvent(QKeyEvent *event) override;
+    void showEvent(QShowEvent *event) override;
 
 private:
     void setupUI();
     void setupModels();
     void setupConnections();
+    void setupShortcuts();
     void refreshData();
     void updateTableColors();
     void highlightATMStrike();
@@ -204,6 +208,7 @@ private:
     int m_exchangeSegment;  // Current exchange segment (2=NSEFO, 12=BSEFO)
     int m_selectedCallRow;
     int m_selectedPutRow;
+    bool m_syncingScroll = false; // Re-entrancy guard for tri-directional scroll sync
     
     // Column indices for Call table
     enum CallColumns {

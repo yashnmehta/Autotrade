@@ -541,6 +541,7 @@ set(STRATEGY_IMPL_SOURCES
     src/strategy/StrategyParser.cpp
     src/strategy/IndicatorEngine.cpp
     src/strategy/OrderExecutionEngine.cpp
+    src/strategy/OptionsExecutionEngine.cpp  # POC Task 3.1
 )
 
 set(STRATEGY_IMPL_HEADERS
@@ -556,6 +557,7 @@ set(STRATEGY_IMPL_HEADERS
     include/strategy/StrategyParser.h
     include/strategy/IndicatorEngine.h
     include/strategy/OrderExecutionEngine.h
+    include/strategy/OptionsExecutionEngine.h
 )
 
 # ========================================
@@ -1024,7 +1026,7 @@ endif()
 # NOTE: Unit tests have build environment issues with MSVC compiler finding C++ STL headers
 # The SearchTokenizer IS working in the main application. Test it there instead.
 # See MANUAL_TEST_GUIDE.md for testing instructions
-option(BUILD_TESTS "Build unit tests" OFF)  # Disabled due to build config issues
+option(BUILD_TESTS "Build unit tests" ON)  # POC Task 3.2: Enable tests
 if(BUILD_TESTS)
     enable_testing()
     find_package(Qt5 COMPONENTS Test REQUIRED)
@@ -1061,7 +1063,54 @@ if(BUILD_TESTS)
     
     add_test(NAME SearchTokenizerTest COMMAND test_search_tokenizer)
     
-    message(STATUS "Unit tests enabled - test_search_tokenizer added")
+    # OptionsExecutionEngine Unit Test (POC Task 3.2 - Pure Logic Only)
+    add_executable(test_options_execution
+        tests/test_options_execution.cpp
+    )
+    
+    target_include_directories(test_options_execution PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+    )
+    
+    target_link_libraries(test_options_execution
+        Qt5::Core
+        Qt5::Test
+    )
+    
+    set_target_properties(test_options_execution PROPERTIES
+        CXX_STANDARD 17
+        CXX_STANDARD_REQUIRED ON
+        CXX_EXTENSIONS OFF
+    )
+    
+    target_compile_definitions(test_options_execution PRIVATE ${COMMON_DEFINES})
+    if(MSVC)
+        target_compile_options(test_options_execution PRIVATE /W1 /FS /MP)
+    endif()
+    
+    add_test(NAME OptionsExecutionTest COMMAND test_options_execution)
+    
+    # IV Debug Test
+    add_executable(test_iv_debug
+        test_iv_debug.cpp
+        src/repository/IVCalculator.cpp
+        src/repository/Greeks.cpp
+    )
+    
+    target_include_directories(test_iv_debug PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+    )
+    
+    set_target_properties(test_iv_debug PROPERTIES
+        CXX_STANDARD 17
+        CXX_STANDARD_REQUIRED ON
+    )
+    
+    if(MSVC)
+        target_compile_options(test_iv_debug PRIVATE /W1 /FS /MP)
+    endif()
+    
+    message(STATUS "Unit tests enabled - test_search_tokenizer, test_options_execution, test_iv_debug added")
     message(STATUS "Note: Integration test disabled due to dependency complexity")
     message(STATUS "Use main application for integration testing")
 else()

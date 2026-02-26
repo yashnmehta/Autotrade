@@ -67,6 +67,9 @@ private:
   void checkTimeBasedExit();
   void resetDailyCounters();
 
+  // ── POC Task 4: Options execution ──
+  void executeOptionsLegs();
+
   // ── Data ──
   StrategyDefinition m_definition;
   IndicatorEngine m_indicatorEngine;

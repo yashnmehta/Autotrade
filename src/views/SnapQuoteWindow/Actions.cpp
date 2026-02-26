@@ -257,7 +257,10 @@ bool SnapQuoteWindow::loadFromGStore() {
   if (m_lbLTPQty)
     m_lbLTPQty->setText(QLocale().toString((int)data.lastTradeQty));
   if (m_lbLTPTime && data.lastTradeTime > 0) {
-    QDateTime dt = QDateTime::fromSecsSinceEpoch(data.lastTradeTime);
+    constexpr int64_t NSE_EPOCH_OFFSET = 315532800; // 1980-01-01 to 1970-01-01
+    // NSE timestamps are IST-based, use Qt::UTC to avoid double +5:30 offset
+    QDateTime dt = QDateTime::fromSecsSinceEpoch(
+        static_cast<int64_t>(data.lastTradeTime) + NSE_EPOCH_OFFSET, Qt::UTC);
     m_lbLTPTime->setText(dt.toString("HH:mm:ss"));
   }
   setLTPIndicator(data.ltp >= data.close);

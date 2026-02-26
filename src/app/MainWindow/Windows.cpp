@@ -179,6 +179,16 @@ void MainWindow::connectWindowSignals(CustomMDISubWindow *window) {
             dialog.exec();
           });
 
+  // Auto-connect ATMWatch signals
+  if (window->contentWidget() && window->windowType() == "ATMWatch") {
+    ATMWatchWindow *atm =
+        qobject_cast<ATMWatchWindow *>(window->contentWidget());
+    if (atm) {
+      connect(atm, &ATMWatchWindow::openOptionChainRequested, this,
+              &MainWindow::createOptionChainWindowForSymbol);
+    }
+  }
+
   // Auto-connect BaseOrderWindow signals (Buy/Sell)
   if (window->contentWidget() && (window->windowType() == "BuyWindow" ||
                                   window->windowType() == "SellWindow")) {
@@ -852,6 +862,20 @@ CustomMDISubWindow *MainWindow::createOptionChainWindow() {
   connectWindowSignals(window);
   m_mdiArea->addWindow(window);
   window->activateWindow();
+  return window;
+}
+
+CustomMDISubWindow *
+MainWindow::createOptionChainWindowForSymbol(const QString &symbol,
+                                             const QString &expiry) {
+  CustomMDISubWindow *window = createOptionChainWindow();
+  if (!window)
+    return nullptr;
+  OptionChainWindow *oc =
+      qobject_cast<OptionChainWindow *>(window->contentWidget());
+  if (oc) {
+    oc->setSymbol(symbol, expiry);
+  }
   return window;
 }
 

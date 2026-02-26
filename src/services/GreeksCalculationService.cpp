@@ -127,11 +127,11 @@ GreeksResult GreeksCalculationService::calculateForToken(uint32_t token,
   bool shouldLog =
       (token == 26000 || token == 59182 || token == 42546 || token == 59460 ||
        token == 2885 ||
-       token == 131523); // Add any specific tokens you want to debug
+       token == 131523 || token == 131525); // Add any specific tokens you want to debug
 
   if (shouldLog) {
-    // qInfo() << "[GreeksDebug] calculateForToken START Token:" << token
-    //         << "Seg:" << exchangeSegment << "Enabled:" << m_config.enabled;
+    qInfo() << "[GreeksDebug] calculateForToken START Token:" << token
+            << "Seg:" << exchangeSegment << "Enabled:" << m_config.enabled;
   }
 
   // Step 1: Check if service is enabled
@@ -193,10 +193,10 @@ GreeksResult GreeksCalculationService::calculateForToken(uint32_t token,
 
   // Debug Option Prices
   if (shouldLog) {
-    // qInfo() << "[GreeksDebug] Market Data for Token:" << token
-    //         << "LTP:" << optionPrice << "Bid:" << bidPrice << "Ask:" <<
-    //         askPrice
-    //         << "LastTradeTime:" << lastTradeTime;
+    qInfo() << "[GreeksDebug] Market Data for Token:" << token
+            << "LTP:" << optionPrice << "Bid:" << bidPrice << "Ask:" <<
+            askPrice
+            << "LastTradeTime:" << lastTradeTime;
   }
 
   if (optionPrice <= 0 && bidPrice <= 0 && askPrice <= 0) {
@@ -232,8 +232,8 @@ GreeksResult GreeksCalculationService::calculateForToken(uint32_t token,
       underlyingToken = m_repoManager->getAssetTokenForSymbol(contract->name);
 
       if (shouldLog) {
-        // qDebug() << "[GreeksDebug] Resolved symbol" << contract->name
-        //          << "to token:" << underlyingToken;
+        qInfo() << "[GreeksDebug] Resolved symbol" << contract->name
+                 << "to token:" << underlyingToken;
       }
     }
 
@@ -242,9 +242,9 @@ GreeksResult GreeksCalculationService::calculateForToken(uint32_t token,
       underlyingPrice = nsecm::getGenericLtp(underlyingToken);
 
       if (shouldLog) {
-        // qDebug() << "[GreeksDebug] Fetched underlying price for token:" <<
-        // underlyingToken
-        //          << "Price:" << underlyingPrice;
+        qInfo() << "[GreeksDebug] Fetched underlying price for token:" <<
+        underlyingToken
+                 << "Price:" << underlyingPrice;
       }
     } else if (underlyingToken > 0 && exchangeSegment == 4) { // BSE FO
       auto spotState =
@@ -270,8 +270,8 @@ GreeksResult GreeksCalculationService::calculateForToken(uint32_t token,
   }
 
   if (shouldLog) {
-    // qDebug() << "[GreeksDebug] Got underlying price:" << underlyingPrice
-    //          << "for" << contract->name << "| Option LTP:" << optionPrice;
+    qInfo() << "[GreeksDebug] Got underlying price:" << underlyingPrice
+             << "for" << contract->name << "| Option LTP:" << optionPrice;
   }
 
   // qDebug() << "[GreeksDebug] Successfully got underlying price:" <<
@@ -321,10 +321,11 @@ GreeksResult GreeksCalculationService::calculateForToken(uint32_t token,
 
   // Step 10: Calculate Implied Volatility
   if (shouldLog) {
-    // qInfo() << "[GreeksDebug] INPUTS Token:" << token
-    //         << "Spot:" << underlyingPrice << "Strike:" << strikePrice
-    //         << "TTE:" << T << "OptPrice:" << optionPrice
-    //         << "RiskFree:" << m_config.riskFreeRate;
+    qInfo() << "[GreeksDebug] INPUTS Token:" << token
+            << "Spot:" << underlyingPrice << "Strike:" << strikePrice
+            << "TTE:" << T << "OptPrice:" << optionPrice
+            << "RiskFree:" << m_config.riskFreeRate
+            << "IsCall:" << isCall;
   }
 
   // Use cached IV as initial guess for faster convergence
@@ -390,11 +391,11 @@ GreeksResult GreeksCalculationService::calculateForToken(uint32_t token,
     result.theoreticalPrice = greeks.price;
 
     if (shouldLog) {
-      // qInfo() << "[GreeksDebug] OUTPUTS Token:" << token
-      //         << "IV:" << result.impliedVolatility << "Delta:" <<
-      //         result.delta
-      //         << "Gamma:" << result.gamma << "Vega:" << result.vega
-      //         << "Theta:" << result.theta;
+      qInfo() << "[GreeksDebug] OUTPUTS Token:" << token
+              << "IV:" << result.impliedVolatility << "Delta:" <<
+              result.delta
+              << "Gamma:" << result.gamma << "Vega:" << result.vega
+              << "Theta:" << result.theta;
     }
   } else if (shouldLog) {
     qInfo() << "[GreeksDebug] OUTPUTS Token:" << token

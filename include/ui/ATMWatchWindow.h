@@ -104,9 +104,11 @@ public:
   // Public Context Access for Global Shortcuts
   WindowContext getCurrentContext();
 
+signals:
+  void openOptionChainRequested(const QString &symbol, const QString &expiry);
+
 private slots:
   void onATMUpdated();
-  void synchronizeScrollBars(int value);
   void onTickUpdate(const UDP::MarketTick &tick);
   void onExchangeChanged(int index);
   void onExpiryChanged(int index);
@@ -117,6 +119,8 @@ private slots:
   void
   onSymbolDoubleClicked(const QModelIndex &index); // Double-click to open chain
   void onHeaderClicked(int logicalIndex);          // Sort by column
+  void onCallHeaderClicked(int logicalIndex);       // Sort by call table column
+  void onPutHeaderClicked(int logicalIndex);        // Sort by put table column
 
 protected:
   bool eventFilter(QObject *obj, QEvent *event) override;
@@ -126,6 +130,7 @@ private:
   void setupUI();
   void setupModels();
   void setupConnections();
+  void setupShortcuts();
   void refreshData();
   void updateDataIncrementally(); // P2: Incremental updates (no flicker)
   void loadAllSymbols();          // Now runs in background thread
@@ -140,6 +145,8 @@ private:
                            int precision = 2); // Color helper
 
   // Sort State
+  enum SortSource { SORT_SYMBOL_TABLE, SORT_CALL_TABLE, SORT_PUT_TABLE };
+  SortSource m_sortSource = SORT_SYMBOL_TABLE;
   int m_sortColumn = 0; // Default: Symbol
   Qt::SortOrder m_sortOrder = Qt::AscendingOrder;
 
@@ -184,6 +191,8 @@ private:
                                                     // symbol (for live updates)
   QMap<QString, ATMWatchManager::ATMInfo>
       m_previousATMData; // P2: Track previous state for incremental updates
+
+  bool m_syncingScroll = false; // Re-entrancy guard for tri-directional scroll sync
 
   // Timer for LTP updates
   QTimer *m_basePriceTimer;

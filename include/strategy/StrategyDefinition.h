@@ -84,44 +84,6 @@ struct RiskParams {
 };
 
 // ═══════════════════════════════════════════════════════════
-// STRATEGY DEFINITION - Complete JSON-based strategy spec
-// ═══════════════════════════════════════════════════════════
-
-struct StrategyDefinition {
-  // Identification
-  QString strategyId;
-  QString name;
-  QString version = "1.0";
-
-  // Market context
-  QString symbol;
-  int segment = 2; // NSEFO default
-  QString timeframe = "1m";
-
-  // User-defined parameters (for template substitution)
-  QVariantMap userParameters;
-
-  // Indicators to compute
-  QVector<IndicatorConfig> indicators;
-
-  // Entry rules
-  ConditionGroup longEntryRules;
-  ConditionGroup shortEntryRules;
-
-  // Exit rules (condition-based, in addition to SL/Target)
-  ConditionGroup longExitRules;
-  ConditionGroup shortExitRules;
-
-  // Risk management
-  RiskParams riskManagement;
-
-  bool isValid() const {
-    return !name.isEmpty() && !symbol.isEmpty() &&
-           (!longEntryRules.isEmpty() || !shortEntryRules.isEmpty());
-  }
-};
-
-// ═══════════════════════════════════════════════════════════
 // OPTION LEG - Single leg in a multi-leg options strategy
 // ═══════════════════════════════════════════════════════════
 
@@ -142,6 +104,10 @@ struct OptionLeg {
   QString legId;              // "LEG_1", "LEG_2"
   QString side;               // "BUY" or "SELL"
   QString optionType;         // "CE", "PE", "FUT"
+  
+  // ✅ NEW: Per-leg symbol override (POC Task 2.1)
+  QString symbol;             // Optional: "NIFTY", "BANKNIFTY" (empty = use strategy symbol)
+  
   StrikeSelectionMode strikeMode = StrikeSelectionMode::ATMRelative;
   int atmOffset = 0;          // For ATM-relative: 0=ATM, +1=OTM1, -1=ITM1
   double targetPremium = 0.0; // For premium-based selection
@@ -149,6 +115,61 @@ struct OptionLeg {
   ExpiryType expiry = ExpiryType::CurrentWeekly;
   QString specificExpiry;     // For SpecificDate
   int quantity = 0;           // Position size
+};
+
+// ═══════════════════════════════════════════════════════════
+// STRATEGY DEFINITION - Complete JSON-based strategy spec
+// ═══════════════════════════════════════════════════════════
+
+struct StrategyDefinition {
+  // ✅ NEW: Strategy mode (POC Task 2.1)
+  enum class Mode {
+    Indicator,  // Traditional indicator-based strategies
+    Options     // Multi-leg options strategies
+  };
+  
+  // Identification
+  QString strategyId;
+  QString name;
+  QString version = "1.0";
+
+  // Market context
+  QString symbol;
+  int segment = 2; // NSEFO default
+  QString timeframe = "1m";
+  
+  // ✅ NEW: Strategy mode and options configuration
+  Mode mode = Mode::Indicator;
+  QVector<OptionLeg> optionLegs;          // For options mode
+  int atmRecalcPeriodSec = 30;            // ATM recalc frequency (options mode)
+
+  // User-defined parameters (for template substitution)
+  QVariantMap userParameters;
+
+  // Indicators to compute
+  QVector<IndicatorConfig> indicators;
+
+  // Entry rules
+  ConditionGroup longEntryRules;
+  ConditionGroup shortEntryRules;
+
+  // Exit rules (condition-based, in addition to SL/Target)
+  ConditionGroup longExitRules;
+  ConditionGroup shortExitRules;
+
+  // Risk management
+  RiskParams riskManagement;
+
+  bool isValid() const {
+    if (mode == Mode::Options) {
+      // Options mode: Require at least one leg
+      return !name.isEmpty() && !symbol.isEmpty() && !optionLegs.isEmpty();
+    } else {
+      // Indicator mode: Require entry rules
+      return !name.isEmpty() && !symbol.isEmpty() &&
+             (!longEntryRules.isEmpty() || !shortEntryRules.isEmpty());
+    }
+  }
 };
 
 #endif // STRATEGY_DEFINITION_H

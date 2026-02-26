@@ -74,6 +74,7 @@ private slots:
   void onStrikeChanged(const QString &text = QString());
   void onOptionTypeChanged(const QString &text = QString());
   void onAddToWatchClicked();
+  void activateSearchMode();
 
 private:
   void setupUI();

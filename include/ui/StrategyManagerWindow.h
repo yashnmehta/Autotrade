@@ -25,6 +25,7 @@ public:
 private slots:
   void onCreateClicked();
   void onBuildCustomClicked();
+  void onLoadFromJsonClicked();
   void onStartClicked();
   void onPauseClicked();
   void onResumeClicked();

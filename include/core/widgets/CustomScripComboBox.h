@@ -43,6 +43,7 @@ signals:
     void escapePressed();
     void itemSelected(const QString &text);
     void enterPressedWhenClosed();
+    void popupAboutToShow();
 
 protected:
     bool eventFilter(QObject *obj, QEvent *event) override;

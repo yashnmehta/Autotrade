@@ -9,6 +9,7 @@
 #include <QSplitter>
 #include <QWheelEvent>
 #include <cmath>
+#include <limits>
 
 #include "data/PriceStoreGateway.h"
 #include "repository/RepositoryManager.h"
@@ -113,6 +114,7 @@ OptionChainWindow::OptionChainWindow(QWidget *parent)
   setupUI();
   setupModels();
   setupConnections();
+  setupShortcuts();
 
   // Populate symbols (silently, without triggering partial refreshes)
   populateSymbols();
@@ -290,6 +292,23 @@ void OptionChainWindow::setupUI() {
 
   mainLayout->addLayout(tableLayout);
 
+  // ── Keyboard-first: focus policies + tab order ──────────────────────────────
+  m_symbolCombo->setFocusPolicy(Qt::StrongFocus);
+  m_expiryCombo->setFocusPolicy(Qt::StrongFocus);
+  m_refreshButton->setFocusPolicy(Qt::StrongFocus);
+  m_calculatorButton->setFocusPolicy(Qt::StrongFocus);
+  m_callTable->setFocusPolicy(Qt::StrongFocus);
+  m_strikeTable->setFocusPolicy(Qt::StrongFocus);
+  m_putTable->setFocusPolicy(Qt::StrongFocus);
+  // Tab: Symbol → Expiry → Refresh → Calculator → Call → Strike → Put → (wrap)
+  QWidget::setTabOrder(m_symbolCombo,      m_expiryCombo);
+  QWidget::setTabOrder(m_expiryCombo,      m_refreshButton);
+  QWidget::setTabOrder(m_refreshButton,    m_calculatorButton);
+  QWidget::setTabOrder(m_calculatorButton, m_callTable);
+  QWidget::setTabOrder(m_callTable,        m_strikeTable);
+  QWidget::setTabOrder(m_strikeTable,      m_putTable);
+  QWidget::setTabOrder(m_putTable,         m_symbolCombo);
+
   // Set main widget style
   setStyleSheet("QWidget { background-color: #1e1e1e; }");
 }
@@ -368,9 +387,32 @@ void OptionChainWindow::setupConnections() {
   connect(m_strikeTable, &QTableView::clicked, this,
           &OptionChainWindow::onStrikeTableClicked);
 
-  // Synchronize scroll bars - Only use strike table as master
+  // Tri-directional scroll sync — m_syncingScroll flag prevents infinite loop
+  // while allowing Qt's internal _q_vslc() to fire so viewports actually scroll.
   connect(m_strikeTable->verticalScrollBar(), &QScrollBar::valueChanged, this,
-          &OptionChainWindow::synchronizeScrollBars);
+          [this](int v) {
+            if (m_syncingScroll) return;
+            m_syncingScroll = true;
+            m_callTable->verticalScrollBar()->setValue(v);
+            m_putTable->verticalScrollBar()->setValue(v);
+            m_syncingScroll = false;
+          });
+  connect(m_callTable->verticalScrollBar(), &QScrollBar::valueChanged, this,
+          [this](int v) {
+            if (m_syncingScroll) return;
+            m_syncingScroll = true;
+            m_strikeTable->verticalScrollBar()->setValue(v);
+            m_putTable->verticalScrollBar()->setValue(v);
+            m_syncingScroll = false;
+          });
+  connect(m_putTable->verticalScrollBar(), &QScrollBar::valueChanged, this,
+          [this](int v) {
+            if (m_syncingScroll) return;
+            m_syncingScroll = true;
+            m_strikeTable->verticalScrollBar()->setValue(v);
+            m_callTable->verticalScrollBar()->setValue(v);
+            m_syncingScroll = false;
+          });
 
   connect(this, &OptionChainWindow::refreshRequested, this,
           &OptionChainWindow::refreshData);
@@ -405,11 +447,11 @@ void OptionChainWindow::setupConnections() {
 
           // Update Model directly to avoid full row refresh overhead
           m_callModel->item(row, CALL_IV)
-              ->setText(QString::number(data.callIV, 'f', 2));
+              ->setText(QString::number(data.callIV * 100.0, 'f', 2));
           m_callModel->item(row, CALL_BID_IV)
-              ->setText(QString::number(data.callBidIV, 'f', 2));
+              ->setText(QString::number(data.callBidIV * 100.0, 'f', 2));
           m_callModel->item(row, CALL_ASK_IV)
-              ->setText(QString::number(data.callAskIV, 'f', 2));
+              ->setText(QString::number(data.callAskIV * 100.0, 'f', 2));
           m_callModel->item(row, CALL_DELTA)
               ->setText(QString::number(data.callDelta, 'f', 2));
           m_callModel->item(row, CALL_GAMMA)
@@ -432,11 +474,11 @@ void OptionChainWindow::setupConnections() {
           data.putTheta = result.theta;
 
           m_putModel->item(row, PUT_IV)
-              ->setText(QString::number(data.putIV, 'f', 2));
+              ->setText(QString::number(data.putIV * 100.0, 'f', 2));
           m_putModel->item(row, PUT_BID_IV)
-              ->setText(QString::number(data.putBidIV, 'f', 2));
+              ->setText(QString::number(data.putBidIV * 100.0, 'f', 2));
           m_putModel->item(row, PUT_ASK_IV)
-              ->setText(QString::number(data.putAskIV, 'f', 2));
+              ->setText(QString::number(data.putAskIV * 100.0, 'f', 2));
           m_putModel->item(row, PUT_DELTA)
               ->setText(QString::number(data.putDelta, 'f', 2));
           m_putModel->item(row, PUT_GAMMA)
@@ -451,6 +493,35 @@ void OptionChainWindow::setupConnections() {
           //          << "Delta:" << data.putDelta;
         }
       });
+
+  // ── Keyboard: Enter key activates trade for Call / Put / Strike ────────────
+  connect(m_callTable, &QTableView::activated, this,
+          [this](const QModelIndex &index) {
+            int row = index.row();
+            m_selectedCallRow = row;
+            double strike = getStrikeAtRow(row);
+            if (strike > 0)
+              emit tradeRequested(m_currentSymbol, m_currentExpiry, strike, "CE");
+          });
+
+  connect(m_putTable, &QTableView::activated, this,
+          [this](const QModelIndex &index) {
+            int row = index.row();
+            m_selectedPutRow = row;
+            double strike = getStrikeAtRow(row);
+            if (strike > 0)
+              emit tradeRequested(m_currentSymbol, m_currentExpiry, strike, "PE");
+          });
+
+  connect(m_strikeTable, &QTableView::activated, this,
+          [this](const QModelIndex &index) {
+            int row = index.row();
+            m_selectedCallRow = row;
+            m_selectedPutRow  = row;
+            m_callTable->selectRow(row);
+            m_putTable->selectRow(row);
+            m_callTable->setFocus(); // Move focus to call side
+          });
 }
 
 void OptionChainWindow::setSymbol(const QString &symbol,
@@ -464,6 +535,179 @@ void OptionChainWindow::setSymbol(const QString &symbol,
 
   // Refresh data
   emit refreshRequested();
+}
+
+// ============================================================================
+// Keyboard-first: setupShortcuts / showEvent / keyPressEvent
+// ============================================================================
+
+void OptionChainWindow::setupShortcuts() {
+  // Helper: get the table that currently has keyboard focus
+  auto getActiveTable = [this]() -> QTableView * {
+    if (m_callTable->hasFocus())   return m_callTable;
+    if (m_strikeTable->hasFocus()) return m_strikeTable;
+    if (m_putTable->hasFocus())    return m_putTable;
+    return nullptr;
+  };
+  auto getRow = [](QTableView *t) -> int {
+    if (!t) return 0;
+    int r = t->currentIndex().row();
+    return (r >= 0) ? r : 0;
+  };
+  auto focusTable = [](QTableView *t, int row) {
+    t->setFocus();
+    if (t->model() && row >= 0 && row < t->model()->rowCount()) {
+      t->selectRow(row);
+      t->scrollTo(t->model()->index(row, 0), QAbstractItemView::EnsureVisible);
+    }
+  };
+
+  // ── Ctrl+Right: Call → Strike → Put → (wraps to Call) ────────────────────
+  auto *nextSC = new QShortcut(QKeySequence(Qt::CTRL | Qt::Key_Right), this);
+  connect(nextSC, &QShortcut::activated, this, [this, getActiveTable, getRow, focusTable]() {
+    QTableView *cur = getActiveTable();
+    int row = getRow(cur);
+    if      (cur == m_callTable)   focusTable(m_strikeTable, row);
+    else if (cur == m_strikeTable) focusTable(m_putTable,    row);
+    else                           focusTable(m_callTable,   row); // Put or none → Call
+  });
+
+  // ── Ctrl+Left: Put → Strike → Call → (wraps to Put) ──────────────────────
+  auto *prevSC = new QShortcut(QKeySequence(Qt::CTRL | Qt::Key_Left), this);
+  connect(prevSC, &QShortcut::activated, this, [this, getActiveTable, getRow, focusTable]() {
+    QTableView *cur = getActiveTable();
+    int row = getRow(cur);
+    if      (cur == m_putTable)    focusTable(m_strikeTable, row);
+    else if (cur == m_strikeTable) focusTable(m_callTable,   row);
+    else                           focusTable(m_putTable,    row); // Call or none → Put
+  });
+
+  // ── F5: Refresh ───────────────────────────────────────────────────────────
+  auto *refreshSC = new QShortcut(QKeySequence(Qt::Key_F5), this);
+  refreshSC->setContext(Qt::WidgetWithChildrenShortcut);
+  connect(refreshSC, &QShortcut::activated, this, &OptionChainWindow::onRefreshClicked);
+
+  // ── Ctrl+S: Focus Symbol combo + open dropdown ─────────────────────────────
+  // (Alt+S avoids menu conflict since no &S menu, but Ctrl is more consistent)
+  auto *symbolSC = new QShortcut(QKeySequence(Qt::CTRL | Qt::Key_S), this);
+  symbolSC->setContext(Qt::WidgetWithChildrenShortcut);
+  connect(symbolSC, &QShortcut::activated, this, [this]() {
+    m_symbolCombo->setFocus();
+    m_symbolCombo->showPopup();
+  });
+
+  // ── Ctrl+E: Focus Expiry combo + open dropdown ─────────────────────────────
+  // NOTE: Alt+E is RESERVED by the &Edit menu mnemonic — use Ctrl instead.
+  auto *expirySC = new QShortcut(QKeySequence(Qt::CTRL | Qt::Key_E), this);
+  expirySC->setContext(Qt::WidgetWithChildrenShortcut);
+  connect(expirySC, &QShortcut::activated, this, [this]() {
+    m_expiryCombo->setFocus();
+    m_expiryCombo->showPopup();
+  });
+
+  // ── Ctrl+G: Scroll and select ATM strike row ──────────────────────────────
+  auto *gotoSC = new QShortcut(QKeySequence(Qt::CTRL | Qt::Key_G), this);
+  connect(gotoSC, &QShortcut::activated, this, [this]() {
+    if (m_strikes.isEmpty()) return;
+    // Find row closest to ATM strike
+    int atmRow = 0;
+    if (m_atmStrike > 0) {
+      double minDist = std::numeric_limits<double>::max();
+      for (int i = 0; i < m_strikes.size(); ++i) {
+        double dist = std::abs(m_strikes[i] - m_atmStrike);
+        if (dist < minDist) { minDist = dist; atmRow = i; }
+      }
+    }
+    // Scroll all three tables to ATM row centered
+    auto scrollAll = [this, atmRow](QTableView *t) {
+      t->scrollTo(t->model()->index(atmRow, 0), QAbstractItemView::PositionAtCenter);
+      t->selectRow(atmRow);
+    };
+    scrollAll(m_callTable);
+    scrollAll(m_strikeTable);
+    scrollAll(m_putTable);
+    m_callTable->setFocus();
+  });
+}
+
+void OptionChainWindow::showEvent(QShowEvent *event) {
+  QWidget::showEvent(event);
+  // Auto-focus call table for instant keyboard navigation
+  // Use 200ms to run after refreshData's 0ms ATM-scroll timer
+  QTimer::singleShot(200, this, [this]() {
+    m_callTable->setFocus();
+    if (m_callModel->rowCount() > 0 && !m_callTable->currentIndex().isValid()) {
+      // Prefer ATM row so all three tables start in sync at the ATM price
+      int targetRow = 0;
+      if (m_atmStrike > 0.0) {
+        int atmIdx = m_strikes.indexOf(m_atmStrike);
+        if (atmIdx >= 0)
+          targetRow = atmIdx;
+      }
+      // selectRow scrolls callTable → tri-directional sync updates strike+put
+      m_callTable->selectRow(targetRow);
+    }
+  });
+}
+
+void OptionChainWindow::keyPressEvent(QKeyEvent *event) {
+  // ── F5: Refresh ───────────────────────────────────────────────────────────
+  if (event->key() == Qt::Key_F5) {
+    onRefreshClicked();
+    event->accept();
+    return;
+  }
+
+  // ── Escape: focus call table ──────────────────────────────────────────────
+  if (event->key() == Qt::Key_Escape) {
+    m_callTable->setFocus();
+    if (m_callModel->rowCount() > 0 && !m_callTable->currentIndex().isValid()) {
+      int targetRow = 0;
+      if (m_atmStrike > 0.0) {
+        int atmIdx = m_strikes.indexOf(m_atmStrike);
+        if (atmIdx >= 0) targetRow = atmIdx;
+      }
+      m_callTable->selectRow(targetRow);
+    }
+    event->accept();
+    return;
+  }
+
+  // ── F1: Buy CE (call focused) | PE (put focused) | CE (strike focused) ────
+  if (event->key() == Qt::Key_F1) {
+    if (m_callTable->hasFocus() && m_selectedCallRow >= 0) {
+      emit tradeRequested(m_currentSymbol, m_currentExpiry,
+                          getStrikeAtRow(m_selectedCallRow), "CE");
+    } else if (m_putTable->hasFocus() && m_selectedPutRow >= 0) {
+      emit tradeRequested(m_currentSymbol, m_currentExpiry,
+                          getStrikeAtRow(m_selectedPutRow), "PE");
+    } else if (m_strikeTable->hasFocus() &&
+               m_strikeTable->currentIndex().isValid()) {
+      emit tradeRequested(m_currentSymbol, m_currentExpiry,
+                          getStrikeAtRow(m_strikeTable->currentIndex().row()), "CE");
+    }
+    event->accept();
+    return;
+  }
+
+  // ── F2: Sell CE/PE ────────────────────────────────────────────────────────
+  if (event->key() == Qt::Key_F2) {
+    if (m_callTable->hasFocus() && m_selectedCallRow >= 0) {
+      emit tradeRequested(m_currentSymbol, m_currentExpiry,
+                          getStrikeAtRow(m_selectedCallRow), "CE");
+    } else if (m_putTable->hasFocus() && m_selectedPutRow >= 0) {
+      emit tradeRequested(m_currentSymbol, m_currentExpiry,
+                          getStrikeAtRow(m_selectedPutRow), "PE");
+    } else if (m_strikeTable->hasFocus() &&
+               m_strikeTable->currentIndex().isValid()) {
+      emit tradeRequested(m_currentSymbol, m_currentExpiry,
+                          getStrikeAtRow(m_strikeTable->currentIndex().row()), "PE");
+    }
+    event->accept();
+    return;
+  }
+
+  QWidget::keyPressEvent(event);
 }
 
 void OptionChainWindow::updateStrikeData(double strike,
@@ -504,11 +748,11 @@ void OptionChainWindow::updateStrikeData(double strike,
   m_callModel->item(row, CALL_VOLUME)
       ->setText(QString::number(data.callVolume));
   m_callModel->item(row, CALL_IV)
-      ->setText(QString::number(data.callIV, 'f', 2));
+      ->setText(QString::number(data.callIV * 100.0, 'f', 2));
   m_callModel->item(row, CALL_BID_IV)
-      ->setText(QString::number(data.callBidIV, 'f', 2));
+      ->setText(QString::number(data.callBidIV * 100.0, 'f', 2));
   m_callModel->item(row, CALL_ASK_IV)
-      ->setText(QString::number(data.callAskIV, 'f', 2));
+      ->setText(QString::number(data.callAskIV * 100.0, 'f', 2));
   m_callModel->item(row, CALL_DELTA)
       ->setText(QString::number(data.callDelta, 'f', 2));
   m_callModel->item(row, CALL_GAMMA)
@@ -542,11 +786,11 @@ void OptionChainWindow::updateStrikeData(double strike,
       ->setText(QString::number(data.putChng, 'f', 2));
 
   updateItemWithColor(m_putModel->item(row, PUT_LTP), data.putLTP);
-  m_putModel->item(row, PUT_IV)->setText(QString::number(data.putIV, 'f', 2));
+  m_putModel->item(row, PUT_IV)->setText(QString::number(data.putIV * 100.0, 'f', 2));
   m_putModel->item(row, PUT_BID_IV)
-      ->setText(QString::number(data.putBidIV, 'f', 2));
+      ->setText(QString::number(data.putBidIV * 100.0, 'f', 2));
   m_putModel->item(row, PUT_ASK_IV)
-      ->setText(QString::number(data.putAskIV, 'f', 2));
+      ->setText(QString::number(data.putAskIV * 100.0, 'f', 2));
   m_putModel->item(row, PUT_DELTA)
       ->setText(QString::number(data.putDelta, 'f', 2));
   m_putModel->item(row, PUT_GAMMA)
@@ -696,10 +940,8 @@ bool OptionChainWindow::eventFilter(QObject *obj, QEvent *event) {
       // Calculate new position
       int newValue = currentValue - (delta > 0 ? step : -step);
 
-      // Apply to all tables
+      // Set master table — tri-directional sync propagates to call+put
       m_strikeTable->verticalScrollBar()->setValue(newValue);
-      m_callTable->verticalScrollBar()->setValue(newValue);
-      m_putTable->verticalScrollBar()->setValue(newValue);
 
       return true; // Event handled
     }
@@ -708,12 +950,7 @@ bool OptionChainWindow::eventFilter(QObject *obj, QEvent *event) {
   return QWidget::eventFilter(obj, event);
 }
 
-void OptionChainWindow::synchronizeScrollBars(int value) {
-  // Strike table is the master - sync call and put tables to it
-  // No need to block signals since only strike table emits
-  m_callTable->verticalScrollBar()->setValue(value);
-  m_putTable->verticalScrollBar()->setValue(value);
-}
+
 
 void OptionChainWindow::highlightATMStrike() {
   // Find ATM row
@@ -941,8 +1178,8 @@ void OptionChainWindow::refreshData() {
 
     cRow << cbCall << createIntItem(data.callOI)
          << createIntItem(data.callChngInOI) << createIntItem(data.callVolume)
-         << createItem(data.callIV) << createItem(data.callBidIV)
-         << createItem(data.callAskIV) << createItem(data.callDelta, 2)
+         << createItem(data.callIV * 100.0) << createItem(data.callBidIV * 100.0)
+         << createItem(data.callAskIV * 100.0) << createItem(data.callDelta, 2)
          << createItem(data.callGamma, 4) << createItem(data.callVega, 2)
          << createItem(data.callTheta, 2) << createItem(data.callLTP)
          << createItem(data.callChng) << createIntItem(data.callBidQty)
@@ -966,8 +1203,8 @@ void OptionChainWindow::refreshData() {
     pRow << createIntItem(data.putBidQty) << createItem(data.putBid)
          << createItem(data.putAsk) << createIntItem(data.putAskQty)
          << createItem(data.putChng) << createItem(data.putLTP)
-         << createItem(data.putIV) << createItem(data.putBidIV)
-         << createItem(data.putAskIV) << createItem(data.putDelta, 2)
+         << createItem(data.putIV * 100.0) << createItem(data.putBidIV * 100.0)
+         << createItem(data.putAskIV * 100.0) << createItem(data.putDelta, 2)
          << createItem(data.putGamma, 4) << createItem(data.putVega, 2)
          << createItem(data.putTheta, 2) << createIntItem(data.putVolume)
          << createIntItem(data.putChngInOI) << createIntItem(data.putOI)

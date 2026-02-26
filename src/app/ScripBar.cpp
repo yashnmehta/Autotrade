@@ -21,6 +21,21 @@ ScripBar::ScripBar(QWidget *parent, ScripBarMode mode)
 
 void ScripBar::setScripBarMode(ScripBarMode mode) { m_mode = mode; }
 
+void ScripBar::activateSearchMode() {
+  if (m_mode != DisplayMode) return;
+  qDebug() << "[ScripBar] User interaction detected - switching DisplayMode → SearchMode";
+  qDebug() << "[ScripBar] m_displayData: token=" << m_displayData.exchangeInstrumentID
+           << "symbol=" << m_displayData.symbol
+           << "instType=" << m_displayData.instrumentType
+           << "expiry=" << m_displayData.expiryDate
+           << "strike=" << m_displayData.strikePrice
+           << "optType=" << m_displayData.optionType;
+  m_mode = SearchMode;
+  populateExchanges();
+  setScripDetails(m_displayData);
+  qDebug() << "[ScripBar] SearchMode activated, combos fully populated";
+}
+
 ScripBar::~ScripBar() = default;
 
 void ScripBar::setXTSClient(XTSMarketDataClient *client) {
@@ -173,6 +188,16 @@ void ScripBar::setupUI() {
           &ScripBar::scripBarEscapePressed);
 
   m_layout->addStretch();
+
+  // Connect popupAboutToShow from all combos to activate SearchMode on first interaction
+  connect(m_exchangeCombo, &CustomScripComboBox::popupAboutToShow, this, &ScripBar::activateSearchMode);
+  connect(m_segmentCombo, &CustomScripComboBox::popupAboutToShow, this, &ScripBar::activateSearchMode);
+  connect(m_instrumentCombo, &CustomScripComboBox::popupAboutToShow, this, &ScripBar::activateSearchMode);
+  connect(m_bseScripCodeCombo, &CustomScripComboBox::popupAboutToShow, this, &ScripBar::activateSearchMode);
+  connect(m_symbolCombo, &CustomScripComboBox::popupAboutToShow, this, &ScripBar::activateSearchMode);
+  connect(m_expiryCombo, &CustomScripComboBox::popupAboutToShow, this, &ScripBar::activateSearchMode);
+  connect(m_strikeCombo, &CustomScripComboBox::popupAboutToShow, this, &ScripBar::activateSearchMode);
+  connect(m_optionTypeCombo, &CustomScripComboBox::popupAboutToShow, this, &ScripBar::activateSearchMode);
 
   // Dark premium styling
   // Dark premium styling with Light Input fields for contrast and focus
@@ -861,7 +886,9 @@ void ScripBar::setScripDetails(const InstrumentData &data) {
     int idxSym = m_symbolCombo->findText(data.symbol);
     if (idxSym >= 0) {
       m_symbolCombo->setCurrentIndex(idxSym);
-      populateExpiries(data.symbol);
+      // Manually trigger symbol changed to populate m_instrumentCache
+      // (signals are blocked, so onSymbolChanged won't fire automatically)
+      onSymbolChanged(data.symbol);
     }
   }
 
@@ -1020,7 +1047,13 @@ void ScripBar::onBseScripCodeChanged(const QString &text) {
 // This is ~200-400ms faster than SearchMode's populateSymbols()
 void ScripBar::displaySingleContract(const InstrumentData &data) {
   qDebug() << "[ScripBar] ⚡ DisplayMode: O(1) display for token"
-           << data.exchangeInstrumentID;
+           << data.exchangeInstrumentID
+           << "symbol:" << data.symbol
+           << "instType:" << data.instrumentType
+           << "expiry:" << data.expiryDate
+           << "strike:" << data.strikePrice
+           << "optType:" << data.optionType
+           << "exchSeg:" << data.exchangeSegment;
 
   // Store for getCurrentInstrument()
   m_displayData = data;

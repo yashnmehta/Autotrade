@@ -2,6 +2,7 @@
 #include "repository/ContractData.h"
 #include "repository/RepositoryManager.h"
 #include "strategy/StrategyParser.h"
+#include "strategy/OptionsExecutionEngine.h"  // POC Task 4: Options execution
 #include <QDateTime>
 #include <QDebug>
 #include <QJsonDocument>
@@ -53,14 +54,22 @@ void CustomStrategy::init(const StrategyInstance &instance) {
   m_instance.target = m_definition.riskManagement.targetPercent;
   m_instance.quantity = m_definition.riskManagement.positionSize;
 
-  log(QString("CustomStrategy initialized: '%1' | Symbol: %2 | "
-              "Timeframe: %3 | Indicators: %4 | SL: %5% | Target: %6%")
-          .arg(m_definition.name)
-          .arg(m_definition.symbol)
-          .arg(m_definition.timeframe)
-          .arg(m_definition.indicators.size())
-          .arg(m_definition.riskManagement.stopLossPercent)
-          .arg(m_definition.riskManagement.targetPercent));
+  // POC Task 4: Detect options mode
+  if (m_definition.mode == StrategyDefinition::Mode::Options) {
+    log(QString("CustomStrategy initialized: '%1' | Mode: OPTIONS | Symbol: %2 | Legs: %3")
+            .arg(m_definition.name)
+            .arg(m_definition.symbol)
+            .arg(m_definition.optionLegs.size()));
+  } else {
+    log(QString("CustomStrategy initialized: '%1' | Mode: INDICATOR | Symbol: %2 | "
+                "Timeframe: %3 | Indicators: %4 | SL: %5% | Target: %6%")
+            .arg(m_definition.name)
+            .arg(m_definition.symbol)
+            .arg(m_definition.timeframe)
+            .arg(m_definition.indicators.size())
+            .arg(m_definition.riskManagement.stopLossPercent)
+            .arg(m_definition.riskManagement.targetPercent));
+  }
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -76,6 +85,56 @@ void CustomStrategy::start() {
 
   StrategyBase::start();
   log("CustomStrategy started");
+  
+  // POC Task 4: If options mode, resolve and execute legs immediately
+  if (m_definition.mode == StrategyDefinition::Mode::Options) {
+    executeOptionsLegs();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// POC Task 4: Options Leg Execution (Gate 1 Test)
+// ═══════════════════════════════════════════════════════════
+
+void CustomStrategy::executeOptionsLegs() {
+  log(QString("[POC] Executing %1 option legs...").arg(m_definition.optionLegs.size()));
+  
+  // Get current spot price (simplified - would use real feed in production)
+  double spotPrice = m_currentLTP > 0 ? m_currentLTP : 24567.50;  // Use test price if no tick yet
+  log(QString("[POC] Using spot price: %1").arg(spotPrice));
+  
+  for (const auto& leg : m_definition.optionLegs) {
+    // Resolve leg using OptionsExecutionEngine
+    auto resolved = OptionsExecutionEngine::resolveLeg(leg, m_definition.symbol, spotPrice);
+    
+    if (!resolved.valid) {
+      log(QString("[POC] ERROR: Leg '%1' resolution failed: %2")
+              .arg(leg.legId)
+              .arg(resolved.errorMsg));
+      continue;
+    }
+    
+    // Log resolution details (Gate 1 verification)
+    log(QString("[POC] Resolved Leg '%1': %2 %3 @ Strike %4 (Token=%5, Qty=%6)")
+            .arg(resolved.legId)
+            .arg(resolved.side)
+            .arg(resolved.tradingSymbol)
+            .arg(resolved.strike)
+            .arg(resolved.token)
+            .arg(resolved.quantity));
+    
+    // In production, would place actual order here
+    // For POC, just log that order would be placed
+    log(QString("[POC] Would place order: %1 %2 x%3")
+            .arg(resolved.side)
+            .arg(resolved.tradingSymbol)
+            .arg(resolved.quantity));
+    
+    // TODO Task 4.2: Integrate with OrderExecutionEngine
+    // emit orderRequested(buildOptionsOrderParams(resolved));
+  }
+  
+  log("[POC] Options leg execution complete");
 }
 
 void CustomStrategy::stop() {

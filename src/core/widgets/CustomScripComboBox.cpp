@@ -170,6 +170,28 @@ void CustomScripComboBox::keyPressEvent(QKeyEvent *event)
                 event->accept();
                 return;
             } else {
+                // Popup is closed - commit typed/autocompleted text before triggering Add
+                if (auto* le = lineEdit()) {
+                    QString typed = le->text().trimmed().toUpper();
+                    if (!typed.isEmpty()) {
+                        // Find matching item in the combo
+                        int idx = findText(typed, Qt::MatchFixedString);
+                        if (idx >= 0) {
+                            setCurrentIndex(idx);
+                            QString matchedText = itemText(idx);
+                            le->setText(matchedText);
+                            // Emit itemSelected so ScripBar cascades (expiry/strike/token update)
+                            emit itemSelected(matchedText);
+                            // Defer enterPressedWhenClosed to next event loop
+                            // so the cascade completes before Add fires
+                            QTimer::singleShot(50, this, [this]() {
+                                emit enterPressedWhenClosed();
+                            });
+                            event->accept();
+                            return;
+                        }
+                    }
+                }
                 emit enterPressedWhenClosed();
                 event->accept();
                 return;
@@ -204,6 +226,7 @@ void CustomScripComboBox::focusOutEvent(QFocusEvent *event)
 
 void CustomScripComboBox::showPopup()
 {
+    emit popupAboutToShow();
     if (m_sourceModel->rowCount() == 0) return;
     m_isPopupVisible = true;
     QComboBox::showPopup();

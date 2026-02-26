@@ -21,8 +21,15 @@ void MainWindow::cycleWindowsForward()
         return;
     }
     
-    QList<CustomMDISubWindow*> windows = m_mdiArea->windowList();
-    qDebug() << "[MainWindow] Total windows:" << windows.size();
+    // Only cycle through windows that are on-screen (x > -1000)
+    // Cached windows that are "closed" are moved to OFF_SCREEN_X = -10000
+    QList<CustomMDISubWindow*> allWindows = m_mdiArea->windowList();
+    QList<CustomMDISubWindow*> windows;
+    for (auto *w : allWindows) {
+        if (w && !w->isMinimized() && w->x() > -1000)
+            windows.append(w);
+    }
+    qDebug() << "[MainWindow] On-screen windows:" << windows.size() << "/" << allWindows.size();
     
     if (windows.isEmpty()) {
         qDebug() << "[MainWindow] No windows to cycle";
@@ -38,12 +45,12 @@ void MainWindow::cycleWindowsForward()
         return;
     }
     
-    // Find current window index
+    // Find current window index in the on-screen list
     int currentIndex = windows.indexOf(activeWindow);
     if (currentIndex == -1) {
-        // Active window not in list (shouldn't happen), activate first
+        // Active window not on-screen, activate first on-screen
         m_mdiArea->activateWindow(windows.first());
-        qWarning() << "[MainWindow] Active window not in list, activated first";
+        qDebug() << "[MainWindow] Active window off-screen, activated first on-screen";
         return;
     }
     
@@ -70,8 +77,15 @@ void MainWindow::cycleWindowsBackward()
         return;
     }
     
-    QList<CustomMDISubWindow*> windows = m_mdiArea->windowList();
-    qDebug() << "[MainWindow] Total windows:" << windows.size();
+    // Only cycle through windows that are on-screen (x > -1000)
+    // Cached windows that are "closed" are moved to OFF_SCREEN_X = -10000
+    QList<CustomMDISubWindow*> allWindows = m_mdiArea->windowList();
+    QList<CustomMDISubWindow*> windows;
+    for (auto *w : allWindows) {
+        if (w && !w->isMinimized() && w->x() > -1000)
+            windows.append(w);
+    }
+    qDebug() << "[MainWindow] On-screen windows:" << windows.size() << "/" << allWindows.size();
     
     if (windows.isEmpty()) {
         qDebug() << "[MainWindow] No windows to cycle";
@@ -87,12 +101,12 @@ void MainWindow::cycleWindowsBackward()
         return;
     }
     
-    // Find current window index
+    // Find current window index in the on-screen list
     int currentIndex = windows.indexOf(activeWindow);
     if (currentIndex == -1) {
-        // Active window not in list (shouldn't happen), activate last
+        // Active window not on-screen, activate last on-screen
         m_mdiArea->activateWindow(windows.last());
-        qWarning() << "[MainWindow] Active window not in list, activated last";
+        qDebug() << "[MainWindow] Active window off-screen, activated last on-screen";
         return;
     }
     

@@ -41,6 +41,10 @@ private:
   static Condition parseCondition(const QJsonObject &json);
   static ConditionGroup parseConditionGroup(const QJsonObject &json);
   static RiskParams parseRiskParams(const QJsonObject &json);
+  
+  // ✅ NEW: Options mode parsing (POC Task 2.2)
+  static OptionLeg parseOptionLeg(const QJsonObject &json);
+  static QVector<OptionLeg> parseOptionLegs(const QJsonArray &arr);
 
   static QJsonObject indicatorConfigToJSON(const IndicatorConfig &cfg);
   static QJsonObject conditionToJSON(const Condition &cond);

@@ -1,7 +1,21 @@
 #include "views/SnapQuoteWindow.h"
+#include "data/PriceStoreGateway.h"
 #include <QLabel>
 #include <QLocale>
 #include <QDateTime>
+#include <QTime>
+
+// NSE epoch offset: seconds between 1970-01-01 and 1980-01-01
+static constexpr int64_t NSE_EPOCH_OFFSET = 315532800;
+
+// Convert NSE lastTradeTime (seconds since 1980-01-01) to display string
+static QString nseTimeToString(uint32_t nseTime) {
+    if (nseTime == 0) return QString();
+    // NSE timestamps are IST-based, so use Qt::UTC to avoid double +5:30 offset
+    QDateTime dt = QDateTime::fromSecsSinceEpoch(
+        static_cast<int64_t>(nseTime) + NSE_EPOCH_OFFSET, Qt::UTC);
+    return dt.toString("HH:mm:ss");
+}
 
 // Handle UDP tick updates
 void SnapQuoteWindow::onTickUpdate(const UDP::MarketTick& tick)
@@ -21,10 +35,22 @@ void SnapQuoteWindow::onTickUpdate(const UDP::MarketTick& tick)
         m_lbLTPQty->setText(QLocale().toString((int)tick.ltq));
     }
     
-    // Update timestamp
-    if (tick.timestampEmitted > 0 && m_lbLTPTime) {
-        QDateTime dt = QDateTime::fromSecsSinceEpoch(tick.timestampEmitted);
-        m_lbLTPTime->setText(dt.toString("HH:mm:ss"));
+    // Update timestamp - read lastTradeTime from unified price store
+    if (m_lbLTPTime && m_subscribedToken > 0) {
+        auto state = MarketData::PriceStoreGateway::instance().getUnifiedSnapshot(
+            m_subscribedExchangeSegment, m_subscribedToken);
+        if (state.lastTradeTime > 0) {
+            // Debug: log raw value for token 59175
+            if (m_subscribedToken == 59175) {
+                static int logCount = 0;
+                if (logCount++ < 5) {
+                    qDebug() << "[SnapQuote] Token 59175 raw lastTradeTime:"
+                             << state.lastTradeTime
+                             << "converted:" << nseTimeToString(state.lastTradeTime);
+                }
+            }
+            m_lbLTPTime->setText(nseTimeToString(state.lastTradeTime));
+        }
     }
     
     // Update OHLC

@@ -87,6 +87,8 @@ private slots:
   CustomMDISubWindow *createSellWindow();
   CustomMDISubWindow *createSnapQuoteWindow();
   CustomMDISubWindow *createOptionChainWindow();
+  CustomMDISubWindow *createOptionChainWindowForSymbol(const QString &symbol,
+                                                       const QString &expiry);
   CustomMDISubWindow *createATMWatchWindow();
   CustomMDISubWindow *createTradeBookWindow();
   CustomMDISubWindow *createOrderBookWindow();

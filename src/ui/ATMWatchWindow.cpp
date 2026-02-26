@@ -26,6 +26,7 @@ ATMWatchWindow::ATMWatchWindow(QWidget *parent) : QWidget(parent) {
   setupUI();
   setupModels();
   setupConnections();
+  setupShortcuts();
 
   // Initialize base price update timer (every 1 second)
   m_basePriceTimer = new QTimer(this);
@@ -44,6 +45,89 @@ ATMWatchWindow::ATMWatchWindow(QWidget *parent) : QWidget(parent) {
 ATMWatchWindow::~ATMWatchWindow() {
   FeedHandler::instance().unsubscribeAll(this);
 }
+
+
+
+
+void ATMWatchWindow::setupShortcuts() {
+  // ── Helper lambdas ────────────────────────────────────────────────────────
+  auto getActiveTable = [this]() -> QTableView * {
+    if (m_callTable->hasFocus())   return m_callTable;
+    if (m_symbolTable->hasFocus()) return m_symbolTable;
+    if (m_putTable->hasFocus())    return m_putTable;
+    return nullptr;
+  };
+  auto getRow = [](QTableView *t) -> int {
+    if (!t) return 0;
+    int r = t->currentIndex().row();
+    return (r >= 0) ? r : 0;
+  };
+  auto focusTable = [](QTableView *t, int row) {
+    t->setFocus();
+    if (t->model() && row >= 0 && row < t->model()->rowCount())
+      t->selectRow(row);
+  };
+
+  // ── Ctrl+Right: Call → Symbol → Put → (wraps to Call) ───────────────────
+  auto *nextSC = new QShortcut(QKeySequence(Qt::CTRL | Qt::Key_Right), this);
+  connect(nextSC, &QShortcut::activated, this, [this, getActiveTable, getRow, focusTable]() {
+    QTableView *cur = getActiveTable();
+    int row = getRow(cur);
+    if      (cur == m_callTable)   focusTable(m_symbolTable, row);
+    else if (cur == m_symbolTable) focusTable(m_putTable,    row);
+    else                           focusTable(m_callTable,   row); // Put or none → Call
+  });
+
+  // ── Ctrl+Left: Put → Symbol → Call → (wraps to Put) ─────────────────────
+  auto *prevSC = new QShortcut(QKeySequence(Qt::CTRL | Qt::Key_Left), this);
+  connect(prevSC, &QShortcut::activated, this, [this, getActiveTable, getRow, focusTable]() {
+    QTableView *cur = getActiveTable();
+    int row = getRow(cur);
+    if      (cur == m_putTable)    focusTable(m_symbolTable, row);
+    else if (cur == m_symbolTable) focusTable(m_callTable,   row);
+    else                           focusTable(m_putTable,    row); // Call or none → Put
+  });
+
+  // ── F5: Refresh ──────────────────────────────────────────────────────────
+  auto *refreshSC = new QShortcut(QKeySequence(Qt::Key_F5), this);
+  connect(refreshSC, &QShortcut::activated, this, &ATMWatchWindow::refreshData);
+
+  // ── Alt+E: REMOVED — Alt+[E,F,V,W,D,H] are reserved by the menu bar mnemonics
+  //           (&Edit, &File, &View, &Window, &Data, &Help). Menu bar processes
+  //           Alt+letter BEFORE any QShortcut dispatch — they cannot be overridden.
+  //           Rule: always use Ctrl+ (or Ctrl+Shift+) for widget-local shortcuts.
+  // ── Ctrl+E: Focus Exchange combo + open dropdown ──────────────────────────
+  auto *exchangeSC = new QShortcut(QKeySequence(Qt::CTRL | Qt::Key_E), this);
+  exchangeSC->setContext(Qt::WidgetWithChildrenShortcut);
+  connect(exchangeSC, &QShortcut::activated, this, [this]() {
+    m_exchangeCombo->setFocus();
+    m_exchangeCombo->showPopup();
+  });
+
+  // ── Alt+X: Focus Expiry combo + open dropdown (no menu conflict — no &X menu)
+  auto *expirySC = new QShortcut(QKeySequence(Qt::ALT | Qt::Key_X), this);
+  expirySC->setContext(Qt::WidgetWithChildrenShortcut);
+  connect(expirySC, &QShortcut::activated, this, [this]() {
+    m_expiryCombo->setFocus();
+    m_expiryCombo->showPopup();
+  });
+
+  // ── Ctrl+G: Jump to first (ATM) row ──────────────────────────────────────
+  auto *gotoSC = new QShortcut(QKeySequence(Qt::CTRL | Qt::Key_G), this);
+  connect(gotoSC, &QShortcut::activated, this, [this]() {
+    if (m_symbolModel->rowCount() <= 0) return;
+    m_symbolTable->setFocus();
+    m_symbolTable->scrollToTop();
+    m_symbolTable->selectRow(0);
+    m_callTable->selectRow(0);
+    m_putTable->selectRow(0);
+    m_statusLabel->setText("Jumped to ATM row");
+  });
+}
+
+
+
+
 
 void ATMWatchWindow::setupUI() {
   QVBoxLayout *mainLayout = new QVBoxLayout(this);
@@ -158,7 +242,32 @@ void ATMWatchWindow::setupUI() {
   connect(m_symbolTable->horizontalHeader(), &QHeaderView::sectionClicked, this,
           &ATMWatchWindow::onHeaderClicked);
 
+  // Enable sorting on Call/Put table headers (for IV column sorting)
+  m_callTable->horizontalHeader()->setSectionsClickable(true);
+  m_callTable->horizontalHeader()->setSortIndicatorShown(true);
+  connect(m_callTable->horizontalHeader(), &QHeaderView::sectionClicked, this,
+          &ATMWatchWindow::onCallHeaderClicked);
+
+  m_putTable->horizontalHeader()->setSectionsClickable(true);
+  m_putTable->horizontalHeader()->setSortIndicatorShown(true);
+  connect(m_putTable->horizontalHeader(), &QHeaderView::sectionClicked, this,
+          &ATMWatchWindow::onPutHeaderClicked);
+
   mainLayout->addLayout(tableLayout);
+
+  // ── Keyboard-first: focus policies + tab order ──────────────────────────────
+  m_exchangeCombo->setFocusPolicy(Qt::StrongFocus);
+  m_expiryCombo->setFocusPolicy(Qt::StrongFocus);
+  m_callTable->setFocusPolicy(Qt::StrongFocus);
+  m_symbolTable->setFocusPolicy(Qt::StrongFocus);
+  m_putTable->setFocusPolicy(Qt::StrongFocus);
+  // Tab: Exchange → Expiry → Symbol table → Call table → Put table → (wrap)
+  QWidget::setTabOrder(m_exchangeCombo, m_expiryCombo);
+  QWidget::setTabOrder(m_expiryCombo,   m_symbolTable);
+  QWidget::setTabOrder(m_symbolTable,   m_callTable);
+  QWidget::setTabOrder(m_callTable,     m_putTable);
+  QWidget::setTabOrder(m_putTable,      m_exchangeCombo);
+
   setStyleSheet("QWidget { background-color: #1e1e1e; }");
 }
 
@@ -242,7 +351,7 @@ void ATMWatchWindow::setupConnections() {
         if (info.second) { // Call
           m_callModel->setData(
               m_callModel->index(row, CALL_IV),
-              QString::number(result.impliedVolatility, 'f', 2));
+              QString::number(result.impliedVolatility * 100.0, 'f', 2));
           m_callModel->setData(m_callModel->index(row, CALL_DELTA),
                                QString::number(result.delta, 'f', 2));
           m_callModel->setData(m_callModel->index(row, CALL_GAMMA),
@@ -254,7 +363,7 @@ void ATMWatchWindow::setupConnections() {
         } else { // Put
           m_putModel->setData(
               m_putModel->index(row, PUT_IV),
-              QString::number(result.impliedVolatility, 'f', 2));
+              QString::number(result.impliedVolatility * 100.0, 'f', 2));
           m_putModel->setData(m_putModel->index(row, PUT_DELTA),
                               QString::number(result.delta, 'f', 2));
           m_putModel->setData(m_putModel->index(row, PUT_GAMMA),
@@ -301,9 +410,33 @@ void ATMWatchWindow::setupConnections() {
     m_statusLabel->setText(QString("Loaded %1 symbols").arg(count));
   });
 
-  // Sync scrolling using the middle table as master
+  // ── Tri-directional scroll sync (all three tables as equals) ─────────────
+  // m_syncingScroll flag prevents infinite feedback loop while allowing
+  // Qt's internal _q_vslc() slot to fire so viewports actually scroll.
   connect(m_symbolTable->verticalScrollBar(), &QScrollBar::valueChanged, this,
-          &ATMWatchWindow::synchronizeScrollBars);
+          [this](int value) {
+            if (m_syncingScroll) return;
+            m_syncingScroll = true;
+            m_callTable->verticalScrollBar()->setValue(value);
+            m_putTable->verticalScrollBar()->setValue(value);
+            m_syncingScroll = false;
+          });
+  connect(m_callTable->verticalScrollBar(), &QScrollBar::valueChanged, this,
+          [this](int value) {
+            if (m_syncingScroll) return;
+            m_syncingScroll = true;
+            m_symbolTable->verticalScrollBar()->setValue(value);
+            m_putTable->verticalScrollBar()->setValue(value);
+            m_syncingScroll = false;
+          });
+  connect(m_putTable->verticalScrollBar(), &QScrollBar::valueChanged, this,
+          [this](int value) {
+            if (m_syncingScroll) return;
+            m_syncingScroll = true;
+            m_symbolTable->verticalScrollBar()->setValue(value);
+            m_callTable->verticalScrollBar()->setValue(value);
+            m_syncingScroll = false;
+          });
 
   // Initialize
   m_currentExchange = "NSE";
@@ -401,7 +534,7 @@ void ATMWatchWindow::refreshData() {
           if (isCall) {
             m_callModel->setData(
                 m_callModel->index(row, CALL_IV),
-                QString::number(state.impliedVolatility, 'f', 2));
+                QString::number(state.impliedVolatility * 100.0, 'f', 2));
             m_callModel->setData(m_callModel->index(row, CALL_DELTA),
                                  QString::number(state.delta, 'f', 2));
             m_callModel->setData(m_callModel->index(row, CALL_GAMMA),
@@ -413,7 +546,7 @@ void ATMWatchWindow::refreshData() {
           } else {
             m_putModel->setData(
                 m_putModel->index(row, PUT_IV),
-                QString::number(state.impliedVolatility, 'f', 2));
+                QString::number(state.impliedVolatility * 100.0, 'f', 2));
             m_putModel->setData(m_putModel->index(row, PUT_DELTA),
                                 QString::number(state.delta, 'f', 2));
             m_putModel->setData(m_putModel->index(row, PUT_GAMMA),
@@ -541,7 +674,7 @@ void ATMWatchWindow::updateDataIncrementally() {
             int colTheta = isCall ? CALL_THETA : PUT_THETA;
 
             model->setData(model->index(row, colIV),
-                           QString::number(state.impliedVolatility, 'f', 2));
+                           QString::number(state.impliedVolatility * 100.0, 'f', 2));
             model->setData(model->index(row, colDelta),
                            QString::number(state.delta, 'f', 2));
             model->setData(model->index(row, colGamma),
@@ -626,7 +759,7 @@ void ATMWatchWindow::updateDataIncrementally() {
             int colTheta = isCall ? CALL_THETA : PUT_THETA;
 
             model->setData(model->index(row, colIV),
-                           QString::number(state.impliedVolatility, 'f', 2));
+                           QString::number(state.impliedVolatility * 100.0, 'f', 2));
             model->setData(model->index(row, colDelta),
                            QString::number(state.delta, 'f', 2));
             model->setData(model->index(row, colGamma),
@@ -771,15 +904,18 @@ void ATMWatchWindow::onTickUpdate(const UDP::MarketTick &tick) {
   }
 }
 
-void ATMWatchWindow::synchronizeScrollBars(int value) {
-  m_callTable->verticalScrollBar()->setValue(value);
-  m_putTable->verticalScrollBar()->setValue(value);
-}
+
 
 void ATMWatchWindow::showEvent(QShowEvent *event) {
   QWidget::showEvent(event);
   // Load all symbols when window is shown (in background)
   loadAllSymbols();
+  // Auto-focus symbol table so keyboard navigation is instant
+  QTimer::singleShot(150, this, [this]() {
+    m_symbolTable->setFocus();
+    if (m_symbolModel->rowCount() > 0 && !m_symbolTable->currentIndex().isValid())
+      m_symbolTable->selectRow(0);
+  });
 }
 
 bool ATMWatchWindow::eventFilter(QObject *obj, QEvent *event) {
@@ -1054,36 +1190,22 @@ void ATMWatchWindow::openOptionChain(const QString &symbol,
   qInfo() << "[ATMWatch] Opening Option Chain for" << symbol
           << "expiry:" << expiry;
 
-  // Create and show option chain window
-  OptionChainWindow *chainWindow = new OptionChainWindow();
-  chainWindow->setAttribute(Qt::WA_DeleteOnClose); // Auto-delete when closed
-  chainWindow->setWindowTitle(
-      QString("Option Chain - %1 (%2)").arg(symbol, expiry));
-  chainWindow->setSymbol(symbol, expiry);
-
-  // Get ATM strike from current data
-  int row = m_symbolToRow.value(symbol, -1);
-  if (row >= 0) {
-    double atmStrike =
-        m_symbolModel->data(m_symbolModel->index(row, SYM_ATM)).toDouble();
-    chainWindow->setATMStrike(atmStrike);
-  }
-
-  chainWindow->show();
-  chainWindow->raise();
-  chainWindow->activateWindow();
+  // Emit signal so MainWindow opens it as a proper CustomMDISubWindow
+  emit openOptionChainRequested(symbol, expiry);
 
   m_statusLabel->setText(QString("Opened Option Chain for %1").arg(symbol));
 }
 
 void ATMWatchWindow::onHeaderClicked(int logicalIndex) {
-  // Only sort on click of Symbol table columns
-  if (logicalIndex == m_sortColumn) {
-    // Toggle order
+  // Clear sort indicators on other tables
+  m_callTable->horizontalHeader()->setSortIndicator(-1, Qt::AscendingOrder);
+  m_putTable->horizontalHeader()->setSortIndicator(-1, Qt::AscendingOrder);
+
+  if (m_sortSource == SORT_SYMBOL_TABLE && logicalIndex == m_sortColumn) {
     m_sortOrder = (m_sortOrder == Qt::AscendingOrder) ? Qt::DescendingOrder
                                                       : Qt::AscendingOrder;
   } else {
-    // New column, default to Ascending
+    m_sortSource = SORT_SYMBOL_TABLE;
     m_sortColumn = logicalIndex;
     m_sortOrder = Qt::AscendingOrder;
   }
@@ -1093,30 +1215,110 @@ void ATMWatchWindow::onHeaderClicked(int logicalIndex) {
   refreshData();
 }
 
+void ATMWatchWindow::onCallHeaderClicked(int logicalIndex) {
+  // Clear sort indicators on other tables
+  m_symbolTable->horizontalHeader()->setSortIndicator(-1, Qt::AscendingOrder);
+  m_putTable->horizontalHeader()->setSortIndicator(-1, Qt::AscendingOrder);
+
+  if (m_sortSource == SORT_CALL_TABLE && logicalIndex == m_sortColumn) {
+    m_sortOrder = (m_sortOrder == Qt::AscendingOrder) ? Qt::DescendingOrder
+                                                      : Qt::AscendingOrder;
+  } else {
+    m_sortSource = SORT_CALL_TABLE;
+    m_sortColumn = logicalIndex;
+    m_sortOrder = Qt::AscendingOrder;
+  }
+
+  m_callTable->horizontalHeader()->setSortIndicator(m_sortColumn, m_sortOrder);
+  refreshData();
+}
+
+void ATMWatchWindow::onPutHeaderClicked(int logicalIndex) {
+  // Clear sort indicators on other tables
+  m_symbolTable->horizontalHeader()->setSortIndicator(-1, Qt::AscendingOrder);
+  m_callTable->horizontalHeader()->setSortIndicator(-1, Qt::AscendingOrder);
+
+  if (m_sortSource == SORT_PUT_TABLE && logicalIndex == m_sortColumn) {
+    m_sortOrder = (m_sortOrder == Qt::AscendingOrder) ? Qt::DescendingOrder
+                                                      : Qt::AscendingOrder;
+  } else {
+    m_sortSource = SORT_PUT_TABLE;
+    m_sortColumn = logicalIndex;
+    m_sortOrder = Qt::AscendingOrder;
+  }
+
+  m_putTable->horizontalHeader()->setSortIndicator(m_sortColumn, m_sortOrder);
+  refreshData();
+}
+
 void ATMWatchWindow::sortATMList(QVector<ATMWatchManager::ATMInfo> &list) {
   if (list.isEmpty())
     return;
 
+  // For call/put table sorting, pre-fetch the sort values from price store
+  QHash<QString, double> sortValues;
+  if (m_sortSource == SORT_CALL_TABLE || m_sortSource == SORT_PUT_TABLE) {
+    for (const auto &info : list) {
+      if (!info.isValid) continue;
+      int64_t token = (m_sortSource == SORT_CALL_TABLE) ? info.callToken : info.putToken;
+      if (token <= 0) {
+        sortValues[info.symbol] = 0.0;
+        continue;
+      }
+      auto state = MarketData::PriceStoreGateway::instance().getUnifiedSnapshot(2, token);
+      double val = 0.0;
+      if (state.token != 0) {
+        // Map column index to the appropriate value
+        int col = m_sortColumn;
+        if (m_sortSource == SORT_CALL_TABLE) {
+          if (col == CALL_IV) val = state.impliedVolatility;
+          else if (col == CALL_DELTA) val = state.delta;
+          else if (col == CALL_GAMMA) val = state.gamma;
+          else if (col == CALL_VEGA) val = state.vega;
+          else if (col == CALL_THETA) val = state.theta;
+          else if (col == CALL_LTP) val = state.ltp;
+          else if (col == CALL_VOL) val = state.volume;
+          else if (col == CALL_OI) val = state.openInterest;
+        } else {
+          if (col == PUT_IV) val = state.impliedVolatility;
+          else if (col == PUT_DELTA) val = state.delta;
+          else if (col == PUT_GAMMA) val = state.gamma;
+          else if (col == PUT_VEGA) val = state.vega;
+          else if (col == PUT_THETA) val = state.theta;
+          else if (col == PUT_LTP) val = state.ltp;
+          else if (col == PUT_VOL) val = state.volume;
+          else if (col == PUT_OI) val = state.openInterest;
+        }
+      }
+      sortValues[info.symbol] = val;
+    }
+  }
+
   std::sort(list.begin(), list.end(),
-            [this](const ATMWatchManager::ATMInfo &a,
+            [this, &sortValues](const ATMWatchManager::ATMInfo &a,
                    const ATMWatchManager::ATMInfo &b) {
               bool less = false;
-              switch (m_sortColumn) {
-              case SYM_NAME: // Symbol
-                less = a.symbol < b.symbol;
-                break;
-              case SYM_PRICE: // Spot/Fut Price (Base Price)
-                less = a.basePrice < b.basePrice;
-                break;
-              case SYM_ATM: // ATM Strike
-                less = a.atmStrike < b.atmStrike;
-                break;
-              case SYM_EXPIRY: // Expiry
-                less = a.expiry < b.expiry;
-                break;
-              default:
-                less = a.symbol < b.symbol;
-                break;
+
+              if (m_sortSource == SORT_CALL_TABLE || m_sortSource == SORT_PUT_TABLE) {
+                less = sortValues.value(a.symbol, 0.0) < sortValues.value(b.symbol, 0.0);
+              } else {
+                switch (m_sortColumn) {
+                case SYM_NAME:
+                  less = a.symbol < b.symbol;
+                  break;
+                case SYM_PRICE:
+                  less = a.basePrice < b.basePrice;
+                  break;
+                case SYM_ATM:
+                  less = a.atmStrike < b.atmStrike;
+                  break;
+                case SYM_EXPIRY:
+                  less = a.expiry < b.expiry;
+                  break;
+                default:
+                  less = a.symbol < b.symbol;
+                  break;
+                }
               }
               return (m_sortOrder == Qt::AscendingOrder) ? less : !less;
             });
@@ -1269,6 +1471,34 @@ WindowContext ATMWatchWindow::getCurrentContext() {
 }
 
 void ATMWatchWindow::keyPressEvent(QKeyEvent *event) {
+  // ── F5: Refresh ──────────────────────────────────────────────────
+  if (event->key() == Qt::Key_F5) {
+    refreshData();
+    event->accept();
+    return;
+  }
+
+  // ── Escape: return focus to symbol table ───────────────────────────────
+  if (event->key() == Qt::Key_Escape) {
+    m_symbolTable->setFocus();
+    if (m_symbolModel->rowCount() > 0 && !m_symbolTable->currentIndex().isValid())
+      m_symbolTable->selectRow(0);
+    event->accept();
+    return;
+  }
+
+  // ── Enter/Return (symbol table focused): open Option Chain ────────────────
+  if ((event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter)
+      && m_symbolTable->hasFocus()) {
+    QModelIndex idx = m_symbolTable->currentIndex();
+    if (idx.isValid()) {
+      onSymbolDoubleClicked(idx);
+    }
+    event->accept();
+    return;
+  }
+
+  // ── F1 Buy | F2 Sell | F6 SnapQuote | Delete remove watch ───────────────
   if (event->key() == Qt::Key_F1 || event->key() == Qt::Key_F2 ||
       event->key() == Qt::Key_F6 || event->key() == Qt::Key_Delete) {
     WindowContext context = getCurrentContext();

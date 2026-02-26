@@ -24,6 +24,24 @@ IVResult IVCalculator::calculate(
         return IVResult(0.0, 0, false, std::numeric_limits<double>::quiet_NaN());
     }
     
+    // Handle deep ITM options where market price is at or below intrinsic,
+    // or below the BS floor price (which includes interest rate discount).
+    // This is common near expiry due to interest rate discount, bid-ask effects.
+    double intrinsic = intrinsicValue(S, K, isCall);
+    double extrinsicValue = marketPrice - intrinsic;
+    if (intrinsic > 0 && extrinsicValue <= 0) {
+        // No extrinsic value - IV is effectively zero
+        return IVResult(MIN_VOLATILITY, 1, true, 0.0);
+    }
+    // Also check if market price is below the BS floor at minimum vol
+    // (deep ITM: BS price at vol→0 converges to S - K*e^(-rT), slightly > intrinsic)
+    if (intrinsic > 0) {
+        OptionGreeks floorGreeks = GreeksCalculator::calculate(S, K, T, r, MIN_VOLATILITY, isCall);
+        if (marketPrice <= floorGreeks.price) {
+            return IVResult(MIN_VOLATILITY, 1, true, 0.0);
+        }
+    }
+    
     // Use intelligent initial guess if default
     double sigma = (initialGuess <= 0) 
         ? initialGuessFromMoneyness(S, K, T) 
@@ -214,15 +232,12 @@ bool IVCalculator::isCalculable(
     if (K <= 0) return false;           // Invalid strike
     if (marketPrice <= 0) return false; // Invalid price
     
-    // Check if market price is above intrinsic value
-    double intrinsic = intrinsicValue(S, K, isCall);
-    
-    // Allow small tolerance for bid-ask spread effects
-    if (marketPrice < intrinsic * 0.99) {
-        // Market price below intrinsic - arbitrage condition
-        // This can happen with stale data or illiquid options
-        return false;
-    }
+    // Note: We no longer reject options where market price < intrinsic value.
+    // Near expiry, deep ITM options can trade below intrinsic due to:
+    // - Interest rate discounting (forward vs spot)
+    // - Bid-ask spread effects
+    // - Market microstructure
+    // These cases are handled in calculate() by returning MIN_VOLATILITY.
     
     return true;
 }

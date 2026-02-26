@@ -47,8 +47,10 @@ CustomMDIArea::CustomMDIArea(QWidget *parent)
             if (!now)
               return;
 
-            // Find if the focused widget belongs to one of our windows
+            // Find if the focused widget belongs to one of our on-screen windows
+            // Skip off-screen cached windows (x <= -1000)
             for (CustomMDISubWindow *window : m_windows) {
+              if (window->x() <= -1000) continue; // Skip off-screen cached windows
               if (window == now || window->isAncestorOf(now)) {
                 activateWindow(window);
                 break;
@@ -223,7 +225,7 @@ bool CustomMDIArea::eventFilter(QObject *watched, QEvent *event) {
   if (event->type() == QEvent::MouseButtonPress ||
       event->type() == QEvent::FocusIn) {
     CustomMDISubWindow *window = qobject_cast<CustomMDISubWindow *>(watched);
-    if (window && m_windows.contains(window)) {
+    if (window && window->x() > -1000 && m_windows.contains(window)) {
       activateWindow(window);
     }
   }
