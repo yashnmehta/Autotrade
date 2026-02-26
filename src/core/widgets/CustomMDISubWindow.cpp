@@ -145,7 +145,7 @@ CustomMDISubWindow::CustomMDISubWindow(const QString &title, QWidget *parent)
   // Styling with light-theme borders
   setStyleSheet("CustomMDISubWindow { "
                 "   background-color: #ffffff; "
-                "   border: 2px solid #3b82f6; "
+                "   border: 2px solid #2563eb; "
                 "}");
 
   resize(800, 600);
@@ -158,7 +158,7 @@ void CustomMDISubWindow::setActive(bool active) {
 
   if (!m_isPinned) {
     // Use a single style update to prevent flickering
-    QString borderColor = active ? "#3b82f6" : "#e2e8f0";
+    QString borderColor = active ? "#2563eb" : "#cbd5e1";
     setStyleSheet(QString("CustomMDISubWindow { "
                           "   background-color: #ffffff; "
                           "   border: 2px solid %1; "
