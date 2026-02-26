@@ -165,6 +165,8 @@ private:
     void refreshData();
     void updateTableColors();
     void highlightATMStrike();
+    void applyColumnVisibility();  // Show/hide columns from settings
+    void showColumnDialog();       // Open column visibility dialog
     
     // UI Population Helpers
     void populateSymbols();
@@ -178,6 +180,7 @@ private:
     QComboBox *m_expiryCombo;
     QPushButton *m_refreshButton;
     QPushButton *m_calculatorButton;
+    QPushButton *m_columnsButton;
     QLabel *m_titleLabel;
     
     // Table views

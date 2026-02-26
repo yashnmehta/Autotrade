@@ -37,34 +37,55 @@ public:
     // Light-theme defaults
     QColor bgColor = Qt::transparent;
     QColor textColor("#1e293b"); // Primary text
+    Qt::Alignment alignment = Qt::AlignCenter;
 
-    // Check for dynamic tick update color
-    int direction = index.data(Qt::UserRole + 1).toInt();
+    QString headerText =
+        index.model()->headerData(index.column(), Qt::Horizontal).toString();
 
-    if (direction == 1) {
-      bgColor = QColor("#dbeafe"); // Light blue for Up tick
-      textColor = QColor("#1d4ed8");
-    } else if (direction == 2) {
-      bgColor = QColor("#fee2e2"); // Light red for Down tick
-      textColor = QColor("#dc2626");
+    // Middle table (Symbol/Spot/ATM/Expiry): distinct surface bg, NO tick colors
+    if (m_isMiddle) {
+      bgColor = QColor("#f0f4ff"); // Slightly blue-tinted surface
+      textColor = QColor("#1e293b");
+      // Left-align Symbol column
+      if (headerText == "Symbol") {
+        alignment = Qt::AlignVCenter | Qt::AlignLeft;
+      }
+      // No tick-direction coloring for middle panel
+    } else {
+      // Call/Put tables: tick direction coloring
+      int direction = index.data(Qt::UserRole + 1).toInt();
+      if (direction == 1) {
+        bgColor = QColor("#dbeafe"); // Light blue for Up tick
+        textColor = QColor("#1d4ed8");
+      } else if (direction == 2) {
+        bgColor = QColor("#fee2e2"); // Light red for Down tick
+        textColor = QColor("#dc2626");
+      }
+
+      // IV column highlight
+      if (headerText == "IV") {
+        if (bgColor == Qt::transparent)
+          bgColor = QColor("#fef9c3"); // Warm yellow tint
+        textColor = QColor("#92400e"); // Amber-brown text
+        QFont f = option.font;
+        f.setBold(true);
+        painter->setFont(f);
+      }
+    }
+
+    // Selection overrides
+    if (option.state & QStyle::State_Selected) {
+      bgColor = QColor("#dbeafe");
+      textColor = QColor("#1e40af");
     }
 
     // Draw background
-    if (bgColor != Qt::transparent) {
-      painter->fillRect(option.rect, bgColor);
-    } else if (option.state & QStyle::State_Selected) {
-      painter->fillRect(option.rect, QColor("#dbeafe")); // Selection
-      textColor = QColor("#1e40af");
-    } else if (m_isMiddle) {
-      painter->fillRect(option.rect, QColor("#f8fafc")); // Surface for middle
-    }
+    painter->fillRect(option.rect, bgColor);
 
     // Draw text
     QString text = index.data(Qt::DisplayRole).toString();
 
     // Change color logic (for Chg column)
-    QString headerText =
-        index.model()->headerData(index.column(), Qt::Horizontal).toString();
     if (headerText == "Chg") {
       bool ok;
       double value = text.toDouble(&ok);
@@ -74,7 +95,11 @@ public:
     }
 
     painter->setPen(textColor);
-    painter->drawText(option.rect, Qt::AlignCenter, text);
+    QRect textRect = option.rect;
+    if (alignment != Qt::AlignCenter) {
+      textRect.adjust(4, 0, -4, 0); // Add padding for left-aligned text
+    }
+    painter->drawText(textRect, alignment, text);
 
     painter->restore();
   }
@@ -137,6 +162,7 @@ private:
   void updateItemWithColor(QStandardItemModel *model, int row, int col,
                            double newValue,
                            int precision = 2); // Color helper
+  void applyColumnVisibility();  // Show/hide columns from settings
 
   // Sort State
   enum SortSource { SORT_SYMBOL_TABLE, SORT_CALL_TABLE, SORT_PUT_TABLE };

@@ -3,6 +3,7 @@
 #include <QHBoxLayout>
 #include <QMessageBox>
 #include <QDebug>
+#include <QGridLayout>
 
 ATMWatchSettingsDialog::ATMWatchSettingsDialog(QWidget* parent)
     : QDialog(parent)
@@ -44,6 +45,41 @@ void ATMWatchSettingsDialog::setupUI() {
     
     m_strikeSelectionGroup->setLayout(strikeLayout);
     mainLayout->addWidget(m_strikeSelectionGroup);
+    
+    // ========== Column Visibility Group ==========
+    m_columnVisibilityGroup = new QGroupBox("Column Visibility (Call / Put Tables)", this);
+    QGridLayout* colLayout = new QGridLayout();
+    colLayout->setSpacing(6);
+    
+    // Call side columns: Chg(0) Vol(1) OI(2) IV(3) Delta(4) Gamma(5) Vega(6) Theta(7) LTP(8) Bid(9) Ask(10)
+    QStringList callCols = {"Chg", "Vol", "OI", "IV", "Delta", "Gamma", "Vega", "Theta", "LTP", "Bid", "Ask"};
+    
+    QLabel* callLabel = new QLabel("Call Columns:", this);
+    callLabel->setStyleSheet("QLabel { font-weight: bold; color: #334155; }");
+    colLayout->addWidget(callLabel, 0, 0, 1, 6);
+    
+    for (int i = 0; i < callCols.size(); ++i) {
+        QCheckBox *cb = new QCheckBox(callCols[i], this);
+        cb->setChecked(true);
+        m_callColumnChecks[i] = cb;
+        colLayout->addWidget(cb, 1 + i / 6, i % 6);
+    }
+    
+    QLabel* putLabel = new QLabel("Put Columns:", this);
+    putLabel->setStyleSheet("QLabel { font-weight: bold; color: #334155; }");
+    colLayout->addWidget(putLabel, 3, 0, 1, 6);
+    
+    // Put side columns: LTP(0) Bid(1) Ask(2) Chg(3) Vol(4) OI(5) IV(6) Delta(7) Gamma(8) Vega(9) Theta(10)
+    QStringList putCols = {"LTP", "Bid", "Ask", "Chg", "Vol", "OI", "IV", "Delta", "Gamma", "Vega", "Theta"};
+    for (int i = 0; i < putCols.size(); ++i) {
+        QCheckBox *cb = new QCheckBox(putCols[i], this);
+        cb->setChecked(true);
+        m_putColumnChecks[i] = cb;
+        colLayout->addWidget(cb, 4 + i / 6, i % 6);
+    }
+    
+    m_columnVisibilityGroup->setLayout(colLayout);
+    mainLayout->addWidget(m_columnVisibilityGroup);
     
     // ========== Update Settings Group ==========
     m_updateSettingsGroup = new QGroupBox("Update Settings", this);
@@ -205,6 +241,20 @@ void ATMWatchSettingsDialog::loadSettings() {
     
     settings.endGroup();
     
+    // Load column visibility
+    settings.beginGroup("ATM_WATCH_COLUMNS");
+    for (auto it = m_callColumnChecks.begin(); it != m_callColumnChecks.end(); ++it) {
+        QString key = QString("call_col_%1").arg(it.key());
+        bool visible = settings.value(key, true).toBool();
+        it.value()->setChecked(visible);
+    }
+    for (auto it = m_putColumnChecks.begin(); it != m_putColumnChecks.end(); ++it) {
+        QString key = QString("put_col_%1").arg(it.key());
+        bool visible = settings.value(key, true).toBool();
+        it.value()->setChecked(visible);
+    }
+    settings.endGroup();
+    
     updateStrikeRangeExample();
 }
 
@@ -233,6 +283,23 @@ void ATMWatchSettingsDialog::saveSettings() {
     settings.setValue("system_notifications", m_systemNotificationsCheckbox->isChecked());
     
     settings.endGroup();
+    
+    // Save column visibility
+    settings.beginGroup("ATM_WATCH_COLUMNS");
+    m_hiddenCallColumns.clear();
+    m_hiddenPutColumns.clear();
+    for (auto it = m_callColumnChecks.begin(); it != m_callColumnChecks.end(); ++it) {
+        QString key = QString("call_col_%1").arg(it.key());
+        settings.setValue(key, it.value()->isChecked());
+        if (!it.value()->isChecked()) m_hiddenCallColumns.append(it.key());
+    }
+    for (auto it = m_putColumnChecks.begin(); it != m_putColumnChecks.end(); ++it) {
+        QString key = QString("put_col_%1").arg(it.key());
+        settings.setValue(key, it.value()->isChecked());
+        if (!it.value()->isChecked()) m_hiddenPutColumns.append(it.key());
+    }
+    settings.endGroup();
+    
     settings.sync();
 }
 
@@ -290,6 +357,7 @@ void ATMWatchSettingsDialog::onStrikeRangeChanged(int value) {
 void ATMWatchSettingsDialog::onOkClicked() {
     saveSettings();
     applySettings();
+    emit columnVisibilityChanged();
     
     QMessageBox::information(this, "Settings Saved", 
         "ATM Watch settings have been saved and applied.\n\n"

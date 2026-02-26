@@ -1,6 +1,7 @@
 #include "ui/OptionChainWindow.h"
 #include <QDate>
 #include <QDebug>
+#include <QDialog>
 #include <QGroupBox>
 #include <QHeaderView>
 #include <QPainter>
@@ -8,6 +9,12 @@
 #include <QScrollBar>
 #include <QSplitter>
 #include <QWheelEvent>
+#include <QVBoxLayout>
+#include <QGridLayout>
+#include <QCheckBox>
+#include <QDialogButtonBox>
+#include <QSettings>
+#include <QLabel>
 #include <cmath>
 #include <limits>
 
@@ -17,6 +24,118 @@
 #include "services/GreeksCalculationService.h"
 #include "services/TokenSubscriptionManager.h"
 #include <QTimer>
+
+// ============================================================================
+// Simple Column Visibility Dialog for OptionChain
+// ============================================================================
+class OptionChainColumnDialog : public QDialog {
+  Q_OBJECT
+public:
+  explicit OptionChainColumnDialog(QWidget *parent = nullptr) : QDialog(parent) {
+    setWindowTitle("Column Visibility");
+    setModal(true);
+    setMinimumWidth(500);
+    
+    QVBoxLayout *mainLayout = new QVBoxLayout(this);
+    
+    // Call columns
+    QLabel *callLabel = new QLabel("Call Columns:", this);
+    callLabel->setStyleSheet("QLabel { font-weight: bold; color: #334155; font-size: 11pt; }");
+    mainLayout->addWidget(callLabel);
+    
+    QGridLayout *callLayout = new QGridLayout();
+    // Columns: (0)OI (1)Chng in OI (2)Volume (3)IV (4)BidIV (5)AskIV (6)Delta (7)Gamma (8)Vega (9)Theta (10)LTP (11)Chng (12)BID QTY (13)BID (14)ASK (15)ASK QTY
+    // Note: column 0 is checkbox (skip it), so actual data columns start at 1
+    QStringList callCols = {"OI", "Chng in OI", "Volume", "IV", "BidIV", "AskIV", "Delta", "Gamma", "Vega", "Theta", "LTP", "Chng", "BID QTY", "BID", "ASK", "ASK QTY"};
+    for (int i = 0; i < callCols.size(); ++i) {
+      QCheckBox *cb = new QCheckBox(callCols[i], this);
+      cb->setChecked(true);
+      m_callChecks[i + 1] = cb;  // +1 because checkbox col is 0
+      callLayout->addWidget(cb, i / 4, i % 4);
+    }
+    mainLayout->addLayout(callLayout);
+    
+    mainLayout->addSpacing(10);
+    
+    // Put columns
+    QLabel *putLabel = new QLabel("Put Columns:", this);
+    putLabel->setStyleSheet("QLabel { font-weight: bold; color: #334155; font-size: 11pt; }");
+    mainLayout->addWidget(putLabel);
+    
+    QGridLayout *putLayout = new QGridLayout();
+    // PUT: (0)BID QTY (1)BID (2)ASK (3)ASK QTY (4)Chng (5)LTP (6)IV (7)BidIV (8)AskIV (9)Delta (10)Gamma (11)Vega (12)Theta (13)Volume (14)Chng in OI (15)OI
+    // Last column (16) is checkbox (skip it)
+    QStringList putCols = {"BID QTY", "BID", "ASK", "ASK QTY", "Chng", "LTP", "IV", "BidIV", "AskIV", "Delta", "Gamma", "Vega", "Theta", "Volume", "Chng in OI", "OI"};
+    for (int i = 0; i < putCols.size(); ++i) {
+      QCheckBox *cb = new QCheckBox(putCols[i], this);
+      cb->setChecked(true);
+      m_putChecks[i] = cb;
+      putLayout->addWidget(cb, i / 4, i % 4);
+    }
+    mainLayout->addLayout(putLayout);
+    
+    mainLayout->addStretch();
+    
+    // Buttons
+    QDialogButtonBox *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
+    connect(buttons, &QDialogButtonBox::accepted, this, &QDialog::accept);
+    connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
+    mainLayout->addWidget(buttons);
+    
+    loadSettings();
+  }
+  
+  void loadSettings() {
+    QSettings settings("configs/config.ini", QSettings::IniFormat);
+    settings.beginGroup("OPTION_CHAIN_COLUMNS");
+    for (auto it = m_callChecks.begin(); it != m_callChecks.end(); ++it) {
+      QString key = QString("call_col_%1").arg(it.key());
+      bool visible = settings.value(key, true).toBool();
+      it.value()->setChecked(visible);
+    }
+    for (auto it = m_putChecks.begin(); it != m_putChecks.end(); ++it) {
+      QString key = QString("put_col_%1").arg(it.key());
+      bool visible = settings.value(key, true).toBool();
+      it.value()->setChecked(visible);
+    }
+    settings.endGroup();
+  }
+  
+  void saveSettings() {
+    QSettings settings("configs/config.ini", QSettings::IniFormat);
+    settings.beginGroup("OPTION_CHAIN_COLUMNS");
+    for (auto it = m_callChecks.begin(); it != m_callChecks.end(); ++it) {
+      QString key = QString("call_col_%1").arg(it.key());
+      settings.setValue(key, it.value()->isChecked());
+    }
+    for (auto it = m_putChecks.begin(); it != m_putChecks.end(); ++it) {
+      QString key = QString("put_col_%1").arg(it.key());
+      settings.setValue(key, it.value()->isChecked());
+    }
+    settings.endGroup();
+    settings.sync();
+  }
+  
+  QMap<int, bool> getCallVisibility() const {
+    QMap<int, bool> result;
+    for (auto it = m_callChecks.begin(); it != m_callChecks.end(); ++it) {
+      result[it.key()] = it.value()->isChecked();
+    }
+    return result;
+  }
+  
+  QMap<int, bool> getPutVisibility() const {
+    QMap<int, bool> result;
+    for (auto it = m_putChecks.begin(); it != m_putChecks.end(); ++it) {
+      result[it.key()] = it.value()->isChecked();
+    }
+    return result;
+  }
+  
+private:
+  QMap<int, QCheckBox*> m_callChecks;
+  QMap<int, QCheckBox*> m_putChecks;
+};
 
 // ============================================================================
 // OptionChainDelegate Implementation
@@ -62,6 +181,16 @@ void OptionChainDelegate::paint(QPainter *painter,
     textColor = QColor("#dc2626");
   } // else transparent
 
+  // IV column highlight (warm yellow tint + amber text)
+  if (headerText == "IV" || headerText == "BidIV" || headerText == "AskIV") {
+    if (bgColor == QColor("transparent"))
+      bgColor = QColor("#fef9c3"); // Warm yellow tint
+    textColor = QColor("#92400e"); // Amber-brown text
+    QFont f = option.font;
+    f.setBold(true);
+    painter->setFont(f);
+  }
+
   // Check for numeric values indicating change
   bool isChangeColumn = false;
 
@@ -79,7 +208,7 @@ void OptionChainDelegate::paint(QPainter *painter,
     }
   }
 
-  // Draw background
+  // Selection overrides
   if (option.state & QStyle::State_Selected) {
     bgColor = QColor("#dbeafe"); // Light blue selection
   }
@@ -114,6 +243,9 @@ OptionChainWindow::OptionChainWindow(QWidget *parent)
   setupModels();
   setupConnections();
   setupShortcuts();
+
+  // Load column visibility from settings
+  applyColumnVisibility();
 
   // Populate symbols (silently, without triggering partial refreshes)
   populateSymbols();
@@ -195,6 +327,17 @@ void OptionChainWindow::setupUI() {
       "QPushButton:hover { background: #e2e8f0; color: #0f172a; }"
       "QPushButton:pressed { background: #dbeafe; border-color: #3b82f6; }");
   headerLayout->addWidget(m_calculatorButton);
+
+  // Columns button
+  m_columnsButton = new QPushButton("Columns...");
+  m_columnsButton->setStyleSheet(
+      "QPushButton { background: #f1f5f9; color: #334155; border: 1px solid "
+      "#cbd5e1; "
+      "padding: 5px 12px; border-radius: 4px; font-weight: 600; }"
+      "QPushButton:hover { background: #e2e8f0; color: #0f172a; }"
+      "QPushButton:pressed { background: #dbeafe; border-color: #3b82f6; }");
+  connect(m_columnsButton, &QPushButton::clicked, this, &OptionChainWindow::showColumnDialog);
+  headerLayout->addWidget(m_columnsButton);
 
   mainLayout->addLayout(headerLayout);
 
@@ -1572,3 +1715,36 @@ void OptionChainWindow::populateExpiries(const QString &symbol) {
     m_currentExpiry = m_expiryCombo->currentText();
   }
 }
+
+void OptionChainWindow::applyColumnVisibility() {
+  QSettings settings("configs/config.ini", QSettings::IniFormat);
+  settings.beginGroup("OPTION_CHAIN_COLUMNS");
+  
+  // Call table - column 0 is checkbox (always visible), data columns start at 1
+  for (int col = 1; col < m_callModel->columnCount(); ++col) {
+    QString key = QString("call_col_%1").arg(col);
+    bool visible = settings.value(key, true).toBool();
+    m_callTable->setColumnHidden(col, !visible);
+  }
+  
+  // Put table - last column is checkbox (always visible), data columns are 0 to columnCount-2
+  for (int col = 0; col < m_putModel->columnCount() - 1; ++col) {
+    QString key = QString("put_col_%1").arg(col);
+    bool visible = settings.value(key, true).toBool();
+    m_putTable->setColumnHidden(col, !visible);
+  }
+  
+  settings.endGroup();
+  qDebug() << "[OptionChain] Column visibility applied from settings";
+}
+
+void OptionChainWindow::showColumnDialog() {
+  OptionChainColumnDialog dialog(this);
+  if (dialog.exec() == QDialog::Accepted) {
+    dialog.saveSettings();
+    applyColumnVisibility();
+    qInfo() << "[OptionChain] Column visibility updated";
+  }
+}
+
+#include "OptionChainWindow.moc"

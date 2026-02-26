@@ -104,8 +104,8 @@ QVariant MarketWatchModel::data(const QModelIndex &index, int role) const
             else if (column == MarketWatchColumn::BUY_PRICE) tick = scrip.bidTick;
             else if (column == MarketWatchColumn::SELL_PRICE) tick = scrip.askTick;
 
-            if (tick > 0) return QColor(0, 80, 160); // Dark Vibrant Blue for UP
-            if (tick < 0) return QColor(140, 20, 20); // Dark Vibrant Red for DOWN
+            if (tick > 0) return QColor("#dbeafe"); // Light blue for UP tick
+            if (tick < 0) return QColor("#fee2e2"); // Light red for DOWN tick
         }
     }
 

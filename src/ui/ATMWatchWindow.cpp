@@ -35,6 +35,9 @@ ATMWatchWindow::ATMWatchWindow(QWidget *parent) : QWidget(parent) {
           &ATMWatchWindow::onBasePriceUpdate);
   m_basePriceTimer->start();
 
+  // Load column visibility from settings
+  applyColumnVisibility();
+
   // Initial data load
   refreshData();
 
@@ -232,8 +235,13 @@ void ATMWatchWindow::setupUI() {
 
   // Symbols table (Middle) should show vertical scrollbar
   m_symbolTable->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-  m_symbolTable->setStyleSheet(m_symbolTable->styleSheet() +
-                               "QTableView { color: #2563eb; }");
+  m_symbolTable->setStyleSheet(
+      "QTableView { background-color: #f0f4ff; color: #1e293b; "
+      "gridline-color: #e2e8f0; border: 1px solid #cbd5e1; "
+      "selection-background-color: #dbeafe; selection-color: #1e40af; }"
+      "QTableView::item:selected { background: #dbeafe; color: #1e40af; }"
+      "QHeaderView::section { background-color: #e8ecf4; color: #334155; "
+      "padding: 4px; border: none; border-bottom: 2px solid #cbd5e1; font-weight: bold; }");
 
   tableLayout->addWidget(m_callTable, 2);
   tableLayout->addWidget(m_symbolTable, 1);
@@ -1135,10 +1143,34 @@ void ATMWatchWindow::updateBasePrices() {
 void ATMWatchWindow::onSettingsClicked() {
   ATMWatchSettingsDialog dialog(this);
   if (dialog.exec() == QDialog::Accepted) {
+    // Apply column visibility
+    applyColumnVisibility();
     // Settings applied, refresh ATM data on next calculation
     qInfo() << "[ATMWatch] Settings updated, will take effect on next ATM "
                "calculation";
   }
+}
+
+void ATMWatchWindow::applyColumnVisibility() {
+  QSettings settings("configs/config.ini", QSettings::IniFormat);
+  settings.beginGroup("ATM_WATCH_COLUMNS");
+  
+  // Call table columns
+  for (int col = 0; col < CALL_COUNT; ++col) {
+    QString key = QString("call_col_%1").arg(col);
+    bool visible = settings.value(key, true).toBool();
+    m_callTable->setColumnHidden(col, !visible);
+  }
+  
+  // Put table columns
+  for (int col = 0; col < PUT_COUNT; ++col) {
+    QString key = QString("put_col_%1").arg(col);
+    bool visible = settings.value(key, true).toBool();
+    m_putTable->setColumnHidden(col, !visible);
+  }
+  
+  settings.endGroup();
+  qDebug() << "[ATMWatch] Column visibility applied from settings";
 }
 
 void ATMWatchWindow::onShowContextMenu(const QPoint &pos) {
