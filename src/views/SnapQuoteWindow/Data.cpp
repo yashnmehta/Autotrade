@@ -85,16 +85,21 @@ void SnapQuoteWindow::onTickUpdate(const UDP::MarketTick& tick)
     if (m_lbTotalBuyers) m_lbTotalBuyers->setText(QLocale().toString((int64_t)tick.totalBidQty));
     if (m_lbTotalSellers) m_lbTotalSellers->setText(QLocale().toString((int64_t)tick.totalAskQty));
     
-    // Update 5-level depth
+    // Update 5-level depth (with validation to skip garbage data)
     for (int i = 0; i < 5; i++) {
-        updateBidDepth(i + 1, 
-                       static_cast<int>(tick.bids[i].quantity),
-                       tick.bids[i].price,
-                       tick.bids[i].orders);
-        updateAskDepth(i + 1,
-                       tick.asks[i].price,
-                       static_cast<int>(tick.asks[i].quantity),
-                       tick.asks[i].orders);
+        // Only update if price and quantity are reasonable (non-zero, not garbage)
+        if (tick.bids[i].price > 0 && tick.bids[i].quantity > 0 && tick.bids[i].quantity < 1000000000) {
+            updateBidDepth(i + 1, 
+                           static_cast<qint64>(tick.bids[i].quantity),
+                           tick.bids[i].price,
+                           tick.bids[i].orders);
+        }
+        if (tick.asks[i].price > 0 && tick.asks[i].quantity > 0 && tick.asks[i].quantity < 1000000000) {
+            updateAskDepth(i + 1,
+                           tick.asks[i].price,
+                           static_cast<qint64>(tick.asks[i].quantity),
+                           tick.asks[i].orders);
+        }
     }
 }
 
@@ -128,7 +133,7 @@ void SnapQuoteWindow::updateStatistics(const QString &dpr, qint64 oi, double oiP
     if (m_lbMTMPos) m_lbMTMPos->setText(QString::number(mtmPos, 'f', 2));
 }
 
-void SnapQuoteWindow::updateBidDepth(int level, int qty, double price, int orders)
+void SnapQuoteWindow::updateBidDepth(int level, qint64 qty, double price, int orders)
 {
     QLabel *qtyLabel = nullptr;
     QLabel *priceLabel = nullptr;
@@ -142,12 +147,12 @@ void SnapQuoteWindow::updateBidDepth(int level, int qty, double price, int order
         case 5: qtyLabel = m_lbBidQty5; priceLabel = m_lbBidPrice5; ordersLabel = m_lbBidOrders5; break;
     }
     
-    if (qtyLabel) qtyLabel->setText(QLocale().toString(qty));
-    if (priceLabel) priceLabel->setText(price > 0 ? QString::number(price, 'f', 2) : "-");
+    if (qtyLabel) qtyLabel->setText(qty > 0 ? QLocale().toString(qty) : "0");
+    if (priceLabel) priceLabel->setText(price > 0 ? QString::number(price, 'f', 2) : "0.00");
     if (ordersLabel) ordersLabel->setText(QString::number(orders));
 }
 
-void SnapQuoteWindow::updateAskDepth(int level, double price, int qty, int orders)
+void SnapQuoteWindow::updateAskDepth(int level, double price, qint64 qty, int orders)
 {
     QLabel *qtyLabel = nullptr;
     QLabel *priceLabel = nullptr;
@@ -161,7 +166,7 @@ void SnapQuoteWindow::updateAskDepth(int level, double price, int qty, int order
         case 5: qtyLabel = m_lbAskQty5; priceLabel = m_lbAskPrice5; ordersLabel = m_lbAskOrders5; break;
     }
     
-    if (qtyLabel) qtyLabel->setText(QLocale().toString(qty));
-    if (priceLabel) priceLabel->setText(price > 0 ? QString::number(price, 'f', 2) : "-");
+    if (qtyLabel) qtyLabel->setText(qty > 0 ? QLocale().toString(qty) : "0");
+    if (priceLabel) priceLabel->setText(price > 0 ? QString::number(price, 'f', 2) : "0.00");
     if (ordersLabel) ordersLabel->setText(QString::number(orders));
 }

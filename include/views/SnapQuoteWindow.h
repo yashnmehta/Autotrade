@@ -58,10 +58,10 @@ public:
                          double gainLoss, double mtmValue, double mtmPos);
     
     // Update bid depth (level: 1-5)
-    void updateBidDepth(int level, int qty, double price, int orders = 0);
+    void updateBidDepth(int level, qint64 qty, double price, int orders = 0);
     
     // Update ask depth (level: 1-5)
-    void updateAskDepth(int level, double price, int qty, int orders);
+    void updateAskDepth(int level, double price, qint64 qty, int orders);
     
     // Set LTP indicator (up/down)
     void setLTPIndicator(bool isUp);
