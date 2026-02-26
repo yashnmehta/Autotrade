@@ -27,7 +27,9 @@ public:
     // Sequence gap counters – incremented when a gap is detected in bcSeqNo
     uint64_t sequenceGaps{0};
     uint64_t droppedMessages{0}; // Estimated messages lost in gaps
+    uint64_t lastLoggedGapCount{0}; // For throttling gap logs
     std::chrono::steady_clock::time_point startTime;
+    std::chrono::steady_clock::time_point lastGapLogTime;
 
     UDPStats();
     void update(uint16_t code, int compressedSize, int rawSize, bool error);

@@ -29,10 +29,10 @@ void CustomOrderBook::applyDefaultStyling()
 {
     // Table styling - Adjusted to allow model colors to show
     setStyleSheet("QTableView { "
-                  "gridline-color: #e0e0e0; "
-                  "selection-background-color: #bbdefb; "
-                  "selection-color: #000000; "
-                  "color: #333333; "
+                  "gridline-color: #f1f5f9; "
+                  "selection-background-color: #dbeafe; "
+                  "selection-color: #1e40af; "
+                  "color: #1e293b; "
                   "border: none; "
                   "font-size: 11px; "
                   "}"
@@ -51,11 +51,11 @@ void CustomOrderBook::setupHeader()
 {
     horizontalHeader()->setStyleSheet(
         "QHeaderView::section { "
-        "background-color: #f5f5f5; "
-        "color: #333333; "
+        "background-color: #f8fafc; "
+        "color: #475569; "
         "border: none; "
-        "border-bottom: 1px solid #e0e0e0; "
-        "border-right: 1px solid #e0e0e0; "
+        "border-bottom: 1px solid #e2e8f0; "
+        "border-right: 1px solid #e2e8f0; "
         "padding: 6px 8px; "
         "font-weight: bold; "
         "font-size: 11px; "

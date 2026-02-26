@@ -16,6 +16,7 @@ namespace nsefo {
 
 UDPStats::UDPStats() {
     startTime = std::chrono::steady_clock::now();
+    lastGapLogTime = startTime;
 }
 
 void UDPStats::update(uint16_t code, int compressedSize, int rawSize, bool error) {
@@ -47,9 +48,19 @@ void UDPStats::recordSequenceGap(uint32_t expected, uint32_t actual) {
     if (actual > expected) {
         droppedMessages += (actual - expected);
     }
-    std::cerr << "[SeqGap] expected=" << expected << " actual=" << actual
-              << " dropped≈" << (actual > expected ? actual - expected : 1)
-              << " (total gaps=" << sequenceGaps << ")" << std::endl;
+    
+    // Throttle logging: only log every 100 gaps OR every 10 seconds
+    auto now = std::chrono::steady_clock::now();
+    bool shouldLog = (sequenceGaps - lastLoggedGapCount >= 100) ||
+                     (std::chrono::duration_cast<std::chrono::seconds>(now - lastGapLogTime).count() >= 10);
+    
+    if (shouldLog) {
+        uint64_t gapsSinceLastLog = sequenceGaps - lastLoggedGapCount;
+        std::cerr << "[SeqGap] " << gapsSinceLastLog << " gaps detected (total: " 
+                  << sequenceGaps << ", dropped≈" << droppedMessages << ")" << std::endl;
+        lastLoggedGapCount = sequenceGaps;
+        lastGapLogTime = now;
+    }
 }
 
 void UDPStats::print() {

@@ -549,7 +549,7 @@ set(STRATEGY_IMPL_SOURCES
     # Core engines
     src/strategy/IndicatorEngine.cpp
     src/strategy/OrderExecutionEngine.cpp
-    src/strategy/OptionsExecutionEngine.cpp  # POC Task 3.1
+    # src/strategy/OptionsExecutionEngine.cpp  # POC Task 3.1 — disabled (depends on deleted StrategyDefinition.h)
     src/strategy/FormulaEngine.cpp
 
     # Strategy Template System (Phase 1 — new architecture)
@@ -567,7 +567,7 @@ set(STRATEGY_IMPL_HEADERS
     include/strategy/StrategyTemplate.h
     include/strategy/IndicatorEngine.h
     include/strategy/OrderExecutionEngine.h
-    include/strategy/OptionsExecutionEngine.h
+    # include/strategy/OptionsExecutionEngine.h  # POC — disabled (depends on deleted StrategyDefinition.h)
     include/strategy/FormulaEngine.h
 
     # Strategy Template System (Phase 1 — new architecture)
@@ -1080,32 +1080,32 @@ if(BUILD_TESTS)
     
     add_test(NAME SearchTokenizerTest COMMAND test_search_tokenizer)
     
-    # OptionsExecutionEngine Unit Test (POC Task 3.2 - Pure Logic Only)
-    add_executable(test_options_execution
-        tests/test_options_execution.cpp
-    )
-    
-    target_include_directories(test_options_execution PRIVATE
-        ${CMAKE_SOURCE_DIR}/include
-    )
-    
-    target_link_libraries(test_options_execution
-        Qt5::Core
-        Qt5::Test
-    )
-    
-    set_target_properties(test_options_execution PROPERTIES
-        CXX_STANDARD 17
-        CXX_STANDARD_REQUIRED ON
-        CXX_EXTENSIONS OFF
-    )
-    
-    target_compile_definitions(test_options_execution PRIVATE ${COMMON_DEFINES})
-    if(MSVC)
-        target_compile_options(test_options_execution PRIVATE /W1 /FS /MP)
-    endif()
-    
-    add_test(NAME OptionsExecutionTest COMMAND test_options_execution)
+    # OptionsExecutionEngine Unit Test (POC Task 3.2 - disabled with OptionsExecutionEngine)
+    # add_executable(test_options_execution
+    #     tests/test_options_execution.cpp
+    # )
+    # 
+    # target_include_directories(test_options_execution PRIVATE
+    #     ${CMAKE_SOURCE_DIR}/include
+    # )
+    # 
+    # target_link_libraries(test_options_execution
+    #     Qt5::Core
+    #     Qt5::Test
+    # )
+    # 
+    # set_target_properties(test_options_execution PROPERTIES
+    #     CXX_STANDARD 17
+    #     CXX_STANDARD_REQUIRED ON
+    #     CXX_EXTENSIONS OFF
+    # )
+    # 
+    # target_compile_definitions(test_options_execution PRIVATE ${COMMON_DEFINES})
+    # if(MSVC)
+    #     target_compile_options(test_options_execution PRIVATE /W1 /FS /MP)
+    # endif()
+    # 
+    # add_test(NAME OptionsExecutionTest COMMAND test_options_execution)
     
     # IV Debug Test
     add_executable(test_iv_debug

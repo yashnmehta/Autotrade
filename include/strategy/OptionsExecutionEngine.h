@@ -1,7 +1,6 @@
 #ifndef OPTIONS_EXECUTION_ENGINE_H
 #define OPTIONS_EXECUTION_ENGINE_H
 
-#include "strategy/StrategyDefinition.h"
 #include <QString>
 #include <QVector>
 #include <cstdint>

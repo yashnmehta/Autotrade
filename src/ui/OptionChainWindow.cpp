@@ -967,7 +967,7 @@ void OptionChainWindow::highlightATMStrike() {
     return;
 
   // Highlight the ATM strike row with different background
-  QColor atmColor("#3A5A70");
+  QColor atmColor("#dbeafe");
 
   for (int col = 0; col < m_callModel->columnCount(); ++col) {
     QStandardItem *item = m_callModel->item(atmRow, col);
@@ -978,8 +978,8 @@ void OptionChainWindow::highlightATMStrike() {
 
   QStandardItem *strikeItem = m_strikeModel->item(atmRow, 0);
   if (strikeItem) {
-    strikeItem->setBackground(QColor("#4A6A80"));
-    strikeItem->setForeground(QColor("#FFFF00"));
+    strikeItem->setBackground(QColor("#bfdbfe"));
+    strikeItem->setForeground(QColor("#1e40af"));
   }
 
   for (int col = 0; col < m_putModel->columnCount(); ++col) {

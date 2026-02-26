@@ -21,7 +21,9 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QAbstractButton>
 #include <QMessageBox>
+#include <QPushButton>
 #include <QStandardPaths>
 #include <QThread>
 #include <QTimer>
@@ -387,7 +389,7 @@ int main(int argc, char *argv[]) {
               msgBox.setDefaultButton(retryBtn);
               msgBox.exec();
 
-              if (msgBox.clickedButton() == retryBtn) {
+              if (qobject_cast<QPushButton*>(msgBox.clickedButton()) == retryBtn) {
                 // Re-arm snapshot buffer and re-fire all REST requests.
                 // The IA WebSocket stays connected; events keep buffering.
                 loginWindow->setMDStatus("Retrying data sync...", false);

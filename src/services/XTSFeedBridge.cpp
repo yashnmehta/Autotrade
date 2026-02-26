@@ -428,8 +428,6 @@ int XTSFeedBridge::evictTokensIfNeeded(int needed) {
     QMap<int, QVector<uint32_t>> evictedBySegment;
 
     // Round-robin across segments: pick the globally-oldest token each iteration
-    // Simple approach: collect LRU heads from all segments and sort by age
-    // Since we don't store timestamps per token, evict round-robin across segs
     while (evicted < needed) {
         bool anyEvicted = false;
         for (auto it = m_segments.begin(); it != m_segments.end(); ++it) {
@@ -445,11 +443,11 @@ int XTSFeedBridge::evictTokensIfNeeded(int needed) {
                 }
             }
         }
-        if (!anyEvicted) break;  // No more tokens to evict
+        if (!anyEvicted) break;
     }
 
     if (evicted > 0) {
-        qDebug() << "[XTSFeedBridge] 🔄 Evicted" << evicted << "LRU tokens globally";
+        qDebug() << "[XTSFeedBridge] Evicted" << evicted << "LRU tokens globally";
     }
 
     // Fire unsubscribe REST calls per segment (outside lock)
@@ -484,6 +482,7 @@ XTSFeedBridge::Stats XTSFeedBridge::getStats() const {
         stats.perSegmentCount[seg] = state.activeSet.size();
         stats.totalSubscribed += state.activeSet.size();
     }
+    stats.totalCapacity = m_config.maxTotalSubscriptions;
 
     return stats;
 }
@@ -502,6 +501,14 @@ void XTSFeedBridge::dumpStats() const {
         qDebug() << "║   Segment" << it.key() << ":" << it.value();
     }
     qDebug() << "╚═══════════════════════════════════════════════════════╝";
+}
+
+int XTSFeedBridge::totalActiveCount() const {
+    int total = 0;
+    for (auto it = m_segments.constBegin(); it != m_segments.constEnd(); ++it) {
+        total += it.value().activeSet.size();
+    }
+    return total;
 }
 
 void XTSFeedBridge::emitStatsUpdate() {

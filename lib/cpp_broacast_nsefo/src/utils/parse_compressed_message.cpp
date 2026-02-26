@@ -98,10 +98,21 @@ void parse_compressed_message(const char* data, int16_t length, UDPStats& stats)
     uint16_t txCode = be16toh_func(*((uint16_t*)(message_data + CommonConfig::BCAST_HEADER_TXCODE_OFFSET)));
 
     // -------------------------------------------------------
-    // Sequence gap detection via bcSeqNo (offset 14 of BCAST_HEADER).
-    // bcSeqNo is a per-feed monotonically increasing counter; any skip
-    // indicates dropped/lost packets at the OS or network level.
+    // DISABLED: Sequence gap detection via bcSeqNo (offset 14 of BCAST_HEADER).
+    // 
+    // NSE FO multicast sends MULTIPLE INDEPENDENT STREAMS (different instruments,
+    // transaction codes, segments) each with their own sequence counter. Tracking
+    // a single global lastSeqNo produces billions of false "dropped packets".
+    // 
+    // Example: Packet from NIFTY stream (seqNo=7146537) followed by packet from
+    // BANKNIFTY stream (seqNo=1008990) falsely reports 6M+ dropped packets.
+    // 
+    // Proper fix would require tracking per-stream sequences (alphaChar+transCode
+    // combinations), which adds complexity with minimal benefit for application use.
+    // 
+    // For now, gap detection is DISABLED. Market data processing is unaffected.
     // -------------------------------------------------------
+    #if 0  // Disabled - see explanation above
     {
         // BCAST_HEADER layout: reserved1(2)+reserved2(2)+logTime(4)+alphaChar(2)+transCode(2)+errorCode(2)+bcSeqNo(4)
         // Offset of bcSeqNo = 2+2+4+2+2+2 = 14
@@ -122,6 +133,7 @@ void parse_compressed_message(const char* data, int16_t length, UDPStats& stats)
             }
         }
     }
+    #endif
 
     if (txCode != 7208 and txCode != 17202 and txCode != 7220 and txCode != 7211)
     {

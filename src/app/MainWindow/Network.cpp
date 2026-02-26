@@ -4,6 +4,7 @@
 #include "repository/RepositoryManager.h"
 #include "utils/ConfigLoader.h"
 #include <QSettings>
+#include <QStatusBar>
 #include <QTimer>
 #include <QDebug>
 

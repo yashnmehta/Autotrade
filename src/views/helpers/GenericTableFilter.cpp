@@ -31,21 +31,21 @@ GenericTableFilter::GenericTableFilter(int column, QAbstractItemModel* model, QT
     QString lineEditStyle = 
         "QLineEdit { "
         "background: #ffffff; "
-        "color: #333333; "
-        "border: 1px solid #cccccc; "
+        "color: #1e293b; "
+        "border: 1px solid #e2e8f0; "
         "border-radius: 2px; "
         "font-size: 10px; "
         "padding: 2px; "
         "} "
         "QLineEdit:focus { "
-        "border: 1px solid #4a90d9; "
+        "border: 1px solid #3b82f6; "
         "}";
     
     QString buttonStyle = 
         "QPushButton { "
         "background: #ffffff; "
-        "color: #333333; "
-        "border: 1px solid #cccccc; "
+        "color: #1e293b; "
+        "border: 1px solid #e2e8f0; "
         "border-radius: 2px; "
         "font-size: 10px; "
         "padding: 2px; "
@@ -53,7 +53,7 @@ GenericTableFilter::GenericTableFilter(int column, QAbstractItemModel* model, QT
         "max-width: 20px; "
         "} "
         "QPushButton:hover { "
-        "background: #f0f0f0; "
+        "background: #f1f5f9; "
         "}";
     
     if (m_filterMode == InlineMode) {
@@ -84,14 +84,14 @@ GenericTableFilter::GenericTableFilter(int column, QAbstractItemModel* model, QT
         m_filterButton->setStyleSheet(
             "QPushButton { "
             "background: #ffffff; "
-            "color: #333333; "
-            "border: 1px solid #cccccc; "
+            "color: #1e293b; "
+            "border: 1px solid #e2e8f0; "
             "border-radius: 2px; "
             "font-size: 10px; "
             "padding: 2px; "
             "} "
             "QPushButton:hover { "
-            "background: #f0f0f0; "
+            "background: #f1f5f9; "
             "}"
         );
         layout->addWidget(m_filterButton);
@@ -153,7 +153,7 @@ void GenericTableFilter::showFilterPopup()
     QPushButton* sortDescBtn = new QPushButton("Sort Z to A");
     
     // Style the sort buttons to look like menu items
-    QString sortBtnStyle = "QPushButton { text-align: left; border: none; padding: 4px; } QPushButton:hover { background-color: #efefef; }";
+    QString sortBtnStyle = "QPushButton { text-align: left; border: none; padding: 4px; } QPushButton:hover { background-color: #f1f5f9; }";
     sortAscBtn->setStyleSheet(sortBtnStyle);
     sortDescBtn->setStyleSheet(sortBtnStyle);
     

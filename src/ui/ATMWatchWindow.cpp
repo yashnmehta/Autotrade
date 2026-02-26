@@ -213,7 +213,7 @@ void ATMWatchWindow::setupUI() {
     table->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     table->viewport()->installEventFilter(this);
     table->setStyleSheet(
-        "QTableView { background-color: #ffffff; color: #1e293b; "
+        "QTableView { background-color: #1e293b; color: #bdbdbd; "
         "gridline-color: #f1f5f9; border: 1px solid #e2e8f0; }"
         "QTableView::item:selected { background: #dbeafe; color: #1e40af; }"
         "QHeaderView::section { background-color: #f8fafc; color: #475569; "

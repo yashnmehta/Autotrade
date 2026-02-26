@@ -145,13 +145,13 @@ void MainWindow::createMenuBar() {
   m_menuBar->setNativeMenuBar(false); // Force in-window menu bar
   m_menuBar->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
 
-  // LIGHT THEME STYLES (Matching user's recent grey/light prefs)
+  // LIGHT THEME STYLES (Matching light theme palette)
   m_menuBar->setStyleSheet("QMenuBar {"
-                           "  background: #e1e1e1;"
-                           "  color: #1a1a1a;"
+                           "  background: #f8fafc;"
+                           "  color: #1e293b;"
                            "  font-size: 12px;"
                            "  padding: 4px 6px;"
-                           "  border-bottom: 1px solid #cccccc;"
+                           "  border-bottom: 1px solid #e2e8f0;"
                            "}"
                            "QMenuBar::item {"
                            "  padding: 2px 6px;"
@@ -163,7 +163,7 @@ void MainWindow::createMenuBar() {
                            "}"
                            "QMenu {"
                            "  background: #ffffff;"
-                           "  color: #1a1a1a;"
+                           "  color: #1e293b;"
                            "  border: 1px solid #e2e8f0;"
                            "}"
                            "QMenu::item {"
