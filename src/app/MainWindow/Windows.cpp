@@ -592,6 +592,9 @@ CustomMDISubWindow *MainWindow::createBuyWindow() {
   WindowContext context = getBestWindowContext();
 
   // Pass the active MarketWatch as the initiating window for focus restoration
+  qDebug() << "[MainWindow][FOCUS-DEBUG] createBuyWindow: activeMarketWatch ="
+           << (activeMarketWatch ? activeMarketWatch->objectName() : "nullptr")
+           << "| will be used as initiating window";
   CustomMDISubWindow *cached = WindowCacheManager::instance().showBuyWindow(
       context.isValid() ? &context : nullptr,
       activeMarketWatch); // Pass initiating window
@@ -1202,4 +1205,35 @@ void MainWindow::createSnapQuoteWindowWithContext(const WindowContext &context,
   // Fallback to normal creation — createSnapQuoteWindow will use
   // getBestWindowContext
   createSnapQuoteWindow();
+}
+
+// ─── Widget-aware window creation (called from CustomMDISubWindow F1/F2 fallback) ───
+
+void MainWindow::createBuyWindowFromWidget(QWidget *initiatingWidget) {
+  qDebug() << "[MainWindow][FOCUS-DEBUG] createBuyWindowFromWidget: initiating ="
+           << (initiatingWidget ? initiatingWidget->metaObject()->className() : "nullptr")
+           << (initiatingWidget ? initiatingWidget->objectName() : "");
+
+  WindowContext context = getBestWindowContext();
+  CustomMDISubWindow *cached = WindowCacheManager::instance().showBuyWindow(
+      context.isValid() ? &context : nullptr, initiatingWidget);
+  if (cached) {
+    return;
+  }
+  // Fallback to generic path (no initiating window)
+  createBuyWindow();
+}
+
+void MainWindow::createSellWindowFromWidget(QWidget *initiatingWidget) {
+  qDebug() << "[MainWindow][FOCUS-DEBUG] createSellWindowFromWidget: initiating ="
+           << (initiatingWidget ? initiatingWidget->metaObject()->className() : "nullptr")
+           << (initiatingWidget ? initiatingWidget->objectName() : "");
+
+  WindowContext context = getBestWindowContext();
+  CustomMDISubWindow *cached = WindowCacheManager::instance().showSellWindow(
+      context.isValid() ? &context : nullptr, initiatingWidget);
+  if (cached) {
+    return;
+  }
+  createSellWindow();
 }

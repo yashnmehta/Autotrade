@@ -144,6 +144,10 @@ private slots:
   void createSnapQuoteWindowWithContext(const WindowContext &context,
                                        QWidget *initiatingWindow);
 
+  // Widget-aware window creation (invoked from CustomMDISubWindow F1/F2 fallback)
+  Q_INVOKABLE void createBuyWindowFromWidget(QWidget *initiatingWidget);
+  Q_INVOKABLE void createSellWindowFromWidget(QWidget *initiatingWidget);
+
 private:
   void setupContent();
   void setupShortcuts();

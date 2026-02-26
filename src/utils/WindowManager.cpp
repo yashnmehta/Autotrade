@@ -31,9 +31,13 @@ void WindowManager::registerWindow(QWidget* window, const QString& windowName, Q
     // Store the initiating window relationship if provided
     if (initiatingWindow) {
         m_initiatingWindows[window] = initiatingWindow;
-        qDebug() << "[WindowManager] Stored initiating window relationship:"
-                 << windowName << "initiated by"
-                 << (initiatingWindow->objectName().isEmpty() ? "Unknown" : initiatingWindow->objectName());
+        qDebug() << "[WindowManager][FOCUS-DEBUG] registerWindow:" << windowName
+                 << "(" << window->metaObject()->className() << ")"
+                 << "initiated by" << initiatingWindow->metaObject()->className()
+                 << initiatingWindow->objectName();
+    } else {
+        qDebug() << "[WindowManager][FOCUS-DEBUG] registerWindow:" << windowName
+                 << "(" << window->metaObject()->className() << ") - no initiating window";
     }
 
     // Check if window is already registered
@@ -69,11 +73,21 @@ void WindowManager::unregisterWindow(QWidget* window) {
         if (m_windowStack[i].window == window) {
             QString name = m_windowStack[i].name;
             m_windowStack.removeAt(i);
-            qDebug() << "[WindowManager] Unregistered window:" << name
-                     << "Remaining windows:" << m_windowStack.size();
+            qDebug() << "[WindowManager][FOCUS-DEBUG] Unregistered:" << name
+                     << "| Remaining:" << m_windowStack.size();
+            // Dump current stack for debugging
+            qDebug() << "[WindowManager][FOCUS-DEBUG] Stack dump:";
+            for (int j = 0; j < qMin(m_windowStack.size(), 5); j++) {
+                auto &e = m_windowStack[j];
+                qDebug() << "  [" << j << "]" << e.name
+                         << "(" << (e.window ? e.window->metaObject()->className() : "null") << ")";
+            }
             
             // Check if this window had an initiating window
             QWidget* initiatingWindow = m_initiatingWindows.value(window, nullptr);
+            qDebug() << "[WindowManager][FOCUS-DEBUG] initiatingWindow for" << name << ":"
+                     << (initiatingWindow ? initiatingWindow->metaObject()->className() : "nullptr")
+                     << (initiatingWindow ? initiatingWindow->objectName() : "");
 
             // Clean up focus state for the closed window
             m_lastFocusedWidgets.remove(window);
