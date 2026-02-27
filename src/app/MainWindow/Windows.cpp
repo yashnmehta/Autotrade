@@ -10,6 +10,7 @@
 #include "ui/ATMWatchWindow.h"
 #include "ui/GlobalSearchWidget.h"
 #include "ui/OptionChainWindow.h"
+#include "ui/OptionCalculatorWindow.h"
 #include "ui/StrategyManagerWindow.h"
 #ifdef HAVE_TRADINGVIEW
 #include "ui/TradingViewChartWidget.h"
@@ -949,6 +950,28 @@ MainWindow::createOptionChainWindowForSymbol(const QString &symbol,
   return window;
 }
 
+CustomMDISubWindow *MainWindow::createOptionCalculatorWindow() {
+  QWidget *currentlyActive = nullptr;
+  if (m_mdiArea && m_mdiArea->activeWindow()) {
+    currentlyActive = m_mdiArea->activeWindow()->contentWidget();
+  }
+
+  CustomMDISubWindow *window =
+      new CustomMDISubWindow("Option Calculator", m_mdiArea);
+  window->setWindowType("OptionCalculator");
+
+  OptionCalculatorWindow *calcWindow = new OptionCalculatorWindow(window);
+  window->setContentWidget(calcWindow);
+  if (currentlyActive) {
+    window->setInitiatingWindow(currentlyActive);
+  }
+  window->resize(500, 600);
+  connectWindowSignals(window);
+  m_mdiArea->addWindow(window);
+  window->activateWindow();
+  return window;
+}
+
 CustomMDISubWindow *MainWindow::createATMWatchWindow() {
   // Get currently active content widget for focus restoration on close
   QWidget *currentlyActive = nullptr;
@@ -958,6 +981,7 @@ CustomMDISubWindow *MainWindow::createATMWatchWindow() {
 
   CustomMDISubWindow *window = new CustomMDISubWindow("ATM Watch", m_mdiArea);
   window->setWindowType("ATMWatch");
+
 
   ATMWatchWindow *atmWindow = new ATMWatchWindow(window);
 

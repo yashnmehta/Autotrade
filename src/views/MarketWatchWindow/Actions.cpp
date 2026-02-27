@@ -517,7 +517,7 @@ void MarketWatchWindow::onSavePortfolio() {
   }
 
   // Capture current visual state (widths & order) into model's profile
-  MarketWatchColumnProfile currentProfile = m_model->getColumnProfile();
+  GenericTableProfile currentProfile = m_model->getColumnProfile();
   captureProfileFromView(currentProfile);
 
   // DON'T update model during save - it triggers reset and corrupts state!
@@ -539,7 +539,7 @@ void MarketWatchWindow::onLoadPortfolio() {
     return;
 
   QList<ScripData> scrips;
-  MarketWatchColumnProfile profile;
+  GenericTableProfile profile;
 
   // Attempt to load scrips AND profile
   if (!MarketWatchHelpers::loadPortfolio(fileName, scrips, profile)) {
@@ -630,8 +630,9 @@ void MarketWatchWindow::restoreState(QSettings &settings) {
     QByteArray data = settings.value("columnProfile").toByteArray();
     QJsonDocument doc = QJsonDocument::fromJson(data);
     if (doc.isObject()) {
-      MarketWatchColumnProfile profile;
-      if (profile.fromJson(doc.object())) {
+      GenericTableProfile profile;
+      profile.fromJson(doc.object());
+      if (!profile.name().isEmpty()) {
         m_model->setColumnProfile(profile);
         applyProfileToView(profile); // Apply to view (widths + order)
         qDebug() << "[MarketWatchWindow] Restored column profile:"
@@ -645,29 +646,26 @@ void MarketWatchWindow::restoreState(QSettings &settings) {
 }
 
 void MarketWatchWindow::captureProfileFromView(
-    MarketWatchColumnProfile &profile) {
+    GenericTableProfile &profile) {
   QHeaderView *header = this->horizontalHeader();
-  QList<MarketWatchColumn> modelColumns =
+  QList<int> modelColumns =
       m_model->getColumnProfile().visibleColumns();
 
-  // Build a map of logical index -> MarketWatchColumn for currently visible
-  // columns
-  QMap<int, MarketWatchColumn> logicalToColumn;
+  // Build a map of logical index -> column ID for currently visible columns
+  QMap<int, int> logicalToColumn;
   for (int i = 0; i < modelColumns.size(); ++i) {
     logicalToColumn[i] = modelColumns[i];
   }
 
-  QList<MarketWatchColumn> newVisibleOrder;
-  QList<MarketWatchColumn> capturedVisible;
+  QList<int> newVisibleOrder;
+  QList<int> capturedVisible;
 
   // 1. Capture ACTUAL visual order from QHeaderView
-  // Iterate through visual indices (user's displayed order after drag-and-drop)
   for (int visualIdx = 0; visualIdx < header->count(); ++visualIdx) {
-    int logicalIdx = header->logicalIndex(
-        visualIdx); // Get logical index at this visual position
+    int logicalIdx = header->logicalIndex(visualIdx);
 
     if (logicalToColumn.contains(logicalIdx)) {
-      MarketWatchColumn col = logicalToColumn[logicalIdx];
+      int col = logicalToColumn[logicalIdx];
 
       // Capture width from the logical section
       int width = header->sectionSize(logicalIdx);
@@ -688,11 +686,11 @@ void MarketWatchWindow::captureProfileFromView(
 
   // 2. Build complete column order: visible columns in visual order, then
   // hidden columns
-  QList<MarketWatchColumn> completeOrder = newVisibleOrder;
+  QList<int> completeOrder = newVisibleOrder;
 
   // Add hidden columns at the end, maintaining their original relative order
-  QList<MarketWatchColumn> existingOrder = profile.columnOrder();
-  for (MarketWatchColumn col : existingOrder) {
+  QList<int> existingOrder = profile.columnOrder();
+  for (int col : existingOrder) {
     if (!capturedVisible.contains(col)) {
       completeOrder.append(col);
     }
@@ -706,29 +704,23 @@ void MarketWatchWindow::captureProfileFromView(
 }
 
 void MarketWatchWindow::applyProfileToView(
-    const MarketWatchColumnProfile &profile) {
+    const GenericTableProfile &profile) {
   QHeaderView *header = this->horizontalHeader();
-  QList<MarketWatchColumn> visibleCols = profile.visibleColumns();
+  QList<int> visibleCols = profile.visibleColumns();
 
-  // The model provides columns in logical order (0..N matching
-  // profile.visibleColumns()) But the VIEW may have different visual order due
-  // to user drag-and-drop. We need to reorder the view to match the profile's
-  // intended order.
-
-  // 1. First, reset view order to match model logical order (in case it was
-  // reordered) Build map of where each column currently is
-  QMap<MarketWatchColumn, int> columnToLogicalIndex;
+  // Build map of column ID -> logical index in the model
+  QMap<int, int> columnToLogicalIndex;
   for (int i = 0; i < visibleCols.size(); ++i) {
     columnToLogicalIndex[visibleCols[i]] = i;
   }
 
-  // 2. Move sections to match profile's intended visual order
+  // Move sections to match profile's intended visual order
   for (int targetVisualIdx = 0; targetVisualIdx < visibleCols.size();
        ++targetVisualIdx) {
     if (targetVisualIdx >= header->count())
       break;
 
-    MarketWatchColumn col = visibleCols[targetVisualIdx];
+    int col = visibleCols[targetVisualIdx];
     int logicalIdx = columnToLogicalIndex.value(col, -1);
 
     if (logicalIdx >= 0) {

@@ -1,26 +1,8 @@
 #include "models/MarketWatchColumnProfile.h"
-#include <QFile>
-#include <QDateTime>
-#include <QJsonDocument>
 #include <QDebug>
-#include <QDir>
 
 // Static member initialization
 QMap<MarketWatchColumn, ColumnInfo> MarketWatchColumnProfile::s_columnMetadata;
-
-MarketWatchColumnProfile::MarketWatchColumnProfile()
-    : m_name("Unnamed Profile")
-    , m_context(ProfileContext::MarketWatch)
-{
-    initializeDefaults();
-}
-
-MarketWatchColumnProfile::MarketWatchColumnProfile(const QString &name, ProfileContext context)
-    : m_name(name)
-    , m_context(context)
-{
-    initializeDefaults();
-}
 
 void MarketWatchColumnProfile::initializeColumnMetadata()
 {
@@ -610,74 +592,6 @@ void MarketWatchColumnProfile::initializeColumnMetadata()
     s_columnMetadata[MarketWatchColumn::TRADE_EXECUTION_RANGE] = info;
 }
 
-void MarketWatchColumnProfile::initializeDefaults()
-{
-    initializeColumnMetadata();
-    
-    // Clear existing order to prevent duplicates if called multiple times
-    m_columnOrder.clear();
-    m_visibility.clear();
-    m_widths.clear();
-    
-    // Set all columns to default visibility
-    for (int i = 0; i < static_cast<int>(MarketWatchColumn::COLUMN_COUNT); ++i) {
-        MarketWatchColumn col = static_cast<MarketWatchColumn>(i);
-        ColumnInfo info = s_columnMetadata[col];
-        m_visibility[col] = info.visibleByDefault;
-        m_widths[col] = info.defaultWidth;
-        m_columnOrder.append(col);
-    }
-}
-
-void MarketWatchColumnProfile::setColumnVisible(MarketWatchColumn col, bool visible)
-{
-    m_visibility[col] = visible;
-}
-
-bool MarketWatchColumnProfile::isColumnVisible(MarketWatchColumn col) const
-{
-    return m_visibility.value(col, false);
-}
-
-QList<MarketWatchColumn> MarketWatchColumnProfile::visibleColumns() const
-{
-    QList<MarketWatchColumn> visible;
-    for (MarketWatchColumn col : m_columnOrder) {
-        if (isColumnVisible(col)) {
-            visible.append(col);
-        }
-    }
-    return visible;
-}
-
-int MarketWatchColumnProfile::visibleColumnCount() const
-{
-    return visibleColumns().count();
-}
-
-void MarketWatchColumnProfile::setColumnOrder(const QList<MarketWatchColumn> &order)
-{
-    m_columnOrder = order;
-}
-
-void MarketWatchColumnProfile::moveColumn(int fromIndex, int toIndex)
-{
-    if (fromIndex >= 0 && fromIndex < m_columnOrder.size() &&
-        toIndex >= 0 && toIndex < m_columnOrder.size()) {
-        m_columnOrder.move(fromIndex, toIndex);
-    }
-}
-
-void MarketWatchColumnProfile::setColumnWidth(MarketWatchColumn col, int width)
-{
-    m_widths[col] = width;
-}
-
-int MarketWatchColumnProfile::columnWidth(MarketWatchColumn col) const
-{
-    return m_widths.value(col, 80);
-}
-
 ColumnInfo MarketWatchColumnProfile::getColumnInfo(MarketWatchColumn col)
 {
     initializeColumnMetadata();
@@ -703,398 +617,142 @@ QList<MarketWatchColumn> MarketWatchColumnProfile::getAllColumns()
     return all;
 }
 
-// Preset Profiles
-MarketWatchColumnProfile MarketWatchColumnProfile::createDefaultProfile()
-{
-    MarketWatchColumnProfile profile("Default");
-    profile.setDescription("Standard market watch view");
-    profile.setContext(ProfileContext::MarketWatch);
-    // Uses default visibility settings from metadata
-    return profile;
-}
+// ── Bridge to generic profile system ────────────────────────────────────
 
-MarketWatchColumnProfile MarketWatchColumnProfile::createCompactProfile()
+QList<GenericColumnInfo> MarketWatchColumnProfile::buildGenericMetadata()
 {
-    MarketWatchColumnProfile profile("Compact");
-    profile.setDescription("Minimal columns for compact display");
-    
-    // Hide all columns first
-    for (int i = 0; i < static_cast<int>(MarketWatchColumn::COLUMN_COUNT); ++i) {
-        profile.setColumnVisible(static_cast<MarketWatchColumn>(i), false);
-    }
-    
-    // Show only essential columns
-    profile.setColumnVisible(MarketWatchColumn::SYMBOL, true);
-    profile.setColumnVisible(MarketWatchColumn::LAST_TRADED_PRICE, true);
-    profile.setColumnVisible(MarketWatchColumn::NET_CHANGE_RS, true);
-    profile.setColumnVisible(MarketWatchColumn::PERCENT_CHANGE, true);
-    profile.setColumnVisible(MarketWatchColumn::VOLUME, true);
-    
-    return profile;
-}
-
-MarketWatchColumnProfile MarketWatchColumnProfile::createDetailedProfile()
-{
-    MarketWatchColumnProfile profile("Detailed");
-    profile.setDescription("All important columns");
-    
-    // Show most columns
+    initializeColumnMetadata();
+    QList<GenericColumnInfo> meta;
     for (int i = 0; i < static_cast<int>(MarketWatchColumn::COLUMN_COUNT); ++i) {
         MarketWatchColumn col = static_cast<MarketWatchColumn>(i);
-        // Skip very specialized columns
+        const ColumnInfo &ci = s_columnMetadata[col];
+        GenericColumnInfo gi;
+        gi.id = i;
+        gi.name = ci.name;
+        gi.shortName = ci.shortName;
+        gi.description = ci.description;
+        gi.defaultWidth = ci.defaultWidth;
+        gi.alignment = ci.alignment;
+        gi.visibleByDefault = ci.visibleByDefault;
+        gi.isNumeric = ci.isNumeric;
+        meta.append(gi);
+    }
+    return meta;
+}
+
+// Preset Profiles (return GenericTableProfile)
+
+GenericTableProfile MarketWatchColumnProfile::createDefaultProfile()
+{
+    auto p = GenericTableProfile::createDefault(buildGenericMetadata());
+    p.setName("Default");
+    p.setDescription("Standard market watch view");
+    return p;
+}
+
+GenericTableProfile MarketWatchColumnProfile::createCompactProfile()
+{
+    auto p = createDefaultProfile();
+    p.setName("Compact");
+    p.setDescription("Minimal columns for compact display");
+
+    // Hide all columns first
+    for (int i = 0; i < static_cast<int>(MarketWatchColumn::COLUMN_COUNT); ++i)
+        p.setColumnVisible(i, false);
+
+    // Show only essentials
+    p.setColumnVisible(static_cast<int>(MarketWatchColumn::SYMBOL), true);
+    p.setColumnVisible(static_cast<int>(MarketWatchColumn::LAST_TRADED_PRICE), true);
+    p.setColumnVisible(static_cast<int>(MarketWatchColumn::NET_CHANGE_RS), true);
+    p.setColumnVisible(static_cast<int>(MarketWatchColumn::PERCENT_CHANGE), true);
+    p.setColumnVisible(static_cast<int>(MarketWatchColumn::VOLUME), true);
+    return p;
+}
+
+GenericTableProfile MarketWatchColumnProfile::createDetailedProfile()
+{
+    auto p = createDefaultProfile();
+    p.setName("Detailed");
+    p.setDescription("All important columns");
+
+    for (int i = 0; i < static_cast<int>(MarketWatchColumn::COLUMN_COUNT); ++i) {
+        auto col = static_cast<MarketWatchColumn>(i);
         if (col != MarketWatchColumn::MARKET_TYPE &&
             col != MarketWatchColumn::ISIN_CODE &&
             col != MarketWatchColumn::TRADE_EXECUTION_RANGE) {
-            profile.setColumnVisible(col, true);
+            p.setColumnVisible(i, true);
         }
     }
-    
-    return profile;
+    return p;
 }
 
-MarketWatchColumnProfile MarketWatchColumnProfile::createFOProfile()
+GenericTableProfile MarketWatchColumnProfile::createFOProfile()
 {
-    MarketWatchColumnProfile profile("F&O");
-    profile.setDescription("Futures & Options focused");
-    
-    // Start with default
-    profile = createDefaultProfile();
-    profile.setName("F&O");
-    
-    // Add F&O specific columns
-    profile.setColumnVisible(MarketWatchColumn::STRIKE_PRICE, true);
-    profile.setColumnVisible(MarketWatchColumn::OPTION_TYPE, true);
-    profile.setColumnVisible(MarketWatchColumn::SERIES_EXPIRY, true);
-    profile.setColumnVisible(MarketWatchColumn::OPEN_INTEREST, true);
-    profile.setColumnVisible(MarketWatchColumn::OI_CHANGE_PERCENT, true);
-    
-    // Add Greeks columns (key for options trading)
-    profile.setColumnVisible(MarketWatchColumn::IMPLIED_VOLATILITY, true);
-    profile.setColumnVisible(MarketWatchColumn::BID_IV, true);
-    profile.setColumnVisible(MarketWatchColumn::ASK_IV, true);
-    profile.setColumnVisible(MarketWatchColumn::DELTA, true);
-    profile.setColumnVisible(MarketWatchColumn::THETA, true);
-    // Gamma and Vega hidden by default (advanced)
-    profile.setColumnVisible(MarketWatchColumn::GAMMA, false);
-    profile.setColumnVisible(MarketWatchColumn::VEGA, false);
-    
-    // Hide equity-specific
-    profile.setColumnVisible(MarketWatchColumn::MARKET_CAP, false);
-    profile.setColumnVisible(MarketWatchColumn::WEEK_52_HIGH, false);
-    profile.setColumnVisible(MarketWatchColumn::WEEK_52_LOW, false);
-    
-    return profile;
+    auto p = createDefaultProfile();
+    p.setName("F&O");
+    p.setDescription("Futures & Options focused");
+
+    p.setColumnVisible(static_cast<int>(MarketWatchColumn::STRIKE_PRICE), true);
+    p.setColumnVisible(static_cast<int>(MarketWatchColumn::OPTION_TYPE), true);
+    p.setColumnVisible(static_cast<int>(MarketWatchColumn::SERIES_EXPIRY), true);
+    p.setColumnVisible(static_cast<int>(MarketWatchColumn::OPEN_INTEREST), true);
+    p.setColumnVisible(static_cast<int>(MarketWatchColumn::OI_CHANGE_PERCENT), true);
+    p.setColumnVisible(static_cast<int>(MarketWatchColumn::IMPLIED_VOLATILITY), true);
+    p.setColumnVisible(static_cast<int>(MarketWatchColumn::BID_IV), true);
+    p.setColumnVisible(static_cast<int>(MarketWatchColumn::ASK_IV), true);
+    p.setColumnVisible(static_cast<int>(MarketWatchColumn::DELTA), true);
+    p.setColumnVisible(static_cast<int>(MarketWatchColumn::THETA), true);
+    p.setColumnVisible(static_cast<int>(MarketWatchColumn::GAMMA), false);
+    p.setColumnVisible(static_cast<int>(MarketWatchColumn::VEGA), false);
+    p.setColumnVisible(static_cast<int>(MarketWatchColumn::MARKET_CAP), false);
+    p.setColumnVisible(static_cast<int>(MarketWatchColumn::WEEK_52_HIGH), false);
+    p.setColumnVisible(static_cast<int>(MarketWatchColumn::WEEK_52_LOW), false);
+    return p;
 }
 
-MarketWatchColumnProfile MarketWatchColumnProfile::createEquityProfile()
+GenericTableProfile MarketWatchColumnProfile::createEquityProfile()
 {
-    MarketWatchColumnProfile profile("Equity");
-    profile.setDescription("Equity/Cash market focused");
-    
-    // Start with default
-    profile = createDefaultProfile();
-    profile.setName("Equity");
-    
-    // Add equity specific
-    profile.setColumnVisible(MarketWatchColumn::MARKET_CAP, true);
-    profile.setColumnVisible(MarketWatchColumn::WEEK_52_HIGH, true);
-    profile.setColumnVisible(MarketWatchColumn::WEEK_52_LOW, true);
-    
-    // Hide F&O columns
-    profile.setColumnVisible(MarketWatchColumn::STRIKE_PRICE, false);
-    profile.setColumnVisible(MarketWatchColumn::OPTION_TYPE, false);
-    profile.setColumnVisible(MarketWatchColumn::SERIES_EXPIRY, false);
-    profile.setColumnVisible(MarketWatchColumn::OPEN_INTEREST, false);
-    profile.setColumnVisible(MarketWatchColumn::OI_CHANGE_PERCENT, false);
-    
-    return profile;
+    auto p = createDefaultProfile();
+    p.setName("Equity");
+    p.setDescription("Equity/Cash market focused");
+
+    p.setColumnVisible(static_cast<int>(MarketWatchColumn::MARKET_CAP), true);
+    p.setColumnVisible(static_cast<int>(MarketWatchColumn::WEEK_52_HIGH), true);
+    p.setColumnVisible(static_cast<int>(MarketWatchColumn::WEEK_52_LOW), true);
+    p.setColumnVisible(static_cast<int>(MarketWatchColumn::STRIKE_PRICE), false);
+    p.setColumnVisible(static_cast<int>(MarketWatchColumn::OPTION_TYPE), false);
+    p.setColumnVisible(static_cast<int>(MarketWatchColumn::SERIES_EXPIRY), false);
+    p.setColumnVisible(static_cast<int>(MarketWatchColumn::OPEN_INTEREST), false);
+    p.setColumnVisible(static_cast<int>(MarketWatchColumn::OI_CHANGE_PERCENT), false);
+    return p;
 }
 
-MarketWatchColumnProfile MarketWatchColumnProfile::createTradingProfile()
+GenericTableProfile MarketWatchColumnProfile::createTradingProfile()
 {
-    MarketWatchColumnProfile profile("Trading");
-    profile.setDescription("Active trading with depth");
-    
-    // Start with default
-    profile = createDefaultProfile();
-    profile.setName("Trading");
-    
-    // Add depth and trading columns
-    profile.setColumnVisible(MarketWatchColumn::BUY_PRICE, true);
-    profile.setColumnVisible(MarketWatchColumn::BUY_QTY, true);
-    profile.setColumnVisible(MarketWatchColumn::SELL_PRICE, true);
-    profile.setColumnVisible(MarketWatchColumn::SELL_QTY, true);
-    profile.setColumnVisible(MarketWatchColumn::TOTAL_BUY_QTY, true);
-    profile.setColumnVisible(MarketWatchColumn::TOTAL_SELL_QTY, true);
-    profile.setColumnVisible(MarketWatchColumn::AVG_TRADED_PRICE, true);
-    profile.setColumnVisible(MarketWatchColumn::LAST_TRADED_QUANTITY, true);
-    profile.setColumnVisible(MarketWatchColumn::LAST_TRADED_TIME, true);
-    
-    return profile;
+    auto p = createDefaultProfile();
+    p.setName("Trading");
+    p.setDescription("Active trading with depth");
+
+    p.setColumnVisible(static_cast<int>(MarketWatchColumn::BUY_PRICE), true);
+    p.setColumnVisible(static_cast<int>(MarketWatchColumn::BUY_QTY), true);
+    p.setColumnVisible(static_cast<int>(MarketWatchColumn::SELL_PRICE), true);
+    p.setColumnVisible(static_cast<int>(MarketWatchColumn::SELL_QTY), true);
+    p.setColumnVisible(static_cast<int>(MarketWatchColumn::TOTAL_BUY_QTY), true);
+    p.setColumnVisible(static_cast<int>(MarketWatchColumn::TOTAL_SELL_QTY), true);
+    p.setColumnVisible(static_cast<int>(MarketWatchColumn::AVG_TRADED_PRICE), true);
+    p.setColumnVisible(static_cast<int>(MarketWatchColumn::LAST_TRADED_QUANTITY), true);
+    p.setColumnVisible(static_cast<int>(MarketWatchColumn::LAST_TRADED_TIME), true);
+    return p;
 }
 
-// Serialization
-QJsonObject MarketWatchColumnProfile::toJson() const
+void MarketWatchColumnProfile::registerPresets(GenericProfileManager &mgr)
 {
-    QJsonObject json;
-    json["version"] = 2;  // Profile format version for future compatibility
-    json["name"] = m_name;
-    json["context"] = static_cast<int>(m_context);
-    json["description"] = m_description;
-    json["timestamp"] = QDateTime::currentDateTime().toString(Qt::ISODate);
-    
-    // Visibility map
-    QJsonObject visibility;
-    for (auto it = m_visibility.constBegin(); it != m_visibility.constEnd(); ++it) {
-        visibility[QString::number(static_cast<int>(it.key()))] = it.value();
-    }
-    json["visibility"] = visibility;
-    
-    // Widths map
-    QJsonObject widths;
-    for (auto it = m_widths.constBegin(); it != m_widths.constEnd(); ++it) {
-        widths[QString::number(static_cast<int>(it.key()))] = it.value();
-    }
-    json["widths"] = widths;
-    
-    // Column order
-    QJsonArray order;
-    for (MarketWatchColumn col : m_columnOrder) {
-        order.append(static_cast<int>(col));
-    }
-    json["columnOrder"] = order;
-    
-    return json;
+    mgr.addPreset(createDefaultProfile());
+    mgr.addPreset(createCompactProfile());
+    mgr.addPreset(createDetailedProfile());
+    mgr.addPreset(createFOProfile());
+    mgr.addPreset(createEquityProfile());
+    mgr.addPreset(createTradingProfile());
 }
 
-bool MarketWatchColumnProfile::fromJson(const QJsonObject &json)
-{
-    if (!json.contains("name")) {
-        qWarning() << "[MarketWatchColumnProfile] Profile missing required 'name' field";
-        return false;
-    }
-    
-    // Check version for compatibility
-    int version = json.value("version").toInt(1);  // Default to v1 for legacy files
-    if (version > 2) {
-        qWarning() << "[MarketWatchColumnProfile] Profile version" << version << "is newer than supported (2)";
-        // Continue anyway - forward compatibility attempt
-    }
-    
-    m_name = json["name"].toString();
-    m_context = static_cast<ProfileContext>(json.value("context").toInt(0));
-    m_description = json.value("description").toString();
-    
-    qDebug() << "[MarketWatchColumnProfile] Loading profile:" << m_name << "version:" << version;
-    
-    // Visibility
-    if (json.contains("visibility")) {
-        QJsonObject visibility = json["visibility"].toObject();
-        m_visibility.clear();
-        for (auto it = visibility.constBegin(); it != visibility.constEnd(); ++it) {
-            int colIndex = it.key().toInt();
-            m_visibility[static_cast<MarketWatchColumn>(colIndex)] = it.value().toBool();
-        }
-    }
-    
-    // Widths
-    if (json.contains("widths")) {
-        QJsonObject widths = json["widths"].toObject();
-        m_widths.clear();
-        for (auto it = widths.constBegin(); it != widths.constEnd(); ++it) {
-            int colIndex = it.key().toInt();
-            m_widths[static_cast<MarketWatchColumn>(colIndex)] = it.value().toInt();
-        }
-    }
-    
-    // Column order
-    if (json.contains("columnOrder")) {
-        QJsonArray order = json["columnOrder"].toArray();
-        QList<MarketWatchColumn> newOrder;
-        QSet<int> seen;
-        
-        for (const QJsonValue &val : order) {
-            int colId = val.toInt();
-            
-            // Validate range
-            if (colId < 0 || colId >= static_cast<int>(MarketWatchColumn::COLUMN_COUNT)) {
-                qWarning() << "[MarketWatchColumnProfile] Invalid column ID in profile:" << colId << "- skipping";
-                continue;
-            }
-            
-            // Check for duplicates
-            if (seen.contains(colId)) {
-                qWarning() << "[MarketWatchColumnProfile] Duplicate column ID in profile:" << colId << "- skipping";
-                continue;
-            }
-            
-            seen.insert(colId);
-            newOrder.append(static_cast<MarketWatchColumn>(colId));
-        }
-        
-        // Ensure all columns are present - add missing ones at end with warning
-        bool hadMissing = false;
-        for (int i = 0; i < static_cast<int>(MarketWatchColumn::COLUMN_COUNT); ++i) {
-            if (!seen.contains(i)) {
-                qWarning() << "[MarketWatchColumnProfile] Missing column ID in profile:" << i << "- adding at end";
-                newOrder.append(static_cast<MarketWatchColumn>(i));
-                hadMissing = true;
-            }
-        }
-        
-        if (hadMissing) {
-            qWarning() << "[MarketWatchColumnProfile] Profile was incomplete - added missing columns";
-        }
-        
-        m_columnOrder = newOrder;
-    }
-    
-    return true;
-}
 
-bool MarketWatchColumnProfile::saveToFile(const QString &filepath) const
-{
-    QFile file(filepath);
-    if (!file.open(QIODevice::WriteOnly)) {
-        qWarning() << "Failed to save profile to" << filepath;
-        return false;
-    }
-    
-    QJsonDocument doc(toJson());
-    file.write(doc.toJson());
-    file.close();
-    return true;
-}
-
-bool MarketWatchColumnProfile::loadFromFile(const QString &filepath)
-{
-    QFile file(filepath);
-    if (!file.open(QIODevice::ReadOnly)) {
-        qWarning() << "Failed to load profile from" << filepath;
-        return false;
-    }
-    
-    QByteArray data = file.readAll();
-    file.close();
-    
-    QJsonDocument doc = QJsonDocument::fromJson(data);
-    if (!doc.isObject()) {
-        qWarning() << "Invalid JSON in profile file" << filepath;
-        return false;
-    }
-    
-    return fromJson(doc.object());
-}
-
-// Profile Manager Implementation
-MarketWatchProfileManager& MarketWatchProfileManager::instance()
-{
-    static MarketWatchProfileManager instance;
-    return instance;
-}
-
-MarketWatchProfileManager::MarketWatchProfileManager()
-    : m_currentProfileName("Default")
-{
-    loadDefaultProfiles();
-    loadAllProfiles("profiles/marketwatch");
-}
-
-void MarketWatchProfileManager::addProfile(const MarketWatchColumnProfile &profile)
-{
-    m_profiles[profile.name()] = profile;
-    // Don't auto-save on every add - expensive and risky
-    // Caller should explicitly call saveAllProfiles() when appropriate
-}
-
-bool MarketWatchProfileManager::removeProfile(const QString &name)
-{
-    if (!m_profiles.contains(name)) return false;
-    
-    // Delete file
-    QDir dir("profiles/marketwatch");
-    dir.remove(name + ".json");
-    
-    m_profiles.remove(name);
-    if (m_currentProfileName == name) {
-        m_currentProfileName = "Default";
-    }
-    return true;
-}
-
-MarketWatchColumnProfile MarketWatchProfileManager::getProfile(const QString &name) const
-{
-    return m_profiles.value(name, MarketWatchColumnProfile::createDefaultProfile());
-}
-
-QStringList MarketWatchProfileManager::profileNames() const
-{
-    return m_profiles.keys();
-}
-
-bool MarketWatchProfileManager::hasProfile(const QString &name) const
-{
-    return m_profiles.contains(name);
-}
-
-void MarketWatchProfileManager::setCurrentProfile(const QString &name)
-{
-    if (m_profiles.contains(name)) {
-        m_currentProfileName = name;
-    }
-}
-
-MarketWatchColumnProfile MarketWatchProfileManager::currentProfile() const
-{
-    return getProfile(m_currentProfileName);
-}
-
-bool MarketWatchProfileManager::saveAllProfiles(const QString &directory) const
-{
-    QDir dir(directory);
-    if (!dir.exists()) {
-        dir.mkpath(".");
-    }
-    
-    bool allSuccess = true;
-    for (const MarketWatchColumnProfile &profile : m_profiles) {
-        QString filename = dir.filePath(profile.name() + ".json");
-        if (!profile.saveToFile(filename)) {
-            allSuccess = false;
-        }
-    }
-    
-    return allSuccess;
-}
-
-bool MarketWatchProfileManager::loadAllProfiles(const QString &directory)
-{
-    QDir dir(directory);
-    if (!dir.exists()) {
-        qWarning() << "Profile directory does not exist:" << directory;
-        return false;
-    }
-    
-    QStringList filters;
-    filters << "*.json";
-    QFileInfoList files = dir.entryInfoList(filters, QDir::Files);
-    
-    for (const QFileInfo &fileInfo : files) {
-        MarketWatchColumnProfile profile;
-        if (profile.loadFromFile(fileInfo.absoluteFilePath())) {
-            addProfile(profile);
-        }
-    }
-    
-    return !m_profiles.isEmpty();
-}
-
-void MarketWatchProfileManager::loadDefaultProfiles()
-{
-    addProfile(MarketWatchColumnProfile::createDefaultProfile());
-    addProfile(MarketWatchColumnProfile::createCompactProfile());
-    addProfile(MarketWatchColumnProfile::createDetailedProfile());
-    addProfile(MarketWatchColumnProfile::createFOProfile());
-    addProfile(MarketWatchColumnProfile::createEquityProfile());
-    addProfile(MarketWatchColumnProfile::createTradingProfile());
-}

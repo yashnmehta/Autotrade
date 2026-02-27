@@ -63,11 +63,11 @@ QVariant MarketWatchModel::data(const QModelIndex &index, int role) const
     }
 
     // Get the column enum for this index
-    QList<MarketWatchColumn> visibleCols = m_columnProfile.visibleColumns();
+    QList<int> visibleCols = m_columnProfile.visibleColumns();
     if (index.column() < 0 || index.column() >= visibleCols.size())
         return QVariant();
     
-    MarketWatchColumn column = visibleCols.at(index.column());
+    MarketWatchColumn column = static_cast<MarketWatchColumn>(visibleCols.at(index.column()));
 
     // Display role - show formatted data
     if (role == Qt::DisplayRole) {
@@ -115,11 +115,11 @@ QVariant MarketWatchModel::data(const QModelIndex &index, int role) const
 QVariant MarketWatchModel::headerData(int section, Qt::Orientation orientation, int role) const
 {
     if (orientation == Qt::Horizontal) {
-        QList<MarketWatchColumn> visibleCols = m_columnProfile.visibleColumns();
+        QList<int> visibleCols = m_columnProfile.visibleColumns();
         if (section < 0 || section >= visibleCols.size())
             return QVariant();
         
-        MarketWatchColumn col = visibleCols.at(section);
+        MarketWatchColumn col = static_cast<MarketWatchColumn>(visibleCols.at(section));
         ColumnInfo info = MarketWatchColumnProfile::getColumnInfo(col);
         
         if (role == Qt::DisplayRole) {
@@ -484,7 +484,7 @@ void MarketWatchModel::notifyRowUpdated(int row, int firstColumn, int lastColumn
 // Column Profile Management
 // ============================================================================
 
-void MarketWatchModel::setColumnProfile(const MarketWatchColumnProfile& profile)
+void MarketWatchModel::setColumnProfile(const GenericTableProfile& profile)
 {
     beginResetModel();
     m_columnProfile = profile;
@@ -494,30 +494,29 @@ void MarketWatchModel::setColumnProfile(const MarketWatchColumnProfile& profile)
 
 void MarketWatchModel::loadProfile(const QString& profileName)
 {
-    MarketWatchProfileManager& manager = MarketWatchProfileManager::instance();
-    
-    if (manager.hasProfile(profileName)) {
-        setColumnProfile(manager.getProfile(profileName));
-    } else {
-        qDebug() << "[MarketWatchModel] Profile not found:" << profileName;
-    }
+    // Use preset factories — no global singleton manager.
+    // A caller that needs custom profiles can use GenericProfileManager directly.
+    if (profileName == "Default")  { setColumnProfile(MarketWatchColumnProfile::createDefaultProfile()); return; }
+    if (profileName == "Compact")  { setColumnProfile(MarketWatchColumnProfile::createCompactProfile()); return; }
+    if (profileName == "Detailed") { setColumnProfile(MarketWatchColumnProfile::createDetailedProfile()); return; }
+    if (profileName == "F&O")      { setColumnProfile(MarketWatchColumnProfile::createFOProfile()); return; }
+    if (profileName == "Equity")   { setColumnProfile(MarketWatchColumnProfile::createEquityProfile()); return; }
+    if (profileName == "Trading")  { setColumnProfile(MarketWatchColumnProfile::createTradingProfile()); return; }
+    qDebug() << "[MarketWatchModel] Profile not found:" << profileName;
 }
 
 void MarketWatchModel::saveProfile(const QString& profileName)
 {
-    MarketWatchProfileManager& manager = MarketWatchProfileManager::instance();
-    
-    MarketWatchColumnProfile profile = m_columnProfile;
+    // Profile persistence is handled by GenericProfileManager at the window level.
+    // Model just holds the current profile in memory.
+    GenericTableProfile profile = m_columnProfile;
     profile.setName(profileName);
-    
-    manager.addProfile(profile);
-    manager.saveAllProfiles("profiles/marketwatch");  // Persist to disk
-    qDebug() << "[MarketWatchModel] Profile saved:" << profileName;
+    qDebug() << "[MarketWatchModel] Profile save requested (handled by window):" << profileName;
 }
 
 QStringList MarketWatchModel::getAvailableProfiles() const
 {
-    return MarketWatchProfileManager::instance().profileNames();
+    return QStringList{"Default", "Compact", "Detailed", "F&O", "Equity", "Trading"};
 }
 
 // ============================================================================

@@ -337,6 +337,7 @@ set(UI_SOURCES
     src/ui/StrategyManagerWindow.cpp
     src/ui/CreateStrategyDialog.cpp
     src/ui/ModifyParametersDialog.cpp
+    src/ui/OptionCalculatorWindow.cpp
     src/ui/GlobalSearchWidget.cpp
     src/ui/ConditionBuilderWidget.cpp
     src/ui/StrategyTemplateBuilderDialog.cpp
@@ -358,6 +359,7 @@ set(UI_HEADERS
     include/ui/StrategyManagerWindow.h
     include/ui/CreateStrategyDialog.h
     include/ui/ModifyParametersDialog.h
+    include/ui/OptionCalculatorWindow.h
     include/ui/GlobalSearchWidget.h
     include/ui/ConditionBuilderWidget.h
     include/ui/StrategyTemplateBuilderDialog.h
@@ -415,7 +417,6 @@ set(VIEW_SOURCES
     src/views/PositionWindow/PositionWindow.cpp
     src/views/TradeBookWindow/TradeBookWindow.cpp
     src/views/OrderBookWindow/OrderBookWindow.cpp
-    src/views/ColumnProfileDialog.cpp
     src/views/GenericProfileDialog.cpp
     src/views/PreferenceDialog/PreferenceDialog.cpp
     src/views/PreferenceDialog/PreferencesGeneralTab.cpp
@@ -439,7 +440,6 @@ set(VIEW_HEADERS
     include/views/PositionWindow.h
     include/views/TradeBookWindow.h
     include/views/OrderBookWindow.h
-    include/views/ColumnProfileDialog.h
     include/views/GenericProfileDialog.h
     include/views/PreferenceDialog.h
     include/views/PreferencesGeneralTab.h

@@ -1,5 +1,6 @@
 #include "views/MarketWatchWindow.h"
-#include "views/ColumnProfileDialog.h"
+#include "views/GenericProfileDialog.h"
+#include "models/GenericProfileManager.h"
 #include "utils/WindowSettingsHelper.h"
 #include "models/TokenAddressBook.h"
 #include <QHeaderView>
@@ -150,13 +151,19 @@ void MarketWatchWindow::showContextMenu(const QPoint &pos)
 
 void MarketWatchWindow::showColumnProfileDialog()
 {
-    ColumnProfileDialog dialog(m_model->getColumnProfile(), ProfileContext::MarketWatch, this);
-    
-    if (dialog.exec() == QDialog::Accepted && dialog.wasAccepted()) {
-        MarketWatchColumnProfile newProfile = dialog.getProfile();
+    // Build column metadata and a preset-aware manager
+    auto metadata = MarketWatchColumnProfile::buildGenericMetadata();
+    GenericProfileManager mgr("profiles", "MarketWatch");
+    MarketWatchColumnProfile::registerPresets(mgr);
+    mgr.loadCustomProfiles();
+
+    GenericProfileDialog dialog("Market Watch \u2014 Column Profile", metadata, &mgr,
+                                m_model->getColumnProfile(), this);
+
+    if (dialog.exec() == QDialog::Accepted) {
+        GenericTableProfile newProfile = dialog.getProfile();
         m_model->setColumnProfile(newProfile);
         applyProfileToView(newProfile);
-        
         qDebug() << "[MarketWatchWindow] Column profile updated to:" << newProfile.name();
     }
 }

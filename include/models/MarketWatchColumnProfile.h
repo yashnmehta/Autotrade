@@ -162,5 +162,5 @@ private:
     static void initializeColumnMetadata();
     static QMap<MarketWatchColumn, ColumnInfo> s_columnMetadata;
 };
- nbmmmmmmmm
+
 #endif // MARKETWATCHCOLUMNPROFILE_H

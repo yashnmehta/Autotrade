@@ -377,8 +377,8 @@ private:
     QMap<uint32_t, const MarketData::UnifiedState*> m_tokenUnifiedPointers;
 
     // Internal Helpers for Visual Persistence
-    void captureProfileFromView(MarketWatchColumnProfile &profile);
-    void applyProfileToView(const MarketWatchColumnProfile &profile);
+    void captureProfileFromView(GenericTableProfile &profile);
+    void applyProfileToView(const GenericTableProfile &profile);
 };
 
 #endif // MARKETWATCHWINDOW_H

@@ -120,6 +120,8 @@ public:
 
         m_order.clear();
         QJsonArray orderArray = json["order"].toArray();
+        if (orderArray.isEmpty())
+            orderArray = json["columnOrder"].toArray();  // Legacy MarketWatch compat
         for (const QJsonValue &val : orderArray)
             m_order.append(val.toInt());
     }

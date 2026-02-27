@@ -129,7 +129,7 @@ int MarketWatchHelpers::extractToken(const QString &line)
     return ok ? token : -1;
 }
 
-bool MarketWatchHelpers::savePortfolio(const QString &filename, const QList<ScripData> &scrips, const MarketWatchColumnProfile &profile)
+bool MarketWatchHelpers::savePortfolio(const QString &filename, const QList<ScripData> &scrips, const GenericTableProfile &profile)
 {
     QFile file(filename);
     if (!file.open(QIODevice::WriteOnly)) {
@@ -160,7 +160,7 @@ bool MarketWatchHelpers::savePortfolio(const QString &filename, const QList<Scri
     return true;
 }
 
-bool MarketWatchHelpers::loadPortfolio(const QString &filename, QList<ScripData> &scrips, MarketWatchColumnProfile &profile)
+bool MarketWatchHelpers::loadPortfolio(const QString &filename, QList<ScripData> &scrips, GenericTableProfile &profile)
 {
     QFile file(filename);
     if (!file.open(QIODevice::ReadOnly)) {

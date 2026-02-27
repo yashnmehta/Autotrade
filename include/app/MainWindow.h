@@ -98,6 +98,7 @@ private slots:
   CustomMDISubWindow *createChartWindow();
   CustomMDISubWindow *createIndicatorChartWindow();
   CustomMDISubWindow *createMarketMovementWindow();
+  CustomMDISubWindow *createOptionCalculatorWindow();
   void focusScripBar();
   void onAddToWatchRequested(const InstrumentData &instrument);
   void resetLayout();

@@ -6,6 +6,7 @@
 #include <QString>
 #include <QDateTime>
 #include "models/MarketWatchColumnProfile.h"
+#include "models/GenericTableProfile.h"
 #include "models/IMarketWatchViewCallback.h"
 
 /**
@@ -188,9 +189,9 @@ public:
     QVariant headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const override;
     
     // Column profile management
-    void setColumnProfile(const MarketWatchColumnProfile& profile);
-    const MarketWatchColumnProfile& getColumnProfile() const { return m_columnProfile; }
-    MarketWatchColumnProfile& getColumnProfile() { return m_columnProfile; }
+    void setColumnProfile(const GenericTableProfile& profile);
+    const GenericTableProfile& getColumnProfile() const { return m_columnProfile; }
+    GenericTableProfile& getColumnProfile() { return m_columnProfile; }
     void loadProfile(const QString& profileName);
     void saveProfile(const QString& profileName);
     QStringList getAvailableProfiles() const;
@@ -242,7 +243,7 @@ signals:
 
 private:
     QList<ScripData> m_scrips;
-    MarketWatchColumnProfile m_columnProfile;
+    GenericTableProfile m_columnProfile;
     
     // Native C++ callback for ultra-low latency updates (bypasses Qt signals)
     IMarketWatchViewCallback* m_viewCallback = nullptr;
