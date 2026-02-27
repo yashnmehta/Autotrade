@@ -1,83 +1,111 @@
-# Build directories
+# ============================================================
+# Build output directories
+# ============================================================
 /build/
+/build_msvc/
+/build_ninja/
 /TradingTerminal_autogen/
-configs/*
-# CMake files
+
+# CMake-generated files
 CMakeFiles/
 CMakeCache.txt
 cmake_install.cmake
 Makefile
 
-# Object files and libraries
+# ============================================================
+# Compiled / binary artifacts
+# ============================================================
 *.o
 *.obj
 *.so
 *.dylib
 *.a
 *.dll
-
-# Executables
 *.exe
 *.out
-*.app
 
+# App bundle (macOS)
+*.app/
+TradingTerminal.app/
+
+# ============================================================
 # Qt generated files
+# ============================================================
 *.moc
 moc_*.cpp
 mocs_compilation.cpp
 *.pro.user*
 *.user
 
-# macOS
-.DS_Store
-
-# IDEs
-.vscode/
-.idea/
-*.swp
-
-# App bundle
-TradingTerminal.app/
-
-# Logs and misc
-*.log
-*.tmp
-
-# Test executables and scripts (should be in tests/ directory)
-/test_*
-!/tests/
-
-reference_code/
-   
-
-# Temporary directories
-masters_actual
-masters
+# ============================================================
+# Runtime data directories (not source – keep out of repo)
+# ============================================================
+/profiles/
+/MasterFiles/
+/ref_code/
+/backups/
+masters/
+masters_actual/
 /Logs/
 /NSE_UDP_TEST/
 
-# Backup files
-*.backup
-
-# Config files - ignore all config files in configs folder
-# /configs/*.ini
-# /configs/*.json
-# /configs/config.ini
-
-# add config files
+# ============================================================
+# Config files  (secrets / machine-local)
+# ============================================================
 /configs/config.ini
 
-
-#D:\Pratham\Terminal\trading_terminal_cpp\lib\cpp_broadcast_nsecm\CM_Tests add this into the gitignore
+# ============================================================
+# Vendor / archive files that shouldn't live in the repo
+# ============================================================
+*.zip
+*.tar.gz
+*.tar.bz2
+*.rar
+*.7z
 /lib/cpp_broadcast_nsecm/CM_Tests/
+
+# ============================================================
+# Root-level scratch / temp files
+# ============================================================
+/aa
+/check_size
+/check_size.cpp
+/build_output.txt
+/build_output2.txt
+/cmake_help.txt
+/run_log.txt
 build/build_log.txt
 
-#add batch files
-*.bat
-configs/config.ini
-ref_code/Autotrader-Reborn-master/*
-ref_code/charting_library-master (1)/*
-ref_code/trade-chart-frontend/*
-ref_code/charting_library-master (1).zip
-build_msvc/*
-build_ninja
+# ============================================================
+# Backup files
+# ============================================================
+*.backup
+*.bak
+*.old
+
+# ============================================================
+# macOS
+# ============================================================
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# ============================================================
+# IDEs
+# ============================================================
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ============================================================
+# Logs and misc temp
+# ============================================================
+*.log
+*.tmp
+
+# ============================================================
+# Test executables built at root level (keep tests/ dir)
+# ============================================================
+/test_*
+!/tests/

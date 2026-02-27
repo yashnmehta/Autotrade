@@ -246,13 +246,11 @@ include_directories(
     ${CMAKE_SOURCE_DIR}/include
     ${CMAKE_SOURCE_DIR}/include/core
     ${CMAKE_SOURCE_DIR}/include/core/widgets
-    ${CMAKE_SOURCE_DIR}/include/core/base
     ${CMAKE_SOURCE_DIR}/include/app
     ${CMAKE_SOURCE_DIR}/include/ui
     ${CMAKE_SOURCE_DIR}/include/views
     ${CMAKE_SOURCE_DIR}/include/models
     ${CMAKE_SOURCE_DIR}/include/services
-    ${CMAKE_SOURCE_DIR}/include/services/xts
     ${CMAKE_SOURCE_DIR}/include/api
     ${CMAKE_SOURCE_DIR}/include/repository
     ${CMAKE_SOURCE_DIR}/include/utils

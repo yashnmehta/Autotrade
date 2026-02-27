@@ -1,0 +1,4285 @@
+{
+  "_comment": "TA-Lib indicator default configurations for the Strategy Template Builder. Each entry maps to IndicatorDefinition fields used in StrategyTemplateBuilderDialog. 'inputs' lists required OHLCV fields. 'outputs' lists result series names. defaults.param1 = periodParam (1st arg), defaults.param2 = period2Param (2nd arg), defaults.param3 = param1 (3rd numeric arg). paramMeta keys use the same param1/param2/param3 naming.",
+  "version": "1.0",
+  "indicators": {
+    "Overlap Studies": [
+      {
+        "type": "BBANDS",
+        "label": "Bollinger Bands",
+        "group": "Overlap Studies",
+        "description": "Upper / Middle / Lower Bollinger Bands around a moving average",
+        "inputs": [
+          "close"
+        ],
+        "outputs": [
+          "upperBand",
+          "middleBand",
+          "lowerBand"
+        ],
+        "defaults": {
+          "id": "BB_1",
+          "param1": "20",
+          "param2": "2.0",
+          "param3": 2.0,
+          "priceField": "close"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "Time Period",
+            "type": "int",
+            "min": 2,
+            "max": 500,
+            "default": 20
+          },
+          {
+            "key": "param2",
+            "label": "Std Dev Up (×)",
+            "type": "double",
+            "min": 0.1,
+            "max": 10.0,
+            "default": 2.0
+          },
+          {
+            "key": "param3",
+            "label": "Std Dev Down (×)",
+            "type": "double",
+            "min": 0.1,
+            "max": 10.0,
+            "default": 2.0
+          }
+        ]
+      },
+      {
+        "type": "DEMA",
+        "label": "Double Exponential Moving Average",
+        "group": "Overlap Studies",
+        "description": "Reduces lag of a standard EMA by applying EMA twice",
+        "inputs": [
+          "close"
+        ],
+        "outputs": [
+          "dema"
+        ],
+        "defaults": {
+          "id": "DEMA_1",
+          "param1": "30",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "Time Period",
+            "type": "int",
+            "min": 2,
+            "max": 500,
+            "default": 30
+          }
+        ]
+      },
+      {
+        "type": "EMA",
+        "label": "Exponential Moving Average",
+        "group": "Overlap Studies",
+        "description": "EMA gives more weight to recent prices",
+        "inputs": [
+          "close"
+        ],
+        "outputs": [
+          "ema"
+        ],
+        "defaults": {
+          "id": "EMA_1",
+          "param1": "20",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "Time Period",
+            "type": "int",
+            "min": 2,
+            "max": 500,
+            "default": 20
+          }
+        ]
+      },
+      {
+        "type": "HT_TRENDLINE",
+        "label": "Hilbert Transform - Instantaneous Trendline",
+        "group": "Overlap Studies",
+        "description": "Cycle-based adaptive trendline using Hilbert Transform",
+        "inputs": [
+          "close"
+        ],
+        "outputs": [
+          "trendline"
+        ],
+        "defaults": {
+          "id": "HT_TRENDLINE_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "KAMA",
+        "label": "Kaufman Adaptive Moving Average",
+        "group": "Overlap Studies",
+        "description": "Adapts to volatility; fast in trending markets, slow in ranging",
+        "inputs": [
+          "close"
+        ],
+        "outputs": [
+          "kama"
+        ],
+        "defaults": {
+          "id": "KAMA_1",
+          "param1": "30",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "Time Period",
+            "type": "int",
+            "min": 2,
+            "max": 500,
+            "default": 30
+          }
+        ]
+      },
+      {
+        "type": "MA",
+        "label": "Moving Average",
+        "group": "Overlap Studies",
+        "description": "Generic moving average — MA type selectable (0=SMA, 1=EMA, 2=WMA, …)",
+        "inputs": [
+          "close"
+        ],
+        "outputs": [
+          "ma"
+        ],
+        "defaults": {
+          "id": "MA_1",
+          "param1": "30",
+          "param2": "0",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "Time Period",
+            "type": "int",
+            "min": 1,
+            "max": 500,
+            "default": 30
+          },
+          {
+            "key": "param2",
+            "label": "MA Type (0=SMA … 8=T3)",
+            "type": "int",
+            "min": 0,
+            "max": 8,
+            "default": 0
+          }
+        ]
+      },
+      {
+        "type": "MAMA",
+        "label": "MESA Adaptive Moving Average",
+        "group": "Overlap Studies",
+        "description": "Dual-output MAMA/FAMA based on Hilbert Transform phase",
+        "inputs": [
+          "close"
+        ],
+        "outputs": [
+          "mama",
+          "fama"
+        ],
+        "defaults": {
+          "id": "MAMA_1",
+          "param1": "0.5",
+          "param2": "0.05",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "Fast Limit",
+            "type": "double",
+            "min": 0.01,
+            "max": 0.99,
+            "default": 0.5
+          },
+          {
+            "key": "param2",
+            "label": "Slow Limit",
+            "type": "double",
+            "min": 0.01,
+            "max": 0.99,
+            "default": 0.05
+          }
+        ]
+      },
+      {
+        "type": "MAVP",
+        "label": "Moving Average with Variable Period",
+        "group": "Overlap Studies",
+        "description": "MA where each bar can have a different period",
+        "inputs": [
+          "close"
+        ],
+        "outputs": [
+          "mavp"
+        ],
+        "defaults": {
+          "id": "MAVP_1",
+          "param1": "2",
+          "param2": "30",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "Min Period",
+            "type": "int",
+            "min": 2,
+            "max": 500,
+            "default": 2
+          },
+          {
+            "key": "param2",
+            "label": "Max Period",
+            "type": "int",
+            "min": 2,
+            "max": 500,
+            "default": 30
+          }
+        ]
+      },
+      {
+        "type": "MIDPOINT",
+        "label": "MidPoint over Period",
+        "group": "Overlap Studies",
+        "description": "(Highest + Lowest close) / 2 over the period",
+        "inputs": [
+          "close"
+        ],
+        "outputs": [
+          "midpoint"
+        ],
+        "defaults": {
+          "id": "MIDPOINT_1",
+          "param1": "14",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "Time Period",
+            "type": "int",
+            "min": 2,
+            "max": 500,
+            "default": 14
+          }
+        ]
+      },
+      {
+        "type": "MIDPRICE",
+        "label": "Midpoint Price over Period",
+        "group": "Overlap Studies",
+        "description": "(Highest high + Lowest low) / 2 over the period",
+        "inputs": [
+          "high",
+          "low"
+        ],
+        "outputs": [
+          "midprice"
+        ],
+        "defaults": {
+          "id": "MIDPRICE_1",
+          "param1": "14",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "high"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "Time Period",
+            "type": "int",
+            "min": 2,
+            "max": 500,
+            "default": 14
+          }
+        ]
+      },
+      {
+        "type": "SAR",
+        "label": "Parabolic SAR",
+        "group": "Overlap Studies",
+        "description": "Stop-and-Reverse trailing stop indicator",
+        "inputs": [
+          "high",
+          "low"
+        ],
+        "outputs": [
+          "sar"
+        ],
+        "defaults": {
+          "id": "SAR_1",
+          "param1": "0.02",
+          "param2": "0.2",
+          "param3": 0.0,
+          "priceField": "high"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "Acceleration",
+            "type": "double",
+            "min": 0.0,
+            "max": 10.0,
+            "default": 0.02
+          },
+          {
+            "key": "param2",
+            "label": "AF Maximum",
+            "type": "double",
+            "min": 0.0,
+            "max": 10.0,
+            "default": 0.2
+          }
+        ]
+      },
+      {
+        "type": "SAREXT",
+        "label": "Parabolic SAR - Extended",
+        "group": "Overlap Studies",
+        "description": "SAR with separate start/increment/max for long and short",
+        "inputs": [
+          "high",
+          "low"
+        ],
+        "outputs": [
+          "sarext"
+        ],
+        "defaults": {
+          "id": "SAREXT_1",
+          "param1": "0.0",
+          "param2": "0.0",
+          "param3": 0.02,
+          "priceField": "high"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "Start Value (0 = default)",
+            "type": "double",
+            "min": 0.0,
+            "max": 1e+38,
+            "default": 0.0
+          },
+          {
+            "key": "param2",
+            "label": "Offset on Reverse",
+            "type": "double",
+            "min": 0.0,
+            "max": 1e+38,
+            "default": 0.0
+          },
+          {
+            "key": "param3",
+            "label": "Acceleration Init Long",
+            "type": "double",
+            "min": 0.0,
+            "max": 1e+38,
+            "default": 0.02
+          }
+        ]
+      },
+      {
+        "type": "SMA",
+        "label": "Simple Moving Average",
+        "group": "Overlap Studies",
+        "description": "Arithmetic mean of prices over the lookback period",
+        "inputs": [
+          "close"
+        ],
+        "outputs": [
+          "sma"
+        ],
+        "defaults": {
+          "id": "SMA_1",
+          "param1": "20",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "Time Period",
+            "type": "int",
+            "min": 2,
+            "max": 500,
+            "default": 20
+          }
+        ]
+      },
+      {
+        "type": "T3",
+        "label": "Triple Exponential Moving Average (T3)",
+        "group": "Overlap Studies",
+        "description": "Lower lag T3 with volume factor (vFactor) control",
+        "inputs": [
+          "close"
+        ],
+        "outputs": [
+          "t3"
+        ],
+        "defaults": {
+          "id": "T3_1",
+          "param1": "5",
+          "param2": "0.7",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "Time Period",
+            "type": "int",
+            "min": 2,
+            "max": 500,
+            "default": 5
+          },
+          {
+            "key": "param2",
+            "label": "vFactor (0–1)",
+            "type": "double",
+            "min": 0.0,
+            "max": 1.0,
+            "default": 0.7
+          }
+        ]
+      },
+      {
+        "type": "TEMA",
+        "label": "Triple Exponential Moving Average",
+        "group": "Overlap Studies",
+        "description": "TEMA = 3·EMA – 3·EMA(EMA) + EMA(EMA(EMA)); reduces lag",
+        "inputs": [
+          "close"
+        ],
+        "outputs": [
+          "tema"
+        ],
+        "defaults": {
+          "id": "TEMA_1",
+          "param1": "30",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "Time Period",
+            "type": "int",
+            "min": 2,
+            "max": 500,
+            "default": 30
+          }
+        ]
+      },
+      {
+        "type": "TRIMA",
+        "label": "Triangular Moving Average",
+        "group": "Overlap Studies",
+        "description": "Double-smoothed SMA — weights peak in the middle of the window",
+        "inputs": [
+          "close"
+        ],
+        "outputs": [
+          "trima"
+        ],
+        "defaults": {
+          "id": "TRIMA_1",
+          "param1": "30",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "Time Period",
+            "type": "int",
+            "min": 2,
+            "max": 500,
+            "default": 30
+          }
+        ]
+      },
+      {
+        "type": "WMA",
+        "label": "Weighted Moving Average",
+        "group": "Overlap Studies",
+        "description": "Linearly weighted MA — most recent bar has the highest weight",
+        "inputs": [
+          "close"
+        ],
+        "outputs": [
+          "wma"
+        ],
+        "defaults": {
+          "id": "WMA_1",
+          "param1": "30",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "Time Period",
+            "type": "int",
+            "min": 2,
+            "max": 500,
+            "default": 30
+          }
+        ]
+      }
+    ],
+    "Momentum Indicators": [
+      {
+        "type": "ADX",
+        "label": "Average Directional Movement Index",
+        "group": "Momentum Indicators",
+        "description": "Measures trend strength (not direction); values above 25 = strong trend",
+        "inputs": [
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "adx"
+        ],
+        "defaults": {
+          "id": "ADX_1",
+          "param1": "14",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "Time Period",
+            "type": "int",
+            "min": 2,
+            "max": 500,
+            "default": 14
+          }
+        ]
+      },
+      {
+        "type": "ADXR",
+        "label": "Average Directional Movement Index Rating",
+        "group": "Momentum Indicators",
+        "description": "Smoothed version of ADX: (ADX + ADX[period]) / 2",
+        "inputs": [
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "adxr"
+        ],
+        "defaults": {
+          "id": "ADXR_1",
+          "param1": "14",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "Time Period",
+            "type": "int",
+            "min": 2,
+            "max": 500,
+            "default": 14
+          }
+        ]
+      },
+      {
+        "type": "APO",
+        "label": "Absolute Price Oscillator",
+        "group": "Momentum Indicators",
+        "description": "Difference between two MAs (fast – slow)",
+        "inputs": [
+          "close"
+        ],
+        "outputs": [
+          "apo"
+        ],
+        "defaults": {
+          "id": "APO_1",
+          "param1": "12",
+          "param2": "26",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "Fast Period",
+            "type": "int",
+            "min": 2,
+            "max": 500,
+            "default": 12
+          },
+          {
+            "key": "param2",
+            "label": "Slow Period",
+            "type": "int",
+            "min": 2,
+            "max": 500,
+            "default": 26
+          }
+        ]
+      },
+      {
+        "type": "AROON",
+        "label": "Aroon",
+        "group": "Momentum Indicators",
+        "description": "Dual-line (AroonUp / AroonDown) identifying trend changes",
+        "inputs": [
+          "high",
+          "low"
+        ],
+        "outputs": [
+          "aroonDown",
+          "aroonUp"
+        ],
+        "defaults": {
+          "id": "AROON_1",
+          "param1": "14",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "high"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "Time Period",
+            "type": "int",
+            "min": 2,
+            "max": 500,
+            "default": 14
+          }
+        ]
+      },
+      {
+        "type": "AROONOSC",
+        "label": "Aroon Oscillator",
+        "group": "Momentum Indicators",
+        "description": "AroonUp – AroonDown; positive = bullish bias",
+        "inputs": [
+          "high",
+          "low"
+        ],
+        "outputs": [
+          "aroonOsc"
+        ],
+        "defaults": {
+          "id": "AROONOSC_1",
+          "param1": "14",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "high"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "Time Period",
+            "type": "int",
+            "min": 2,
+            "max": 500,
+            "default": 14
+          }
+        ]
+      },
+      {
+        "type": "BOP",
+        "label": "Balance of Power",
+        "group": "Momentum Indicators",
+        "description": "(Close – Open) / (High – Low); positive = bulls in control",
+        "inputs": [
+          "open",
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "bop"
+        ],
+        "defaults": {
+          "id": "BOP_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "CCI",
+        "label": "Commodity Channel Index",
+        "group": "Momentum Indicators",
+        "description": "Measures deviation of typical price from its SMA; ±100 are key levels",
+        "inputs": [
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "cci"
+        ],
+        "defaults": {
+          "id": "CCI_1",
+          "param1": "14",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "Time Period",
+            "type": "int",
+            "min": 2,
+            "max": 500,
+            "default": 14
+          }
+        ]
+      },
+      {
+        "type": "CMO",
+        "label": "Chande Momentum Oscillator",
+        "group": "Momentum Indicators",
+        "description": "Modified RSI ranging from –100 to +100",
+        "inputs": [
+          "close"
+        ],
+        "outputs": [
+          "cmo"
+        ],
+        "defaults": {
+          "id": "CMO_1",
+          "param1": "14",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "Time Period",
+            "type": "int",
+            "min": 2,
+            "max": 500,
+            "default": 14
+          }
+        ]
+      },
+      {
+        "type": "DX",
+        "label": "Directional Movement Index",
+        "group": "Momentum Indicators",
+        "description": "Raw directional movement before ADX smoothing",
+        "inputs": [
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "dx"
+        ],
+        "defaults": {
+          "id": "DX_1",
+          "param1": "14",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "Time Period",
+            "type": "int",
+            "min": 2,
+            "max": 500,
+            "default": 14
+          }
+        ]
+      },
+      {
+        "type": "MACD",
+        "label": "MACD",
+        "group": "Momentum Indicators",
+        "description": "Moving Average Convergence/Divergence; 3 outputs: MACD, Signal, Histogram",
+        "inputs": [
+          "close"
+        ],
+        "outputs": [
+          "macd",
+          "macdSignal",
+          "macdHist"
+        ],
+        "defaults": {
+          "id": "MACD_1",
+          "param1": "12",
+          "param2": "26",
+          "param3": 9.0,
+          "priceField": "close"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "Fast Period",
+            "type": "int",
+            "min": 2,
+            "max": 500,
+            "default": 12
+          },
+          {
+            "key": "param2",
+            "label": "Slow Period",
+            "type": "int",
+            "min": 2,
+            "max": 500,
+            "default": 26
+          },
+          {
+            "key": "param3",
+            "label": "Signal Period",
+            "type": "int",
+            "min": 1,
+            "max": 500,
+            "default": 9
+          }
+        ]
+      },
+      {
+        "type": "MACDEXT",
+        "label": "MACD with Controllable MA Type",
+        "group": "Momentum Indicators",
+        "description": "MACD where fast, slow and signal MA types are user-selectable",
+        "inputs": [
+          "close"
+        ],
+        "outputs": [
+          "macd",
+          "macdSignal",
+          "macdHist"
+        ],
+        "defaults": {
+          "id": "MACDEXT_1",
+          "param1": "12",
+          "param2": "26",
+          "param3": 9.0,
+          "priceField": "close"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "Fast Period",
+            "type": "int",
+            "min": 2,
+            "max": 500,
+            "default": 12
+          },
+          {
+            "key": "param2",
+            "label": "Slow Period",
+            "type": "int",
+            "min": 2,
+            "max": 500,
+            "default": 26
+          },
+          {
+            "key": "param3",
+            "label": "Signal Period",
+            "type": "int",
+            "min": 1,
+            "max": 500,
+            "default": 9
+          }
+        ]
+      },
+      {
+        "type": "MACDFIX",
+        "label": "MACD Fix 12/26",
+        "group": "Momentum Indicators",
+        "description": "Fixed-period MACD (fast=12, slow=26); only signal period is configurable",
+        "inputs": [
+          "close"
+        ],
+        "outputs": [
+          "macd",
+          "macdSignal",
+          "macdHist"
+        ],
+        "defaults": {
+          "id": "MACDFIX_1",
+          "param1": "9",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "Signal Period",
+            "type": "int",
+            "min": 1,
+            "max": 500,
+            "default": 9
+          }
+        ]
+      },
+      {
+        "type": "MFI",
+        "label": "Money Flow Index",
+        "group": "Momentum Indicators",
+        "description": "Volume-weighted RSI; above 80 = overbought, below 20 = oversold",
+        "inputs": [
+          "high",
+          "low",
+          "close",
+          "volume"
+        ],
+        "outputs": [
+          "mfi"
+        ],
+        "defaults": {
+          "id": "MFI_1",
+          "param1": "14",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "Time Period",
+            "type": "int",
+            "min": 2,
+            "max": 500,
+            "default": 14
+          }
+        ]
+      },
+      {
+        "type": "MINUS_DI",
+        "label": "Minus Directional Indicator (-DI)",
+        "group": "Momentum Indicators",
+        "description": "Negative directional movement as a percentage; part of ADX system",
+        "inputs": [
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "minusDI"
+        ],
+        "defaults": {
+          "id": "MINUS_DI_1",
+          "param1": "14",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "Time Period",
+            "type": "int",
+            "min": 1,
+            "max": 500,
+            "default": 14
+          }
+        ]
+      },
+      {
+        "type": "MINUS_DM",
+        "label": "Minus Directional Movement (-DM)",
+        "group": "Momentum Indicators",
+        "description": "Raw negative directional movement before smoothing",
+        "inputs": [
+          "high",
+          "low"
+        ],
+        "outputs": [
+          "minusDM"
+        ],
+        "defaults": {
+          "id": "MINUS_DM_1",
+          "param1": "14",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "high"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "Time Period",
+            "type": "int",
+            "min": 1,
+            "max": 500,
+            "default": 14
+          }
+        ]
+      },
+      {
+        "type": "MOM",
+        "label": "Momentum",
+        "group": "Momentum Indicators",
+        "description": "Price – Price[period]; raw price change over the lookback",
+        "inputs": [
+          "close"
+        ],
+        "outputs": [
+          "mom"
+        ],
+        "defaults": {
+          "id": "MOM_1",
+          "param1": "10",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "Time Period",
+            "type": "int",
+            "min": 1,
+            "max": 500,
+            "default": 10
+          }
+        ]
+      },
+      {
+        "type": "PLUS_DI",
+        "label": "Plus Directional Indicator (+DI)",
+        "group": "Momentum Indicators",
+        "description": "Positive directional movement as a percentage; part of ADX system",
+        "inputs": [
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "plusDI"
+        ],
+        "defaults": {
+          "id": "PLUS_DI_1",
+          "param1": "14",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "Time Period",
+            "type": "int",
+            "min": 1,
+            "max": 500,
+            "default": 14
+          }
+        ]
+      },
+      {
+        "type": "PLUS_DM",
+        "label": "Plus Directional Movement (+DM)",
+        "group": "Momentum Indicators",
+        "description": "Raw positive directional movement before smoothing",
+        "inputs": [
+          "high",
+          "low"
+        ],
+        "outputs": [
+          "plusDM"
+        ],
+        "defaults": {
+          "id": "PLUS_DM_1",
+          "param1": "14",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "high"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "Time Period",
+            "type": "int",
+            "min": 1,
+            "max": 500,
+            "default": 14
+          }
+        ]
+      },
+      {
+        "type": "PPO",
+        "label": "Percentage Price Oscillator",
+        "group": "Momentum Indicators",
+        "description": "(Fast MA – Slow MA) / Slow MA × 100; normalised APO",
+        "inputs": [
+          "close"
+        ],
+        "outputs": [
+          "ppo"
+        ],
+        "defaults": {
+          "id": "PPO_1",
+          "param1": "12",
+          "param2": "26",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "Fast Period",
+            "type": "int",
+            "min": 2,
+            "max": 500,
+            "default": 12
+          },
+          {
+            "key": "param2",
+            "label": "Slow Period",
+            "type": "int",
+            "min": 2,
+            "max": 500,
+            "default": 26
+          }
+        ]
+      },
+      {
+        "type": "ROC",
+        "label": "Rate of Change",
+        "group": "Momentum Indicators",
+        "description": "((Price / Price[period]) – 1) × 100",
+        "inputs": [
+          "close"
+        ],
+        "outputs": [
+          "roc"
+        ],
+        "defaults": {
+          "id": "ROC_1",
+          "param1": "10",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "Time Period",
+            "type": "int",
+            "min": 1,
+            "max": 500,
+            "default": 10
+          }
+        ]
+      },
+      {
+        "type": "ROCP",
+        "label": "Rate of Change Percentage",
+        "group": "Momentum Indicators",
+        "description": "(Price – Price[period]) / Price[period]",
+        "inputs": [
+          "close"
+        ],
+        "outputs": [
+          "rocp"
+        ],
+        "defaults": {
+          "id": "ROCP_1",
+          "param1": "10",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "Time Period",
+            "type": "int",
+            "min": 1,
+            "max": 500,
+            "default": 10
+          }
+        ]
+      },
+      {
+        "type": "ROCR",
+        "label": "Rate of Change Ratio",
+        "group": "Momentum Indicators",
+        "description": "Price / Price[period]",
+        "inputs": [
+          "close"
+        ],
+        "outputs": [
+          "rocr"
+        ],
+        "defaults": {
+          "id": "ROCR_1",
+          "param1": "10",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "Time Period",
+            "type": "int",
+            "min": 1,
+            "max": 500,
+            "default": 10
+          }
+        ]
+      },
+      {
+        "type": "ROCR100",
+        "label": "Rate of Change Ratio ×100",
+        "group": "Momentum Indicators",
+        "description": "(Price / Price[period]) × 100",
+        "inputs": [
+          "close"
+        ],
+        "outputs": [
+          "rocr100"
+        ],
+        "defaults": {
+          "id": "ROCR100_1",
+          "param1": "10",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "Time Period",
+            "type": "int",
+            "min": 1,
+            "max": 500,
+            "default": 10
+          }
+        ]
+      },
+      {
+        "type": "RSI",
+        "label": "Relative Strength Index",
+        "group": "Momentum Indicators",
+        "description": "Oscillator 0–100; above 70 = overbought, below 30 = oversold",
+        "inputs": [
+          "close"
+        ],
+        "outputs": [
+          "rsi"
+        ],
+        "defaults": {
+          "id": "RSI_1",
+          "param1": "14",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "Time Period",
+            "type": "int",
+            "min": 2,
+            "max": 500,
+            "default": 14
+          }
+        ]
+      },
+      {
+        "type": "STOCH",
+        "label": "Stochastic",
+        "group": "Momentum Indicators",
+        "description": "Classic Slow Stochastic: %K and %D lines",
+        "inputs": [
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "slowK",
+          "slowD"
+        ],
+        "defaults": {
+          "id": "STOCH_1",
+          "param1": "5",
+          "param2": "3",
+          "param3": 3.0,
+          "priceField": "close"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "Fast K Period",
+            "type": "int",
+            "min": 1,
+            "max": 500,
+            "default": 5
+          },
+          {
+            "key": "param2",
+            "label": "Slow K Period",
+            "type": "int",
+            "min": 1,
+            "max": 500,
+            "default": 3
+          },
+          {
+            "key": "param3",
+            "label": "Slow D Period",
+            "type": "int",
+            "min": 1,
+            "max": 500,
+            "default": 3
+          }
+        ]
+      },
+      {
+        "type": "STOCHF",
+        "label": "Stochastic Fast",
+        "group": "Momentum Indicators",
+        "description": "Fast Stochastic: unsmoothed %K and %D",
+        "inputs": [
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "fastK",
+          "fastD"
+        ],
+        "defaults": {
+          "id": "STOCHF_1",
+          "param1": "5",
+          "param2": "3",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "Fast K Period",
+            "type": "int",
+            "min": 1,
+            "max": 500,
+            "default": 5
+          },
+          {
+            "key": "param2",
+            "label": "Fast D Period",
+            "type": "int",
+            "min": 1,
+            "max": 500,
+            "default": 3
+          }
+        ]
+      },
+      {
+        "type": "STOCHRSI",
+        "label": "Stochastic RSI",
+        "group": "Momentum Indicators",
+        "description": "Stochastic applied to RSI values; fastK and fastD outputs",
+        "inputs": [
+          "close"
+        ],
+        "outputs": [
+          "fastK",
+          "fastD"
+        ],
+        "defaults": {
+          "id": "STOCHRSI_1",
+          "param1": "14",
+          "param2": "5",
+          "param3": 3.0,
+          "priceField": "close"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "RSI Period",
+            "type": "int",
+            "min": 2,
+            "max": 500,
+            "default": 14
+          },
+          {
+            "key": "param2",
+            "label": "Fast K Period",
+            "type": "int",
+            "min": 1,
+            "max": 500,
+            "default": 5
+          },
+          {
+            "key": "param3",
+            "label": "Fast D Period",
+            "type": "int",
+            "min": 1,
+            "max": 500,
+            "default": 3
+          }
+        ]
+      },
+      {
+        "type": "TRIX",
+        "label": "TRIX",
+        "group": "Momentum Indicators",
+        "description": "1-day ROC of a triple-smoothed EMA; zero-line crossovers signal momentum",
+        "inputs": [
+          "close"
+        ],
+        "outputs": [
+          "trix"
+        ],
+        "defaults": {
+          "id": "TRIX_1",
+          "param1": "30",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "Time Period",
+            "type": "int",
+            "min": 1,
+            "max": 500,
+            "default": 30
+          }
+        ]
+      },
+      {
+        "type": "ULTOSC",
+        "label": "Ultimate Oscillator",
+        "group": "Momentum Indicators",
+        "description": "Weighted average of three oscillators (short/mid/long) to reduce false divergences",
+        "inputs": [
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "ultosc"
+        ],
+        "defaults": {
+          "id": "ULTOSC_1",
+          "param1": "7",
+          "param2": "14",
+          "param3": 28.0,
+          "priceField": "close"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "Short Period",
+            "type": "int",
+            "min": 1,
+            "max": 500,
+            "default": 7
+          },
+          {
+            "key": "param2",
+            "label": "Middle Period",
+            "type": "int",
+            "min": 1,
+            "max": 500,
+            "default": 14
+          },
+          {
+            "key": "param3",
+            "label": "Long Period",
+            "type": "int",
+            "min": 1,
+            "max": 500,
+            "default": 28
+          }
+        ]
+      },
+      {
+        "type": "WILLR",
+        "label": "Williams' %R",
+        "group": "Momentum Indicators",
+        "description": "Inverse stochastic; –80 to –100 = oversold, 0 to –20 = overbought",
+        "inputs": [
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "willr"
+        ],
+        "defaults": {
+          "id": "WILLR_1",
+          "param1": "14",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "Time Period",
+            "type": "int",
+            "min": 2,
+            "max": 500,
+            "default": 14
+          }
+        ]
+      }
+    ],
+    "Volume Indicators": [
+      {
+        "type": "AD",
+        "label": "Chaikin A/D Line",
+        "group": "Volume Indicators",
+        "description": "Accumulation/Distribution Line; uses close location within high-low range",
+        "inputs": [
+          "high",
+          "low",
+          "close",
+          "volume"
+        ],
+        "outputs": [
+          "ad"
+        ],
+        "defaults": {
+          "id": "AD_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "ADOSC",
+        "label": "Chaikin A/D Oscillator",
+        "group": "Volume Indicators",
+        "description": "EMA(3) – EMA(10) of the A/D Line",
+        "inputs": [
+          "high",
+          "low",
+          "close",
+          "volume"
+        ],
+        "outputs": [
+          "adosc"
+        ],
+        "defaults": {
+          "id": "ADOSC_1",
+          "param1": "3",
+          "param2": "10",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "Fast Period",
+            "type": "int",
+            "min": 2,
+            "max": 500,
+            "default": 3
+          },
+          {
+            "key": "param2",
+            "label": "Slow Period",
+            "type": "int",
+            "min": 2,
+            "max": 500,
+            "default": 10
+          }
+        ]
+      },
+      {
+        "type": "OBV",
+        "label": "On Balance Volume",
+        "group": "Volume Indicators",
+        "description": "Cumulative volume that adds on up-days and subtracts on down-days",
+        "inputs": [
+          "close",
+          "volume"
+        ],
+        "outputs": [
+          "obv"
+        ],
+        "defaults": {
+          "id": "OBV_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      }
+    ],
+    "Cycle Indicators": [
+      {
+        "type": "HT_DCPERIOD",
+        "label": "Hilbert Transform - Dominant Cycle Period",
+        "group": "Cycle Indicators",
+        "description": "Instantaneous period of the dominant cycle in price",
+        "inputs": [
+          "close"
+        ],
+        "outputs": [
+          "dcPeriod"
+        ],
+        "defaults": {
+          "id": "HT_DCPERIOD_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "HT_DCPHASE",
+        "label": "Hilbert Transform - Dominant Cycle Phase",
+        "group": "Cycle Indicators",
+        "description": "Phase of the dominant cycle (degrees)",
+        "inputs": [
+          "close"
+        ],
+        "outputs": [
+          "dcPhase"
+        ],
+        "defaults": {
+          "id": "HT_DCPHASE_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "HT_PHASOR",
+        "label": "Hilbert Transform - Phasor Components",
+        "group": "Cycle Indicators",
+        "description": "InPhase and Quadrature components of the dominant cycle",
+        "inputs": [
+          "close"
+        ],
+        "outputs": [
+          "inPhase",
+          "quadrature"
+        ],
+        "defaults": {
+          "id": "HT_PHASOR_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "HT_SINE",
+        "label": "Hilbert Transform - SineWave",
+        "group": "Cycle Indicators",
+        "description": "Sine and Lead Sine components for cycle identification",
+        "inputs": [
+          "close"
+        ],
+        "outputs": [
+          "sine",
+          "leadSine"
+        ],
+        "defaults": {
+          "id": "HT_SINE_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "HT_TRENDMODE",
+        "label": "Hilbert Transform - Trend vs Cycle Mode",
+        "group": "Cycle Indicators",
+        "description": "Binary integer: 1 = trending, 0 = cycling",
+        "inputs": [
+          "close"
+        ],
+        "outputs": [
+          "trendMode"
+        ],
+        "defaults": {
+          "id": "HT_TRENDMODE_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      }
+    ],
+    "Price Transform": [
+      {
+        "type": "AVGPRICE",
+        "label": "Average Price",
+        "group": "Price Transform",
+        "description": "(Open + High + Low + Close) / 4",
+        "inputs": [
+          "open",
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "avgPrice"
+        ],
+        "defaults": {
+          "id": "AVGPRICE_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "MEDPRICE",
+        "label": "Median Price",
+        "group": "Price Transform",
+        "description": "(High + Low) / 2",
+        "inputs": [
+          "high",
+          "low"
+        ],
+        "outputs": [
+          "medPrice"
+        ],
+        "defaults": {
+          "id": "MEDPRICE_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "high"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "TYPPRICE",
+        "label": "Typical Price",
+        "group": "Price Transform",
+        "description": "(High + Low + Close) / 3",
+        "inputs": [
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "typPrice"
+        ],
+        "defaults": {
+          "id": "TYPPRICE_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "WCLPRICE",
+        "label": "Weighted Close Price",
+        "group": "Price Transform",
+        "description": "(High + Low + Close×2) / 4",
+        "inputs": [
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "wclPrice"
+        ],
+        "defaults": {
+          "id": "WCLPRICE_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      }
+    ],
+    "Volatility Indicators": [
+      {
+        "type": "ATR",
+        "label": "Average True Range",
+        "group": "Volatility Indicators",
+        "description": "Smoothed average of true range; measures volatility in price units",
+        "inputs": [
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "atr"
+        ],
+        "defaults": {
+          "id": "ATR_1",
+          "param1": "14",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "Time Period",
+            "type": "int",
+            "min": 1,
+            "max": 500,
+            "default": 14
+          }
+        ]
+      },
+      {
+        "type": "NATR",
+        "label": "Normalized Average True Range",
+        "group": "Volatility Indicators",
+        "description": "ATR as a percentage of close price; comparable across instruments",
+        "inputs": [
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "natr"
+        ],
+        "defaults": {
+          "id": "NATR_1",
+          "param1": "14",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "Time Period",
+            "type": "int",
+            "min": 1,
+            "max": 500,
+            "default": 14
+          }
+        ]
+      },
+      {
+        "type": "TRANGE",
+        "label": "True Range",
+        "group": "Volatility Indicators",
+        "description": "Raw true range before smoothing (no lookback parameter)",
+        "inputs": [
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "trange"
+        ],
+        "defaults": {
+          "id": "TRANGE_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      }
+    ],
+    "Pattern Recognition": [
+      {
+        "type": "CDL2CROWS",
+        "label": "Two Crows",
+        "group": "Pattern Recognition",
+        "description": "Bearish two-candle reversal pattern after an uptrend",
+        "inputs": [
+          "open",
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "pattern"
+        ],
+        "defaults": {
+          "id": "CDL2CROWS_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "CDL3BLACKCROWS",
+        "label": "Three Black Crows",
+        "group": "Pattern Recognition",
+        "description": "Bearish three-candle pattern of consecutive long black candles",
+        "inputs": [
+          "open",
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "pattern"
+        ],
+        "defaults": {
+          "id": "CDL3BLACKCROWS_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "CDL3INSIDE",
+        "label": "Three Inside Up/Down",
+        "group": "Pattern Recognition",
+        "description": "Three-candle confirming reversal within prior bar range",
+        "inputs": [
+          "open",
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "pattern"
+        ],
+        "defaults": {
+          "id": "CDL3INSIDE_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "CDL3LINESTRIKE",
+        "label": "Three-Line Strike",
+        "group": "Pattern Recognition",
+        "description": "Four-candle pattern: three trending candles followed by a reversal bar",
+        "inputs": [
+          "open",
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "pattern"
+        ],
+        "defaults": {
+          "id": "CDL3LINESTRIKE_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "CDL3OUTSIDE",
+        "label": "Three Outside Up/Down",
+        "group": "Pattern Recognition",
+        "description": "Three-candle engulfing reversal with confirming third bar",
+        "inputs": [
+          "open",
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "pattern"
+        ],
+        "defaults": {
+          "id": "CDL3OUTSIDE_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "CDL3STARSINSOUTH",
+        "label": "Three Stars In The South",
+        "group": "Pattern Recognition",
+        "description": "Bullish pattern of three candles with narrowing bodies and shadows",
+        "inputs": [
+          "open",
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "pattern"
+        ],
+        "defaults": {
+          "id": "CDL3STARSINSOUTH_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "CDL3WHITESOLDIERS",
+        "label": "Three Advancing White Soldiers",
+        "group": "Pattern Recognition",
+        "description": "Bullish three-candle pattern of consecutive long white candles",
+        "inputs": [
+          "open",
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "pattern"
+        ],
+        "defaults": {
+          "id": "CDL3WHITESOLDIERS_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "CDLABANDONEDBABY",
+        "label": "Abandoned Baby",
+        "group": "Pattern Recognition",
+        "description": "Rare three-candle gap reversal; requires penetration percent param",
+        "inputs": [
+          "open",
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "pattern"
+        ],
+        "defaults": {
+          "id": "CDLABANDONEDBABY_1",
+          "param1": "0.3",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "Penetration (%)",
+            "type": "double",
+            "min": 0.0,
+            "max": 1.0,
+            "default": 0.3
+          }
+        ]
+      },
+      {
+        "type": "CDLADVANCEBLOCK",
+        "label": "Advance Block",
+        "group": "Pattern Recognition",
+        "description": "Bearish three-candle weakening pattern in an uptrend",
+        "inputs": [
+          "open",
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "pattern"
+        ],
+        "defaults": {
+          "id": "CDLADVANCEBLOCK_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "CDLBELTHOLD",
+        "label": "Belt-hold",
+        "group": "Pattern Recognition",
+        "description": "Single-candle pattern opening at its extreme then reversing",
+        "inputs": [
+          "open",
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "pattern"
+        ],
+        "defaults": {
+          "id": "CDLBELTHOLD_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "CDLBREAKAWAY",
+        "label": "Breakaway",
+        "group": "Pattern Recognition",
+        "description": "Five-candle pattern signalling reversal of trend",
+        "inputs": [
+          "open",
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "pattern"
+        ],
+        "defaults": {
+          "id": "CDLBREAKAWAY_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "CDLCLOSINGMARUBOZU",
+        "label": "Closing Marubozu",
+        "group": "Pattern Recognition",
+        "description": "Candle with no shadow on the closing side; strong directional signal",
+        "inputs": [
+          "open",
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "pattern"
+        ],
+        "defaults": {
+          "id": "CDLCLOSINGMARUBOZU_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "CDLCONCEALBABYSWALL",
+        "label": "Concealing Baby Swallow",
+        "group": "Pattern Recognition",
+        "description": "Bullish four-candle recovery pattern from downtrend",
+        "inputs": [
+          "open",
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "pattern"
+        ],
+        "defaults": {
+          "id": "CDLCONCEALBABYSWALL_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "CDLCOUNTERATTACK",
+        "label": "Counterattack",
+        "group": "Pattern Recognition",
+        "description": "Two-candle reversal where second bar closes at prior close",
+        "inputs": [
+          "open",
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "pattern"
+        ],
+        "defaults": {
+          "id": "CDLCOUNTERATTACK_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "CDLDARKCLOUDCOVER",
+        "label": "Dark Cloud Cover",
+        "group": "Pattern Recognition",
+        "description": "Bearish two-candle pattern penetrating into prior white candle's body",
+        "inputs": [
+          "open",
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "pattern"
+        ],
+        "defaults": {
+          "id": "CDLDARKCLOUDCOVER_1",
+          "param1": "0.5",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "Penetration (%)",
+            "type": "double",
+            "min": 0.0,
+            "max": 1.0,
+            "default": 0.5
+          }
+        ]
+      },
+      {
+        "type": "CDLDOJI",
+        "label": "Doji",
+        "group": "Pattern Recognition",
+        "description": "Open and close are virtually equal; market indecision",
+        "inputs": [
+          "open",
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "pattern"
+        ],
+        "defaults": {
+          "id": "CDLDOJI_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "CDLDOJISTAR",
+        "label": "Doji Star",
+        "group": "Pattern Recognition",
+        "description": "Doji gapping away from prior candle; potential reversal",
+        "inputs": [
+          "open",
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "pattern"
+        ],
+        "defaults": {
+          "id": "CDLDOJISTAR_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "CDLDRAGONFLYDOJI",
+        "label": "Dragonfly Doji",
+        "group": "Pattern Recognition",
+        "description": "Doji with long lower shadow and no upper shadow; bullish signal",
+        "inputs": [
+          "open",
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "pattern"
+        ],
+        "defaults": {
+          "id": "CDLDRAGONFLYDOJI_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "CDLENGULFING",
+        "label": "Engulfing Pattern",
+        "group": "Pattern Recognition",
+        "description": "Second candle fully engulfs the body of the first; strong reversal signal",
+        "inputs": [
+          "open",
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "pattern"
+        ],
+        "defaults": {
+          "id": "CDLENGULFING_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "CDLEVENINGDOJISTAR",
+        "label": "Evening Doji Star",
+        "group": "Pattern Recognition",
+        "description": "Three-candle bearish reversal with doji at top",
+        "inputs": [
+          "open",
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "pattern"
+        ],
+        "defaults": {
+          "id": "CDLEVENINGDOJISTAR_1",
+          "param1": "0.3",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "Penetration (%)",
+            "type": "double",
+            "min": 0.0,
+            "max": 1.0,
+            "default": 0.3
+          }
+        ]
+      },
+      {
+        "type": "CDLEVENINGSTAR",
+        "label": "Evening Star",
+        "group": "Pattern Recognition",
+        "description": "Classic three-candle bearish reversal at top",
+        "inputs": [
+          "open",
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "pattern"
+        ],
+        "defaults": {
+          "id": "CDLEVENINGSTAR_1",
+          "param1": "0.3",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "Penetration (%)",
+            "type": "double",
+            "min": 0.0,
+            "max": 1.0,
+            "default": 0.3
+          }
+        ]
+      },
+      {
+        "type": "CDLGAPSIDESIDEWHITE",
+        "label": "Up/Down-gap Side-by-Side White Lines",
+        "group": "Pattern Recognition",
+        "description": "Two white candles after a gap; continuation signal",
+        "inputs": [
+          "open",
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "pattern"
+        ],
+        "defaults": {
+          "id": "CDLGAPSIDESIDEWHITE_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "CDLGRAVESTONEDOJI",
+        "label": "Gravestone Doji",
+        "group": "Pattern Recognition",
+        "description": "Doji with long upper shadow and no lower shadow; bearish signal",
+        "inputs": [
+          "open",
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "pattern"
+        ],
+        "defaults": {
+          "id": "CDLGRAVESTONEDOJI_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "CDLHAMMER",
+        "label": "Hammer",
+        "group": "Pattern Recognition",
+        "description": "Small body at top with long lower shadow; bullish reversal signal",
+        "inputs": [
+          "open",
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "pattern"
+        ],
+        "defaults": {
+          "id": "CDLHAMMER_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "CDLHANGINGMAN",
+        "label": "Hanging Man",
+        "group": "Pattern Recognition",
+        "description": "Hammer shape after uptrend; bearish reversal signal",
+        "inputs": [
+          "open",
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "pattern"
+        ],
+        "defaults": {
+          "id": "CDLHANGINGMAN_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "CDLHARAMI",
+        "label": "Harami Pattern",
+        "group": "Pattern Recognition",
+        "description": "Small second candle entirely within the body of the first",
+        "inputs": [
+          "open",
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "pattern"
+        ],
+        "defaults": {
+          "id": "CDLHARAMI_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "CDLHARAMICROSS",
+        "label": "Harami Cross",
+        "group": "Pattern Recognition",
+        "description": "Harami where the second candle is a doji; stronger reversal signal",
+        "inputs": [
+          "open",
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "pattern"
+        ],
+        "defaults": {
+          "id": "CDLHARAMICROSS_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "CDLHIGHWAVE",
+        "label": "High-Wave Candle",
+        "group": "Pattern Recognition",
+        "description": "Candle with very long upper and lower shadows; market uncertainty",
+        "inputs": [
+          "open",
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "pattern"
+        ],
+        "defaults": {
+          "id": "CDLHIGHWAVE_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "CDLHIKKAKE",
+        "label": "Hikkake Pattern",
+        "group": "Pattern Recognition",
+        "description": "Trap / false breakout pattern; inside bar followed by reversal",
+        "inputs": [
+          "open",
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "pattern"
+        ],
+        "defaults": {
+          "id": "CDLHIKKAKE_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "CDLHIKKAKEMOD",
+        "label": "Modified Hikkake",
+        "group": "Pattern Recognition",
+        "description": "Variation of the Hikkake requiring wider outside bar",
+        "inputs": [
+          "open",
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "pattern"
+        ],
+        "defaults": {
+          "id": "CDLHIKKAKEMOD_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "CDLHOMINGPIGEON",
+        "label": "Homing Pigeon",
+        "group": "Pattern Recognition",
+        "description": "Bullish two-candle pattern: small black bar inside larger black bar",
+        "inputs": [
+          "open",
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "pattern"
+        ],
+        "defaults": {
+          "id": "CDLHOMINGPIGEON_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "CDLIDENTICAL3CROWS",
+        "label": "Identical Three Crows",
+        "group": "Pattern Recognition",
+        "description": "Three Black Crows variant: each bar opens at prior close",
+        "inputs": [
+          "open",
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "pattern"
+        ],
+        "defaults": {
+          "id": "CDLIDENTICAL3CROWS_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "CDLINNECK",
+        "label": "In-Neck Pattern",
+        "group": "Pattern Recognition",
+        "description": "Bearish continuation: second bar closes near prior low",
+        "inputs": [
+          "open",
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "pattern"
+        ],
+        "defaults": {
+          "id": "CDLINNECK_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "CDLINVERTEDHAMMER",
+        "label": "Inverted Hammer",
+        "group": "Pattern Recognition",
+        "description": "Small body at bottom with long upper shadow; bullish reversal signal",
+        "inputs": [
+          "open",
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "pattern"
+        ],
+        "defaults": {
+          "id": "CDLINVERTEDHAMMER_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "CDLKICKING",
+        "label": "Kicking",
+        "group": "Pattern Recognition",
+        "description": "Two opposite Marubozu candles with a gap between them",
+        "inputs": [
+          "open",
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "pattern"
+        ],
+        "defaults": {
+          "id": "CDLKICKING_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "CDLKICKINGBYLENGTH",
+        "label": "Kicking by Length",
+        "group": "Pattern Recognition",
+        "description": "Kicking pattern where the longer Marubozu determines bull/bear direction",
+        "inputs": [
+          "open",
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "pattern"
+        ],
+        "defaults": {
+          "id": "CDLKICKINGBYLENGTH_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "CDLLADDERBOTTOM",
+        "label": "Ladder Bottom",
+        "group": "Pattern Recognition",
+        "description": "Bullish five-candle reversal after downtrend",
+        "inputs": [
+          "open",
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "pattern"
+        ],
+        "defaults": {
+          "id": "CDLLADDERBOTTOM_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "CDLLONGLEGGEDDOJI",
+        "label": "Long Legged Doji",
+        "group": "Pattern Recognition",
+        "description": "Doji with very long upper and lower shadows; extreme indecision",
+        "inputs": [
+          "open",
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "pattern"
+        ],
+        "defaults": {
+          "id": "CDLLONGLEGGEDDOJI_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "CDLLONGLINE",
+        "label": "Long Line Candle",
+        "group": "Pattern Recognition",
+        "description": "Single candle with unusually long body; strong momentum bar",
+        "inputs": [
+          "open",
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "pattern"
+        ],
+        "defaults": {
+          "id": "CDLLONGLINE_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "CDLMARUBOZU",
+        "label": "Marubozu",
+        "group": "Pattern Recognition",
+        "description": "Candle with no shadows; complete dominance by one side",
+        "inputs": [
+          "open",
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "pattern"
+        ],
+        "defaults": {
+          "id": "CDLMARUBOZU_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "CDLMATCHINGLOW",
+        "label": "Matching Low",
+        "group": "Pattern Recognition",
+        "description": "Two consecutive candles closing at the same low; support signal",
+        "inputs": [
+          "open",
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "pattern"
+        ],
+        "defaults": {
+          "id": "CDLMATCHINGLOW_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "CDLMATHOLD",
+        "label": "Mat Hold",
+        "group": "Pattern Recognition",
+        "description": "Bullish five-candle continuation after a gap up",
+        "inputs": [
+          "open",
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "pattern"
+        ],
+        "defaults": {
+          "id": "CDLMATHOLD_1",
+          "param1": "0.5",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "Penetration (%)",
+            "type": "double",
+            "min": 0.0,
+            "max": 1.0,
+            "default": 0.5
+          }
+        ]
+      },
+      {
+        "type": "CDLMORNINGDOJISTAR",
+        "label": "Morning Doji Star",
+        "group": "Pattern Recognition",
+        "description": "Three-candle bullish reversal with doji at bottom",
+        "inputs": [
+          "open",
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "pattern"
+        ],
+        "defaults": {
+          "id": "CDLMORNINGDOJISTAR_1",
+          "param1": "0.3",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "Penetration (%)",
+            "type": "double",
+            "min": 0.0,
+            "max": 1.0,
+            "default": 0.3
+          }
+        ]
+      },
+      {
+        "type": "CDLMORNINGSTAR",
+        "label": "Morning Star",
+        "group": "Pattern Recognition",
+        "description": "Classic three-candle bullish reversal at bottom",
+        "inputs": [
+          "open",
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "pattern"
+        ],
+        "defaults": {
+          "id": "CDLMORNINGSTAR_1",
+          "param1": "0.3",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "Penetration (%)",
+            "type": "double",
+            "min": 0.0,
+            "max": 1.0,
+            "default": 0.3
+          }
+        ]
+      },
+      {
+        "type": "CDLONNECK",
+        "label": "On-Neck Pattern",
+        "group": "Pattern Recognition",
+        "description": "Bearish continuation: second bar closes at prior low",
+        "inputs": [
+          "open",
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "pattern"
+        ],
+        "defaults": {
+          "id": "CDLONNECK_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "CDLPIERCING",
+        "label": "Piercing Pattern",
+        "group": "Pattern Recognition",
+        "description": "Bullish two-candle reversal: second bar closes above midpoint of first",
+        "inputs": [
+          "open",
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "pattern"
+        ],
+        "defaults": {
+          "id": "CDLPIERCING_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "CDLRICKSHAWMAN",
+        "label": "Rickshaw Man",
+        "group": "Pattern Recognition",
+        "description": "Long-legged doji with body at the exact center",
+        "inputs": [
+          "open",
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "pattern"
+        ],
+        "defaults": {
+          "id": "CDLRICKSHAWMAN_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "CDLRISEFALL3METHODS",
+        "label": "Rising/Falling Three Methods",
+        "group": "Pattern Recognition",
+        "description": "Five-candle continuation pattern: three small bars within two large bars",
+        "inputs": [
+          "open",
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "pattern"
+        ],
+        "defaults": {
+          "id": "CDLRISEFALL3METHODS_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "CDLSEPARATINGLINES",
+        "label": "Separating Lines",
+        "group": "Pattern Recognition",
+        "description": "Continuation: two consecutive bars opening at same level",
+        "inputs": [
+          "open",
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "pattern"
+        ],
+        "defaults": {
+          "id": "CDLSEPARATINGLINES_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "CDLSHOOTINGSTAR",
+        "label": "Shooting Star",
+        "group": "Pattern Recognition",
+        "description": "Small body at bottom with long upper shadow after uptrend; bearish signal",
+        "inputs": [
+          "open",
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "pattern"
+        ],
+        "defaults": {
+          "id": "CDLSHOOTINGSTAR_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "CDLSHORTLINE",
+        "label": "Short Line Candle",
+        "group": "Pattern Recognition",
+        "description": "Single candle with a very short body; low volatility signal",
+        "inputs": [
+          "open",
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "pattern"
+        ],
+        "defaults": {
+          "id": "CDLSHORTLINE_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "CDLSPINNINGTOP",
+        "label": "Spinning Top",
+        "group": "Pattern Recognition",
+        "description": "Small body with equal upper and lower shadows; indecision",
+        "inputs": [
+          "open",
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "pattern"
+        ],
+        "defaults": {
+          "id": "CDLSPINNINGTOP_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "CDLSTALLEDPATTERN",
+        "label": "Stalled Pattern",
+        "group": "Pattern Recognition",
+        "description": "Bearish three-candle pattern of diminishing white candles in uptrend",
+        "inputs": [
+          "open",
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "pattern"
+        ],
+        "defaults": {
+          "id": "CDLSTALLEDPATTERN_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "CDLSTICKSANDWICH",
+        "label": "Stick Sandwich",
+        "group": "Pattern Recognition",
+        "description": "Bullish: black candle enclosed between two black candles at same close",
+        "inputs": [
+          "open",
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "pattern"
+        ],
+        "defaults": {
+          "id": "CDLSTICKSANDWICH_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "CDLTAKURI",
+        "label": "Takuri (Dragonfly Doji long lower shadow)",
+        "group": "Pattern Recognition",
+        "description": "Dragonfly Doji with exceptionally long lower shadow; strong bullish reversal",
+        "inputs": [
+          "open",
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "pattern"
+        ],
+        "defaults": {
+          "id": "CDLTAKURI_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "CDLTASUKIGAP",
+        "label": "Tasuki Gap",
+        "group": "Pattern Recognition",
+        "description": "Three-candle continuation with a gap partially filled by opposite bar",
+        "inputs": [
+          "open",
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "pattern"
+        ],
+        "defaults": {
+          "id": "CDLTASUKIGAP_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "CDLTHRUSTING",
+        "label": "Thrusting Pattern",
+        "group": "Pattern Recognition",
+        "description": "Bearish continuation: second bar closes just below prior midpoint",
+        "inputs": [
+          "open",
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "pattern"
+        ],
+        "defaults": {
+          "id": "CDLTHRUSTING_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "CDLTRISTAR",
+        "label": "Tristar Pattern",
+        "group": "Pattern Recognition",
+        "description": "Three consecutive doji candles; reversal or continuation",
+        "inputs": [
+          "open",
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "pattern"
+        ],
+        "defaults": {
+          "id": "CDLTRISTAR_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "CDLUNIQUE3RIVER",
+        "label": "Unique 3 River",
+        "group": "Pattern Recognition",
+        "description": "Rare bullish three-candle bottom reversal",
+        "inputs": [
+          "open",
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "pattern"
+        ],
+        "defaults": {
+          "id": "CDLUNIQUE3RIVER_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "CDLUPSIDEGAP2CROWS",
+        "label": "Upside Gap Two Crows",
+        "group": "Pattern Recognition",
+        "description": "Bearish: gap-up white candle followed by two black candles closing the gap",
+        "inputs": [
+          "open",
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "pattern"
+        ],
+        "defaults": {
+          "id": "CDLUPSIDEGAP2CROWS_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "CDLXSIDEGAP3METHODS",
+        "label": "Upside/Downside Gap Three Methods",
+        "group": "Pattern Recognition",
+        "description": "Five-candle continuation: gap followed by three candles and a close in the gap",
+        "inputs": [
+          "open",
+          "high",
+          "low",
+          "close"
+        ],
+        "outputs": [
+          "pattern"
+        ],
+        "defaults": {
+          "id": "CDLXSIDEGAP3METHODS_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      }
+    ],
+    "Statistic Functions": [
+      {
+        "type": "BETA",
+        "label": "Beta",
+        "group": "Statistic Functions",
+        "description": "Correlation of price to a reference series; measures systematic risk",
+        "inputs": [
+          "high",
+          "low"
+        ],
+        "outputs": [
+          "beta"
+        ],
+        "defaults": {
+          "id": "BETA_1",
+          "param1": "5",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "high"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "Time Period",
+            "type": "int",
+            "min": 1,
+            "max": 500,
+            "default": 5
+          }
+        ]
+      },
+      {
+        "type": "CORREL",
+        "label": "Pearson's Correlation Coefficient",
+        "group": "Statistic Functions",
+        "description": "Linear correlation (r) between two price series over the period",
+        "inputs": [
+          "high",
+          "low"
+        ],
+        "outputs": [
+          "correl"
+        ],
+        "defaults": {
+          "id": "CORREL_1",
+          "param1": "30",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "high"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "Time Period",
+            "type": "int",
+            "min": 1,
+            "max": 500,
+            "default": 30
+          }
+        ]
+      },
+      {
+        "type": "LINEARREG",
+        "label": "Linear Regression",
+        "group": "Statistic Functions",
+        "description": "End-point of the least-squares regression line over the period",
+        "inputs": [
+          "close"
+        ],
+        "outputs": [
+          "linearReg"
+        ],
+        "defaults": {
+          "id": "LINEARREG_1",
+          "param1": "14",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "Time Period",
+            "type": "int",
+            "min": 2,
+            "max": 500,
+            "default": 14
+          }
+        ]
+      },
+      {
+        "type": "LINEARREG_ANGLE",
+        "label": "Linear Regression Angle",
+        "group": "Statistic Functions",
+        "description": "Angle (degrees) of the regression line; positive = uptrend",
+        "inputs": [
+          "close"
+        ],
+        "outputs": [
+          "angle"
+        ],
+        "defaults": {
+          "id": "LINEARREG_ANGLE_1",
+          "param1": "14",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "Time Period",
+            "type": "int",
+            "min": 2,
+            "max": 500,
+            "default": 14
+          }
+        ]
+      },
+      {
+        "type": "LINEARREG_INTERCEPT",
+        "label": "Linear Regression Intercept",
+        "group": "Statistic Functions",
+        "description": "Y-intercept of the regression line",
+        "inputs": [
+          "close"
+        ],
+        "outputs": [
+          "intercept"
+        ],
+        "defaults": {
+          "id": "LINEARREG_INTERCEPT_1",
+          "param1": "14",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "Time Period",
+            "type": "int",
+            "min": 2,
+            "max": 500,
+            "default": 14
+          }
+        ]
+      },
+      {
+        "type": "LINEARREG_SLOPE",
+        "label": "Linear Regression Slope",
+        "group": "Statistic Functions",
+        "description": "Slope of the regression line; positive = uptrend strength",
+        "inputs": [
+          "close"
+        ],
+        "outputs": [
+          "slope"
+        ],
+        "defaults": {
+          "id": "LINEARREG_SLOPE_1",
+          "param1": "14",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "Time Period",
+            "type": "int",
+            "min": 2,
+            "max": 500,
+            "default": 14
+          }
+        ]
+      },
+      {
+        "type": "STDDEV",
+        "label": "Standard Deviation",
+        "group": "Statistic Functions",
+        "description": "Rolling standard deviation; proxy for volatility",
+        "inputs": [
+          "close"
+        ],
+        "outputs": [
+          "stdDev"
+        ],
+        "defaults": {
+          "id": "STDDEV_1",
+          "param1": "5",
+          "param2": "1.0",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "Time Period",
+            "type": "int",
+            "min": 2,
+            "max": 500,
+            "default": 5
+          },
+          {
+            "key": "param2",
+            "label": "Deviations",
+            "type": "double",
+            "min": 1,
+            "max": 10,
+            "default": 1.0
+          }
+        ]
+      },
+      {
+        "type": "TSF",
+        "label": "Time Series Forecast",
+        "group": "Statistic Functions",
+        "description": "Next-bar projection of the linear regression line",
+        "inputs": [
+          "close"
+        ],
+        "outputs": [
+          "tsf"
+        ],
+        "defaults": {
+          "id": "TSF_1",
+          "param1": "14",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "Time Period",
+            "type": "int",
+            "min": 2,
+            "max": 500,
+            "default": 14
+          }
+        ]
+      },
+      {
+        "type": "VAR",
+        "label": "Variance",
+        "group": "Statistic Functions",
+        "description": "Rolling variance (square of standard deviation)",
+        "inputs": [
+          "close"
+        ],
+        "outputs": [
+          "var"
+        ],
+        "defaults": {
+          "id": "VAR_1",
+          "param1": "5",
+          "param2": "1.0",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "Time Period",
+            "type": "int",
+            "min": 2,
+            "max": 500,
+            "default": 5
+          },
+          {
+            "key": "param2",
+            "label": "Deviations",
+            "type": "double",
+            "min": 1,
+            "max": 10,
+            "default": 1.0
+          }
+        ]
+      }
+    ],
+    "Math Transform": [
+      {
+        "type": "ACOS",
+        "label": "ACos",
+        "group": "Math Transform",
+        "description": "Element-wise arccos",
+        "inputs": [
+          "close"
+        ],
+        "outputs": [
+          "acos"
+        ],
+        "defaults": {
+          "id": "ACOS_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "ASIN",
+        "label": "ASin",
+        "group": "Math Transform",
+        "description": "Element-wise arcsin",
+        "inputs": [
+          "close"
+        ],
+        "outputs": [
+          "asin"
+        ],
+        "defaults": {
+          "id": "ASIN_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "ATAN",
+        "label": "ATan",
+        "group": "Math Transform",
+        "description": "Element-wise arctan",
+        "inputs": [
+          "close"
+        ],
+        "outputs": [
+          "atan"
+        ],
+        "defaults": {
+          "id": "ATAN_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "CEIL",
+        "label": "Ceil",
+        "group": "Math Transform",
+        "description": "Element-wise ceiling",
+        "inputs": [
+          "close"
+        ],
+        "outputs": [
+          "ceil"
+        ],
+        "defaults": {
+          "id": "CEIL_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "COS",
+        "label": "Cos",
+        "group": "Math Transform",
+        "description": "Element-wise cosine",
+        "inputs": [
+          "close"
+        ],
+        "outputs": [
+          "cos"
+        ],
+        "defaults": {
+          "id": "COS_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "COSH",
+        "label": "Cosh",
+        "group": "Math Transform",
+        "description": "Element-wise hyperbolic cosine",
+        "inputs": [
+          "close"
+        ],
+        "outputs": [
+          "cosh"
+        ],
+        "defaults": {
+          "id": "COSH_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "EXP",
+        "label": "Exp",
+        "group": "Math Transform",
+        "description": "Element-wise e^x",
+        "inputs": [
+          "close"
+        ],
+        "outputs": [
+          "exp"
+        ],
+        "defaults": {
+          "id": "EXP_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "FLOOR",
+        "label": "Floor",
+        "group": "Math Transform",
+        "description": "Element-wise floor",
+        "inputs": [
+          "close"
+        ],
+        "outputs": [
+          "floor"
+        ],
+        "defaults": {
+          "id": "FLOOR_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "LN",
+        "label": "Ln",
+        "group": "Math Transform",
+        "description": "Element-wise natural log",
+        "inputs": [
+          "close"
+        ],
+        "outputs": [
+          "ln"
+        ],
+        "defaults": {
+          "id": "LN_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "LOG10",
+        "label": "Log10",
+        "group": "Math Transform",
+        "description": "Element-wise log base 10",
+        "inputs": [
+          "close"
+        ],
+        "outputs": [
+          "log10"
+        ],
+        "defaults": {
+          "id": "LOG10_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "SIN",
+        "label": "Sin",
+        "group": "Math Transform",
+        "description": "Element-wise sine",
+        "inputs": [
+          "close"
+        ],
+        "outputs": [
+          "sin"
+        ],
+        "defaults": {
+          "id": "SIN_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "SINH",
+        "label": "Sinh",
+        "group": "Math Transform",
+        "description": "Element-wise hyperbolic sine",
+        "inputs": [
+          "close"
+        ],
+        "outputs": [
+          "sinh"
+        ],
+        "defaults": {
+          "id": "SINH_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "SQRT",
+        "label": "Sqrt",
+        "group": "Math Transform",
+        "description": "Element-wise square root",
+        "inputs": [
+          "close"
+        ],
+        "outputs": [
+          "sqrt"
+        ],
+        "defaults": {
+          "id": "SQRT_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "TAN",
+        "label": "Tan",
+        "group": "Math Transform",
+        "description": "Element-wise tangent",
+        "inputs": [
+          "close"
+        ],
+        "outputs": [
+          "tan"
+        ],
+        "defaults": {
+          "id": "TAN_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "TANH",
+        "label": "Tanh",
+        "group": "Math Transform",
+        "description": "Element-wise hyperbolic tangent",
+        "inputs": [
+          "close"
+        ],
+        "outputs": [
+          "tanh"
+        ],
+        "defaults": {
+          "id": "TANH_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": []
+      }
+    ],
+    "Math Operators": [
+      {
+        "type": "ADD",
+        "label": "Add",
+        "group": "Math Operators",
+        "description": "Element-wise addition of two price series",
+        "inputs": [
+          "high",
+          "low"
+        ],
+        "outputs": [
+          "add"
+        ],
+        "defaults": {
+          "id": "ADD_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "high"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "DIV",
+        "label": "Div",
+        "group": "Math Operators",
+        "description": "Element-wise division of two price series",
+        "inputs": [
+          "high",
+          "low"
+        ],
+        "outputs": [
+          "div"
+        ],
+        "defaults": {
+          "id": "DIV_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "high"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "MAX",
+        "label": "Highest Value over Period",
+        "group": "Math Operators",
+        "description": "Rolling maximum close over the lookback period",
+        "inputs": [
+          "close"
+        ],
+        "outputs": [
+          "max"
+        ],
+        "defaults": {
+          "id": "MAX_1",
+          "param1": "30",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "Time Period",
+            "type": "int",
+            "min": 2,
+            "max": 500,
+            "default": 30
+          }
+        ]
+      },
+      {
+        "type": "MAXINDEX",
+        "label": "Index of Highest Value",
+        "group": "Math Operators",
+        "description": "Bar index of rolling maximum; useful for lookback detection",
+        "inputs": [
+          "close"
+        ],
+        "outputs": [
+          "maxIdx"
+        ],
+        "defaults": {
+          "id": "MAXINDEX_1",
+          "param1": "30",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "Time Period",
+            "type": "int",
+            "min": 2,
+            "max": 500,
+            "default": 30
+          }
+        ]
+      },
+      {
+        "type": "MIN",
+        "label": "Lowest Value over Period",
+        "group": "Math Operators",
+        "description": "Rolling minimum close over the lookback period",
+        "inputs": [
+          "close"
+        ],
+        "outputs": [
+          "min"
+        ],
+        "defaults": {
+          "id": "MIN_1",
+          "param1": "30",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "Time Period",
+            "type": "int",
+            "min": 2,
+            "max": 500,
+            "default": 30
+          }
+        ]
+      },
+      {
+        "type": "MININDEX",
+        "label": "Index of Lowest Value",
+        "group": "Math Operators",
+        "description": "Bar index of rolling minimum",
+        "inputs": [
+          "close"
+        ],
+        "outputs": [
+          "minIdx"
+        ],
+        "defaults": {
+          "id": "MININDEX_1",
+          "param1": "30",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "Time Period",
+            "type": "int",
+            "min": 2,
+            "max": 500,
+            "default": 30
+          }
+        ]
+      },
+      {
+        "type": "MINMAX",
+        "label": "Lowest and Highest over Period",
+        "group": "Math Operators",
+        "description": "Returns both min and max arrays for the period",
+        "inputs": [
+          "close"
+        ],
+        "outputs": [
+          "min",
+          "max"
+        ],
+        "defaults": {
+          "id": "MINMAX_1",
+          "param1": "30",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "Time Period",
+            "type": "int",
+            "min": 2,
+            "max": 500,
+            "default": 30
+          }
+        ]
+      },
+      {
+        "type": "MINMAXINDEX",
+        "label": "Indexes of Lowest and Highest",
+        "group": "Math Operators",
+        "description": "Returns both minIdx and maxIdx arrays",
+        "inputs": [
+          "close"
+        ],
+        "outputs": [
+          "minIdx",
+          "maxIdx"
+        ],
+        "defaults": {
+          "id": "MINMAXINDEX_1",
+          "param1": "30",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "Time Period",
+            "type": "int",
+            "min": 2,
+            "max": 500,
+            "default": 30
+          }
+        ]
+      },
+      {
+        "type": "MULT",
+        "label": "Mult",
+        "group": "Math Operators",
+        "description": "Element-wise multiplication of two price series",
+        "inputs": [
+          "high",
+          "low"
+        ],
+        "outputs": [
+          "mult"
+        ],
+        "defaults": {
+          "id": "MULT_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "high"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "SUB",
+        "label": "Sub",
+        "group": "Math Operators",
+        "description": "Element-wise subtraction of two price series",
+        "inputs": [
+          "high",
+          "low"
+        ],
+        "outputs": [
+          "sub"
+        ],
+        "defaults": {
+          "id": "SUB_1",
+          "param1": "",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "high"
+        },
+        "paramMeta": []
+      },
+      {
+        "type": "SUM",
+        "label": "Summation",
+        "group": "Math Operators",
+        "description": "Rolling sum over the lookback period",
+        "inputs": [
+          "close"
+        ],
+        "outputs": [
+          "sum"
+        ],
+        "defaults": {
+          "id": "SUM_1",
+          "param1": "30",
+          "param2": "",
+          "param3": 0.0,
+          "priceField": "close"
+        },
+        "paramMeta": [
+          {
+            "key": "param1",
+            "label": "Time Period",
+            "type": "int",
+            "min": 2,
+            "max": 500,
+            "default": 30
+          }
+        ]
+      }
+    ]
+  }
+}

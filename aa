@@ -1,1 +1,0 @@
-Push-Location C:\Users\admin\Desktop\trading_terminal_cpp\build_msvc; cmake .. -G "Visual Studio 18 2026" -A x64 -DCMAKE_PREFIX_PATH="C:/Qt/5.15.2/msvc2019_64"; cmake --build . --config Debug --target TradingTerminal -- /maxcpucount:4; Pop-Location
