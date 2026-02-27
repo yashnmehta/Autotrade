@@ -2,6 +2,7 @@
 
 #include "api/xts/XTSTypes.h"
 #include "app/MainWindow.h"
+#include "core/ExchangeSegment.h"
 #include "core/WindowCacheManager.h"
 #include "data/CandleData.h"
 #include "services/CandleAggregator.h"
@@ -109,6 +110,8 @@ void AppBootstrap::registerMetaTypes()
     qRegisterMetaType<UDP::MarketTick>("UDP::MarketTick");
     qRegisterMetaType<UDP::IndexTick>("UDP::IndexTick");
     qRegisterMetaType<UDP::CircuitLimitTick>("UDP::CircuitLimitTick");
+    qRegisterMetaType<ExchangeSegment>("ExchangeSegment");
+    qRegisterMetaType<ExchangeSegment>("ExchangeReceiver");  // Type alias used in UdpBroadcastService signals
 
     // Greeks & chart types
     qRegisterMetaType<uint32_t>("uint32_t");

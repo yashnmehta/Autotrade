@@ -1339,3 +1339,9 @@ UdpBroadcastService::Stats UdpBroadcastService::getStats() const {
   s.bseCmActive = m_bseCmActive;
   return s;
 }
+
+void UdpBroadcastService::publishIndexTick(const UDP::IndexTick& tick) {
+  // Allows external sources (e.g. XTS WebSocket) to inject index price updates
+  // so that IndicesView stays live even when UDP multicast is not running.
+  emit udpIndexReceived(tick);
+}

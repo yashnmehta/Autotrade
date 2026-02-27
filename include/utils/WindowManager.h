@@ -8,6 +8,8 @@
 #include <QPointer>
 #include <QDebug>
 #include <QDateTime>
+#include <QModelIndex>
+#include <QPersistentModelIndex>
 
 /**
  * @class WindowManager
@@ -96,6 +98,13 @@ public:
      */
     bool restoreFocusState(QWidget* window);
 
+private:
+    /**
+     * @brief Restore row selection in a QAbstractItemView after focus restoration
+     * Called automatically by restoreFocusState(). Handles QTableView, QTreeView, etc.
+     */
+    void restoreItemViewSelection(QWidget* window);
+
 private slots:
     /**
      * @brief Auto-capture focus changes to track last focused widget per window
@@ -121,6 +130,17 @@ private:
     QList<WindowEntry> m_windowStack;
     QMap<QWidget*, QWidget*> m_initiatingWindows;  // child -> parent mapping
     QMap<QWidget*, QPointer<QWidget>> m_lastFocusedWidgets;  // window -> last focused child widget
+
+    // ─── Item-view selection memory ─────────────────────────────────────────
+    // When the losing-focus widget is a QAbstractItemView (QTableView, etc.),
+    // we also save its currentIndex so we can restore row selection, not just
+    // widget focus.  This gives every window "return to last row" for free.
+    struct ItemViewState {
+        QPointer<QWidget>      view;         // the QAbstractItemView*
+        QPersistentModelIndex  currentIndex;  // row + column cursor
+        int                    currentRow = -1;  // plain row (survives model resets)
+    };
+    QMap<QWidget*, ItemViewState> m_lastItemViewState;  // registeredWindow -> state
 };
 
 #endif // WINDOWMANAGER_H

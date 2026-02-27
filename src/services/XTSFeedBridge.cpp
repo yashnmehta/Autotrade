@@ -524,6 +524,73 @@ void XTSFeedBridge::unsubscribeAllExceptCandles() {
 }
 
 // ═════════════════════════════════════════════════════════════════════════
+// Bulk Subscribe All (for UDP→XTS migration — single API call per segment)
+// ═════════════════════════════════════════════════════════════════════════
+
+int XTSFeedBridge::bulkSubscribeAll(const std::vector<std::pair<int, uint32_t>>& tokens) {
+    if (tokens.empty()) return 0;
+
+    if (!m_mdClient || !m_mdClient->isLoggedIn()) {
+        qWarning() << "[XTSFeedBridge] Cannot bulk subscribe: MD client not ready";
+        return 0;
+    }
+
+    const int limit = m_config.maxTotalSubscriptions;
+    
+    // Group tokens by segment, respecting the global limit
+    QMap<int, QVector<uint32_t>> bySegment;
+    int totalQueued = 0;
+
+    for (const auto& [segment, token] : tokens) {
+        if (totalQueued >= limit) {
+            qWarning() << "[XTSFeedBridge] bulkSubscribeAll: Hit limit of"
+                       << limit << "— remaining tokens will not receive live XTS data";
+            break;
+        }
+        bySegment[segment].append(token);
+        totalQueued++;
+    }
+
+    qDebug() << "[XTSFeedBridge] bulkSubscribeAll:" << totalQueued
+             << "tokens across" << bySegment.size() << "segments"
+             << "(limit:" << limit << ")";
+
+    // Clear pending queue and existing state (we're replacing everything)
+    {
+        QMutexLocker lock(&m_mutex);
+        while (!m_pendingQueue.empty()) {
+            m_pendingQueue.pop();
+        }
+        for (auto& seg : m_segments) {
+            seg.activeSet.clear();
+            seg.pendingSet.clear();
+            seg.lruOrder.clear();
+        }
+    }
+
+    // Fire one REST call per segment
+    for (auto it = bySegment.begin(); it != bySegment.end(); ++it) {
+        int segment = it.key();
+        const QVector<uint32_t>& segTokens = it.value();
+
+        // Mark as pending
+        {
+            QMutexLocker lock(&m_mutex);
+            auto& seg = m_segments[segment];
+            for (uint32_t token : segTokens) {
+                seg.pendingSet.insert(token);
+            }
+        }
+
+        // Send the single bulk REST call for this segment
+        sendBatchSubscribe(segment, segTokens, m_config.defaultMessageCode);
+    }
+
+    emitStatsUpdate();
+    return totalQueued;
+}
+
+// ═════════════════════════════════════════════════════════════════════════
 // Statistics
 // ═════════════════════════════════════════════════════════════════════════
 

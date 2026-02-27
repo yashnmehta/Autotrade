@@ -114,6 +114,12 @@ public:
   const QHash<QString, qint64> &getIndexNameTokenMap() const;
 
   /**
+   * @brief Get reverse map: token -> index display name (for fast O(1) XTS tick lookup)
+   * Built alongside m_indexNameTokenMap whenever the index master is loaded.
+   */
+  const QHash<uint32_t, QString> &getIndexTokenNameMap() const;
+
+  /**
    * @brief Resolve asset tokens for index derivatives (where field 14 = -1)
    *
    * Index options and futures have UnderlyingInstrumentId = -1 in the master
@@ -538,6 +544,8 @@ private:
   QHash<QString, int64_t> m_symbolToAssetToken;
   // Index Name -> Token (Loaded from nse_cm_index_master.csv)
   QHash<QString, qint64> m_indexNameTokenMap;
+  // Reverse: Token -> Index Name (for fast XTS tick -> IndexTick conversion)
+  QHash<uint32_t, QString> m_indexTokenNameMap;
   // Key: "SYMBOL|EXPIRY" -> future token (for future price lookup when cash not
   // available)
   QHash<QString, int64_t> m_symbolExpiryFutureToken;

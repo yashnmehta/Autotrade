@@ -128,6 +128,7 @@ signals:
   void buyRequested(const WindowContext &context);
   void sellRequested(const WindowContext &context);
   void snapQuoteRequested(const WindowContext &context);
+  void onSymbolsLoaded(int count);           // Background load completion
 
 private slots:
   void onATMUpdated();
@@ -135,7 +136,6 @@ private slots:
   void onExchangeChanged(int index);
   void onExpiryChanged(int index);
   void onBasePriceUpdate();                  // Timer for LTP updates
-  void onSymbolsLoaded(int count);           // Background load completion
   void onSettingsClicked();                  // Open settings dialog
   void onShowContextMenu(const QPoint &pos); // Right-click context menu
   void

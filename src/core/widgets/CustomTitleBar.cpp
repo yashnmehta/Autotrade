@@ -95,7 +95,7 @@ void CustomTitleBar::setActive(bool active) {
   if (m_isActive) {
     // Active titlebar: Strong blue gradient with white text (Windows 10 style)
     setStyleSheet("background-color: qlineargradient(x1:0,y1:0,x2:0,y2:1,"
-                  "stop:0 #2563eb, stop:1 #1e40af);"
+                  "stop:0 #172e41, stop:1 #323272);"
                   "color: #ffffff;"
                   "border-bottom: 1px solid #1e3a8a;");
     m_titleLabel->setStyleSheet(
@@ -115,9 +115,11 @@ void CustomTitleBar::setActive(bool active) {
         "QPushButton:hover { background-color: #dc2626; color: #ffffff; }");
   } else {
     // Inactive: Subtle light gray with darker text for contrast
-    setStyleSheet("background-color: #e2e8f0;"
-                  "color: #64748b;"
-                  "border-bottom: 1px solid #cbd5e1;");
+   setStyleSheet("background-color: qlineargradient(x1:0,y1:0,x2:0,y2:1,"
+                  "stop:0 #34373b, stop:1 #434547);"
+                  "color: #ffffff;"
+                  "border-bottom: 1px solid #1e3a8a;");
+
     m_titleLabel->setStyleSheet(
         "font-size:13px; color: #64748b; font-weight: normal;"
         "background: transparent; border: none;");

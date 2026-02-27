@@ -359,6 +359,7 @@ bool RepositoryManager::loadIndexMaster(const QString &mastersPath) {
   }
 
   m_indexNameTokenMap.clear();
+  m_indexTokenNameMap.clear();
   m_indexContracts.clear();
   m_symbolToAssetToken.clear();
 
@@ -397,6 +398,8 @@ bool RepositoryManager::loadIndexMaster(const QString &mastersPath) {
       if (ok) {
         // Map: "Nifty 50" -> 26000
         m_indexNameTokenMap[name] = token;
+        // Reverse: 26000 -> "Nifty 50"  (for XTS tick routing)
+        m_indexTokenNameMap[static_cast<uint32_t>(token)] = name;
 
         // Map: "NIFTY" -> 26000
         m_symbolToAssetToken[symbol] = token;
@@ -489,6 +492,10 @@ bool RepositoryManager::loadIndexMaster(const QString &mastersPath) {
 
 const QHash<QString, qint64> &RepositoryManager::getIndexNameTokenMap() const {
   return m_indexNameTokenMap;
+}
+
+const QHash<uint32_t, QString> &RepositoryManager::getIndexTokenNameMap() const {
+  return m_indexTokenNameMap;
 }
 
 void RepositoryManager::updateIndexAssetTokens() {

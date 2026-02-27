@@ -1,6 +1,8 @@
 #include "utils/WindowManager.h"
+#include <QAbstractItemView>
 #include <QApplication>
 #include <QDateTime>
+#include <QItemSelectionModel>
 #include <QTimer>
 #include <QTableView>
 
@@ -15,6 +17,7 @@ WindowManager::~WindowManager() {
     m_windowStack.clear();
     m_initiatingWindows.clear();
     m_lastFocusedWidgets.clear();
+    m_lastItemViewState.clear();
 }
 
 WindowManager& WindowManager::instance() {
@@ -91,6 +94,7 @@ void WindowManager::unregisterWindow(QWidget* window) {
 
             // Clean up focus state for the closed window
             m_lastFocusedWidgets.remove(window);
+            m_lastItemViewState.remove(window);
 
             if (initiatingWindow) {
                 // Remove the mapping
@@ -223,6 +227,23 @@ void WindowManager::onFocusChanged(QWidget* old, QWidget* /*now*/) {
     for (const auto& entry : m_windowStack) {
         if (entry.window && (entry.window == old || entry.window->isAncestorOf(old))) {
             m_lastFocusedWidgets[entry.window] = old;
+
+            // ── Item-view selection memory ──────────────────────────────────
+            // Walk from `old` up to `entry.window` looking for the nearest
+            // QAbstractItemView.  A viewport's parent is the item-view.
+            QAbstractItemView* itemView = qobject_cast<QAbstractItemView*>(old);
+            if (!itemView) {
+                // `old` is likely the viewport — check parent
+                itemView = qobject_cast<QAbstractItemView*>(old->parentWidget());
+            }
+            if (itemView && (itemView == entry.window || entry.window->isAncestorOf(itemView))) {
+                QModelIndex idx = itemView->currentIndex();
+                ItemViewState st;
+                st.view         = itemView;
+                st.currentIndex = QPersistentModelIndex(idx);
+                st.currentRow   = idx.isValid() ? idx.row() : -1;
+                m_lastItemViewState[entry.window] = st;
+            }
             break;
         }
     }
@@ -253,6 +274,9 @@ bool WindowManager::restoreFocusState(QWidget* window) {
                      << widget->objectName()
                      << "(" << widget->metaObject()->className() << ")"
                      << "in window:" << window->objectName();
+
+            // ── Restore item-view selection ──────────────────────────────
+            restoreItemViewSelection(window);
             return true;
         }
     }
@@ -271,4 +295,50 @@ bool WindowManager::restoreFocusState(QWidget* window) {
     qDebug() << "[WindowManager] Restored focus to window itself (fallback):"
              << window->objectName();
     return false;
+}
+
+// ─── Item-view selection restore helper ─────────────────────────────────────
+
+void WindowManager::restoreItemViewSelection(QWidget* window) {
+    auto sit = m_lastItemViewState.find(window);
+    if (sit == m_lastItemViewState.end()) return;
+
+    const ItemViewState& st = sit.value();
+    QAbstractItemView* view = qobject_cast<QAbstractItemView*>(st.view.data());
+    if (!view || view->isHidden()) return;
+    if (!view->model() || view->model()->rowCount() == 0) return;
+
+    // Determine the row to restore
+    int row = -1;
+    if (st.currentIndex.isValid()) {
+        row = st.currentIndex.row();
+    } else if (st.currentRow >= 0) {
+        // QPersistentModelIndex invalidated (model reset) — use plain row
+        row = st.currentRow;
+    }
+    if (row < 0) return;
+
+    // Clamp to current model size
+    int maxRow = view->model()->rowCount() - 1;
+    if (row > maxRow) row = maxRow;
+
+    QModelIndex idx = view->model()->index(row, 0);
+    if (!idx.isValid()) return;
+
+    view->setCurrentIndex(idx);
+    view->scrollTo(idx, QAbstractItemView::PositionAtCenter);
+
+    // Select the full row for QTableView
+    QTableView* tv = qobject_cast<QTableView*>(view);
+    if (tv) {
+        tv->selectRow(row);
+    }
+
+    // Ensure the view (not just viewport) has focus
+    view->setFocus(Qt::ActiveWindowFocusReason);
+
+    qDebug() << "[WindowManager] ✓ Restored item-view selection: row" << row
+             << "in" << view->objectName()
+             << "(" << view->metaObject()->className() << ")"
+             << "window:" << window->objectName();
 }

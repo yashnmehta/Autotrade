@@ -27,7 +27,7 @@ CustomMDIChild::CustomMDIChild(const QString &title, QWidget *parent)
     setStyleSheet(
         "CustomMDIChild { "
         "   background-color: #ffffff; "
-        "   border: 1px solid #e2e8f0; "
+        "  "
         "}");
 
     resize(600, 400);

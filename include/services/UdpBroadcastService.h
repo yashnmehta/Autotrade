@@ -142,6 +142,12 @@ public:
     };
     Stats getStats() const;
 
+    /**
+     * @brief Inject an IndexTick from an external source (e.g. XTS WebSocket).
+     * Emits udpIndexReceived so IndicesView updates in XTS-only mode.
+     */
+    void publishIndexTick(const UDP::IndexTick& tick);
+
 signals:
     void udpTickReceived(const UDP::MarketTick& tick);  // New - UDP-specific
     void udpIndexReceived(const UDP::IndexTick& index);  // Index updates

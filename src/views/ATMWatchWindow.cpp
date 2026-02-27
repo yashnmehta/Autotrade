@@ -1113,10 +1113,6 @@ void ATMWatchWindow::onBasePriceUpdate() {
   updateBasePrices();
 }
 
-void ATMWatchWindow::onSymbolsLoaded(int count) {
-  m_statusLabel->setText(QString("Loaded %1 symbols").arg(count));
-}
-
 void ATMWatchWindow::updateBasePrices() {
   // Get latest ATM info from manager
   auto atmList = ATMWatchManager::getInstance().getATMWatchArray();

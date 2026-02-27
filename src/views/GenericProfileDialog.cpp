@@ -22,29 +22,29 @@ GenericProfileDialog::GenericProfileDialog(const QString &windowTitle,
 {
     setWindowTitle(windowTitle + " — Column Selection");
     setModal(true);
-    resize(700, 500);
+    resize(480, 340);
 
-    // ── Light-theme stylesheet (shared palette) ──────────────────────────
+    // ── Light-theme stylesheet (compact) ─────────────────────────────────
     setStyleSheet(
-        "QDialog { background-color: #ffffff; color: #1e293b; }"
-        "QLabel { color: #334155; font-size: 13px; font-weight: 500; }"
+        "QDialog { background-color: #ffffff; color: #1e293b; font-size: 11px; }"
+        "QLabel { color: #334155; font-size: 11px; font-weight: 500; }"
         "QComboBox {"
         "    background-color: #ffffff; color: #1e293b;"
-        "    border: 1px solid #cbd5e1; border-radius: 4px;"
-        "    padding: 6px 10px; min-height: 24px; font-size: 13px;"
+        "    border: 1px solid #cbd5e1; border-radius: 3px;"
+        "    padding: 3px 6px; min-height: 18px; font-size: 11px;"
         "}"
         "QComboBox:hover { border: 1px solid #94a3b8; }"
         "QComboBox:focus { border: 1px solid #3b82f6; }"
-        "QComboBox::drop-down { subcontrol-origin: padding; subcontrol-position: top right; width: 20px; border: none; }"
-        "QComboBox::down-arrow { image: none; border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 5px solid #64748b; margin-right: 5px; }"
+        "QComboBox::drop-down { subcontrol-origin: padding; subcontrol-position: top right; width: 16px; border: none; }"
+        "QComboBox::down-arrow { image: none; border-left: 3px solid transparent; border-right: 3px solid transparent; border-top: 4px solid #64748b; margin-right: 4px; }"
         "QComboBox QAbstractItemView { background-color: #ffffff; color: #1e293b; selection-background-color: #dbeafe; selection-color: #1e40af; border: 1px solid #e2e8f0; }"
-        "QComboBox QAbstractItemView::item { min-height: 24px; padding: 4px 8px; }"
-        "QListWidget { background-color: #ffffff; color: #1e293b; border: 1px solid #e2e8f0; border-radius: 4px; outline: none; font-size: 13px; padding: 2px; }"
-        "QListWidget::item { padding: 6px 10px; border: none; border-radius: 2px; margin: 1px; }"
+        "QComboBox QAbstractItemView::item { min-height: 18px; padding: 2px 6px; }"
+        "QListWidget { background-color: #ffffff; color: #1e293b; border: 1px solid #e2e8f0; border-radius: 3px; outline: none; font-size: 11px; padding: 1px; }"
+        "QListWidget::item { padding: 2px 6px; border: none; border-radius: 2px; margin: 0px; }"
         "QListWidget::item:selected { background-color: #dbeafe; color: #1e40af; }"
         "QListWidget::item:hover:!selected { background-color: #f1f5f9; }"
         "QListWidget::item:focus { outline: none; }"
-        "QPushButton { background-color: #2563eb; color: #ffffff; border: 1px solid #2563eb; border-radius: 4px; padding: 7px 18px; font-size: 13px; font-weight: 500; min-width: 75px; min-height: 28px; }"
+        "QPushButton { background-color: #2563eb; color: #ffffff; border: 1px solid #2563eb; border-radius: 3px; padding: 3px 10px; font-size: 11px; font-weight: 500; min-width: 54px; min-height: 20px; }"
         "QPushButton:hover { background-color: #1d4ed8; border: 1px solid #1d4ed8; }"
         "QPushButton:pressed { background-color: #1e40af; border: 1px solid #1e40af; }"
         "QPushButton:disabled { background-color: #f1f5f9; color: #94a3b8; border: 1px solid #e2e8f0; }"
@@ -62,13 +62,16 @@ GenericProfileDialog::GenericProfileDialog(const QString &windowTitle,
 void GenericProfileDialog::setupUI()
 {
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
+    mainLayout->setContentsMargins(8, 8, 8, 8);
+    mainLayout->setSpacing(6);
 
     // ── Top: profile combo + buttons ─────────────────────────────────────
     QHBoxLayout *profileLayout = new QHBoxLayout();
+    profileLayout->setSpacing(4);
     profileLayout->addWidget(new QLabel("Column Profile:"));
 
     m_profileCombo = new QComboBox(this);
-    m_profileCombo->setMinimumWidth(200);
+    m_profileCombo->setMinimumWidth(130);
     profileLayout->addWidget(m_profileCombo);
 
     m_saveButton       = new QPushButton("Save", this);
@@ -83,6 +86,7 @@ void GenericProfileDialog::setupUI()
 
     // ── Middle: dual list ────────────────────────────────────────────────
     QHBoxLayout *listsLayout = new QHBoxLayout();
+    listsLayout->setSpacing(4);
 
     QVBoxLayout *availLayout = new QVBoxLayout();
     availLayout->addWidget(new QLabel("Available Columns"));

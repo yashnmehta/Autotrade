@@ -639,7 +639,7 @@ CustomMDISubWindow *WindowFactory::createBuyWindow() {
   }
 
   window->setContentWidget(buyWindow);
-  window->resize(1220, 200);
+  window->resize(925, 155);
   connectWindowSignals(window);
   m_mdiArea->addWindow(window);
 
@@ -706,7 +706,7 @@ CustomMDISubWindow *WindowFactory::createSellWindow() {
   }
 
   window->setContentWidget(sellWindow);
-  window->resize(1220, 200);
+  window->resize(925, 155);
   connectWindowSignals(window);
   m_mdiArea->addWindow(window);
 
@@ -851,7 +851,7 @@ CustomMDISubWindow *WindowFactory::createSnapQuoteWindow() {
           &SnapQuoteWindow::onTickUpdate);
 
   window->setContentWidget(snapWindow);
-  window->resize(860, 300);
+  window->resize(780, 250);
   if (currentlyActive) {
     window->setInitiatingWindow(currentlyActive);
   } else if (activeMarketWatch) {
@@ -1098,7 +1098,7 @@ void WindowFactory::openBuyWindowForModification(const XTS::Order &order) {
           &MainWindow::modifyOrder);
 
   window->setContentWidget(buyWindow);
-  window->resize(1220, 260);
+  window->resize(925, 180);
   connectWindowSignals(window);
   m_mdiArea->addWindow(window);
   window->activateWindow();
@@ -1116,7 +1116,7 @@ void WindowFactory::openSellWindowForModification(const XTS::Order &order) {
           m_mainWindow, &MainWindow::modifyOrder);
 
   window->setContentWidget(sellWindow);
-  window->resize(1220, 260);
+  window->resize(925, 180);
   connectWindowSignals(window);
   m_mdiArea->addWindow(window);
   window->activateWindow();
@@ -1135,7 +1135,7 @@ void WindowFactory::openBatchBuyWindowForModification(
           &MainWindow::modifyOrder);
 
   window->setContentWidget(buyWindow);
-  window->resize(1220, 260);
+  window->resize(925, 180);
   connectWindowSignals(window);
   m_mdiArea->addWindow(window);
   window->activateWindow();
@@ -1154,7 +1154,7 @@ void WindowFactory::openBatchSellWindowForModification(
           m_mainWindow, &MainWindow::modifyOrder);
 
   window->setContentWidget(sellWindow);
-  window->resize(1220, 260);
+  window->resize(925, 180);
   connectWindowSignals(window);
   m_mdiArea->addWindow(window);
   window->activateWindow();

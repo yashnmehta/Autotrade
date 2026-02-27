@@ -43,10 +43,8 @@ CustomMDISubWindow::CustomMDISubWindow(const QString &title, QWidget *parent)
   QWidget *contentContainer = new QWidget(this);
   contentContainer->setObjectName("contentContainer");
   QVBoxLayout *containerLayout = new QVBoxLayout(contentContainer);
-  // Margin of 5px on sides/bottom for resizing. Top is handled by titlebar.
-  // We use a value slightly smaller than RESIZE_BORDER_WIDTH to ensure hit
-  // detection
-  containerLayout->setContentsMargins(5, 0, 5, 5);
+  // Small margin on sides/bottom for resize grip area.
+  containerLayout->setContentsMargins(2, 0, 2, 2);
   containerLayout->setSpacing(0);
   m_mainLayout->addWidget(contentContainer);
 
@@ -143,8 +141,8 @@ CustomMDISubWindow::CustomMDISubWindow(const QString &title, QWidget *parent)
 
   // Styling with light-theme borders
   setStyleSheet("CustomMDISubWindow { "
-                "   background-color: #ffffff; "
-                "   border: 2px solid #2563eb; "
+                "   background-color: #1e293b; "
+                "   border: 1px solid #2563eb; "
                 "}");
 
   resize(800, 600);
@@ -159,8 +157,8 @@ void CustomMDISubWindow::setActive(bool active) {
     // Use a single style update to prevent flickering
     QString borderColor = active ? "#2563eb" : "#cbd5e1";
     setStyleSheet(QString("CustomMDISubWindow { "
-                          "   background-color: #ffffff; "
-                          "   border: 2px solid %1; "
+                          "   background-color: #1e293b; "
+                          "   border: 1px solid %1; "
                           "}")
                       .arg(borderColor));
   }

@@ -1,6 +1,7 @@
 #ifndef CORE_EXCHANGE_SEGMENT_H
 #define CORE_EXCHANGE_SEGMENT_H
 
+#include <QMetaType>
 #include <QString>
 #include <cstdint>
 
@@ -179,5 +180,7 @@ inline QString segmentSuffix(ExchangeSegment seg) {
 }
 
 } // namespace ExchangeSegmentUtil
+
+Q_DECLARE_METATYPE(ExchangeSegment)
 
 #endif // CORE_EXCHANGE_SEGMENT_H

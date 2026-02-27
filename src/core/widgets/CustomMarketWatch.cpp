@@ -59,27 +59,30 @@ void CustomMarketWatch::setSourceModel(QAbstractItemModel *model)
 
 void CustomMarketWatch::applyDefaultStyling()
 {
-    // Light theme styling
+    // Dark / black theme
     setAlternatingRowColors(false);
     setShowGrid(false);
     setStyleSheet(
         "QTableView {"
-        "    background-color: #ffffff;"
-        "    color: #1e293b;"
-        "    gridline-color: #f1f5f9;"
-        "    selection-background-color: #dbeafe;"
-        "    selection-color: #1e40af;"
+        "    background-color: #000000;"
+        "    color: #e2e8f0;"
+        "    gridline-color: #1e2530;"
+        "    selection-background-color: #2563eb;"
+        "    selection-color: #ffffff;"
         "    outline: 0;"
         "}"
+        "QTableView::item {"
+        "    border-bottom: 1px solid #0d1117;"
+        "}"
         "QHeaderView::section {"
-        "    background-color: #f8fafc;"
-        "    color: #475569;"
+        "    background-color: #0d1117;"
+        "    color: #64748b;"
         "    padding: 4px;"
-        "    border: 1px solid #e2e8f0;"
+        "    border: 1px solid #1e2530;"
         "    font-weight: bold;"
         "}"
         "QHeaderView::section:hover {"
-        "    background-color: #e2e8f0;"
+        "    background-color: #1a2332;"
         "}"
     );
     
@@ -124,20 +127,20 @@ QMenu* CustomMarketWatch::createContextMenu()
     QMenu *menu = new QMenu(this);
     menu->setStyleSheet(
         "QMenu {"
-        "    background-color: #ffffff;"
-        "    color: #1e293b;"
-        "    border: 1px solid #e2e8f0;"
+        "    background-color: #0d1117;"
+        "    color: #e2e8f0;"
+        "    border: 1px solid #1e2530;"
         "}"
         "QMenu::item {"
         "    padding: 6px 20px;"
         "}"
         "QMenu::item:selected {"
-        "    background-color: #dbeafe;"
-        "    color: #1e40af;"
+        "    background-color: #1e3a5f;"
+        "    color: #93c5fd;"
         "}"
         "QMenu::separator {"
         "    height: 1px;"
-        "    background: #e2e8f0;"
+        "    background: #1e2530;"
         "    margin: 4px 0px;"
         "}"
     );

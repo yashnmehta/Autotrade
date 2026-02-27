@@ -2,6 +2,7 @@
 #include "utils/ConfigLoader.h"
 #include "services/UdpBroadcastService.h"
 #include "services/XTSFeedBridge.h"
+#include "services/FeedHandler.h"
 #include "core/ExchangeSegment.h"
 
 #include <QVBoxLayout>
@@ -28,8 +29,8 @@ BroadcastSettingsDialog::BroadcastSettingsDialog(ConfigLoader* configLoader,
     , m_configLoader(configLoader)
 {
     setWindowTitle("Connection & Broadcast Settings");
-    setMinimumSize(560, 500);
-    resize(600, 540);
+    setMinimumSize(440, 360);
+    resize(480, 400);
     setModal(false);
 
     buildUI();
@@ -58,8 +59,8 @@ BroadcastSettingsDialog::BroadcastSettingsDialog(ConfigLoader* configLoader,
 void BroadcastSettingsDialog::buildUI()
 {
     QVBoxLayout* mainLayout = new QVBoxLayout(this);
-    mainLayout->setContentsMargins(16, 16, 16, 16);
-    mainLayout->setSpacing(12);
+    mainLayout->setContentsMargins(8, 8, 8, 8);
+    mainLayout->setSpacing(6);
 
     // ── Title ────────────────────────────────────────────────────────
     QLabel* titleLabel = new QLabel("Connection & Broadcast Settings", this);
@@ -94,8 +95,8 @@ QWidget* BroadcastSettingsDialog::createStatusPanel()
 {
     QWidget* panel = new QWidget(this);
     QVBoxLayout* layout = new QVBoxLayout(panel);
-    layout->setContentsMargins(8, 8, 8, 8);
-    layout->setSpacing(8);
+    layout->setContentsMargins(6, 6, 6, 6);
+    layout->setSpacing(4);
 
     // XTS Status group
     QGroupBox* xtsGroup = new QGroupBox("XTS WebSocket Connections", panel);
@@ -105,8 +106,8 @@ QWidget* BroadcastSettingsDialog::createStatusPanel()
     auto createStatusRow = [this, panel](ConnectionId id, const QString& label) -> QWidget* {
         QWidget* row = new QWidget(panel);
         QHBoxLayout* rowLayout = new QHBoxLayout(row);
-        rowLayout->setContentsMargins(4, 2, 4, 2);
-        rowLayout->setSpacing(8);
+        rowLayout->setContentsMargins(2, 1, 2, 1);
+        rowLayout->setSpacing(6);
 
         ReceiverRow rr;
         rr.id = id;
@@ -177,8 +178,8 @@ QWidget* BroadcastSettingsDialog::createUdpPanel()
 {
     QWidget* panel = new QWidget(this);
     QVBoxLayout* layout = new QVBoxLayout(panel);
-    layout->setContentsMargins(8, 8, 8, 8);
-    layout->setSpacing(8);
+    layout->setContentsMargins(6, 6, 6, 6);
+    layout->setSpacing(4);
 
     QLabel* helpLabel = new QLabel(
         "Configure UDP multicast addresses for each exchange segment.\n"
@@ -192,7 +193,7 @@ QWidget* BroadcastSettingsDialog::createUdpPanel()
     QWidget* headerRow = new QWidget(panel);
     QHBoxLayout* headerLay = new QHBoxLayout(headerRow);
     headerLay->setContentsMargins(4, 0, 4, 0);
-    headerLay->setSpacing(8);
+    headerLay->setSpacing(6);
     headerLay->addWidget(new QLabel("", headerRow), 0); // dot spacer
     headerLay->addWidget(createHeaderLabel("Segment", headerRow), 2);
     headerLay->addWidget(createHeaderLabel("Multicast IP", headerRow), 3);
@@ -215,8 +216,8 @@ QWidget* BroadcastSettingsDialog::createReceiverRow(ConnectionId id, const QStri
 {
     QWidget* row = new QWidget(this);
     QHBoxLayout* rowLayout = new QHBoxLayout(row);
-    rowLayout->setContentsMargins(4, 4, 4, 4);
-    rowLayout->setSpacing(8);
+    rowLayout->setContentsMargins(2, 2, 2, 2);
+    rowLayout->setSpacing(6);
 
     // Check if we already have a ReceiverRow for this id (from status panel)
     // If not, create fresh widgets
@@ -245,13 +246,13 @@ QWidget* BroadcastSettingsDialog::createReceiverRow(ConnectionId id, const QStri
     // IP input
     rr.ipEdit = new QLineEdit(row);
     rr.ipEdit->setPlaceholderText("e.g. 233.1.2.5");
-    rr.ipEdit->setMinimumWidth(120);
+    rr.ipEdit->setMinimumWidth(100);
     rowLayout->addWidget(rr.ipEdit, 3);
 
     // Port input
     rr.portSpin = new QSpinBox(row);
     rr.portSpin->setRange(1024, 65535);
-    rr.portSpin->setMinimumWidth(70);
+    rr.portSpin->setMinimumWidth(60);
     rowLayout->addWidget(rr.portSpin, 1);
 
     // PPS label
@@ -264,7 +265,7 @@ QWidget* BroadcastSettingsDialog::createReceiverRow(ConnectionId id, const QStri
     // Restart button
     rr.restartBtn = new QPushButton("Restart", row);
     rr.restartBtn->setObjectName("restartBtn");
-    rr.restartBtn->setFixedWidth(65);
+    rr.restartBtn->setFixedWidth(55);
     connect(rr.restartBtn, &QPushButton::clicked, this, [this, id]() {
         onRestartReceiver(id);
     });
@@ -282,8 +283,8 @@ QWidget* BroadcastSettingsDialog::createFeedModePanel()
 {
     QWidget* panel = new QWidget(this);
     QVBoxLayout* layout = new QVBoxLayout(panel);
-    layout->setContentsMargins(8, 12, 8, 8);
-    layout->setSpacing(12);
+    layout->setContentsMargins(6, 8, 6, 6);
+    layout->setSpacing(8);
 
     QLabel* helpLabel = new QLabel(
         "Select the primary source for live tick data.\n\n"
@@ -387,17 +388,17 @@ void BroadcastSettingsDialog::applyStyleSheet()
         // Title
         "QLabel#dialogTitle {"
         "  color: #1e293b;"
-        "  font-size: 16px;"
+        "  font-size: 13px;"
         "  font-weight: 700;"
-        "  padding-bottom: 4px;"
+        "  padding-bottom: 2px;"
         "}"
         // Group boxes
         "QGroupBox {"
         "  background-color: #f8fafc;"
         "  border: 1px solid #e2e8f0;"
-        "  border-radius: 6px;"
-        "  margin-top: 12px;"
-        "  padding: 12px 8px 8px 8px;"
+        "  border-radius: 4px;"
+        "  margin-top: 8px;"
+        "  padding: 6px 6px 4px 6px;"
         "  font-weight: 600;"
         "  color: #1e293b;"
         "}"
@@ -409,7 +410,7 @@ void BroadcastSettingsDialog::applyStyleSheet()
         // Labels
         "QLabel {"
         "  color: #1e293b;"
-        "  font-size: 12px;"
+        "  font-size: 11px;"
         "}"
         "QLabel#helpLabel {"
         "  color: #475569;"
@@ -432,10 +433,10 @@ void BroadcastSettingsDialog::applyStyleSheet()
         "QLineEdit {"
         "  background: #ffffff;"
         "  border: 1px solid #e2e8f0;"
-        "  border-radius: 4px;"
-        "  padding: 4px 6px;"
+        "  border-radius: 3px;"
+        "  padding: 2px 5px;"
         "  color: #1e293b;"
-        "  font-size: 12px;"
+        "  font-size: 11px;"
         "}"
         "QLineEdit:focus {"
         "  border-color: #3b82f6;"
@@ -443,10 +444,10 @@ void BroadcastSettingsDialog::applyStyleSheet()
         "QSpinBox {"
         "  background: #ffffff;"
         "  border: 1px solid #e2e8f0;"
-        "  border-radius: 4px;"
-        "  padding: 4px 6px;"
+        "  border-radius: 3px;"
+        "  padding: 2px 5px;"
         "  color: #1e293b;"
-        "  font-size: 12px;"
+        "  font-size: 11px;"
         "}"
         "QSpinBox:focus {"
         "  border-color: #3b82f6;"
@@ -455,11 +456,11 @@ void BroadcastSettingsDialog::applyStyleSheet()
         "QComboBox {"
         "  background: #ffffff;"
         "  border: 1px solid #e2e8f0;"
-        "  border-radius: 4px;"
-        "  padding: 4px 8px;"
+        "  border-radius: 3px;"
+        "  padding: 2px 6px;"
         "  color: #1e293b;"
-        "  font-size: 12px;"
-        "  min-height: 24px;"
+        "  font-size: 11px;"
+        "  min-height: 20px;"
         "}"
         "QComboBox:focus {"
         "  border-color: #3b82f6;"
@@ -480,9 +481,9 @@ void BroadcastSettingsDialog::applyStyleSheet()
         "  background: #f1f5f9;"
         "  border: 1px solid #e2e8f0;"
         "  border-bottom: none;"
-        "  padding: 6px 16px;"
+        "  padding: 4px 10px;"
         "  color: #475569;"
-        "  font-size: 12px;"
+        "  font-size: 11px;"
         "  border-top-left-radius: 4px;"
         "  border-top-right-radius: 4px;"
         "}"
@@ -499,11 +500,11 @@ void BroadcastSettingsDialog::applyStyleSheet()
         "  background-color: #2563eb;"
         "  color: #ffffff;"
         "  border: none;"
-        "  border-radius: 4px;"
-        "  padding: 6px 16px;"
-        "  font-size: 12px;"
+        "  border-radius: 3px;"
+        "  padding: 4px 12px;"
+        "  font-size: 11px;"
         "  font-weight: 600;"
-        "  min-width: 100px;"
+        "  min-width: 80px;"
         "}"
         "QPushButton#applyBtn:hover {"
         "  background-color: #1d4ed8;"
@@ -515,10 +516,10 @@ void BroadcastSettingsDialog::applyStyleSheet()
         "  background-color: #f1f5f9;"
         "  color: #475569;"
         "  border: 1px solid #e2e8f0;"
-        "  border-radius: 4px;"
-        "  padding: 6px 16px;"
-        "  font-size: 12px;"
-        "  min-width: 70px;"
+        "  border-radius: 3px;"
+        "  padding: 4px 12px;"
+        "  font-size: 11px;"
+        "  min-width: 50px;"
         "}"
         "QPushButton#closeBtn:hover {"
         "  background-color: #e2e8f0;"
@@ -623,11 +624,31 @@ void BroadcastSettingsDialog::onFeedModeChanged(int index)
     QString fromLabel = (currentSource == PrimaryDataSource::UDP_PRIMARY) ? "UDP" : "XTS";
     QString toLabel   = (newSource == PrimaryDataSource::UDP_PRIMARY) ? "UDP" : "XTS";
 
-    int result = QMessageBox::question(this, "Switch Data Source",
-        QString("Switch primary data source from %1 to %2?\n\n"
-                "This will migrate all active subscriptions.\n"
-                "XTS Market Data socket will remain connected for candle data.")
-            .arg(fromLabel).arg(toLabel),
+    // Build warning message — XTS has a 500 token limit
+    QString message;
+    if (newSource == PrimaryDataSource::XTS_PRIMARY) {
+        auto& bridge = XTSFeedBridge::instance();
+        int xtsLimit = bridge.config().maxTotalSubscriptions;
+        size_t activeTokens = FeedHandler::instance().totalSubscriptions();
+        
+        message = QString("Switch primary data source from %1 to %2?\n\n").arg(fromLabel).arg(toLabel);
+        
+        if (activeTokens > static_cast<size_t>(xtsLimit)) {
+            message += QString("⚠ WARNING: You have %1 active tokens but XTS\n"
+                              "only supports %2 simultaneous subscriptions.\n\n"
+                              "Oldest tokens will be evicted (LRU) when the limit\n"
+                              "is reached. Consider closing unused windows first.\n\n")
+                          .arg(activeTokens).arg(xtsLimit);
+        }
+        message += "XTS Market Data socket will remain connected for candle data.";
+    } else {
+        message = QString("Switch primary data source from %1 to %2?\n\n"
+                         "This will migrate all active subscriptions.\n"
+                         "XTS Market Data socket will remain connected for candle data.")
+                     .arg(fromLabel).arg(toLabel);
+    }
+
+    int result = QMessageBox::question(this, "Switch Data Source", message,
         QMessageBox::Yes | QMessageBox::No);
 
     if (result != QMessageBox::Yes) {

@@ -318,6 +318,11 @@ protected:
      * @brief Handle focus in events to restore last focused row
      */
     void focusInEvent(QFocusEvent *event) override;
+
+    /**
+     * @brief Handle focus out events to auto-store the current row
+     */
+    void focusOutEvent(QFocusEvent *event) override;
     
     /**
      * @brief Override to provide token for drag-and-drop

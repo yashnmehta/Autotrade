@@ -246,6 +246,41 @@ void MainWindow::onTickReceived(const XTS::Tick &tick) {
 
   // Publish through new FeedHandler
   FeedHandler::instance().onUdpTickReceived(udpTick);
+
+  // ── Index tick routing for IndicesView ───────────────────────────────────
+  // UDP multicast (message 7207) normally feeds IndicesView. In XTS-only mode
+  // there is no multicast, so we derive an IndexTick from the XTS Touchline
+  // data and inject it via UdpBroadcastService::publishIndexTick() so that
+  // IndicesView::onIndexReceived() is invoked without any extra connections.
+  // Only NSE CM index tokens carry index semantics.
+  if (tick.exchangeSegment == static_cast<int>(ExchangeSegment::NSECM)) {
+    uint32_t token = udpTick.token;
+    RepositoryManager *repo = RepositoryManager::getInstance();
+    if (repo) {
+      const auto &indexMap = repo->getIndexTokenNameMap();
+      auto it = indexMap.constFind(token);
+      if (it != indexMap.constEnd()) {
+        UDP::IndexTick idxTick;
+        idxTick.exchangeSegment = UDP::ExchangeSegment::NSECM;
+        idxTick.token           = token;
+        const QByteArray nameBytes = it.value().toUtf8();
+        qstrncpy(idxTick.name, nameBytes.constData(), sizeof(idxTick.name) - 1);
+        idxTick.name[sizeof(idxTick.name) - 1] = '\0';
+        idxTick.value     = tick.lastTradedPrice;
+        idxTick.open      = tick.open;
+        idxTick.high      = tick.high;
+        idxTick.low       = tick.low;
+        idxTick.prevClose = tick.close;
+        if (tick.close > 0.0) {
+          idxTick.change        = tick.lastTradedPrice - tick.close;
+          idxTick.changePercent = idxTick.change / tick.close * 100.0;
+        }
+        idxTick.numAdvances = 0;
+        idxTick.numDeclines = 0;
+        UdpBroadcastService::instance().publishIndexTick(idxTick);
+      }
+    }
+  }
 }
 
 void MainWindow::onPriceSubscriptionRequest(QString requesterId, uint32_t token,

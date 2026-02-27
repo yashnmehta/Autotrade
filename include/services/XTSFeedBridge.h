@@ -109,6 +109,18 @@ public:
                             int xtsMessageCode = 1501);
 
     /**
+     * @brief Bulk subscribe all tokens in a single API call per segment
+     * 
+     * Used during UDP→XTS migration to subscribe all tokens at once.
+     * Tokens are grouped by segment and sent in one REST call per segment.
+     * Respects maxTotalSubscriptions limit — excess tokens are dropped.
+     * 
+     * @param tokens Vector of (segment, token) pairs
+     * @return Number of tokens actually queued for subscription (≤ limit)
+     */
+    int bulkSubscribeAll(const std::vector<std::pair<int, uint32_t>>& tokens);
+
+    /**
      * @brief Unsubscribe all tokens except 1505 (candle) subscriptions
      * 
      * Used during XTS→UDP migration to free up the XTS subscription cap
@@ -122,7 +134,7 @@ public:
     // ═══════════════════════════════════════════════════════════════════
 
     struct Config {
-        int maxTotalSubscriptions = 1000;  // XTS GLOBAL limit (all segments combined)
+        int maxTotalSubscriptions = 500;   // XTS GLOBAL limit (conservative, actual is ~1000)
         int maxRestCallsPerSec    = 10;    // REST rate limit (conservative)
         int batchSize             = 50;    // Tokens per REST subscribe call
         int batchIntervalMs       = 200;   // Min ms between REST calls
@@ -130,8 +142,8 @@ public:
         int retryDelayMs          = 2000;  // Retry failed subscriptions
         int maxRetries            = 3;     // Max retries per batch
         int defaultMessageCode    = 1501;  // 1512=LTP(lightest), 1501=Touchline, 1502=Depth
-        // NOTE: XTS enforces a single GLOBAL cap of 1000, not per-segment caps.
-        // maxTotalSubscriptions is the only hard limit.
+        // NOTE: XTS enforces a single GLOBAL cap. We use 500 to leave headroom
+        // for chart candle subscriptions (1505) which are managed separately.
     };
 
     void setConfig(const Config& config);
@@ -143,7 +155,7 @@ public:
 
     struct Stats {
         int totalSubscribed = 0;          // GLOBAL count across all segments
-        int totalCapacity   = 1000;       // XTS global limit (mirrors Config::maxTotalSubscriptions)
+        int totalCapacity   = 500;        // XTS global limit (mirrors Config::maxTotalSubscriptions)
         int totalPending    = 0;          // Waiting in queue
         int totalEvicted    = 0;          // LRU evictions
         int restCallsMade   = 0;          // Total REST subscribe calls

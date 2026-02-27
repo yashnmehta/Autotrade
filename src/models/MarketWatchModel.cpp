@@ -104,8 +104,8 @@ QVariant MarketWatchModel::data(const QModelIndex &index, int role) const
             else if (column == MarketWatchColumn::BUY_PRICE) tick = scrip.bidTick;
             else if (column == MarketWatchColumn::SELL_PRICE) tick = scrip.askTick;
 
-            if (tick > 0) return QColor("#dbeafe"); // Light blue for UP tick
-            if (tick < 0) return QColor("#fee2e2"); // Light red for DOWN tick
+            if (tick > 0) return QColor("#1a3a6b"); // Dark blue for UP tick on black bg
+            if (tick < 0) return QColor("#4a1212"); // Dark crimson for DOWN tick on black bg
         }
     }
 
@@ -141,6 +141,20 @@ QVariant MarketWatchModel::headerData(int section, Qt::Orientation orientation, 
 
 void MarketWatchModel::addScrip(const ScripData &scrip)
 {
+    // Reject duplicates: same exchange + token already exists (blank rows exempt)
+    if (!scrip.isBlankRow && scrip.token > 0) {
+        for (const ScripData &existing : m_scrips) {
+            if (!existing.isBlankRow
+                && existing.token == scrip.token
+                && existing.exchange == scrip.exchange) {
+                qDebug() << "[MarketWatchModel] Skipping duplicate scrip:"
+                         << scrip.symbol << "Exchange:" << scrip.exchange
+                         << "Token:" << scrip.token;
+                return;
+            }
+        }
+    }
+
     int row = m_scrips.count();
     beginInsertRows(QModelIndex(), row, row);
     m_scrips.append(scrip);
@@ -154,6 +168,20 @@ void MarketWatchModel::addScrip(const ScripData &scrip)
 
 void MarketWatchModel::insertScrip(int position, const ScripData &scrip)
 {
+    // Reject duplicates: same exchange + token already exists (blank rows exempt)
+    if (!scrip.isBlankRow && scrip.token > 0) {
+        for (const ScripData &existing : m_scrips) {
+            if (!existing.isBlankRow
+                && existing.token == scrip.token
+                && existing.exchange == scrip.exchange) {
+                qDebug() << "[MarketWatchModel] Skipping duplicate scrip (insert):"
+                         << scrip.symbol << "Exchange:" << scrip.exchange
+                         << "Token:" << scrip.token;
+                return;
+            }
+        }
+    }
+
     // Validate position
     if (position < 0) position = 0;
     if (position > m_scrips.count()) position = m_scrips.count();

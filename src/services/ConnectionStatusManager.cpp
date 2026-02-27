@@ -5,6 +5,7 @@
 #include "services/XTSFeedBridge.h"
 #include "services/FeedHandler.h"
 #include "core/ExchangeSegment.h"
+#include "repository/RepositoryManager.h"
 #include <QDebug>
 #include <algorithm>
 
@@ -308,34 +309,65 @@ void ConnectionStatusManager::migrateSubscriptions(PrimaryDataSource oldSource,
 
     if (newSource == PrimaryDataSource::XTS_PRIMARY) {
         // ──────────────────────────────────────────────────────────────
-        // UDP → XTS: Subscribe all active tokens via XTS REST
+        // UDP → XTS: Subscribe active tokens via XTS REST (BULK)
         // ──────────────────────────────────────────────────────────────
         // The bridge is now in XTS_ONLY mode (set in switchPrimarySource).
-        // Push all currently-known tokens through the bridge in BATCHES,
-        // yielding to the event loop between each batch so the UI stays
-        // responsive and REST response signals can be delivered.
+        // Use bulkSubscribeAll to subscribe all tokens in a single API call
+        // per segment. This is much faster than batched individual calls.
 
-        emit migrationProgress(
-            QString("Subscribing %1 tokens via XTS REST API...").arg(totalSubs));
-
+        const int XTS_LIMIT = bridge.config().maxTotalSubscriptions;
+        
         if (totalSubs == 0) {
             emit migrationProgress("No tokens to migrate");
             return;
         }
 
-        // Move tokens to shared_ptr so the lambda chain can own them
-        auto tokenPtr = std::make_shared<std::vector<std::pair<int, uint32_t>>>(
-            std::move(activeTokens));
+        // Warn if we have more tokens than XTS can handle
+        if (totalSubs > static_cast<size_t>(XTS_LIMIT)) {
+            qWarning() << "[Migration] ⚠ Active tokens (" << totalSubs
+                       << ") exceed XTS limit (" << XTS_LIMIT << ")";
+            qWarning() << "[Migration] Only first" << XTS_LIMIT
+                       << "tokens will receive live data via XTS";
+            emit migrationProgress(
+                QString("⚠ %1 tokens exceed XTS limit of %2 — excess tokens dropped")
+                    .arg(totalSubs).arg(XTS_LIMIT));
+        } else {
+            emit migrationProgress(
+                QString("Subscribing %1 tokens via XTS REST API (bulk)...").arg(totalSubs));
+        }
 
-        // Kick off the first batch (the rest follow via QTimer::singleShot)
-        migrateBatchToXTS(tokenPtr, 0, totalSubs);
+        // Bulk subscribe all tokens in single API calls (one per segment)
+        // Also add NSE CM index tokens so IndicesView stays live in XTS-only mode
+        RepositoryManager* repo = RepositoryManager::getInstance();
+        if (repo) {
+            const auto& indexTokenMap = repo->getIndexTokenNameMap();
+            const int nsecmSeg = static_cast<int>(ExchangeSegment::NSECM);
+            for (auto it = indexTokenMap.constBegin(); it != indexTokenMap.constEnd(); ++it) {
+                uint32_t idxToken = it.key();
+                // Only append if not already present (avoid duplicates)
+                bool found = std::any_of(activeTokens.begin(), activeTokens.end(),
+                    [&](const std::pair<int,uint32_t>& p){ return p.first == nsecmSeg && p.second == idxToken; });
+                if (!found) {
+                    activeTokens.push_back({nsecmSeg, idxToken});
+                }
+            }
+            qDebug() << "[Migration] Added" << indexTokenMap.size()
+                     << "NSE CM index tokens for IndicesView. Total:" << activeTokens.size();
+        }
+
+        int subscribed = bridge.bulkSubscribeAll(activeTokens);
+        
+        qDebug() << "[Migration] UDP→XTS complete:" << subscribed
+                 << "tokens subscribed via bulk API";
+        emit migrationProgress(
+            QString("Migration complete — %1 tokens subscribed via XTS").arg(subscribed));
 
     } else {
         // ──────────────────────────────────────────────────────────────
         // XTS → UDP: Unsubscribe from XTS REST, let UDP take over
         // ──────────────────────────────────────────────────────────────
         // UDP already receives ALL multicast data for all instruments.
-        // We just need to unsubscribe from XTS REST to free the 1000 cap.
+        // We just need to unsubscribe from XTS REST to free the 500 cap.
         // But keep 1505 candle subscriptions alive for chart windows.
         //
         // unsubscribeAllExceptCandles() releases its lock before REST calls,
@@ -349,6 +381,8 @@ void ConnectionStatusManager::migrateSubscriptions(PrimaryDataSource oldSource,
     }
 }
 
+// NOTE: migrateBatchToXTS is kept for backward compatibility but no longer used
+// The bulk approach in migrateSubscriptions is preferred.
 void ConnectionStatusManager::migrateBatchToXTS(
     std::shared_ptr<std::vector<std::pair<int, uint32_t>>> tokens,
     size_t startIdx, size_t totalCount)

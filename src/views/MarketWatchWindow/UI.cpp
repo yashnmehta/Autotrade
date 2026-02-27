@@ -25,22 +25,26 @@ public:
         QStyleOptionViewItem opt = option;
         initStyleOption(&opt, index);
 
-        // Look for model-provided background color (Ticks)
+        // Look for model-provided background color (tick flash)
         QVariant bg = index.data(Qt::BackgroundRole);
-        
+
         if (bg.isValid()) {
+            // Tick flash: fill with model color, white text, suppress selection highlight
             painter->save();
-            // Fill cell with model color - this overrides the standard selection blue
             painter->fillRect(opt.rect, bg.value<QColor>());
             painter->restore();
-
-            // Set text color to white for contrast on vibrant tick backgrounds
             opt.palette.setColor(QPalette::Text, Qt::white);
             opt.palette.setColor(QPalette::HighlightedText, Qt::white);
-            
-            // Prevent standard delegate from drawing its own background (including selection)
             opt.backgroundBrush = Qt::NoBrush;
             opt.state &= ~QStyle::State_Selected;
+        } else if (opt.state & QStyle::State_Selected) {
+            // Selection: explicitly fill so it's always visible on dark background
+            painter->save();
+            painter->fillRect(opt.rect, QColor("#2563eb"));
+            painter->restore();
+            opt.palette.setColor(QPalette::Highlight, QColor("#2563eb"));
+            opt.palette.setColor(QPalette::HighlightedText, Qt::white);
+            opt.palette.setColor(QPalette::Text, Qt::white);
         }
 
         QStyledItemDelegate::paint(painter, opt, index);
@@ -79,20 +83,20 @@ void MarketWatchWindow::showContextMenu(const QPoint &pos)
     QMenu menu(this);
     menu.setStyleSheet(
         "QMenu {"
-        "    background-color: #ffffff;"
-        "    color: #1e293b;"
-        "    border: 1px solid #e2e8f0;"
+        "    background-color: #0d1117;"
+        "    color: #e2e8f0;"
+        "    border: 1px solid #1e2530;"
         "}"
         "QMenu::item {"
         "    padding: 6px 20px;"
         "}"
         "QMenu::item:selected {"
-        "    background-color: #dbeafe;"
-        "    color: #1e40af;"
+        "    background-color: #1e3a5f;"
+        "    color: #93c5fd;"
         "}"
         "QMenu::separator {"
         "    height: 1px;"
-        "    background: #e2e8f0;"
+        "    background: #1e2530;"
         "    margin: 4px 0px;"
         "}"
     );

@@ -163,6 +163,12 @@ void MarketWatchWindow::focusInEvent(QFocusEvent *event) {
   }
 }
 
+void MarketWatchWindow::focusOutEvent(QFocusEvent *event) {
+  // Auto-store the current row before focus leaves so we can restore it later
+  storeFocusedRow();
+  CustomMarketWatch::focusOutEvent(event);
+}
+
 int MarketWatchWindow::getTokenForRow(int sourceRow) const {
   if (sourceRow < 0 || sourceRow >= m_model->rowCount())
     return -1;

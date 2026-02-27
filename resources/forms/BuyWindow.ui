@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1259</width>
-    <height>194</height>
+    <width>975</width>
+    <height>110</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -45,26 +45,21 @@ QWidget#headerBar {
 
 QLabel {    
     color: #ffffff;
-    font-size: 11px;
-    font-weight: 700;
+    font-size: 9px;
+    font-weight: 400;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.3px;
     background-color: transparent;
 }
 
-QLabel#lblSymbol {
-    color: #ffffff;
-    font-size: 13px;
-    font-weight: 700;
-}
 
 QLineEdit {
     background-color: #ffffff;
     color: #000000;
     border: 1px solid #cccccc;
-    border-radius: 6px;
-    padding: 2px 5px;
-    font-size: 11px;
+    border-radius: 2px;
+    padding: 1px 2px;
+    font-size: 9px;
     font-weight: 400;
 }
 
@@ -87,10 +82,10 @@ QComboBox {
     background-color: #ffffff;
     color: #000000;
     border: 1px solid #cccccc;
-    border-radius: 6px;
-    padding: 2px 5px;
-    font-size: 10px;
-    font-weight: 500;
+    border-radius: 2px;
+    padding: 1px 1px;
+    font-size: 9px;
+    font-weight: 400;
 }
 
 QComboBox:hover {
@@ -103,15 +98,15 @@ QComboBox:focus {
 
 QComboBox::drop-down {
     border: none;
-    width: 24px;
+    width: 16px;
 }
 
 QComboBox::down-arrow {
     image: none;
-    border-left: 5px solid transparent;
-    border-right: 5px solid transparent;
-    border-top: 6px solid #64748b;
-    margin-right: 8px;
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-top: 5px solid #64748b;
+    margin-right: 4px;
 }
 
 QComboBox QAbstractItemView {
@@ -124,10 +119,10 @@ QComboBox QAbstractItemView {
 }
 
 QPushButton {
-    border-radius: 6px;
-    font-size: 13px;
+    border-radius: 4px;
+    font-size: 10px;
     font-weight: 700;
-    padding: 8px 16px;
+    padding: 3px 10px;
     text-transform: uppercase;
 }
 
@@ -173,38 +168,53 @@ QWidget#verticalWidget, QWidget#verticalWidget_2 {
 </string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
+   <property name="spacing">
+    <number>3</number>
+   </property>
+   <property name="leftMargin">
+    <number>8</number>
+   </property>
+   <property name="topMargin">
+    <number>1</number>
+   </property>
+   <property name="rightMargin">
+    <number>2</number>
+   </property>
+   <property name="bottomMargin">
+    <number>3</number>
+   </property>
    <item>
     <widget class="QWidget" name="verticalWidget" native="true">
      <property name="minimumSize">
       <size>
-       <width>1000</width>
-       <height>75</height>
+       <width>900</width>
+       <height>50</height>
       </size>
      </property>
      <property name="maximumSize">
       <size>
        <width>16777215</width>
-       <height>75</height>
+       <height>55</height>
       </size>
      </property>
      <layout class="QVBoxLayout" name="verticalLayout_5">
       <property name="spacing">
-       <number>1</number>
+       <number>2</number>
       </property>
       <property name="sizeConstraint">
        <enum>QLayout::SetMinimumSize</enum>
       </property>
       <property name="leftMargin">
-       <number>25</number>
+       <number>10</number>
       </property>
       <property name="topMargin">
-       <number>8</number>
+       <number>3</number>
       </property>
       <property name="rightMargin">
-       <number>25</number>
+       <number>10</number>
       </property>
       <property name="bottomMargin">
-       <number>8</number>
+       <number>2</number>
       </property>
       <item>
        <widget class="QWidget" name="widget" native="true">
@@ -228,10 +238,10 @@ QWidget#verticalWidget, QWidget#verticalWidget_2 {
           <number>2</number>
          </property>
          <property name="horizontalSpacing">
-          <number>4</number>
+          <number>8</number>
          </property>
          <property name="verticalSpacing">
-          <number>5</number>
+          <number>1</number>
          </property>
          <item row="1" column="1">
           <widget class="QComboBox" name="cbOrdType">
@@ -244,7 +254,13 @@ QWidget#verticalWidget, QWidget#verticalWidget_2 {
            <property name="minimumSize">
             <size>
              <width>50</width>
-             <height>35</height>
+             <height>22</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>70</width>
+             <height>16777215</height>
             </size>
            </property>
           </widget>
@@ -254,7 +270,7 @@ QWidget#verticalWidget, QWidget#verticalWidget_2 {
            <property name="minimumSize">
             <size>
              <width>0</width>
-             <height>30</height>
+             <height>16</height>
             </size>
            </property>
            <property name="text">
@@ -270,11 +286,14 @@ QWidget#verticalWidget, QWidget#verticalWidget_2 {
            <property name="minimumSize">
             <size>
              <width>0</width>
-             <height>30</height>
+             <height>16</height>
             </size>
            </property>
            <property name="text">
-            <string>Total Qty:</string>
+            <string>Total &amp;Qty:</string>
+           </property>
+           <property name="buddy">
+            <cstring>leQty</cstring>
            </property>
            <property name="alignment">
             <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
@@ -286,11 +305,14 @@ QWidget#verticalWidget, QWidget#verticalWidget_2 {
            <property name="minimumSize">
             <size>
              <width>0</width>
-             <height>30</height>
+             <height>16</height>
             </size>
            </property>
            <property name="text">
-            <string>Price:</string>
+            <string>&amp;Price:</string>
+           </property>
+           <property name="buddy">
+            <cstring>leRate</cstring>
            </property>
            <property name="alignment">
             <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
@@ -308,7 +330,7 @@ QWidget#verticalWidget, QWidget#verticalWidget_2 {
            <property name="minimumSize">
             <size>
              <width>60</width>
-             <height>35</height>
+             <height>22</height>
             </size>
            </property>
            <property name="alignment">
@@ -324,7 +346,7 @@ QWidget#verticalWidget, QWidget#verticalWidget_2 {
            <property name="minimumSize">
             <size>
              <width>0</width>
-             <height>30</height>
+             <height>16</height>
             </size>
            </property>
            <property name="text">
@@ -340,11 +362,14 @@ QWidget#verticalWidget, QWidget#verticalWidget_2 {
            <property name="minimumSize">
             <size>
              <width>60</width>
-             <height>30</height>
+             <height>16</height>
             </size>
            </property>
            <property name="text">
-            <string>Type:</string>
+            <string>&amp;Type:</string>
+           </property>
+           <property name="buddy">
+            <cstring>cbOrdType</cstring>
            </property>
            <property name="alignment">
             <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
@@ -356,7 +381,7 @@ QWidget#verticalWidget, QWidget#verticalWidget_2 {
            <property name="minimumSize">
             <size>
              <width>0</width>
-             <height>30</height>
+             <height>16</height>
             </size>
            </property>
            <property name="text">
@@ -369,7 +394,7 @@ QWidget#verticalWidget, QWidget#verticalWidget_2 {
            <property name="minimumSize">
             <size>
              <width>0</width>
-             <height>30</height>
+             <height>16</height>
             </size>
            </property>
            <property name="text">
@@ -391,11 +416,17 @@ QWidget#verticalWidget, QWidget#verticalWidget_2 {
            <property name="minimumSize">
             <size>
              <width>60</width>
-             <height>35</height>
+             <height>22</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>70</width>
+             <height>16777215</height>
             </size>
            </property>
            <property name="alignment">
-            <set>Qt::AlignCenter</set>
+            <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
            </property>
            <property name="placeholderText">
             <string>COL</string>
@@ -407,7 +438,7 @@ QWidget#verticalWidget, QWidget#verticalWidget_2 {
            <property name="minimumSize">
             <size>
              <width>0</width>
-             <height>30</height>
+             <height>16</height>
             </size>
            </property>
            <property name="text">
@@ -423,7 +454,7 @@ QWidget#verticalWidget, QWidget#verticalWidget_2 {
            <property name="minimumSize">
             <size>
              <width>0</width>
-             <height>30</height>
+             <height>16</height>
             </size>
            </property>
            <property name="text">
@@ -445,7 +476,7 @@ QWidget#verticalWidget, QWidget#verticalWidget_2 {
            <property name="minimumSize">
             <size>
              <width>100</width>
-             <height>35</height>
+             <height>22</height>
             </size>
            </property>
            <property name="readOnly">
@@ -458,7 +489,7 @@ QWidget#verticalWidget, QWidget#verticalWidget_2 {
            <property name="minimumSize">
             <size>
              <width>0</width>
-             <height>30</height>
+             <height>16</height>
             </size>
            </property>
            <property name="text">
@@ -480,7 +511,7 @@ QWidget#verticalWidget, QWidget#verticalWidget_2 {
            <property name="minimumSize">
             <size>
              <width>50</width>
-             <height>35</height>
+             <height>22</height>
             </size>
            </property>
           </widget>
@@ -496,7 +527,13 @@ QWidget#verticalWidget, QWidget#verticalWidget_2 {
            <property name="minimumSize">
             <size>
              <width>70</width>
-             <height>35</height>
+             <height>22</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>80</width>
+             <height>16777215</height>
             </size>
            </property>
           </widget>
@@ -506,7 +543,7 @@ QWidget#verticalWidget, QWidget#verticalWidget_2 {
            <property name="minimumSize">
             <size>
              <width>0</width>
-             <height>30</height>
+             <height>16</height>
             </size>
            </property>
            <property name="text">
@@ -522,7 +559,7 @@ QWidget#verticalWidget, QWidget#verticalWidget_2 {
            <property name="minimumSize">
             <size>
              <width>0</width>
-             <height>30</height>
+             <height>16</height>
             </size>
            </property>
            <property name="text">
@@ -544,7 +581,13 @@ QWidget#verticalWidget, QWidget#verticalWidget_2 {
            <property name="minimumSize">
             <size>
              <width>50</width>
-             <height>35</height>
+             <height>22</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>50</width>
+             <height>16777215</height>
             </size>
            </property>
           </widget>
@@ -560,7 +603,7 @@ QWidget#verticalWidget, QWidget#verticalWidget_2 {
            <property name="minimumSize">
             <size>
              <width>80</width>
-             <height>35</height>
+             <height>22</height>
             </size>
            </property>
           </widget>
@@ -576,7 +619,7 @@ QWidget#verticalWidget, QWidget#verticalWidget_2 {
            <property name="minimumSize">
             <size>
              <width>50</width>
-             <height>35</height>
+             <height>22</height>
             </size>
            </property>
            <property name="alignment">
@@ -592,7 +635,13 @@ QWidget#verticalWidget, QWidget#verticalWidget_2 {
            <property name="minimumSize">
             <size>
              <width>50</width>
-             <height>35</height>
+             <height>22</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>70</width>
+             <height>16777215</height>
             </size>
            </property>
           </widget>
@@ -608,7 +657,7 @@ QWidget#verticalWidget, QWidget#verticalWidget_2 {
            <property name="minimumSize">
             <size>
              <width>60</width>
-             <height>35</height>
+             <height>22</height>
             </size>
            </property>
            <property name="alignment">
@@ -630,7 +679,7 @@ QWidget#verticalWidget, QWidget#verticalWidget_2 {
            <property name="minimumSize">
             <size>
              <width>60</width>
-             <height>35</height>
+             <height>22</height>
             </size>
            </property>
           </widget>
@@ -645,28 +694,28 @@ QWidget#verticalWidget, QWidget#verticalWidget_2 {
     <widget class="QWidget" name="verticalWidget_2" native="true">
      <property name="minimumSize">
       <size>
-       <width>1000</width>
-       <height>75</height>
+       <width>900</width>
+       <height>50</height>
       </size>
      </property>
      <property name="maximumSize">
       <size>
        <width>16777215</width>
-       <height>75</height>
+       <height>55</height>
       </size>
      </property>
      <layout class="QVBoxLayout" name="verticalLayout_6">
       <property name="leftMargin">
-       <number>25</number>
+       <number>10</number>
       </property>
       <property name="topMargin">
-       <number>8</number>
+       <number>2</number>
       </property>
       <property name="rightMargin">
-       <number>25</number>
+       <number>10</number>
       </property>
       <property name="bottomMargin">
-       <number>8</number>
+       <number>3</number>
       </property>
       <item>
        <widget class="QWidget" name="widget" native="true">
@@ -684,10 +733,10 @@ QWidget#verticalWidget, QWidget#verticalWidget_2 {
           <number>1</number>
          </property>
          <property name="horizontalSpacing">
-          <number>10</number>
+          <number>8</number>
          </property>
          <property name="verticalSpacing">
-          <number>5</number>
+          <number>1</number>
          </property>
          <item row="1" column="1">
           <widget class="QLineEdit" name="leClient">
@@ -699,8 +748,14 @@ QWidget#verticalWidget, QWidget#verticalWidget_2 {
            </property>
            <property name="minimumSize">
             <size>
-             <width>100</width>
+             <width>80</width>
              <height>0</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>100</width>
+             <height>16777215</height>
             </size>
            </property>
            <property name="alignment">
@@ -762,8 +817,14 @@ QWidget#verticalWidget, QWidget#verticalWidget_2 {
            </property>
            <property name="minimumSize">
             <size>
-             <width>90</width>
+             <width>60</width>
              <height>0</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>60</width>
+             <height>16777215</height>
             </size>
            </property>
           </widget>
@@ -780,6 +841,12 @@ QWidget#verticalWidget, QWidget#verticalWidget_2 {
             <size>
              <width>70</width>
              <height>0</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>70</width>
+             <height>16777215</height>
             </size>
            </property>
           </widget>
@@ -801,7 +868,7 @@ QWidget#verticalWidget, QWidget#verticalWidget_2 {
           </widget>
          </item>
          <item row="0" column="7">
-          <widget class="QLabel" name="label_ordertype">
+          <widget class="QLabel" name="Product">
            <property name="minimumSize">
             <size>
              <width>0</width>
@@ -809,7 +876,10 @@ QWidget#verticalWidget, QWidget#verticalWidget_2 {
             </size>
            </property>
            <property name="text">
-            <string>Order Type:</string>
+            <string>Pr&amp;oduct</string>
+           </property>
+           <property name="buddy">
+            <cstring>cbProduct</cstring>
            </property>
            <property name="alignment">
             <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
@@ -830,6 +900,12 @@ QWidget#verticalWidget, QWidget#verticalWidget_2 {
              <height>0</height>
             </size>
            </property>
+           <property name="maximumSize">
+            <size>
+             <width>100</width>
+             <height>16777215</height>
+            </size>
+           </property>
           </widget>
          </item>
          <item row="0" column="1">
@@ -841,7 +917,10 @@ QWidget#verticalWidget, QWidget#verticalWidget_2 {
             </size>
            </property>
            <property name="text">
-            <string>Client:</string>
+            <string>C&amp;lient:</string>
+           </property>
+           <property name="buddy">
+            <cstring>leClient</cstring>
            </property>
            <property name="alignment">
             <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
@@ -905,7 +984,10 @@ QWidget#verticalWidget, QWidget#verticalWidget_2 {
             </size>
            </property>
            <property name="text">
-            <string>Trig Price:</string>
+            <string>Tri&amp;g Price:</string>
+           </property>
+           <property name="buddy">
+            <cstring>leTrigPrice</cstring>
            </property>
            <property name="alignment">
             <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
@@ -922,8 +1004,14 @@ QWidget#verticalWidget, QWidget#verticalWidget_2 {
            </property>
            <property name="minimumSize">
             <size>
-             <width>110</width>
+             <width>60</width>
              <height>0</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>60</width>
+             <height>16777215</height>
             </size>
            </property>
           </widget>
@@ -938,8 +1026,14 @@ QWidget#verticalWidget, QWidget#verticalWidget_2 {
            </property>
            <property name="minimumSize">
             <size>
-             <width>90</width>
+             <width>70</width>
              <height>0</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>70</width>
+             <height>16777215</height>
             </size>
            </property>
            <property name="alignment">
@@ -959,7 +1053,10 @@ QWidget#verticalWidget, QWidget#verticalWidget_2 {
             </size>
            </property>
            <property name="text">
-            <string>Validity:</string>
+            <string>Validit&amp;y:</string>
+           </property>
+           <property name="buddy">
+            <cstring>cbValidity</cstring>
            </property>
            <property name="alignment">
             <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
@@ -1007,7 +1104,10 @@ QWidget#verticalWidget, QWidget#verticalWidget_2 {
             </size>
            </property>
            <property name="text">
-            <string>Pro/Cli:</string>
+            <string>P&amp;ro/Cli:</string>
+           </property>
+           <property name="buddy">
+            <cstring>cbProCli</cstring>
            </property>
            <property name="alignment">
             <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
@@ -1049,8 +1149,10 @@ QWidget#verticalWidget, QWidget#verticalWidget_2 {
   </layout>
  </widget>
  <tabstops>
+  <tabstop>cbEx</tabstop>
   <tabstop>cbOrdType</tabstop>
   <tabstop>leToken</tabstop>
+  <tabstop>cbInstrName</tabstop>
   <tabstop>cbExp</tabstop>
   <tabstop>cbStrike</tabstop>
   <tabstop>cbOptType</tabstop>
@@ -1058,12 +1160,17 @@ QWidget#verticalWidget, QWidget#verticalWidget_2 {
   <tabstop>leRate</tabstop>
   <tabstop>cbMFAON</tabstop>
   <tabstop>leMEQty</tabstop>
+  <tabstop>cbProCli</tabstop>
   <tabstop>leClient</tabstop>
+  <tabstop>cbCPBroker</tabstop>
   <tabstop>leSetflor</tabstop>
   <tabstop>leTrigPrice</tabstop>
   <tabstop>cbProduct</tabstop>
   <tabstop>cbValidity</tabstop>
   <tabstop>leRemarks</tabstop>
+  <tabstop>pbAMO</tabstop>
+  <tabstop>pbSubmit</tabstop>
+  <tabstop>pbClear</tabstop>
  </tabstops>
  <resources/>
  <connections/>
