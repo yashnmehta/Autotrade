@@ -38,6 +38,9 @@ add_library(ui_dialogs STATIC
 target_link_libraries(ui_dialogs PUBLIC
     Qt5::Widgets
     Qt5::Network
+    Qt5::Sql
+    Qt5::UiTools
+    Qt5::Concurrent
 )
 
 # Add TradingView dependencies if enabled
