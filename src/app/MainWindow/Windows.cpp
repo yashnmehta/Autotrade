@@ -7,11 +7,11 @@
 #include "data/PriceStoreGateway.h"
 #include "repository/RepositoryManager.h"
 #include "services/UdpBroadcastService.h"
-#include "ui/ATMWatchWindow.h"
 #include "ui/GlobalSearchWidget.h"
-#include "ui/OptionChainWindow.h"
 #include "ui/OptionCalculatorWindow.h"
 #include "ui/StrategyManagerWindow.h"
+#include "views/ATMWatchWindow.h"
+#include "views/OptionChainWindow.h"
 #ifdef HAVE_TRADINGVIEW
 #include "ui/TradingViewChartWidget.h"
 #endif

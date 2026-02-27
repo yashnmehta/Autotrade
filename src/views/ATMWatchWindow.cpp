@@ -1,11 +1,11 @@
-#include "ui/ATMWatchWindow.h"
+#include "views/ATMWatchWindow.h"
 #include "data/PriceStoreGateway.h"
 #include "models/WindowContext.h"
 #include "repository/RepositoryManager.h"
 #include "services/FeedHandler.h"
 #include "services/GreeksCalculationService.h"
 #include "ui/ATMWatchSettingsDialog.h"
-#include "ui/OptionChainWindow.h"
+#include "views/OptionChainWindow.h"
 #include <QAction>
 #include <QApplication>
 #include <QClipboard>

@@ -331,8 +331,6 @@ set(APP_HEADERS
 set(UI_SOURCES
     src/ui/SplashScreen.cpp
     src/ui/LoginWindow.cpp
-    src/ui/OptionChainWindow.cpp
-    src/ui/ATMWatchWindow.cpp
     src/ui/ATMWatchSettingsDialog.cpp
     src/ui/StrategyManagerWindow.cpp
     src/ui/CreateStrategyDialog.cpp
@@ -353,8 +351,6 @@ set(UI_SOURCES
 set(UI_HEADERS
     include/ui/SplashScreen.h
     include/ui/LoginWindow.h
-    include/ui/OptionChainWindow.h
-    include/ui/ATMWatchWindow.h
     include/ui/ATMWatchSettingsDialog.h
     include/ui/StrategyManagerWindow.h
     include/ui/CreateStrategyDialog.h
@@ -406,6 +402,8 @@ set(VIEW_SOURCES
     src/views/BaseBookWindow.cpp
     src/views/BuyWindow.cpp
     src/views/SellWindow.cpp
+    src/views/ATMWatchWindow.cpp
+    src/views/OptionChainWindow.cpp
     src/views/MarketWatchWindow/MarketWatchWindow.cpp
     src/views/MarketWatchWindow/UI.cpp
     src/views/MarketWatchWindow/Data.cpp
@@ -434,9 +432,10 @@ set(VIEW_HEADERS
     include/views/BaseBookWindow.h
     include/views/BuyWindow.h
     include/views/SellWindow.h
+    include/views/ATMWatchWindow.h
+    include/views/OptionChainWindow.h
     include/views/MarketWatchWindow.h
     include/views/SnapQuoteWindow.h
-    include/ui/OptionChainWindow.h
     include/views/PositionWindow.h
     include/views/TradeBookWindow.h
     include/views/OrderBookWindow.h
