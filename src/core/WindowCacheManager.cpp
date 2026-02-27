@@ -69,7 +69,13 @@ void WindowCacheManager::createBuyWindow() {
   m_cachedBuyMdiWindow->setCached(true);
   m_cachedBuyWindow = new BuyWindow(m_cachedBuyMdiWindow);
   m_cachedBuyMdiWindow->setContentWidget(m_cachedBuyWindow);
-  m_cachedBuyMdiWindow->resize(1220, 200);
+
+  // Only apply default size if user hasn't saved a geometry preference
+  QSettings buySettings("TradingCompany", "TradingTerminal");
+  QString buyOpenWith = buySettings.value("Customize/BuyWindow/openWith", "default").toString();
+  if (buyOpenWith == "default" || !buySettings.contains("WindowState/BuyWindow/geometry")) {
+    m_cachedBuyMdiWindow->resize(925, 155);
+  }
 
   // ⚡ Add window without activating or showing (it's cached)
   mdiArea->addWindow(m_cachedBuyMdiWindow, false);
@@ -100,7 +106,13 @@ void WindowCacheManager::createSellWindow() {
   m_cachedSellMdiWindow->setCached(true);
   m_cachedSellWindow = new SellWindow(m_cachedSellMdiWindow);
   m_cachedSellMdiWindow->setContentWidget(m_cachedSellWindow);
-  m_cachedSellMdiWindow->resize(1220, 200);
+
+  // Only apply default size if user hasn't saved a geometry preference
+  QSettings sellSettings("TradingCompany", "TradingTerminal");
+  QString sellOpenWith = sellSettings.value("Customize/SellWindow/openWith", "default").toString();
+  if (sellOpenWith == "default" || !sellSettings.contains("WindowState/SellWindow/geometry")) {
+    m_cachedSellMdiWindow->resize(925, 155);
+  }
 
   mdiArea->addWindow(m_cachedSellMdiWindow, false);
 
