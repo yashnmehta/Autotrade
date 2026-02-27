@@ -9,6 +9,7 @@ add_library(services STATIC
     FeedHandler.cpp
     UdpBroadcastService.cpp
     XTSFeedBridge.cpp
+    ConnectionStatusManager.cpp
     MasterLoaderWorker.cpp
     MasterDataState.cpp
     ATMWatchManager.cpp
@@ -25,6 +26,7 @@ add_library(services STATIC
     ${CMAKE_SOURCE_DIR}/include/services/FeedHandler.h
     ${CMAKE_SOURCE_DIR}/include/services/UdpBroadcastService.h
     ${CMAKE_SOURCE_DIR}/include/services/XTSFeedBridge.h
+    ${CMAKE_SOURCE_DIR}/include/services/ConnectionStatusManager.h
     ${CMAKE_SOURCE_DIR}/include/services/MasterLoaderWorker.h
     ${CMAKE_SOURCE_DIR}/include/services/MasterDataState.h
     ${CMAKE_SOURCE_DIR}/include/services/ATMWatchManager.h

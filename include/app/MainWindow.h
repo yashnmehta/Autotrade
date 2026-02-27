@@ -6,6 +6,9 @@
 #include "core/widgets/CustomMainWindow.h"
 #include "multicast_receiver.h"
 #include "nsecm_multicast_receiver.h"
+
+class ConnectionBarWidget;
+class BroadcastSettingsDialog;
 class QRect;
 #include "models/domain/WindowContext.h"
 #include <QString>
@@ -119,6 +122,8 @@ private slots:
   void startBroadcastReceiver();
   void stopBroadcastReceiver();
 
+  void onConnectionSettingsRequested();
+
   void onPriceSubscriptionRequest(QString requesterId, uint32_t token,
                                   uint16_t segment);
   void onScripBarEscapePressed();
@@ -151,7 +156,7 @@ private:
   QMenuBar *m_menuBar;
   QToolBar *m_toolBar;
   QToolBar *m_connectionToolBar;
-  QWidget *m_connectionBar;
+  ConnectionBarWidget *m_connectionBar;
   QStatusBar *m_statusBar;
   InfoBar *m_infoBar;
   QDockWidget *m_infoDock;

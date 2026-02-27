@@ -1,4 +1,5 @@
 #include "app/MainWindow.h"
+#include "services/ConnectionStatusManager.h"
 #include "services/GreeksCalculationService.h"
 #include "services/XTSFeedBridge.h"
 #include "repository/RepositoryManager.h"
@@ -13,8 +14,8 @@ void MainWindow::setupNetwork() {
     qDebug() << "[MainWindow] Setting up network services...";
 
     // Check feed mode — skip UDP entirely in XTS_ONLY mode
-    if (m_configLoader && m_configLoader->getFeedMode() == "xts_only") {
-        qDebug() << "[MainWindow] Feed mode is XTS_ONLY — skipping UDP broadcast receivers";
+    if (m_configLoader && m_configLoader->getPrimaryDataProvider() == "xts") {
+        qDebug() << "[MainWindow] Primary data provider is XTS — skipping UDP broadcast receivers";
         qDebug() << "[MainWindow] All price data will come through XTS WebSocket";
         return;
     }
@@ -64,19 +65,19 @@ void MainWindow::initializeXTSFeedBridge() {
     bridge.setConfig(cfg);
 
     // 3. Determine feed mode from config
-    QString modeStr = m_configLoader->getFeedMode();
+    QString provider = m_configLoader->getPrimaryDataProvider();
     FeedMode mode = FeedMode::HYBRID;
-    if (modeStr == "xts_only" || modeStr == "xtsonly" || modeStr == "websocket") {
+    if (provider == "xts") {
         mode = FeedMode::XTS_ONLY;
     }
     bridge.setFeedMode(mode);
 
     // 4. If XTS_ONLY, skip UDP startup (it will fail anyway)
     if (mode == FeedMode::XTS_ONLY) {
-        qDebug() << "[MainWindow] Feed mode: XTS_ONLY — UDP receivers will NOT be started";
+        qDebug() << "[MainWindow] Feed mode: XTS_ONLY (primary_data_provider=xts) — UDP receivers will NOT be started";
         qDebug() << "[MainWindow] All market data will come through XTS WebSocket";
     } else {
-        qDebug() << "[MainWindow] Feed mode: HYBRID — UDP + XTS WebSocket";
+        qDebug() << "[MainWindow] Feed mode: HYBRID (primary_data_provider=udp) — UDP + XTS WebSocket";
     }
 
     // 5. Connect stats signal for status bar updates

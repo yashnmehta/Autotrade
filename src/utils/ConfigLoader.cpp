@@ -60,6 +60,7 @@ bool ConfigLoader::load(const QString &filePath)
 
     file.close();
     m_loaded = true;
+    m_configFilePath = filePath;
 
     qDebug() << "✅ Configuration loaded from:" << filePath;
     qDebug() << "   Sections found:" << m_config.keys();
@@ -273,6 +274,124 @@ QString ConfigLoader::getBasePriceMode() const
 QString ConfigLoader::getFeedMode() const
 {
     return getValue("FEED", "mode", "hybrid").toLower().trimmed();
+}
+
+QString ConfigLoader::getPrimaryDataProvider() const
+{
+    // Preferred: explicit primary_data_provider key
+    QString provider = getValue("FEED", "primary_data_provider", "").toLower().trimmed();
+    if (provider == "udp" || provider == "xts") {
+        return provider;
+    }
+
+    // Fallback: derive from legacy 'mode' key
+    QString mode = getFeedMode();
+    if (mode == "xts_only" || mode == "xtsonly" || mode == "websocket") {
+        return "xts";
+    }
+    return "udp"; // default
+}
+
+bool ConfigLoader::setPrimaryDataProvider(const QString& provider)
+{
+    if (m_configFilePath.isEmpty()) {
+        qWarning() << "[ConfigLoader] Cannot save — config file path not set";
+        return false;
+    }
+
+    // Update in-memory config
+    m_config["FEED"]["primary_data_provider"] = provider;
+
+    // Also keep 'mode' in sync for backward compatibility
+    if (provider == "xts") {
+        m_config["FEED"]["mode"] = "xts_only";
+    } else {
+        m_config["FEED"]["mode"] = "hybrid";
+    }
+
+    // Persist to config.ini — rewrite the file section by section
+    QFile file(m_configFilePath);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        qWarning() << "[ConfigLoader] Cannot read config for save:" << m_configFilePath;
+        return false;
+    }
+
+    QStringList lines;
+    QTextStream in(&file);
+    while (!in.atEnd()) {
+        lines.append(in.readLine());
+    }
+    file.close();
+
+    // Find and update the primary_data_provider and mode lines in [FEED]
+    bool inFeedSection = false;
+    bool foundProvider = false;
+    bool foundMode = false;
+
+    for (int i = 0; i < lines.size(); ++i) {
+        QString trimmed = lines[i].trimmed();
+
+        // Track section
+        if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+            // If we were in FEED section and didn't find provider key, insert before leaving
+            if (inFeedSection && !foundProvider) {
+                lines.insert(i, QString("primary_data_provider = %1").arg(provider));
+                foundProvider = true;
+                ++i; // skip the inserted line
+            }
+            inFeedSection = (trimmed.toUpper() == "[FEED]");
+            continue;
+        }
+
+        if (inFeedSection) {
+            if (trimmed.startsWith("primary_data_provider")) {
+                lines[i] = QString("primary_data_provider = %1").arg(provider);
+                foundProvider = true;
+            } else if (trimmed.startsWith("mode") && !trimmed.startsWith("mode_")) {
+                // Update mode but preserve comment structure
+                lines[i] = QString("mode = %1").arg(provider == "xts" ? "xts_only" : "hybrid");
+                foundMode = true;
+            }
+        }
+    }
+
+    // If FEED section existed but provider key was never found, append it
+    if (!foundProvider) {
+        // Find end of FEED section or end of file
+        bool inFeed = false;
+        for (int i = 0; i < lines.size(); ++i) {
+            QString trimmed = lines[i].trimmed();
+            if (trimmed.toUpper() == "[FEED]") {
+                inFeed = true;
+                continue;
+            }
+            if (inFeed && trimmed.startsWith('[')) {
+                lines.insert(i, QString("primary_data_provider = %1").arg(provider));
+                foundProvider = true;
+                break;
+            }
+        }
+        if (!foundProvider) {
+            // FEED section is at the end of file
+            lines.append(QString("primary_data_provider = %1").arg(provider));
+        }
+    }
+
+    // Write back
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Truncate)) {
+        qWarning() << "[ConfigLoader] Cannot write config:" << m_configFilePath;
+        return false;
+    }
+
+    QTextStream out(&file);
+    for (const QString& line : lines) {
+        out << line << "\n";
+    }
+    file.close();
+
+    qDebug() << "[ConfigLoader] Saved primary_data_provider =" << provider
+             << "to" << m_configFilePath;
+    return true;
 }
 
 int ConfigLoader::getFeedMaxTotalSubscriptions() const

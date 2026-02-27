@@ -463,6 +463,67 @@ int XTSFeedBridge::evictTokensIfNeeded(int needed) {
 }
 
 // ═════════════════════════════════════════════════════════════════════════
+// Unsubscribe All Except Candles (for XTS→UDP migration)
+// ═════════════════════════════════════════════════════════════════════════
+
+void XTSFeedBridge::unsubscribeAllExceptCandles() {
+    QMutexLocker lock(&m_mutex);
+
+    // Collect all (segment, tokens) pairs to unsubscribe,
+    // EXCLUDING 1505 (candle) subscriptions.
+    // We track subscriptions by segment in m_segments, but we don't
+    // separately track per-messageCode. So we unsubscribe ALL active tokens
+    // from the non-candle message codes (1501, 1502, 1512).
+    // 1505 candle subscriptions are managed separately by chart windows
+    // and are never added to m_segments tracking.
+
+    QMap<int, QVector<uint32_t>> toUnsubscribe;  // segment -> tokens
+    int totalTokens = 0;
+
+    for (auto it = m_segments.begin(); it != m_segments.end(); ++it) {
+        int segment = it.key();
+        SegmentState& state = it.value();
+
+        // Collect all active tokens for this segment
+        QVector<uint32_t> tokens;
+        tokens.reserve(state.activeSet.size());
+        for (uint32_t token : state.activeSet) {
+            tokens.append(token);
+        }
+
+        if (!tokens.isEmpty()) {
+            toUnsubscribe[segment] = tokens;
+            totalTokens += tokens.size();
+        }
+
+        // Clear the segment state
+        state.activeSet.clear();
+        state.lruOrder.clear();
+        state.pendingSet.clear();
+    }
+
+    // Also drain the pending queue
+    while (!m_pendingQueue.empty()) {
+        m_pendingQueue.pop();
+    }
+    m_batchTimer->stop();
+
+    qDebug() << "[XTSFeedBridge] unsubscribeAllExceptCandles:"
+             << totalTokens << "tokens across"
+             << toUnsubscribe.size() << "segments";
+
+    // Release lock before REST calls
+    lock.unlock();
+
+    // Fire unsubscribe REST calls per segment
+    for (auto it = toUnsubscribe.begin(); it != toUnsubscribe.end(); ++it) {
+        sendBatchUnsubscribe(it.key(), it.value(), m_config.defaultMessageCode);
+    }
+
+    emitStatsUpdate();
+}
+
+// ═════════════════════════════════════════════════════════════════════════
 // Statistics
 // ═════════════════════════════════════════════════════════════════════════
 

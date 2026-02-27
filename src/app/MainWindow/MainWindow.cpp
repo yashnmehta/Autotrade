@@ -21,6 +21,7 @@
 #include "services/TradingDataService.h"
 #include "services/UdpBroadcastService.h"
 #include "services/XTSFeedBridge.h"
+#include "services/ConnectionStatusManager.h"
 #include "utils/ConfigLoader.h"
 #include "utils/LatencyTracker.h"
 #include "utils/WindowManager.h"
@@ -128,6 +129,11 @@ void MainWindow::setXTSClients(XTSMarketDataClient *mdClient,
   // Set XTS client for cached SnapQuote window
   WindowCacheManager::instance().setXTSClientForSnapQuote(
       m_xtsMarketDataClient);
+
+  // Wire ConnectionStatusManager for live connection state tracking
+  auto& connMgr = ConnectionStatusManager::instance();
+  connMgr.wireXTSMarketDataClient(m_xtsMarketDataClient);
+  connMgr.wireXTSInteractiveClient(m_xtsInteractiveClient);
 }
 
 void MainWindow::setTradingDataService(TradingDataService *service) {
@@ -173,6 +179,22 @@ void MainWindow::setConfigLoader(ConfigLoader *loader) {
 
   // ✅ Initialize XTSFeedBridge (XTS-only fallback for internet users)
   initializeXTSFeedBridge();
+
+  // ✅ Initialize ConnectionStatusManager with config
+  auto& connMgr = ConnectionStatusManager::instance();
+  connMgr.wireUdpBroadcastService();
+
+  // Set default primary source from config.ini [FEED] primary_data_provider
+  QString provider = m_configLoader->getPrimaryDataProvider();
+  PrimaryDataSource defaultSource = PrimaryDataSource::UDP_PRIMARY;
+  if (provider == "xts") {
+      defaultSource = PrimaryDataSource::XTS_PRIMARY;
+  }
+  connMgr.setDefaultPrimarySource(defaultSource);
+
+  qDebug() << "[MainWindow] ConnectionStatusManager initialized — default source:"
+           << (defaultSource == PrimaryDataSource::UDP_PRIMARY ? "UDP" : "XTS")
+           << "(config: primary_data_provider=" << provider << ")";
 }
 
 void MainWindow::refreshScripBar() {

@@ -108,6 +108,15 @@ public:
     void requestUnsubscribe(uint32_t token, int exchangeSegment,
                             int xtsMessageCode = 1501);
 
+    /**
+     * @brief Unsubscribe all tokens except 1505 (candle) subscriptions
+     * 
+     * Used during XTS→UDP migration to free up the XTS subscription cap
+     * while keeping candle data flowing for chart windows.
+     * 1505 subscriptions are ALWAYS kept alive regardless of primary source.
+     */
+    void unsubscribeAllExceptCandles();
+
     // ═══════════════════════════════════════════════════════════════════
     // Configuration
     // ═══════════════════════════════════════════════════════════════════

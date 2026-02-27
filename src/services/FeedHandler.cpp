@@ -86,6 +86,35 @@ size_t FeedHandler::totalSubscriptions() const {
     return m_publishers.size();
 }
 
+void FeedHandler::reRegisterAllTokens() {
+    auto tokens = getActiveTokens();
+    qDebug() << "[FeedHandler] Re-registering" << tokens.size()
+             << "tokens with XTSFeedBridge for data source migration";
+
+    auto& bridge = XTSFeedBridge::instance();
+    for (const auto& [segment, token] : tokens) {
+        bridge.requestSubscribe(token, segment);
+    }
+
+    qDebug() << "[FeedHandler] Re-registration complete —"
+             << tokens.size() << "tokens queued for XTS REST subscribe";
+}
+
+std::vector<std::pair<int, uint32_t>> FeedHandler::getActiveTokens() const {
+    std::lock_guard<std::mutex> lock(m_mutex);
+    std::vector<std::pair<int, uint32_t>> result;
+    result.reserve(m_publishers.size());
+
+    for (const auto& [compositeKey, publisher] : m_publishers) {
+        // Decompose composite key: (segment << 32) | token
+        int segment = static_cast<int>(compositeKey >> 32);
+        uint32_t token = static_cast<uint32_t>(compositeKey & 0xFFFFFFFF);
+        result.emplace_back(segment, token);
+    }
+
+    return result;
+}
+
 void FeedHandler::onUdpTickReceived(const UDP::MarketTick& tick) {
     int exchangeSegment = static_cast<int>(tick.exchangeSegment);
     int token = tick.token;

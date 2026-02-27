@@ -6,12 +6,16 @@ set(UI_DIALOG_SOURCES
     SplashScreen.cpp
     LoginWindow.cpp
     GlobalSearchWidget.cpp
+    ConnectionBarWidget.cpp
+    BroadcastSettingsDialog.cpp
 )
 
 set(UI_DIALOG_HEADERS
     ${CMAKE_SOURCE_DIR}/include/ui/SplashScreen.h
     ${CMAKE_SOURCE_DIR}/include/ui/LoginWindow.h
     ${CMAKE_SOURCE_DIR}/include/ui/GlobalSearchWidget.h
+    ${CMAKE_SOURCE_DIR}/include/ui/ConnectionBarWidget.h
+    ${CMAKE_SOURCE_DIR}/include/ui/BroadcastSettingsDialog.h
 )
 
 # Add TradingView chart widget if enabled

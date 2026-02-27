@@ -134,6 +134,20 @@ public:
      */
     size_t totalSubscriptions() const;
 
+    /**
+     * @brief Re-register all active tokens with XTSFeedBridge
+     * Used during data source migration (UDP→XTS) to ensure all
+     * tokens currently subscribed in FeedHandler are also subscribed
+     * via XTS REST API.
+     */
+    void reRegisterAllTokens();
+
+    /**
+     * @brief Get all active (segment, token) pairs for migration
+     * @return Vector of (exchangeSegment, token) pairs
+     */
+    std::vector<std::pair<int, uint32_t>> getActiveTokens() const;
+
 signals:
     void subscriptionCountChanged(int token, size_t count);
     

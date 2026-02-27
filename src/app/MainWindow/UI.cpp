@@ -1,5 +1,7 @@
 #include "app/MainWindow.h"
 #include "app/ScripBar.h"
+#include "ui/ConnectionBarWidget.h"
+#include "ui/BroadcastSettingsDialog.h"
 #include "core/widgets/CustomMDIArea.h"
 #include "core/widgets/CustomMDISubWindow.h" // Needed for window iteration
 #include "core/widgets/InfoBar.h"
@@ -342,32 +344,20 @@ void MainWindow::createToolBar() {
 }
 
 void MainWindow::createConnectionBar() {
-  m_connectionBar = new QWidget(this);
-  m_connectionBar->setFixedHeight(28);
-  // Light theme style
-  m_connectionBar->setStyleSheet("QWidget { "
-                                 "   background-color: #f8fafc; "
-                                 "} "
-                                 "QLabel { "
-                                 "   color: #475569; "
-                                 "   padding: 2px 6px; "
-                                 "   font-size: 10px; "
-                                 "}");
+  m_connectionBar = new ConnectionBarWidget(this);
 
-  QHBoxLayout *layout = new QHBoxLayout(m_connectionBar);
-  layout->setContentsMargins(8, 0, 8, 0);
-  layout->setSpacing(3);
-  layout->setAlignment(Qt::AlignVCenter);
+  // Wire settings button to open BroadcastSettingsDialog
+  connect(m_connectionBar, &ConnectionBarWidget::settingsRequested,
+          this, &MainWindow::onConnectionSettingsRequested);
+}
 
-  QLabel *statusLabel = new QLabel("Connection Status:", m_connectionBar);
-  layout->addWidget(statusLabel);
-
-  QLabel *statusValue = new QLabel("Disconnected", m_connectionBar);
-  statusValue->setStyleSheet(
-      "color: #ff6b6b; font-weight: bold; font-size: 10px;");
-  layout->addWidget(statusValue);
-
-  layout->addStretch();
+void MainWindow::onConnectionSettingsRequested() {
+  // Create dialog on demand (non-modal, reusable)
+  auto* dialog = new BroadcastSettingsDialog(m_configLoader, this);
+  dialog->setAttribute(Qt::WA_DeleteOnClose);
+  dialog->show();
+  dialog->raise();
+  dialog->activateWindow();
 }
 
 void MainWindow::createStatusBar() {

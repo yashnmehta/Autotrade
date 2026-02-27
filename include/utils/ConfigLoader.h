@@ -62,6 +62,8 @@ public:
 
     // Feed Mode
     QString getFeedMode() const;         // "hybrid" or "xts_only"
+    QString getPrimaryDataProvider() const; // "udp" or "xts" (preferred over getFeedMode)
+    bool setPrimaryDataProvider(const QString& provider); // Persist to config.ini
     int getFeedMaxTotalSubscriptions() const;  // XTS global cap (default 1000)
     int getFeedMaxRestCallsPerSec() const;
     int getFeedBatchSize() const;
@@ -73,6 +75,7 @@ public:
 
 private:
     bool m_loaded;
+    QString m_configFilePath;
     QMap<QString, QMap<QString, QString>> m_config;
     
     void parseINI(const QString &filePath);
