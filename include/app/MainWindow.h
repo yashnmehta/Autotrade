@@ -6,7 +6,6 @@
 #include "core/widgets/CustomMainWindow.h"
 #include "multicast_receiver.h"
 #include "nsecm_multicast_receiver.h"
-#include "utils/LockFreeQueue.h"
 class QRect;
 #include "models/WindowContext.h"
 #include <QString>

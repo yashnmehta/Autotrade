@@ -15,7 +15,7 @@
 #include "services/ATMWatchManager.h"
 #include "services/FeedHandler.h"
 #include "services/GreeksCalculationService.h"
-#include "services/StrategyService.h"
+#include "strategy/manager/StrategyService.h"
 #include "services/TradingDataService.h"
 #include "services/UdpBroadcastService.h"
 #include "services/XTSFeedBridge.h"

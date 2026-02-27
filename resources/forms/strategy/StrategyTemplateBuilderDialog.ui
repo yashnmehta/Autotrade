@@ -1,0 +1,1034 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>StrategyTemplateBuilderDialog</class>
+ <widget class="QDialog" name="StrategyTemplateBuilderDialog">
+  <property name="geometry">
+   <rect><x>0</x><y>0</y><width>940</width><height>720</height></rect>
+  </property>
+  <property name="minimumSize">
+   <size><width>860</width><height>620</height></size>
+  </property>
+  <property name="windowTitle">
+   <string>Strategy Template Builder</string>
+  </property>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       STYLESHEET  – single source of truth for the whole dialog
+       ══════════════════════════════════════════════════════════════ -->
+  <property name="styleSheet">
+   <string notr="true">
+/* ── Base ── */
+QDialog { background:#ffffff; color:#1e293b; font-family: -apple-system, "Segoe UI", sans-serif; }
+
+/* ── Generic label ── */
+QLabel { color:#475569; font-size:12px; background:transparent; }
+QLabel#headerLabel {
+    background:#eff6ff;
+    color:#1d4ed8;
+    font-size:12px;
+    font-weight:600;
+    padding:8px 14px;
+    border-left:3px solid #3b82f6;
+    border-radius:3px;
+}
+
+/* ── Tabs ── */
+QTabWidget::pane {
+    background:#ffffff;
+    border:1px solid #e2e8f0;
+    border-top:none;
+    border-radius:0 0 5px 5px;
+}
+QTabBar {
+    background:transparent;
+}
+QTabBar::tab {
+    background:#f8fafc;
+    color:#64748b;
+    border:1px solid #e2e8f0;
+    border-bottom:none;
+    padding:7px 16px;
+    font-size:11px;
+    font-weight:500;
+    margin-right:1px;
+    border-radius:4px 4px 0 0;
+    min-width:86px;
+}
+QTabBar::tab:selected {
+    background:#ffffff;
+    color:#1e40af;
+    font-weight:700;
+    border-color:#e2e8f0;
+    border-bottom:2px solid #3b82f6;
+}
+QTabBar::tab:hover:!selected {
+    background:#f1f5f9;
+    color:#334155;
+}
+
+/* ── Tab page background ── */
+QWidget#metadataTab, QWidget#symbolsTab, QWidget#indicatorsTab,
+QWidget#parametersTab, QWidget#conditionsTab, QWidget#riskTab {
+    background:#ffffff;
+}
+
+/* ── GroupBox ── */
+QGroupBox {
+    background:#f8fafc;
+    border:1px solid #e2e8f0;
+    border-radius:5px;
+    margin-top:16px;
+    padding:10px 8px 8px 8px;
+    font-size:11px;
+    font-weight:700;
+    color:#2563eb;
+}
+QGroupBox::title {
+    subcontrol-origin:margin;
+    subcontrol-position:top left;
+    left:12px;
+    top:0px;
+    padding:0 6px;
+    color:#2563eb;
+    font-size:11px;
+    font-weight:700;
+    background:#f8fafc;
+}
+
+/* ── Form labels inside group/form ── */
+QGroupBox QLabel { color:#475569; font-size:12px; background:transparent; }
+
+/* ── Input widgets ── */
+QLineEdit, QTextEdit, QPlainTextEdit {
+    background:#ffffff;
+    border:1px solid #cbd5e1;
+    border-radius:4px;
+    color:#0f172a;
+    padding:5px 8px;
+    font-size:12px;
+    selection-background-color:#bfdbfe;
+}
+QLineEdit:focus, QTextEdit:focus, QPlainTextEdit:focus {
+    border-color:#3b82f6;
+    background:#ffffff;
+}
+QLineEdit:hover, QTextEdit:hover { border-color:#94a3b8; }
+
+QComboBox {
+    background:#ffffff;
+    border:1px solid #cbd5e1;
+    border-radius:4px;
+    color:#0f172a;
+    padding:4px 8px;
+    font-size:12px;
+    min-width:120px;
+}
+QComboBox:hover  { border-color:#94a3b8; }
+QComboBox:focus  { border-color:#3b82f6; }
+QComboBox::drop-down { border:none; width:22px; }
+QComboBox::down-arrow { width:10px; height:10px; }
+QComboBox QAbstractItemView {
+    background:#ffffff;
+    color:#0f172a;
+    border:1px solid #e2e8f0;
+    selection-background-color:#dbeafe;
+    selection-color:#1e40af;
+    outline:none;
+}
+
+QSpinBox, QDoubleSpinBox, QTimeEdit {
+    background:#ffffff;
+    border:1px solid #cbd5e1;
+    border-radius:4px;
+    color:#0f172a;
+    padding:4px 8px;
+    font-size:12px;
+    min-width:90px;
+}
+QSpinBox:focus, QDoubleSpinBox:focus, QTimeEdit:focus { border-color:#3b82f6; }
+QSpinBox::up-button, QDoubleSpinBox::up-button, QTimeEdit::up-button,
+QSpinBox::down-button, QDoubleSpinBox::down-button, QTimeEdit::down-button {
+    background:#f1f5f9;
+    border:none;
+    width:16px;
+}
+
+QCheckBox { color:#334155; font-size:12px; spacing:6px; background:transparent; }
+QCheckBox::indicator {
+    width:14px; height:14px;
+    background:#ffffff;
+    border:1px solid #94a3b8;
+    border-radius:3px;
+}
+QCheckBox::indicator:checked {
+    background:#3b82f6;
+    border-color:#2563eb;
+}
+QCheckBox::indicator:hover { border-color:#3b82f6; }
+
+/* ── Tables ── */
+QTableWidget {
+    background:#ffffff;
+    alternate-background-color:#f8fafc;
+    color:#1e293b;
+    gridline-color:#f1f5f9;
+    border:1px solid #e2e8f0;
+    border-radius:4px;
+    font-size:12px;
+    outline:none;
+    selection-background-color:#dbeafe;
+    selection-color:#1e40af;
+}
+QTableWidget::item { padding:5px 8px; border:none; }
+QTableWidget::item:selected { background:#dbeafe; color:#1e40af; }
+QTableWidget::item:hover { background:#eff6ff; }
+QHeaderView::section {
+    background:#f8fafc;
+    color:#475569;
+    border:none;
+    border-right:1px solid #f1f5f9;
+    border-bottom:2px solid #e2e8f0;
+    padding:6px 8px;
+    font-weight:700;
+    font-size:10px;
+    text-transform:uppercase;
+    letter-spacing:0.8px;
+}
+QHeaderView::section:last { border-right:none; }
+QHeaderView { background:#f8fafc; }
+
+/* ── Toolbar buttons (Add / Remove) ── */
+QPushButton#addSymbolBtn, QPushButton#addIndicatorBtn, QPushButton#addParamBtn {
+    background:#f0fdf4;
+    color:#16a34a;
+    border:1px solid #bbf7d0;
+    border-radius:4px;
+    font-size:12px;
+    font-weight:600;
+    padding:5px 14px;
+    min-width:120px;
+}
+QPushButton#addSymbolBtn:hover, QPushButton#addIndicatorBtn:hover, QPushButton#addParamBtn:hover {
+    background:#dcfce7;
+    color:#15803d;
+    border-color:#86efac;
+}
+QPushButton#addSymbolBtn:pressed, QPushButton#addIndicatorBtn:pressed, QPushButton#addParamBtn:pressed {
+    background:#bbf7d0;
+}
+QPushButton#removeSymbolBtn, QPushButton#removeIndicatorBtn, QPushButton#removeParamBtn {
+    background:#fef2f2;
+    color:#dc2626;
+    border:1px solid #fecaca;
+    border-radius:4px;
+    font-size:12px;
+    font-weight:600;
+    padding:5px 14px;
+    min-width:120px;
+}
+QPushButton#removeSymbolBtn:hover, QPushButton#removeIndicatorBtn:hover, QPushButton#removeParamBtn:hover {
+    background:#fee2e2;
+    color:#b91c1c;
+    border-color:#fca5a5;
+}
+QPushButton#removeSymbolBtn:pressed, QPushButton#removeIndicatorBtn:pressed, QPushButton#removeParamBtn:pressed {
+    background:#fecaca;
+}
+
+/* ── Conditions tab buttons (handled by ConditionBuilderWidget inline styles) ── */
+
+/* ── Dialog footer buttons ── */
+QPushButton#saveButton {
+    background:qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 #2563eb,stop:1 #1d4ed8);
+    color:#ffffff;
+    border:none;
+    border-radius:5px;
+    font-size:12px;
+    font-weight:700;
+    padding:8px 28px;
+    min-width:130px;
+}
+QPushButton#saveButton:hover  { background:qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 #3b82f6,stop:1 #2563eb); }
+QPushButton#saveButton:pressed { background:#1e40af; }
+
+QPushButton#cancelButton {
+    background:#f1f5f9;
+    color:#475569;
+    border:1px solid #cbd5e1;
+    border-radius:5px;
+    font-size:12px;
+    padding:8px 20px;
+}
+QPushButton#cancelButton:hover { background:#e2e8f0; color:#1e293b; }
+
+/* ── Info banners ── */
+QLabel#symbolsInfoLabel, QLabel#indicatorsInfoLabel,
+QLabel#paramsInfoLabel, QLabel#conditionsInfoLabel {
+    background:#eff6ff;
+    color:#1d4ed8;
+    font-size:11px;
+    padding:7px 10px;
+    border:1px solid #bfdbfe;
+    border-radius:4px;
+}
+
+/* ── Splitter handle ── */
+QSplitter::handle { background:#e2e8f0; }
+QSplitter::handle:vertical { height:4px; }
+
+/* ── Scroll bars ── */
+QScrollBar:vertical {
+    background:#f1f5f9; width:6px; border:none; margin:0;
+}
+QScrollBar::handle:vertical {
+    background:#cbd5e1; border-radius:3px; min-height:24px;
+}
+QScrollBar::handle:vertical:hover { background:#94a3b8; }
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height:0; }
+QScrollBar:horizontal {
+    background:#f1f5f9; height:6px; border:none; margin:0;
+}
+QScrollBar::handle:horizontal {
+    background:#cbd5e1; border-radius:3px; min-width:24px;
+}
+QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width:0; }
+
+/* ── Scroll area ── */
+QScrollArea { background:#ffffff; border:none; }
+QScrollArea > QWidget > QWidget { background:#ffffff; }
+   </string>
+  </property>
+
+  <!-- ════════════════════ MAIN LAYOUT ════════════════════ -->
+  <layout class="QVBoxLayout" name="mainLayout">
+   <property name="spacing"><number>8</number></property>
+   <property name="leftMargin"><number>12</number></property>
+   <property name="topMargin"><number>12</number></property>
+   <property name="rightMargin"><number>12</number></property>
+   <property name="bottomMargin"><number>10</number></property>
+
+   <!-- Header -->
+   <item>
+    <widget class="QLabel" name="headerLabel">
+     <property name="text">
+      <string>Strategy Template Builder  ·  Create a reusable, symbol-agnostic blueprint. Deploy it multiple times with different instruments and parameters.</string>
+     </property>
+     <property name="wordWrap"><bool>true</bool></property>
+    </widget>
+   </item>
+
+   <!-- ════════ TAB WIDGET ════════ -->
+   <item>
+    <widget class="QTabWidget" name="tabWidget">
+     <property name="currentIndex"><number>0</number></property>
+     <property name="documentMode"><bool>false</bool></property>
+
+     <!-- ═══ TAB 1 – METADATA ═══ -->
+     <widget class="QWidget" name="metadataTab">
+      <attribute name="title"><string>1. Metadata</string></attribute>
+
+      <layout class="QVBoxLayout" name="metaOuterLayout">
+       <property name="leftMargin"><number>24</number></property>
+       <property name="topMargin"><number>20</number></property>
+       <property name="rightMargin"><number>24</number></property>
+       <property name="bottomMargin"><number>20</number></property>
+       <property name="spacing"><number>16</number></property>
+
+       <!-- Grid: labels left, fields right -->
+       <item>
+        <layout class="QGridLayout" name="metaGrid">
+         <property name="horizontalSpacing"><number>14</number></property>
+         <property name="verticalSpacing"><number>12</number></property>
+
+         <!-- Row 0: Name -->
+         <item row="0" column="0">
+          <widget class="QLabel" name="nameLabel">
+           <property name="text"><string>Template Name *</string></property>
+           <property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property>
+           <property name="styleSheet"><string notr="true">color:#475569; font-weight:600; font-size:12px;</string></property>
+          </widget>
+         </item>
+         <item row="0" column="1">
+          <widget class="QLineEdit" name="nameEdit">
+           <property name="placeholderText"><string>e.g.  ATM Straddle,  RSI Reversal,  Momentum Breakout</string></property>
+           <property name="toolTip"><string>Short unique name used to identify this template in the deploy list</string></property>
+          </widget>
+         </item>
+
+         <!-- Row 1: Description -->
+         <item row="1" column="0">
+          <widget class="QLabel" name="descLabel">
+           <property name="text"><string>Description</string></property>
+           <property name="alignment"><set>Qt::AlignRight|Qt::AlignTop</set></property>
+           <property name="styleSheet"><string notr="true">color:#475569; font-size:12px; padding-top:4px;</string></property>
+          </widget>
+         </item>
+         <item row="1" column="1">
+          <widget class="QTextEdit" name="descEdit">
+           <property name="placeholderText"><string>Describe when to use this strategy, entry/exit logic, expected market conditions…</string></property>
+           <property name="maximumHeight"><number>90</number></property>
+          </widget>
+         </item>
+
+         <!-- Row 2: Mode -->
+         <item row="2" column="0">
+          <widget class="QLabel" name="modeLabel">
+           <property name="text"><string>Strategy Mode</string></property>
+           <property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property>
+           <property name="styleSheet"><string notr="true">color:#475569; font-size:12px;</string></property>
+          </widget>
+         </item>
+         <item row="2" column="1">
+          <layout class="QHBoxLayout" name="modeRow">
+           <property name="spacing"><number>8</number></property>
+           <item>
+            <widget class="QComboBox" name="modeCombo">
+             <item>
+              <property name="text"><string>Indicator Based</string></property>
+              <property name="userData"><string>indicator</string></property>
+             </item>
+             <item>
+              <property name="text"><string>Option Multi-Leg</string></property>
+              <property name="userData"><string>option_multileg</string></property>
+             </item>
+             <item>
+              <property name="text"><string>Spread / Badla</string></property>
+              <property name="userData"><string>spread</string></property>
+             </item>
+            </widget>
+           </item>
+           <item>
+            <spacer>
+             <property name="orientation"><enum>Qt::Horizontal</enum></property>
+             <property name="sizeHint" stdset="0"><size><width>0</width><height>0</height></size></property>
+            </spacer>
+           </item>
+          </layout>
+         </item>
+
+         <!-- Row 3: Flags -->
+         <item row="3" column="0">
+          <widget class="QLabel" name="flagsLabel">
+           <property name="text"><string>Flags</string></property>
+           <property name="alignment"><set>Qt::AlignRight|Qt::AlignTop</set></property>
+           <property name="styleSheet"><string notr="true">color:#475569; font-size:12px; padding-top:3px;</string></property>
+          </widget>
+         </item>
+         <item row="3" column="1">
+          <layout class="QVBoxLayout" name="flagsCol">
+           <property name="spacing"><number>7</number></property>
+           <item>
+            <widget class="QCheckBox" name="timeTriggerCheck">
+             <property name="text"><string>Uses time-window conditions  (e.g. trade only 09:30 – 11:00)</string></property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QCheckBox" name="optionsFlagCheck">
+             <property name="text"><string>Predominantly options  (deploy UI shows strike / expiry pickers)</string></property>
+            </widget>
+           </item>
+          </layout>
+         </item>
+
+        </layout>
+       </item>
+
+       <!-- Vertical filler -->
+       <item>
+        <spacer name="metaSpacer">
+         <property name="orientation"><enum>Qt::Vertical</enum></property>
+         <property name="sizeHint" stdset="0"><size><width>0</width><height>0</height></size></property>
+        </spacer>
+       </item>
+
+      </layout>
+     </widget><!-- /metadataTab -->
+
+     <!-- ═══ TAB 2 – SYMBOLS ═══ -->
+     <widget class="QWidget" name="symbolsTab">
+      <attribute name="title"><string>2. Symbols</string></attribute>
+      <layout class="QVBoxLayout" name="symbolsVLayout">
+       <property name="leftMargin"><number>12</number></property>
+       <property name="topMargin"><number>12</number></property>
+       <property name="rightMargin"><number>12</number></property>
+       <property name="bottomMargin"><number>12</number></property>
+       <property name="spacing"><number>8</number></property>
+
+       <item>
+        <widget class="QLabel" name="symbolsInfoLabel">
+         <property name="text"><string>&#x2139;  &lt;b&gt;Symbol Slots&lt;/b&gt; declare &lt;i&gt;what kind&lt;/i&gt; of instruments this template needs.  Actual tokens are bound at &lt;b&gt;deploy time&lt;/b&gt;.  Add REF (signal) slots first, then TRADE slots.</string></property>
+         <property name="wordWrap"><bool>true</bool></property>
+         <property name="styleSheet"><string notr="true">background:#eff6ff; color:#1d4ed8; font-size:11px; padding:7px 10px; border:1px solid #bfdbfe; border-radius:4px;</string></property>
+        </widget>
+       </item>
+
+       <item>
+        <layout class="QHBoxLayout" name="symbolsToolbar">
+         <property name="spacing"><number>6</number></property>
+         <item>
+          <widget class="QPushButton" name="addSymbolBtn">
+           <property name="text"><string>+ Add Symbol Slot</string></property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="removeSymbolBtn">
+           <property name="text"><string>✕  Remove Selected</string></property>
+          </widget>
+         </item>
+         <item>
+          <spacer><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>0</width><height>0</height></size></property></spacer>
+         </item>
+        </layout>
+       </item>
+
+       <item>
+        <widget class="QTableWidget" name="symbolsTable">
+         <property name="selectionBehavior"><enum>QAbstractItemView::SelectRows</enum></property>
+         <property name="editTriggers"><set>QAbstractItemView::DoubleClicked|QAbstractItemView::SelectedClicked</set></property>
+         <property name="alternatingRowColors"><bool>true</bool></property>
+         <property name="showGrid"><bool>false</bool></property>
+         <property name="cornerButtonEnabled"><bool>false</bool></property>
+         <column><property name="text"><string>ID</string></property></column>
+         <column><property name="text"><string>Label</string></property></column>
+         <column><property name="text"><string>Role</string></property></column>
+         <column><property name="text"><string>Segment</string></property></column>
+        </widget>
+       </item>
+
+      </layout>
+     </widget><!-- /symbolsTab -->
+
+     <!-- ═══ TAB 3 – INDICATORS ═══ -->
+     <widget class="QWidget" name="indicatorsTab">
+      <attribute name="title"><string>3. Indicators</string></attribute>
+      <layout class="QVBoxLayout" name="indVLayout">
+       <property name="leftMargin"><number>12</number></property>
+       <property name="topMargin"><number>12</number></property>
+       <property name="rightMargin"><number>12</number></property>
+       <property name="bottomMargin"><number>12</number></property>
+       <property name="spacing"><number>8</number></property>
+
+       <item>
+        <widget class="QLabel" name="indicatorsInfoLabel">
+         <property name="text"><string>&#x2139;  &lt;b&gt;Indicator Declarations&lt;/b&gt;  — Each card is one indicator.  Select &lt;b&gt;Type&lt;/b&gt; from the dropdown; parameters auto-populate from the catalog.&lt;br/&gt;
+&#x2022;  &lt;b&gt;ID&lt;/b&gt; — Unique name used in Conditions (e.g. &lt;code&gt;RSI_1&lt;/code&gt;, &lt;code&gt;MACD_1&lt;/code&gt;).  Auto-filled, editable.&lt;br/&gt;
+&#x2022;  &lt;b&gt;Params&lt;/b&gt; — Fixed numbers (&lt;code&gt;14&lt;/code&gt;) or template placeholders (&lt;code&gt;{{RSI_PERIOD}}&lt;/code&gt;).&lt;br/&gt;
+&#x2022;  &lt;b&gt;Output&lt;/b&gt; — Shown only for multi-output indicators (BBANDS, MACD, STOCH …).  Pick the series to use in conditions.</string></property>
+         <property name="wordWrap"><bool>true</bool></property>
+         <property name="styleSheet"><string notr="true">background:#eff6ff; color:#1d4ed8; font-size:11px; padding:7px 10px; border:1px solid #bfdbfe; border-radius:4px;</string></property>
+        </widget>
+       </item>
+
+       <item>
+        <layout class="QHBoxLayout" name="indToolbar">
+         <property name="spacing"><number>6</number></property>
+         <item>
+          <widget class="QPushButton" name="addIndicatorBtn">
+           <property name="text"><string>+ Add Indicator</string></property>
+          </widget>
+         </item>
+         <item>
+          <spacer><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>0</width><height>0</height></size></property></spacer>
+         </item>
+        </layout>
+       </item>
+
+       <item>
+        <!-- Scrollable card list — cards are added programmatically as IndicatorRowWidget -->
+        <widget class="QScrollArea" name="indicatorsScrollArea">
+         <property name="widgetResizable"><bool>true</bool></property>
+         <property name="frameShape"><enum>QFrame::NoFrame</enum></property>
+         <property name="styleSheet"><string notr="true">QScrollArea { background:transparent; }</string></property>
+         <widget class="QWidget" name="indicatorsScrollContents">
+          <property name="styleSheet"><string notr="true">QWidget#indicatorsScrollContents { background:transparent; }</string></property>
+          <layout class="QVBoxLayout" name="indicatorCardsLayout">
+           <property name="spacing"><number>6</number></property>
+           <property name="leftMargin"><number>2</number></property>
+           <property name="topMargin"><number>2</number></property>
+           <property name="rightMargin"><number>2</number></property>
+           <property name="bottomMargin"><number>2</number></property>
+          </layout>
+         </widget>
+        </widget>
+       </item>
+
+      </layout>
+     </widget><!-- /indicatorsTab -->
+
+     <!-- ═══ TAB 4 – PARAMETERS ═══ -->
+     <widget class="QWidget" name="parametersTab">
+      <attribute name="title"><string>4. Parameters</string></attribute>
+      <layout class="QVBoxLayout" name="paramVLayout">
+       <property name="leftMargin"><number>12</number></property>
+       <property name="topMargin"><number>12</number></property>
+       <property name="rightMargin"><number>12</number></property>
+       <property name="bottomMargin"><number>12</number></property>
+       <property name="spacing"><number>8</number></property>
+
+       <item>
+        <widget class="QLabel" name="paramsInfoLabel">
+         <property name="text"><string>&#x2139;  &lt;b&gt;Parameter Declarations&lt;/b&gt;  —  Define values that control your strategy at runtime.&lt;br/&gt;
+&lt;b&gt;Fixed&lt;/b&gt; params (Int/Double/Bool/String): user sets once at deploy time.&lt;br/&gt;
+&lt;b&gt;Expression&lt;/b&gt; params: computed from a formula and &lt;b&gt;recalculated live&lt;/b&gt; based on the Trigger you choose.&lt;br/&gt;
+Click &lt;b&gt;+ Add&lt;/b&gt; or &lt;b&gt;double-click&lt;/b&gt; a row to open the parameter editor.  Reference in indicators as &lt;code&gt;{{PARAM_NAME}}&lt;/code&gt; or in conditions as a Parameter operand.</string></property>
+         <property name="wordWrap"><bool>true</bool></property>
+         <property name="styleSheet"><string notr="true">background:#eff6ff; color:#1d4ed8; font-size:11px; padding:7px 10px; border:1px solid #bfdbfe; border-radius:4px;</string></property>
+        </widget>
+       </item>
+
+       <item>
+        <layout class="QHBoxLayout" name="paramToolbar">
+         <property name="spacing"><number>6</number></property>
+         <item>
+          <widget class="QPushButton" name="addParamBtn">
+           <property name="text"><string>+ Add Parameter</string></property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="editParamBtn">
+           <property name="text"><string>✎  Edit Selected</string></property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="removeParamBtn">
+           <property name="text"><string>✕  Remove Selected</string></property>
+          </widget>
+         </item>
+         <item>
+          <spacer><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>0</width><height>0</height></size></property></spacer>
+         </item>
+        </layout>
+       </item>
+
+       <item>
+        <widget class="QTableWidget" name="paramsTable">
+         <property name="selectionBehavior"><enum>QAbstractItemView::SelectRows</enum></property>
+         <property name="editTriggers"><set>QAbstractItemView::NoEditTriggers</set></property>
+         <property name="alternatingRowColors"><bool>true</bool></property>
+         <property name="showGrid"><bool>false</bool></property>
+         <property name="cornerButtonEnabled"><bool>false</bool></property>
+         <column><property name="text"><string>Name</string></property></column>
+         <column><property name="text"><string>Label</string></property></column>
+         <column><property name="text"><string>Type</string></property></column>
+         <column><property name="text"><string>Value / Formula</string></property></column>
+         <column><property name="text"><string>Trigger</string></property></column>
+         <column><property name="text"><string>Locked</string></property></column>
+        </widget>
+       </item>
+
+      </layout>
+     </widget><!-- /parametersTab -->
+
+     <!-- ═══ TAB 5 – CONDITIONS ═══ -->
+     <widget class="QWidget" name="conditionsTab">
+      <attribute name="title"><string>5. Conditions</string></attribute>
+      <layout class="QVBoxLayout" name="condVLayout">
+       <property name="leftMargin"><number>12</number></property>
+       <property name="topMargin"><number>12</number></property>
+       <property name="rightMargin"><number>12</number></property>
+       <property name="bottomMargin"><number>12</number></property>
+       <property name="spacing"><number>8</number></property>
+
+       <item>
+        <widget class="QLabel" name="conditionsInfoLabel">
+         <property name="text"><string>&lt;b&gt;How to build a condition tree:&lt;/b&gt;&lt;br&gt;
+1. Click &lt;b&gt;+ AND Group&lt;/b&gt; or &lt;b&gt;+ OR Group&lt;/b&gt; to create a logic group at the top level.&lt;br&gt;
+2. Select a group in the tree, then click &lt;b&gt;+ Condition&lt;/b&gt; to add a leaf — a popup lets you pick Left Operand, Operator (&amp;gt; &amp;lt; == etc.), and Right Operand.&lt;br&gt;
+3. Operand types: &lt;b&gt;Price&lt;/b&gt; (symbol LTP/OHLC) · &lt;b&gt;Indicator&lt;/b&gt; (RSI, SMA … from tab 3) · &lt;b&gt;Constant&lt;/b&gt; (fixed number) · &lt;b&gt;Parameter&lt;/b&gt; ({{PARAM}} from tab 4).&lt;br&gt;
+4. &lt;b&gt;Double-click&lt;/b&gt; any leaf to edit it. Select any item and click &lt;b&gt;Remove&lt;/b&gt; to delete it.</string></property>
+         <property name="wordWrap"><bool>true</bool></property>
+         <property name="styleSheet"><string notr="true">background:#eff6ff; color:#1d4ed8; font-size:11px; padding:9px 12px; border:1px solid #bfdbfe; border-radius:4px;</string></property>
+        </widget>
+       </item>
+
+       <!-- Splitter so both builders share vertical space equally -->
+       <item>
+        <widget class="QSplitter" name="condSplitter">
+         <property name="orientation"><enum>Qt::Vertical</enum></property>
+         <property name="childrenCollapsible"><bool>false</bool></property>
+         <property name="styleSheet"><string notr="true">QSplitter::handle { background:#e2e8f0; height:4px; }</string></property>
+
+         <!-- Entry group -->
+         <widget class="QGroupBox" name="entryGroup">
+          <property name="title"><string>Entry Conditions</string></property>
+          <layout class="QVBoxLayout" name="entryGroupLayout">
+           <property name="leftMargin"><number>6</number></property>
+           <property name="topMargin"><number>18</number></property>
+           <property name="rightMargin"><number>6</number></property>
+           <property name="bottomMargin"><number>6</number></property>
+           <item>
+            <widget class="ConditionBuilderWidget" name="entryBuilder">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+               <horstretch>0</horstretch><verstretch>1</verstretch>
+              </sizepolicy>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+
+         <!-- Exit group -->
+         <widget class="QGroupBox" name="exitGroup">
+          <property name="title"><string>Exit Conditions</string></property>
+          <layout class="QVBoxLayout" name="exitGroupLayout">
+           <property name="leftMargin"><number>6</number></property>
+           <property name="topMargin"><number>18</number></property>
+           <property name="rightMargin"><number>6</number></property>
+           <property name="bottomMargin"><number>6</number></property>
+           <item>
+            <widget class="ConditionBuilderWidget" name="exitBuilder">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+               <horstretch>0</horstretch><verstretch>1</verstretch>
+              </sizepolicy>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+
+        </widget><!-- /condSplitter -->
+       </item>
+
+      </layout>
+     </widget><!-- /conditionsTab -->
+
+     <!-- ═══ TAB 6 – RISK ═══ -->
+     <widget class="QWidget" name="riskTab">
+      <attribute name="title"><string>6. Risk</string></attribute>
+      <layout class="QVBoxLayout" name="riskOuterLayout">
+       <property name="spacing"><number>0</number></property>
+       <property name="leftMargin"><number>0</number></property>
+       <property name="topMargin"><number>0</number></property>
+       <property name="rightMargin"><number>0</number></property>
+       <property name="bottomMargin"><number>0</number></property>
+
+       <item>
+        <widget class="QScrollArea" name="riskScroll">
+         <property name="widgetResizable"><bool>true</bool></property>
+         <property name="frameShape"><enum>QFrame::NoFrame</enum></property>
+         <property name="styleSheet"><string notr="true">QScrollArea, QScrollArea > QWidget > QWidget { background:#ffffff; }</string></property>
+
+         <widget class="QWidget" name="riskScrollContents">
+          <layout class="QVBoxLayout" name="riskContentLayout">
+           <property name="leftMargin"><number>16</number></property>
+           <property name="topMargin"><number>14</number></property>
+           <property name="rightMargin"><number>16</number></property>
+           <property name="bottomMargin"><number>14</number></property>
+           <property name="spacing"><number>10</number></property>
+
+           <!-- ── Two-column layout: Stop-Loss | Target ── -->
+           <item>
+            <layout class="QHBoxLayout" name="slTgtRow">
+             <property name="spacing"><number>12</number></property>
+
+             <!-- Stop-Loss -->
+             <item>
+              <widget class="QGroupBox" name="slGroup">
+               <property name="title"><string>Stop-Loss</string></property>
+               <layout class="QGridLayout" name="slGrid">
+                <property name="leftMargin"><number>14</number></property>
+                <property name="topMargin"><number>20</number></property>
+                <property name="rightMargin"><number>14</number></property>
+                <property name="bottomMargin"><number>12</number></property>
+                <property name="horizontalSpacing"><number>12</number></property>
+                <property name="verticalSpacing"><number>10</number></property>
+
+                <item row="0" column="0">
+                 <widget class="QLabel" name="slPctLabel">
+                  <property name="text"><string>Default %</string></property>
+                  <property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property>
+                 </widget>
+                </item>
+                <item row="0" column="1">
+                 <widget class="QDoubleSpinBox" name="slPctSpin">
+                  <property name="minimum"><double>0.010000000000000</double></property>
+                  <property name="maximum"><double>100.000000000000000</double></property>
+                  <property name="singleStep"><double>0.100000000000000</double></property>
+                  <property name="decimals"><number>2</number></property>
+                  <property name="value"><double>1.000000000000000</double></property>
+                  <property name="suffix"><string> %</string></property>
+                 </widget>
+                </item>
+                <item row="1" column="0" colspan="2">
+                 <widget class="QCheckBox" name="slLockedCheck">
+                  <property name="text"><string>Lock at deploy time</string></property>
+                 </widget>
+                </item>
+               </layout>
+              </widget>
+             </item>
+
+             <!-- Target -->
+             <item>
+              <widget class="QGroupBox" name="tgtGroup">
+               <property name="title"><string>Target</string></property>
+               <layout class="QGridLayout" name="tgtGrid">
+                <property name="leftMargin"><number>14</number></property>
+                <property name="topMargin"><number>20</number></property>
+                <property name="rightMargin"><number>14</number></property>
+                <property name="bottomMargin"><number>12</number></property>
+                <property name="horizontalSpacing"><number>12</number></property>
+                <property name="verticalSpacing"><number>10</number></property>
+
+                <item row="0" column="0">
+                 <widget class="QLabel" name="tgtPctLabel">
+                  <property name="text"><string>Default %</string></property>
+                  <property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property>
+                 </widget>
+                </item>
+                <item row="0" column="1">
+                 <widget class="QDoubleSpinBox" name="tgtPctSpin">
+                  <property name="minimum"><double>0.010000000000000</double></property>
+                  <property name="maximum"><double>500.000000000000000</double></property>
+                  <property name="singleStep"><double>0.100000000000000</double></property>
+                  <property name="decimals"><number>2</number></property>
+                  <property name="value"><double>2.000000000000000</double></property>
+                  <property name="suffix"><string> %</string></property>
+                 </widget>
+                </item>
+                <item row="1" column="0" colspan="2">
+                 <widget class="QCheckBox" name="tgtLockedCheck">
+                  <property name="text"><string>Lock at deploy time</string></property>
+                 </widget>
+                </item>
+               </layout>
+              </widget>
+             </item>
+
+            </layout>
+           </item>
+
+           <!-- ── Trailing Stop ── -->
+           <item>
+            <widget class="QGroupBox" name="trailGroup">
+             <property name="title"><string>Trailing Stop-Loss</string></property>
+             <layout class="QGridLayout" name="trailGrid">
+              <property name="leftMargin"><number>14</number></property>
+              <property name="topMargin"><number>20</number></property>
+              <property name="rightMargin"><number>14</number></property>
+              <property name="bottomMargin"><number>12</number></property>
+              <property name="horizontalSpacing"><number>12</number></property>
+              <property name="verticalSpacing"><number>10</number></property>
+
+              <item row="0" column="0" colspan="3">
+               <widget class="QCheckBox" name="trailingCheck">
+                <property name="text"><string>Enable trailing stop-loss</string></property>
+               </widget>
+              </item>
+              <item row="1" column="0">
+               <widget class="QLabel" name="trailTriggerLabel">
+                <property name="text"><string>Activate after profit</string></property>
+                <property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property>
+               </widget>
+              </item>
+              <item row="1" column="1">
+               <widget class="QDoubleSpinBox" name="trailTriggerSpin">
+                <property name="minimum"><double>0.100000000000000</double></property>
+                <property name="maximum"><double>100.000000000000000</double></property>
+                <property name="singleStep"><double>0.100000000000000</double></property>
+                <property name="decimals"><number>2</number></property>
+                <property name="value"><double>1.000000000000000</double></property>
+                <property name="suffix"><string> %</string></property>
+               </widget>
+              </item>
+              <item row="2" column="0">
+               <widget class="QLabel" name="trailAmountLabel">
+                <property name="text"><string>Trail by</string></property>
+                <property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property>
+               </widget>
+              </item>
+              <item row="2" column="1">
+               <widget class="QDoubleSpinBox" name="trailAmountSpin">
+                <property name="minimum"><double>0.100000000000000</double></property>
+                <property name="maximum"><double>100.000000000000000</double></property>
+                <property name="singleStep"><double>0.100000000000000</double></property>
+                <property name="decimals"><number>2</number></property>
+                <property name="value"><double>0.500000000000000</double></property>
+                <property name="suffix"><string> %</string></property>
+               </widget>
+              </item>
+             </layout>
+            </widget>
+           </item>
+
+           <!-- ── Two-column: Time Exit | Daily Limits ── -->
+           <item>
+            <layout class="QHBoxLayout" name="timeExitLimitsRow">
+             <property name="spacing"><number>12</number></property>
+
+             <!-- Time Exit -->
+             <item>
+              <widget class="QGroupBox" name="timeExitGroup">
+               <property name="title"><string>Time-Based Exit</string></property>
+               <layout class="QGridLayout" name="timeExitGrid">
+                <property name="leftMargin"><number>14</number></property>
+                <property name="topMargin"><number>20</number></property>
+                <property name="rightMargin"><number>14</number></property>
+                <property name="bottomMargin"><number>12</number></property>
+                <property name="horizontalSpacing"><number>12</number></property>
+                <property name="verticalSpacing"><number>10</number></property>
+
+                <item row="0" column="0" colspan="2">
+                 <widget class="QCheckBox" name="timeExitCheck">
+                  <property name="text"><string>Enable automatic time exit</string></property>
+                 </widget>
+                </item>
+                <item row="1" column="0">
+                 <widget class="QLabel" name="exitTimeLabel">
+                  <property name="text"><string>Exit time</string></property>
+                  <property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property>
+                 </widget>
+                </item>
+                <item row="1" column="1">
+                 <widget class="QTimeEdit" name="exitTimeEdit">
+                  <property name="displayFormat"><string>HH:mm</string></property>
+                  <property name="time"><time><hour>15</hour><minute>15</minute><second>0</second></time></property>
+                 </widget>
+                </item>
+               </layout>
+              </widget>
+             </item>
+
+             <!-- Daily Limits -->
+             <item>
+              <widget class="QGroupBox" name="limitsGroup">
+               <property name="title"><string>Daily Limits</string></property>
+               <layout class="QGridLayout" name="limitsGrid">
+                <property name="leftMargin"><number>14</number></property>
+                <property name="topMargin"><number>20</number></property>
+                <property name="rightMargin"><number>14</number></property>
+                <property name="bottomMargin"><number>12</number></property>
+                <property name="horizontalSpacing"><number>12</number></property>
+                <property name="verticalSpacing"><number>10</number></property>
+
+                <item row="0" column="0">
+                 <widget class="QLabel" name="maxTradesLabel">
+                  <property name="text"><string>Max trades / day</string></property>
+                  <property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property>
+                 </widget>
+                </item>
+                <item row="0" column="1">
+                 <widget class="QSpinBox" name="maxTradesSpin">
+                  <property name="minimum"><number>1</number></property>
+                  <property name="maximum"><number>9999</number></property>
+                  <property name="value"><number>10</number></property>
+                 </widget>
+                </item>
+                <item row="1" column="0">
+                 <widget class="QLabel" name="maxLossLabel">
+                  <property name="text"><string>Max daily loss</string></property>
+                  <property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property>
+                 </widget>
+                </item>
+                <item row="1" column="1">
+                 <widget class="QDoubleSpinBox" name="maxLossSpin">
+                  <property name="minimum"><double>0.000000000000000</double></property>
+                  <property name="maximum"><double>10000000.000000000000000</double></property>
+                  <property name="singleStep"><double>500.000000000000000</double></property>
+                  <property name="decimals"><number>0</number></property>
+                  <property name="value"><double>5000.000000000000000</double></property>
+                  <property name="prefix"><string>₹ </string></property>
+                 </widget>
+                </item>
+               </layout>
+              </widget>
+             </item>
+
+            </layout>
+           </item>
+
+           <item>
+            <spacer name="riskSpacer">
+             <property name="orientation"><enum>Qt::Vertical</enum></property>
+             <property name="sizeHint" stdset="0"><size><width>0</width><height>0</height></size></property>
+            </spacer>
+           </item>
+
+          </layout>
+         </widget><!-- /riskScrollContents -->
+        </widget><!-- /riskScroll -->
+       </item>
+      </layout>
+     </widget><!-- /riskTab -->
+
+    </widget><!-- /tabWidget -->
+   </item>
+
+   <!-- ════════ FOOTER BUTTON BAR ════════ -->
+   <item>
+    <widget class="QFrame" name="footerFrame">
+     <property name="frameShape"><enum>QFrame::NoFrame</enum></property>
+     <property name="styleSheet"><string notr="true">QFrame { border-top:2px solid #e2e8f0; background:#f8fafc; padding-top:4px; }</string></property>
+     <layout class="QHBoxLayout" name="footerLayout">
+      <property name="spacing"><number>8</number></property>
+      <property name="leftMargin"><number>0</number></property>
+      <property name="topMargin"><number>6</number></property>
+      <property name="rightMargin"><number>0</number></property>
+      <property name="bottomMargin"><number>0</number></property>
+      <item>
+       <spacer><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>0</width><height>0</height></size></property></spacer>
+      </item>
+      <item>
+       <widget class="QPushButton" name="cancelButton">
+        <property name="text"><string>Cancel</string></property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="saveButton">
+        <property name="text"><string>Save Template</string></property>
+        <property name="default"><bool>true</bool></property>
+        <property name="toolTip"><string>Validate and save this template to the database</string></property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+
+  </layout>
+ </widget><!-- /StrategyTemplateBuilderDialog -->
+
+ <!-- Promoted widget registration for Qt Designer -->
+ <customwidgets>
+  <customwidget>
+   <class>ConditionBuilderWidget</class>
+   <extends>QWidget</extends>
+   <header>strategy/builder/ConditionBuilderWidget.h</header>
+   <container>0</container>
+  </customwidget>
+ </customwidgets>
+
+ <tabstops>
+  <tabstop>nameEdit</tabstop>
+  <tabstop>descEdit</tabstop>
+  <tabstop>modeCombo</tabstop>
+  <tabstop>timeTriggerCheck</tabstop>
+  <tabstop>optionsFlagCheck</tabstop>
+  <tabstop>addSymbolBtn</tabstop>
+  <tabstop>removeSymbolBtn</tabstop>
+  <tabstop>symbolsTable</tabstop>
+  <tabstop>addIndicatorBtn</tabstop>
+  <tabstop>removeIndicatorBtn</tabstop>
+  <tabstop>indicatorsScrollArea</tabstop>
+  <tabstop>addParamBtn</tabstop>
+  <tabstop>removeParamBtn</tabstop>
+  <tabstop>paramsTable</tabstop>
+  <tabstop>slPctSpin</tabstop>
+  <tabstop>slLockedCheck</tabstop>
+  <tabstop>tgtPctSpin</tabstop>
+  <tabstop>tgtLockedCheck</tabstop>
+  <tabstop>trailingCheck</tabstop>
+  <tabstop>trailTriggerSpin</tabstop>
+  <tabstop>trailAmountSpin</tabstop>
+  <tabstop>timeExitCheck</tabstop>
+  <tabstop>exitTimeEdit</tabstop>
+  <tabstop>maxTradesSpin</tabstop>
+  <tabstop>maxLossSpin</tabstop>
+  <tabstop>saveButton</tabstop>
+  <tabstop>cancelButton</tabstop>
+ </tabstops>
+
+ <resources/>
+ <connections/>
+</ui>

@@ -11,8 +11,8 @@
         <file>forms/PreferencesDerivativeTab.ui</file>
         <file>forms/PreferencesAlertMessageTab.ui</file>
         <file>forms/PreferencesMarginPlusOrderTab.ui</file>
-        <file>forms/stretegies/JodiATM/inputParam.ui</file>
-        <file>forms/stretegies/TSpecial/tspecialParam.ui</file>
+        <file>forms/strategy/JodiATM/inputParam.ui</file>
+        <file>forms/strategy/TSpecial/tspecialParam.ui</file>
         <file>html/tradingview_chart.html</file>
     </qresource>
 </RCC>

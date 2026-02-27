@@ -9,7 +9,7 @@
 #include "services/UdpBroadcastService.h"
 #include "ui/GlobalSearchWidget.h"
 #include "ui/OptionCalculatorWindow.h"
-#include "ui/StrategyManagerWindow.h"
+#include "strategy/manager/StrategyManagerWindow.h"
 #include "views/ATMWatchWindow.h"
 #include "views/OptionChainWindow.h"
 #ifdef HAVE_TRADINGVIEW

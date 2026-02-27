@@ -36,7 +36,10 @@ if(MSVC)
 endif()
 
 # Set AUTOUIC search paths for .ui files
-set(CMAKE_AUTOUIC_SEARCH_PATHS ${CMAKE_SOURCE_DIR}/resources/forms)
+set(CMAKE_AUTOUIC_SEARCH_PATHS
+    ${CMAKE_SOURCE_DIR}/resources/forms
+    ${CMAKE_SOURCE_DIR}/resources/forms/strategy
+)
 
 # Find Qt5 components (UI only)
 find_package(Qt5 COMPONENTS Widgets Network WebSockets UiTools Concurrent Sql REQUIRED)
@@ -255,7 +258,10 @@ include_directories(
     ${CMAKE_SOURCE_DIR}/include/utils
     ${CMAKE_SOURCE_DIR}/include/data
     ${CMAKE_SOURCE_DIR}/include/strategy
-    ${CMAKE_SOURCE_DIR}/include/strategies
+    ${CMAKE_SOURCE_DIR}/include/strategy/model
+    ${CMAKE_SOURCE_DIR}/include/strategy/runtime
+    ${CMAKE_SOURCE_DIR}/include/strategy/builder
+    ${CMAKE_SOURCE_DIR}/include/strategy/manager
     ${CMAKE_SOURCE_DIR}/lib/common/include
     ${CMAKE_SOURCE_DIR}/lib/cpp_broacast_nsefo/include
     ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_nsecm/include
@@ -332,40 +338,16 @@ set(UI_SOURCES
     src/ui/SplashScreen.cpp
     src/ui/LoginWindow.cpp
     src/ui/ATMWatchSettingsDialog.cpp
-    src/ui/StrategyManagerWindow.cpp
-    src/ui/CreateStrategyDialog.cpp
-    src/ui/ModifyParametersDialog.cpp
     src/ui/OptionCalculatorWindow.cpp
     src/ui/GlobalSearchWidget.cpp
-    src/ui/ConditionBuilderWidget.cpp
-    src/ui/StrategyTemplateBuilderDialog.cpp
-    src/ui/ParamEditorDialog.cpp
-    src/ui/IndicatorCatalog.cpp
-    src/ui/IndicatorPickerDialog.cpp
-    src/ui/IndicatorRowWidget.cpp
-    src/ui/StrategyDeployDialog.cpp
-    src/ui/SymbolBindingWidget.cpp
-    src/ui/TemplateManagerDialog.cpp
 )
 
 set(UI_HEADERS
     include/ui/SplashScreen.h
     include/ui/LoginWindow.h
     include/ui/ATMWatchSettingsDialog.h
-    include/ui/StrategyManagerWindow.h
-    include/ui/CreateStrategyDialog.h
-    include/ui/ModifyParametersDialog.h
     include/ui/OptionCalculatorWindow.h
     include/ui/GlobalSearchWidget.h
-    include/ui/ConditionBuilderWidget.h
-    include/ui/StrategyTemplateBuilderDialog.h
-    include/ui/ParamEditorDialog.h
-    include/ui/IndicatorCatalog.h
-    include/ui/IndicatorPickerDialog.h
-    include/ui/IndicatorRowWidget.h
-    include/ui/StrategyDeployDialog.h
-    include/ui/SymbolBindingWidget.h
-    include/ui/TemplateManagerDialog.h
 )
 
 # Add TradingView chart widget if enabled
@@ -477,8 +459,6 @@ set(MODEL_SOURCES
     src/models/TradeModel.cpp
     src/models/PositionModel.cpp
     src/models/PinnedRowProxyModel.cpp
-    src/models/StrategyTableModel.cpp
-    src/models/StrategyFilterProxyModel.cpp
 )
 
 set(MODEL_HEADERS
@@ -489,9 +469,6 @@ set(MODEL_HEADERS
     include/models/TradeModel.h
     include/models/PositionModel.h
     include/models/PinnedRowProxyModel.h
-    include/models/StrategyInstance.h
-    include/models/StrategyTableModel.h
-    include/models/StrategyFilterProxyModel.h
 )
 
 # ========================================
@@ -510,8 +487,6 @@ set(SERVICE_SOURCES
     src/services/MasterDataState.cpp
     src/services/ATMWatchManager.cpp
     src/services/GreeksCalculationService.cpp
-    src/services/StrategyService.cpp
-    src/services/StrategyRepository.cpp
     
     # Chart & Indicator Services
     src/services/HistoricalDataStore.cpp
@@ -530,9 +505,6 @@ set(SERVICE_HEADERS
     include/services/MasterDataState.h
     include/services/ATMWatchManager.h
     include/services/GreeksCalculationService.h
-    include/services/StrategyService.h
-    include/services/StrategyService.h
-    include/services/StrategyRepository.h
     
     # Chart & Indicator Services
     include/services/HistoricalDataStore.h
@@ -541,40 +513,96 @@ set(SERVICE_HEADERS
 )
 
 # ========================================
-# STRATEGIES LAYER - Trading Strategy Implementations
+# STRATEGY LAYER
+# Separated into model / runtime / builder / manager
 # ========================================
-set(STRATEGY_IMPL_SOURCES
-    src/strategies/StrategyBase.cpp
-    src/strategies/StrategyFactory.cpp
-    src/strategies/TemplateStrategy.cpp
-    src/strategies/LiveFormulaContext.cpp
 
-    # Core engines
-    src/strategy/IndicatorEngine.cpp
-    src/strategy/OrderExecutionEngine.cpp
-    # src/strategy/OptionsExecutionEngine.cpp  # POC Task 3.1 — disabled (depends on deleted StrategyDefinition.h)
-    src/strategy/FormulaEngine.cpp
-
-    # Strategy Template System (Phase 1 — new architecture)
-    src/services/StrategyTemplateRepository.cpp
+# --- Shared data models (used by all three domains) ---
+set(STRATEGY_MODEL_HEADERS
+    include/strategy/model/StrategyTemplate.h
+    include/strategy/model/ConditionNode.h
+    include/strategy/model/StrategyInstance.h
 )
 
+# --- Runtime: execution engines, live trading logic ---
+set(STRATEGY_RUNTIME_SOURCES
+    src/strategy/runtime/StrategyBase.cpp
+    src/strategy/runtime/StrategyFactory.cpp
+    src/strategy/runtime/TemplateStrategy.cpp
+    src/strategy/runtime/LiveFormulaContext.cpp
+    src/strategy/runtime/FormulaEngine.cpp
+    src/strategy/runtime/IndicatorEngine.cpp
+    src/strategy/runtime/OrderExecutionEngine.cpp
+    # src/strategy/runtime/OptionsExecutionEngine.cpp  # POC Task 3.1 — disabled
+)
+set(STRATEGY_RUNTIME_HEADERS
+    include/strategy/runtime/StrategyBase.h
+    include/strategy/runtime/StrategyFactory.h
+    include/strategy/runtime/TemplateStrategy.h
+    include/strategy/runtime/LiveFormulaContext.h
+    include/strategy/runtime/FormulaEngine.h
+    include/strategy/runtime/IndicatorEngine.h
+    include/strategy/runtime/OrderExecutionEngine.h
+    # include/strategy/runtime/OptionsExecutionEngine.h  # POC — disabled
+)
+
+# --- Builder: template authoring UI, template persistence ---
+set(STRATEGY_BUILDER_SOURCES
+    src/strategy/builder/StrategyTemplateBuilderDialog.cpp
+    src/strategy/builder/ConditionBuilderWidget.cpp
+    src/strategy/builder/IndicatorRowWidget.cpp
+    src/strategy/builder/IndicatorCatalog.cpp
+    src/strategy/builder/IndicatorPickerDialog.cpp
+    src/strategy/builder/ParamEditorDialog.cpp
+    src/strategy/builder/StrategyDeployDialog.cpp
+    src/strategy/builder/SymbolBindingWidget.cpp
+    src/strategy/builder/TemplateManagerDialog.cpp
+    src/strategy/builder/StrategyTemplateRepository.cpp
+)
+set(STRATEGY_BUILDER_HEADERS
+    include/strategy/builder/StrategyTemplateBuilderDialog.h
+    include/strategy/builder/ConditionBuilderWidget.h
+    include/strategy/builder/IndicatorRowWidget.h
+    include/strategy/builder/IndicatorCatalog.h
+    include/strategy/builder/IndicatorPickerDialog.h
+    include/strategy/builder/ParamEditorDialog.h
+    include/strategy/builder/StrategyDeployDialog.h
+    include/strategy/builder/SymbolBindingWidget.h
+    include/strategy/builder/TemplateManagerDialog.h
+    include/strategy/builder/StrategyTemplateRepository.h
+)
+
+# --- Manager: deployed instances dashboard, CRUD, persistence ---
+set(STRATEGY_MANAGER_SOURCES
+    src/strategy/manager/StrategyManagerWindow.cpp
+    src/strategy/manager/CreateStrategyDialog.cpp
+    src/strategy/manager/ModifyParametersDialog.cpp
+    src/strategy/manager/StrategyTableModel.cpp
+    src/strategy/manager/StrategyFilterProxyModel.cpp
+    src/strategy/manager/StrategyService.cpp
+    src/strategy/manager/StrategyRepository.cpp
+)
+set(STRATEGY_MANAGER_HEADERS
+    include/strategy/manager/StrategyManagerWindow.h
+    include/strategy/manager/CreateStrategyDialog.h
+    include/strategy/manager/ModifyParametersDialog.h
+    include/strategy/manager/StrategyTableModel.h
+    include/strategy/manager/StrategyFilterProxyModel.h
+    include/strategy/manager/StrategyService.h
+    include/strategy/manager/StrategyRepository.h
+)
+
+# Combined for backward compat with the rest of CMakeLists
+set(STRATEGY_IMPL_SOURCES
+    ${STRATEGY_RUNTIME_SOURCES}
+    ${STRATEGY_BUILDER_SOURCES}
+    ${STRATEGY_MANAGER_SOURCES}
+)
 set(STRATEGY_IMPL_HEADERS
-    include/strategies/StrategyBase.h
-    include/strategies/StrategyFactory.h
-    include/strategies/TemplateStrategy.h
-    include/strategies/LiveFormulaContext.h
-
-    # Core engines
-    include/strategy/ConditionNode.h
-    include/strategy/StrategyTemplate.h
-    include/strategy/IndicatorEngine.h
-    include/strategy/OrderExecutionEngine.h
-    # include/strategy/OptionsExecutionEngine.h  # POC — disabled (depends on deleted StrategyDefinition.h)
-    include/strategy/FormulaEngine.h
-
-    # Strategy Template System (Phase 1 — new architecture)
-    include/services/StrategyTemplateRepository.h
+    ${STRATEGY_MODEL_HEADERS}
+    ${STRATEGY_RUNTIME_HEADERS}
+    ${STRATEGY_BUILDER_HEADERS}
+    ${STRATEGY_MANAGER_HEADERS}
 )
 
 # ========================================
@@ -742,9 +770,9 @@ set(FORMS
     resources/forms/PreferencesMarginPlusOrderTab.ui
     resources/forms/PreferencesWorkSpaceTab.ui
     resources/forms/PreferencesPortfolioTab.ui
-    resources/forms/StrategyManagerWindow.ui
-    resources/forms/CreateStrategyDialog.ui
-    resources/forms/StrategyTemplateBuilderDialog.ui
+    resources/forms/strategy/StrategyManagerWindow.ui
+    resources/forms/strategy/CreateStrategyDialog.ui
+    resources/forms/strategy/StrategyTemplateBuilderDialog.ui
 )
 
 # Resource files
