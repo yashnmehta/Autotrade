@@ -412,6 +412,7 @@ public:
    * @param exchange "NSE" or "BSE"
    * @param segment "CM" or "FO"
    * @return Segment ID (1=NSECM, 2=NSEFO, 11=BSECM, 12=BSEFO)
+   * @note Delegates to ExchangeSegmentUtil::fromString() via getSegmentKey()
    */
   static int getExchangeSegmentID(const QString &exchange,
                                   const QString &segment);
@@ -438,6 +439,7 @@ public:
    * @brief Get exchange segment name from XTS segment ID
    * @param exchangeSegmentID XTS segment ID (1=NSECM, 2=NSEFO, etc.)
    * @return Segment name like "NSECM", "NSEFO", etc.
+   * @note Delegates to ExchangeSegmentUtil::toString() from core/ExchangeSegment.h
    */
   static QString getExchangeSegmentName(int exchangeSegmentID);
 

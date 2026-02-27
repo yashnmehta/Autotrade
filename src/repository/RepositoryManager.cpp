@@ -1,5 +1,6 @@
 #include "repository/RepositoryManager.h"
 #include "repository/MasterFileParser.h"
+#include "core/ExchangeSegment.h"
 #include <QCoreApplication>
 #include <QDate>
 #include <QDebug>
@@ -120,15 +121,34 @@ bool RepositoryManager::loadAll(const QString &mastersPath) {
     mastersDir = getMastersDirectory();
   }
 
-  // PHASE 1: Load NSE CM Index Master (Required) - Always load from MasterFiles
+  // PHASE 1: Load NSE CM Index Master (Required) - Load from Masters directory
   qDebug() << "[RepositoryManager] [1/5] Loading NSE CM Index Master...";
-  QString indexMasterPath =
-      QCoreApplication::applicationDirPath() + "/MasterFiles";
-  qDebug() << "[RepositoryManager] Loading index master from:"
-           << indexMasterPath;
-  if (!loadIndexMaster(indexMasterPath)) {
-    qWarning() << "[RepositoryManager] Failed to load index master from"
-               << indexMasterPath;
+  
+  // ⚡ FIX: Try root directory first, then processed_csv subdirectory
+  bool indexLoaded = false;
+  
+  // Try root directory first (where files are typically stored)
+  qDebug() << "[RepositoryManager] Trying index master from root:" << mastersDir;
+  if (loadIndexMaster(mastersDir)) {
+    indexLoaded = true;
+  } else {
+    // Try processed_csv subdirectory
+    QString processedCsvPath = mastersDir + "/processed_csv";
+    qDebug() << "[RepositoryManager] Root failed, trying processed_csv:" << processedCsvPath;
+    if (loadIndexMaster(processedCsvPath)) {
+      indexLoaded = true;
+    } else {
+      // Fallback: Try MasterFiles directory (development builds)
+      QString fallbackPath = QCoreApplication::applicationDirPath() + "/MasterFiles";
+      qDebug() << "[RepositoryManager] Still not found, trying fallback:" << fallbackPath;
+      if (loadIndexMaster(fallbackPath)) {
+        indexLoaded = true;
+      }
+    }
+  }
+  
+  if (!indexLoaded) {
+    qWarning() << "[RepositoryManager] Failed to load index master from all attempted paths";
     // We continue, but some functionality might be limited (no indices)
   }
 
@@ -200,7 +220,14 @@ bool RepositoryManager::loadAll(const QString &mastersPath) {
 }
 
 bool RepositoryManager::loadNSEFO(const QString &mastersPath, bool preferCSV) {
+  // Try processed_csv subdirectory first (where SaveProcessedCSVs writes)
   QString csvFile = mastersPath + "/processed_csv/nsefo_processed.csv";
+  
+  // Then try root directory (where files are typically located)
+  if (!QFile::exists(csvFile)) {
+    csvFile = mastersPath + "/nsefo_processed.csv";
+  }
+  
   QString masterFile = mastersPath + "/contract_nsefo_latest.txt";
 
   // Try CSV first if preferred
@@ -225,8 +252,16 @@ bool RepositoryManager::loadNSEFO(const QString &mastersPath, bool preferCSV) {
 }
 
 bool RepositoryManager::loadNSECM(const QString &mastersPath, bool preferCSV) {
+  // ⚡ FIX: Try processed_csv subdirectory first, then root directory
   QString csvFile = mastersPath + "/processed_csv/nsecm_processed.csv";
-  QString masterFile = mastersPath + "/contract_nsecm_latest.txt";
+  if (!QFile::exists(csvFile)) {
+    csvFile = mastersPath + "/nsecm_processed.csv";
+  }
+  
+  QString masterFile = mastersPath + "/master_contracts_latest.txt";
+  if (!QFile::exists(masterFile)) {
+    masterFile = mastersPath + "/contract_nsecm_latest.txt";
+  }
 
   // Try CSV first if preferred
   if (preferCSV && QFile::exists(csvFile)) {
@@ -250,8 +285,16 @@ bool RepositoryManager::loadNSECM(const QString &mastersPath, bool preferCSV) {
 }
 
 bool RepositoryManager::loadBSEFO(const QString &mastersPath, bool preferCSV) {
+  // ⚡ FIX: Try processed_csv subdirectory first, then root directory
   QString csvFile = mastersPath + "/processed_csv/bsefo_processed.csv";
-  QString masterFile = mastersPath + "/contract_bsefo_latest.txt";
+  if (!QFile::exists(csvFile)) {
+    csvFile = mastersPath + "/bsefo_processed.csv";
+  }
+  
+  QString masterFile = mastersPath + "/master_contracts_latest.txt";
+  if (!QFile::exists(masterFile)) {
+    masterFile = mastersPath + "/contract_bsefo_latest.txt";
+  }
 
   // Try CSV first if preferred
   if (preferCSV && QFile::exists(csvFile)) {
@@ -275,8 +318,16 @@ bool RepositoryManager::loadBSEFO(const QString &mastersPath, bool preferCSV) {
 }
 
 bool RepositoryManager::loadBSECM(const QString &mastersPath, bool preferCSV) {
+  // ⚡ FIX: Try processed_csv subdirectory first, then root directory
   QString csvFile = mastersPath + "/processed_csv/bsecm_processed.csv";
-  QString masterFile = mastersPath + "/contract_bsecm_latest.txt";
+  if (!QFile::exists(csvFile)) {
+    csvFile = mastersPath + "/bsecm_processed.csv";
+  }
+  
+  QString masterFile = mastersPath + "/master_contracts_latest.txt";
+  if (!QFile::exists(masterFile)) {
+    masterFile = mastersPath + "/contract_bsecm_latest.txt";
+  }
 
   // Try CSV first if preferred
   if (preferCSV && QFile::exists(csvFile)) {
@@ -1261,20 +1312,10 @@ QString RepositoryManager::getSegmentKey(const QString &exchange,
 
 int RepositoryManager::getExchangeSegmentID(const QString &exchange,
                                             const QString &segment) {
+  // Delegate to canonical ExchangeSegmentUtil (core/ExchangeSegment.h)
   QString segmentKey = getSegmentKey(exchange, segment);
-
-  // XTS API exchange segment IDs
-  // E = Equity/CM, F = F&O, O = Currency/CD, D = Derivative (XTS specific)
-  if (segmentKey == "NSECM")
-    return 1; // NSE Cash Market (E)
-  if (segmentKey == "NSEFO")
-    return 2; // NSE F&O (F, D)
-  if (segmentKey == "BSECM")
-    return 11; // BSE Cash Market (E)
-  if (segmentKey == "BSEFO")
-    return 12; // BSE F&O (F)
-
-  return -1;
+  ExchangeSegment seg = ExchangeSegmentUtil::fromString(segmentKey);
+  return (seg != ExchangeSegment::Unknown) ? ExchangeSegmentUtil::toInt(seg) : -1;
 }
 
 QString RepositoryManager::mapInstrumentToSeries(const QString &exchange,
@@ -1315,22 +1356,8 @@ QString RepositoryManager::mapInstrumentToSeries(const QString &exchange,
 }
 
 QString RepositoryManager::getExchangeSegmentName(int exchangeSegmentID) {
-  switch (exchangeSegmentID) {
-  case 1:
-    return "NSECM";
-  case 2:
-    return "NSEFO";
-  case 11:
-    return "BSECM";
-  case 12:
-    return "BSEFO";
-  case 13:
-    return "NSECD";
-  case 51:
-    return "MCXFO";
-  default:
-    return QString::number(exchangeSegmentID);
-  }
+  // Delegate to canonical ExchangeSegmentUtil (core/ExchangeSegment.h)
+  return ExchangeSegmentUtil::toString(ExchangeSegmentUtil::fromInt(exchangeSegmentID));
 }
 
 bool RepositoryManager::saveProcessedCSVs(const QString &mastersPath) {

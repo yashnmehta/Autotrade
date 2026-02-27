@@ -80,6 +80,9 @@ private slots:
   void activateSearchMode();
 
 protected:
+  // Override to trap Tab/Shift+Tab focus within ScripBar
+  bool focusNextPrevChild(bool next) override;
+
   // Combo widgets — exposed so subclasses (e.g. SnapQuoteScripBar) can
   // implement custom focus / tab-order / key-binding behaviour without
   // duplicating the setup logic.
@@ -96,6 +99,7 @@ protected:
 
 private:
   void setupUI();
+  void setupTabOrder();  // ⚡ Configure tab navigation order dynamically
   void populateExchanges();
   void populateSegments(const QString &exchange);
   void populateInstruments(const QString &segment);

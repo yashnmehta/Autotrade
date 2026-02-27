@@ -1,6 +1,7 @@
 #include "app/ScripBar.h"
-#include "api/XTSMarketDataClient.h"
+#include "api/xts/XTSMarketDataClient.h"
 #include "repository/RepositoryManager.h"
+#include <QApplication>
 #include <QDebug>
 #include <QElapsedTimer> // For performance measurement
 #include <QHBoxLayout>
@@ -36,6 +37,71 @@ void ScripBar::activateSearchMode() {
   qDebug() << "[ScripBar] SearchMode activated, combos fully populated";
 }
 
+// ⚡ FOCUS TRAPPING: Trap Tab/Shift+Tab so focus cycles only within ScripBar widgets
+// Focus never escapes to other widgets in the main window
+bool ScripBar::focusNextPrevChild(bool next) {
+  // Build list of all visible, enabled, focusable widgets in this bar
+  QList<QWidget*> focusChain;
+  
+  const QList<QWidget*> allWidgets = {
+    m_exchangeCombo,
+    m_segmentCombo,
+    m_instrumentCombo,
+    m_bseScripCodeCombo,
+    m_symbolCombo,
+    m_expiryCombo,
+    m_strikeCombo,
+    m_optionTypeCombo,
+    m_addToWatchButton
+    // m_tokenEdit intentionally excluded (Qt::NoFocus)
+  };
+  
+  for (auto* widget : allWidgets) {
+    if (widget && widget->isVisibleTo(this) && widget->isEnabled() 
+        && widget->focusPolicy() != Qt::NoFocus) {
+      focusChain.append(widget);
+    }
+  }
+  
+  if (focusChain.isEmpty()) {
+    return true; // Absorb Tab silently
+  }
+  
+  // Find current focus widget (might be the embedded QLineEdit inside a combo)
+  QWidget* current = QApplication::focusWidget();
+  int currentIdx = -1;
+  
+  for (int i = 0; i < focusChain.size(); ++i) {
+    QWidget* w = focusChain[i];
+    if (w == current || w->isAncestorOf(current)) {
+      currentIdx = i;
+      break;
+    }
+  }
+  
+  // Calculate next/previous index with wrapping
+  int targetIdx;
+  if (next) {
+    targetIdx = (currentIdx < 0 || currentIdx >= focusChain.size() - 1) ? 0 : currentIdx + 1;
+  } else {
+    targetIdx = (currentIdx <= 0) ? focusChain.size() - 1 : currentIdx - 1;
+  }
+  
+  // Set focus to target widget
+  QWidget* target = focusChain[targetIdx];
+  if (auto* combo = qobject_cast<CustomScripComboBox*>(target)) {
+    // For combo boxes with line edit, focus the line edit and select text
+    if (auto* le = combo->lineEdit()) {
+      le->setFocus(Qt::TabFocusReason);
+      le->selectAll();
+      return true;
+    }
+  }
+  
+  target->setFocus(Qt::TabFocusReason);
+  return true; // Always consumed — focus never escapes ScripBar
+}
+
 ScripBar::~ScripBar() = default;
 
 void ScripBar::setXTSClient(XTSMarketDataClient *client) {
@@ -56,6 +122,7 @@ void ScripBar::setupUI() {
   m_exchangeCombo = new CustomScripComboBox(this);
   m_exchangeCombo->setMode(CustomScripComboBox::SelectorMode);
   m_exchangeCombo->setSortMode(CustomScripComboBox::AlphabeticalSort);
+  m_exchangeCombo->setFocusPolicy(Qt::StrongFocus);  // Enhanced focus policy
 
   m_exchangeCombo->setMinimumWidth(56);
   m_exchangeCombo->setObjectName("cbExchange"); // For keyboard shortcut
@@ -67,6 +134,7 @@ void ScripBar::setupUI() {
   m_segmentCombo = new CustomScripComboBox(this);
   m_segmentCombo->setMode(CustomScripComboBox::SelectorMode);
   m_segmentCombo->setSortMode(CustomScripComboBox::AlphabeticalSort);
+  m_segmentCombo->setFocusPolicy(Qt::StrongFocus);  // Enhanced focus policy
 
   m_segmentCombo->setMinimumWidth(48);
   m_layout->addWidget(m_segmentCombo);
@@ -77,6 +145,7 @@ void ScripBar::setupUI() {
   m_instrumentCombo = new CustomScripComboBox(this);
   m_instrumentCombo->setMode(CustomScripComboBox::SelectorMode);
   m_instrumentCombo->setSortMode(CustomScripComboBox::AlphabeticalSort);
+  m_instrumentCombo->setFocusPolicy(Qt::StrongFocus);  // Enhanced focus policy
 
   m_instrumentCombo->setMinimumWidth(80);
   m_layout->addWidget(m_instrumentCombo);
@@ -87,6 +156,7 @@ void ScripBar::setupUI() {
   m_bseScripCodeCombo = new CustomScripComboBox(this);
   m_bseScripCodeCombo->setMode(CustomScripComboBox::SearchMode);
   m_bseScripCodeCombo->setSortMode(CustomScripComboBox::AlphabeticalSort);
+  m_bseScripCodeCombo->setFocusPolicy(Qt::StrongFocus);  // Enhanced focus policy
 
   m_bseScripCodeCombo->setMinimumWidth(120);
   m_bseScripCodeCombo->setMaximumWidth(150);
@@ -99,6 +169,7 @@ void ScripBar::setupUI() {
   m_symbolCombo = new CustomScripComboBox(this);
   m_symbolCombo->setMode(CustomScripComboBox::SearchMode);
   m_symbolCombo->setSortMode(CustomScripComboBox::AlphabeticalSort);
+  m_symbolCombo->setFocusPolicy(Qt::StrongFocus);  // Enhanced focus policy
 
   m_symbolCombo->setMinimumWidth(100);
   m_layout->addWidget(m_symbolCombo);
@@ -109,6 +180,7 @@ void ScripBar::setupUI() {
   m_expiryCombo = new CustomScripComboBox(this);
   m_expiryCombo->setMode(CustomScripComboBox::SearchMode);
   m_expiryCombo->setSortMode(CustomScripComboBox::ChronologicalSort);
+  m_expiryCombo->setFocusPolicy(Qt::StrongFocus);  // Enhanced focus policy
 
   m_expiryCombo->setMinimumWidth(125);
   m_layout->addWidget(m_expiryCombo);
@@ -119,6 +191,7 @@ void ScripBar::setupUI() {
   m_strikeCombo = new CustomScripComboBox(this);
   m_strikeCombo->setMode(CustomScripComboBox::SearchMode);
   m_strikeCombo->setSortMode(CustomScripComboBox::NumericSort);
+  m_strikeCombo->setFocusPolicy(Qt::StrongFocus);  // Enhanced focus policy
 
   m_strikeCombo->setMinimumWidth(140);
   m_layout->addWidget(m_strikeCombo);
@@ -128,6 +201,7 @@ void ScripBar::setupUI() {
   // Option Type combo (custom) - SelectorMode since only CE/PE options
   m_optionTypeCombo = new CustomScripComboBox(this);
   m_optionTypeCombo->setMode(CustomScripComboBox::SelectorMode);
+  m_optionTypeCombo->setFocusPolicy(Qt::StrongFocus);  // Enhanced focus policy
 
   m_optionTypeCombo->setSortMode(CustomScripComboBox::NoSort);
 
@@ -143,11 +217,13 @@ void ScripBar::setupUI() {
   m_tokenEdit->setPlaceholderText("Token");
   m_tokenEdit->setReadOnly(true);
   m_tokenEdit->setAlignment(Qt::AlignCenter);
+  m_tokenEdit->setFocusPolicy(Qt::NoFocus);  // Read-only, skip in tab order
   m_layout->addWidget(m_tokenEdit);
 
   // Add to Watch button
   m_addToWatchButton = new QPushButton(tr("Add"), this);
   m_addToWatchButton->setMinimumWidth(64);
+  m_addToWatchButton->setFocusPolicy(Qt::StrongFocus);  // Enhanced focus policy
   m_layout->addWidget(m_addToWatchButton);
   connect(m_addToWatchButton, &QPushButton::clicked, this,
           &ScripBar::onAddToWatchClicked);
@@ -198,6 +274,14 @@ void ScripBar::setupUI() {
   connect(m_expiryCombo, &CustomScripComboBox::popupAboutToShow, this, &ScripBar::activateSearchMode);
   connect(m_strikeCombo, &CustomScripComboBox::popupAboutToShow, this, &ScripBar::activateSearchMode);
   connect(m_optionTypeCombo, &CustomScripComboBox::popupAboutToShow, this, &ScripBar::activateSearchMode);
+
+  // ⚡ ENHANCED TAB ORDER: Define explicit tab navigation sequence
+  // Tab order: Exchange → Segment → Instrument → BSEScripCode (if visible) → Symbol → Expiry → Strike → OptionType → Add Button
+  // Token field excluded (read-only, NoFocus)
+  // Note: Qt automatically skips hidden/disabled widgets in tab order
+  setupTabOrder();
+  
+  qDebug() << "[ScripBar] Tab order configured with StrongFocus policy on all interactive widgets";
 
   // Light theme styling with clear inputs
   setStyleSheet(
@@ -268,6 +352,43 @@ void ScripBar::setupUI() {
       "QLineEdit:focus { border: 2px solid #3b82f6; padding: 1px 5px; }"
 
       "QLabel { color: #475569; }");
+}
+
+// ⚡ DYNAMIC TAB ORDER: Configure tab navigation with visibility handling
+// This method rebuilds the tab chain based on currently visible widgets
+void ScripBar::setupTabOrder() {
+  // Build dynamic tab order chain based on visible widgets
+  QList<QWidget*> tabChain;
+  
+  // Always include these core widgets (they're always visible)
+  tabChain << m_exchangeCombo 
+           << m_segmentCombo 
+           << m_instrumentCombo;
+  
+  // Conditionally include BSE Scrip Code (only visible for BSE + E segment)
+  if (m_bseScripCodeCombo && m_bseScripCodeCombo->isVisible()) {
+    tabChain << m_bseScripCodeCombo;
+  }
+  
+  // Always include remaining widgets
+  tabChain << m_symbolCombo 
+           << m_expiryCombo 
+           << m_strikeCombo 
+           << m_optionTypeCombo;
+  
+  // Token field intentionally excluded (Qt::NoFocus)
+  
+  // Add button always last
+  tabChain << m_addToWatchButton;
+  
+  // Set up tab order chain
+  for (int i = 0; i < tabChain.size() - 1; ++i) {
+    if (tabChain[i] && tabChain[i+1]) {
+      setTabOrder(tabChain[i], tabChain[i+1]);
+    }
+  }
+  
+  qDebug() << "[ScripBar] Dynamic tab order configured for" << tabChain.size() << "widgets";
 }
 
 // future implementation
@@ -649,6 +770,8 @@ void ScripBar::refreshSymbols() {
 void ScripBar::updateBseScripCodeVisibility() {
   // Show BSE Scrip Code field only when exchange=BSE and segment=E
   bool showBseCode = (m_currentExchange == "BSE" && m_currentSegment == "E");
+  bool wasVisible = m_bseScripCodeCombo->isVisible();
+  
   m_bseScripCodeCombo->setVisible(showBseCode);
 
   // Populate BSE scrip codes when visible
@@ -656,6 +779,12 @@ void ScripBar::updateBseScripCodeVisibility() {
     populateBseScripCodes();
   } else {
     m_bseScripCodeCombo->clearItems();
+  }
+  
+  // ⚡ Reconfigure tab order if visibility changed
+  if (wasVisible != showBseCode) {
+    setupTabOrder();
+    qDebug() << "[ScripBar] BSE Scrip Code visibility changed to" << showBseCode << "- tab order reconfigured";
   }
 }
 
