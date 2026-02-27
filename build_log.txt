@@ -1,0 +1,103 @@
+[  0%] Built target cpp_broadcast_bsefo_autogen_timestamp_deps
+[  1%] Built target cpp_broadcast_bsefo_autogen
+[  4%] Built target cpp_broadcast_bsefo
+[  4%] Built target TradingTerminal_autogen_timestamp_deps
+[  5%] Automatic MOC and UIC for target TradingTerminal
+[  5%] Built target TradingTerminal_autogen
+[  5%] Building CXX object CMakeFiles/TradingTerminal.dir/TradingTerminal_autogen/mocs_compilation.cpp.o
+[  5%] Building CXX object CMakeFiles/TradingTerminal.dir/src/app/MainWindow/Windows.cpp.o
+[  6%] Building CXX object CMakeFiles/TradingTerminal.dir/src/ui/TradingViewChartWidget.cpp.o
+/Users/yashnmehta/Desktop/Autotrade/src/ui/TradingViewChartWidget.cpp:108:39: warning: 'fromSecsSinceEpoch' is deprecated: Pass QTimeZone instead of time-spec, offset [-Wdeprecated-declarations]
+  108 |         QDateTime fromDt = QDateTime::fromSecsSinceEpoch(from, Qt::LocalTime);
+      |                                       ^
+/opt/homebrew/lib/QtCore.framework/Headers/qdatetime.h:490:5: note: 'fromSecsSinceEpoch' has been explicitly marked deprecated here
+  490 |     QT_DEPRECATED_VERSION_X_6_9("Pass QTimeZone instead of time-spec, offset")
+      |     ^
+/opt/homebrew/lib/QtCore.framework/Headers/qtdeprecationmarkers.h:213:44: note: expanded from macro 'QT_DEPRECATED_VERSION_X_6_9'
+  213 | # define QT_DEPRECATED_VERSION_X_6_9(text) QT_DEPRECATED_X(text)
+      |                                            ^
+/opt/homebrew/lib/QtCore.framework/Headers/qtdeprecationmarkers.h:29:33: note: expanded from macro 'QT_DEPRECATED_X'
+   29 | #  define QT_DEPRECATED_X(text) Q_DECL_DEPRECATED_X(text)
+      |                                 ^
+/opt/homebrew/lib/QtCore.framework/Headers/qcompilerdetection.h:1011:36: note: expanded from macro 'Q_DECL_DEPRECATED_X'
+ 1011 | #  define Q_DECL_DEPRECATED_X(x) [[deprecated(x)]]
+      |                                    ^
+/Users/yashnmehta/Desktop/Autotrade/src/ui/TradingViewChartWidget.cpp:109:37: warning: 'fromSecsSinceEpoch' is deprecated: Pass QTimeZone instead of time-spec, offset [-Wdeprecated-declarations]
+  109 |         QDateTime toDt = QDateTime::fromSecsSinceEpoch(to, Qt::LocalTime);
+      |                                     ^
+/opt/homebrew/lib/QtCore.framework/Headers/qdatetime.h:490:5: note: 'fromSecsSinceEpoch' has been explicitly marked deprecated here
+  490 |     QT_DEPRECATED_VERSION_X_6_9("Pass QTimeZone instead of time-spec, offset")
+      |     ^
+/opt/homebrew/lib/QtCore.framework/Headers/qtdeprecationmarkers.h:213:44: note: expanded from macro 'QT_DEPRECATED_VERSION_X_6_9'
+  213 | # define QT_DEPRECATED_VERSION_X_6_9(text) QT_DEPRECATED_X(text)
+      |                                            ^
+/opt/homebrew/lib/QtCore.framework/Headers/qtdeprecationmarkers.h:29:33: note: expanded from macro 'QT_DEPRECATED_X'
+   29 | #  define QT_DEPRECATED_X(text) Q_DECL_DEPRECATED_X(text)
+      |                                 ^
+/opt/homebrew/lib/QtCore.framework/Headers/qcompilerdetection.h:1011:36: note: expanded from macro 'Q_DECL_DEPRECATED_X'
+ 1011 | #  define Q_DECL_DEPRECATED_X(x) [[deprecated(x)]]
+      |                                    ^
+/Users/yashnmehta/Desktop/Autotrade/src/ui/TradingViewChartWidget.cpp:171:28: warning: 'fromSecsSinceEpoch' is deprecated: Pass QTimeZone instead of time-spec, offset [-Wdeprecated-declarations]
+  171 |                 QDateTime::fromSecsSinceEpoch(searchFrom, Qt::LocalTime);
+      |                            ^
+/opt/homebrew/lib/QtCore.framework/Headers/qdatetime.h:490:5: note: 'fromSecsSinceEpoch' has been explicitly marked deprecated here
+  490 |     QT_DEPRECATED_VERSION_X_6_9("Pass QTimeZone instead of time-spec, offset")
+      |     ^
+/opt/homebrew/lib/QtCore.framework/Headers/qtdeprecationmarkers.h:213:44: note: expanded from macro 'QT_DEPRECATED_VERSION_X_6_9'
+  213 | # define QT_DEPRECATED_VERSION_X_6_9(text) QT_DEPRECATED_X(text)
+      |                                            ^
+/opt/homebrew/lib/QtCore.framework/Headers/qtdeprecationmarkers.h:29:33: note: expanded from macro 'QT_DEPRECATED_X'
+   29 | #  define QT_DEPRECATED_X(text) Q_DECL_DEPRECATED_X(text)
+      |                                 ^
+/opt/homebrew/lib/QtCore.framework/Headers/qcompilerdetection.h:1011:36: note: expanded from macro 'Q_DECL_DEPRECATED_X'
+ 1011 | #  define Q_DECL_DEPRECATED_X(x) [[deprecated(x)]]
+      |                                    ^
+/Users/yashnmehta/Desktop/Autotrade/src/ui/TradingViewChartWidget.cpp:173:28: warning: 'fromSecsSinceEpoch' is deprecated: Pass QTimeZone instead of time-spec, offset [-Wdeprecated-declarations]
+  173 |                 QDateTime::fromSecsSinceEpoch(searchTo, Qt::LocalTime);
+      |                            ^
+/opt/homebrew/lib/QtCore.framework/Headers/qdatetime.h:490:5: note: 'fromSecsSinceEpoch' has been explicitly marked deprecated here
+  490 |     QT_DEPRECATED_VERSION_X_6_9("Pass QTimeZone instead of time-spec, offset")
+      |     ^
+/opt/homebrew/lib/QtCore.framework/Headers/qtdeprecationmarkers.h:213:44: note: expanded from macro 'QT_DEPRECATED_VERSION_X_6_9'
+  213 | # define QT_DEPRECATED_VERSION_X_6_9(text) QT_DEPRECATED_X(text)
+      |                                            ^
+/opt/homebrew/lib/QtCore.framework/Headers/qtdeprecationmarkers.h:29:33: note: expanded from macro 'QT_DEPRECATED_X'
+   29 | #  define QT_DEPRECATED_X(text) Q_DECL_DEPRECATED_X(text)
+      |                                 ^
+/opt/homebrew/lib/QtCore.framework/Headers/qcompilerdetection.h:1011:36: note: expanded from macro 'Q_DECL_DEPRECATED_X'
+ 1011 | #  define Q_DECL_DEPRECATED_X(x) [[deprecated(x)]]
+      |                                    ^
+/Users/yashnmehta/Desktop/Autotrade/src/ui/TradingViewChartWidget.cpp:145:9: warning: ignoring return value of function declared with 'nodiscard' attribute: Use QThreadPool::start(Callable&&) if you don't need the returned QFuture [-Wunused-result]
+  145 |         QtConcurrent::run([this, authToken, requestId, from, to,
+      |         ^~~~~~~~~~~~~~~~~ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  146 |                            exchangeInstrumentID, segment, compressionSeconds,
+      |                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  147 |                            resolution]() {
+      |                            ~~~~~~~~~~~~~~~
+  148 |           qDebug()
+      |           ~~~~~~~~
+  149 |               << "[TradingViewChart] Starting iterative OHLC fetch for request"
+      |               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  150 |               << requestId;
+      |               ~~~~~~~~~~~~~
+  151 | 
+  152 |           QJsonArray finalBars;
+      |           ~~~~~~~~~~~~~~~~~~~~~
+  153 |           qint64 searchTo = to;
+      |           ~~~~~~~~~~~~~~~~~~~~~
+  154 |           qint64 searchFrom = from;
+      |           ~~~~~~~~~~~~~~~~~~~~~~~~~
+  155 |           int daysExtended = 0;
+      |           ~~~~~~~~~~~~~~~~~~~~~
+  156 |           const int MIN_CANDLES = 150;
+      |           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  157 |           const int MAX_EXTENSION_DAYS = 7;
+      |           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  158 | 
+  159 |           NativeHTTPClient client;
+      |           ~~~~~~~~~~~~~~~~~~~~~~~~
+  160 |           client.setTimeout(30);
+      |           ~~~~~~~~~~~~~~~~~~~~~~
+5 warnings generated.
+[  7%] Linking CXX executable TradingTerminal.app/Contents/MacOS/TradingTerminal
+[100%] Built target TradingTerminal

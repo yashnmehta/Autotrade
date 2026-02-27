@@ -1,0 +1,40 @@
+[  0%] Built target cpp_broadcast_bsefo_autogen_timestamp_deps
+[  1%] Built target cpp_broadcast_bsefo_autogen
+[  4%] Built target cpp_broadcast_bsefo
+[  4%] Built target TradingTerminal_autogen_timestamp_deps
+[  5%] Automatic MOC and UIC for target TradingTerminal
+[  5%] Built target TradingTerminal_autogen
+[  6%] Building CXX object CMakeFiles/TradingTerminal.dir/src/ui/IndicatorChartWidget.cpp.o
+/Users/yashnmehta/Desktop/Autotrade/src/ui/IndicatorChartWidget.cpp:241:3: warning: ignoring return value of function declared with 'nodiscard' attribute: Use QThreadPool::start(Callable&&) if you don't need the returned QFuture [-Wunused-result]
+  241 |   QtConcurrent::run([this, authToken, urlStr, symbol]() {
+      |   ^~~~~~~~~~~~~~~~~ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  242 |     NativeHTTPClient client;
+      |     ~~~~~~~~~~~~~~~~~~~~~~~~
+  243 |     client.setTimeout(30);
+      |     ~~~~~~~~~~~~~~~~~~~~~~
+  244 | 
+  245 |     std::map<std::string, std::string> headers;
+      |     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  246 |     headers["Content-Type"] = "application/json";
+      |     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  247 |     headers["authorization"] = authToken.toStdString();
+      |     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  248 | 
+  249 |     auto response = client.get(urlStr.toStdString(), headers);
+      |     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  250 | 
+  251 |     if (response.success && response.statusCode == 200) {
+      |     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  252 |       QJsonDocument doc =
+      |       ~~~~~~~~~~~~~~~~~~~
+  253 |           QJsonDocument::fromJson(QByteArray::fromStdString(response.body));
+      |           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  254 | 
+  255 |       qDebug() << "[IndicatorChart] full API Response for" << symbol << ":"
+      |       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  256 |                << QString::fromStdString(response.body);
+      |                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+1 warning generated.
+[  7%] Linking CXX executable TradingTerminal.app/Contents/MacOS/TradingTerminal
+Copying TradingView library files to build directory...
+[100%] Built target TradingTerminal

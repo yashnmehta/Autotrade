@@ -117,15 +117,8 @@ void StrategyManagerWindow::setupConnections() {
   connect(ui->strategyFilterCombo, &QComboBox::currentTextChanged, this,
           &StrategyManagerWindow::onStrategyFilterChanged);
 
-#if QT_VERSION >= QT_VERSION_CHECK(5, 15, 0)
-  connect(m_statusGroup, QOverload<int>::of(&QButtonGroup::idClicked), this,
+  connect(m_statusGroup, &QButtonGroup::idClicked, this,
           &StrategyManagerWindow::onStatusFilterClicked);
-#else
-  connect(
-      m_statusGroup,
-      static_cast<void (QButtonGroup::*)(int)>(&QButtonGroup::buttonClicked),
-      this, &StrategyManagerWindow::onStatusFilterClicked);
-#endif
 
   StrategyService &service = StrategyService::instance();
   connect(&service, &StrategyService::instanceAdded, this,

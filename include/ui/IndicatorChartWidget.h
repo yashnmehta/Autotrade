@@ -4,23 +4,20 @@
 #include "api/XTSMarketDataClient.h"
 #include "repository/RepositoryManager.h"
 #include "services/CandleAggregator.h"
-#include <QCandlestickSeries>
-#include <QCandlestickSet>
-#include <QChart>
-#include <QChartView>
+#include "ui/CustomChartView.h"
 #include <QComboBox>
-#include <QDateTimeAxis>
 #include <QHash>
 #include <QLineEdit>
-#include <QLineSeries>
 #include <QPushButton>
 #include <QToolBar>
 #include <QVBoxLayout>
-#include <QValueAxis>
 #include <QWidget>
-
-
-using namespace QtCharts;
+#include <QtCharts/QCandlestickSeries>
+#include <QtCharts/QCandlestickSet>
+#include <QtCharts/QChart>
+#include <QtCharts/QCategoryAxis>
+#include <QtCharts/QLineSeries>
+#include <QtCharts/QValueAxis>
 
 /**
  * @brief Widget for displaying price charts with technical indicators
@@ -116,6 +113,7 @@ private slots:
   void onZoomOutClicked();
   void onResetZoomClicked();
   void onGlobalSearchClicked();
+  void onChartZoomChanged(double factor);
 
 private:
   struct IndicatorInfo {
@@ -144,9 +142,9 @@ private:
 
   // Main price chart
   QChart *m_priceChart;
-  QChartView *m_priceChartView;
+  CustomChartView *m_priceChartView;
   QCandlestickSeries *m_candlestickSeries;
-  QDateTimeAxis *m_axisX;
+  QValueAxis *m_axisX; // Changed back to QValueAxis for candlestick compatibility
   QValueAxis *m_axisYPrice;
 
   // Data storage
@@ -161,6 +159,8 @@ private:
   // Settings
   bool m_autoScale = true;
   int m_visibleCandleCount = 100; // Default: show last 100 candles
+  int m_startIndex = 0; // For panning
+  double m_zoomFactor = 1.0;
 
   // External services
   XTSMarketDataClient *m_xtsClient = nullptr;
@@ -174,6 +174,8 @@ private:
   void updateIndicator(const QString &name);
   void recalculateAllIndicators();
   void updateAxisRanges();
+  void updateTimeAxis(); // New method for custom time labels
+  QString formatTimeLabel(qint64 timestamp) const;
   QDateTime indexToDateTime(int index) const;
   int dateTimeToIndex(const QDateTime &dt) const;
 

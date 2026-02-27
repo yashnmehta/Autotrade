@@ -1,0 +1,480 @@
+-- Could NOT find WrapVulkanHeaders (missing: Vulkan_INCLUDE_DIR) 
+-- Could NOT find WrapVulkanHeaders (missing: Vulkan_INCLUDE_DIR) 
+CMake Warning (dev) at CMakeLists.txt:51 (find_package):
+  Policy CMP0167 is not set: The FindBoost module is removed.  Run "cmake
+  --help-policy CMP0167" for policy details.  Use the cmake_policy command to
+  set the policy and suppress this warning.
+
+This warning is for project developers.  Use -Wno-dev to suppress it.
+
+-- Qt Charts found. Enabling native QChart-based charting!
+-- QtWebEngine found. Enabling TradingView chart integration!
+CMake Warning at cmake/TALibConfig.cmake:13 (message):
+  TA-Lib NOT found at C:/ta-lib/c.  Technical indicators will be disabled.
+Call Stack (most recent call first):
+  CMakeLists.txt:79 (include)
+
+
+CMake Warning at CMakeLists.txt:172 (message):
+  TA-Lib not found.  Technical indicators will be limited.
+
+
+--   Download from: https://ta-lib.org/
+--   Windows: Install to C:/Program Files/TA-Lib or C:/ta-lib
+-- Using system LZO library
+-- LZO include dirs: /opt/homebrew/Cellar/lzo/2.10/include/lzo
+-- LZO libraries: lzo2
+-- Added TradingView chart widget to build
+-- Unit tests DISABLED - test via main application (see MANUAL_TEST_GUIDE.md)
+-- Configuring done (0.5s)
+-- Generating done (0.1s)
+-- Build files have been written to: /Users/yashnmehta/Desktop/Autotrade/build
+[  0%] Built target cpp_broadcast_bsefo_autogen_timestamp_deps
+[  1%] Built target cpp_broadcast_bsefo_autogen
+[  2%] Building CXX object lib/cpp_broadcast_bsefo/CMakeFiles/cpp_broadcast_bsefo.dir/cpp_broadcast_bsefo_autogen/mocs_compilation.cpp.o
+[  2%] Building CXX object lib/cpp_broadcast_bsefo/CMakeFiles/cpp_broadcast_bsefo.dir/src/bse_receiver.cpp.o
+[  2%] Building CXX object lib/cpp_broadcast_bsefo/CMakeFiles/cpp_broadcast_bsefo.dir/src/bse_price_store.cpp.o
+[  3%] Building CXX object lib/cpp_broadcast_bsefo/CMakeFiles/cpp_broadcast_bsefo.dir/src/bse_parser.cpp.o
+[  4%] Linking CXX static library libcpp_broadcast_bsefo.a
+[  4%] Built target cpp_broadcast_bsefo
+[  4%] Built target TradingTerminal_autogen_timestamp_deps
+[  5%] Automatic MOC and UIC for target TradingTerminal
+[  5%] Built target TradingTerminal_autogen
+[  5%] Building CXX object CMakeFiles/TradingTerminal.dir/TradingTerminal_autogen/mocs_compilation.cpp.o
+[  6%] Building CXX object CMakeFiles/TradingTerminal.dir/src/core/widgets/CustomMainWindow.cpp.o
+[  6%] Building CXX object CMakeFiles/TradingTerminal.dir/src/core/widgets/CustomMDIArea.cpp.o
+[  7%] Building CXX object CMakeFiles/TradingTerminal.dir/src/core/widgets/CustomMDISubWindow.cpp.o
+[  7%] Building CXX object CMakeFiles/TradingTerminal.dir/src/core/widgets/CustomTitleBar.cpp.o
+[  9%] Building CXX object CMakeFiles/TradingTerminal.dir/src/core/widgets/CustomMDIChild.cpp.o
+[  9%] Building CXX object CMakeFiles/TradingTerminal.dir/src/core/widgets/CustomScripComboBox.cpp.o
+[  9%] Building CXX object CMakeFiles/TradingTerminal.dir/src/core/widgets/MDITaskBar.cpp.o
+[ 10%] Building CXX object CMakeFiles/TradingTerminal.dir/src/core/widgets/InfoBar.cpp.o
+[ 10%] Building CXX object CMakeFiles/TradingTerminal.dir/src/core/widgets/CustomMarketWatch.cpp.o
+[ 11%] Building CXX object CMakeFiles/TradingTerminal.dir/src/core/widgets/CustomNetPosition.cpp.o
+[ 12%] Building CXX object CMakeFiles/TradingTerminal.dir/src/core/widgets/CustomTradeBook.cpp.o
+[ 12%] Building CXX object CMakeFiles/TradingTerminal.dir/src/core/widgets/CustomOrderBook.cpp.o
+[ 13%] Building CXX object CMakeFiles/TradingTerminal.dir/src/core/GlobalShortcuts.cpp.o
+[ 13%] Building CXX object CMakeFiles/TradingTerminal.dir/src/core/GlobalConnections.cpp.o
+[ 14%] Building CXX object CMakeFiles/TradingTerminal.dir/src/core/WindowCacheManager.cpp.o
+[ 14%] Building CXX object CMakeFiles/TradingTerminal.dir/src/main.cpp.o
+[ 15%] Building CXX object CMakeFiles/TradingTerminal.dir/src/app/MainWindow/MainWindow.cpp.o
+[ 16%] Building CXX object CMakeFiles/TradingTerminal.dir/src/app/MainWindow/UI.cpp.o
+[ 16%] Building CXX object CMakeFiles/TradingTerminal.dir/src/app/MainWindow/Windows.cpp.o
+[ 17%] Building CXX object CMakeFiles/TradingTerminal.dir/src/app/MainWindow/Network.cpp.o
+[ 17%] Building CXX object CMakeFiles/TradingTerminal.dir/src/app/MainWindow/WindowCycling.cpp.o
+[ 18%] Building CXX object CMakeFiles/TradingTerminal.dir/src/app/ScripBar.cpp.o
+[ 18%] Building CXX object CMakeFiles/TradingTerminal.dir/src/ui/SplashScreen.cpp.o
+[ 19%] Building CXX object CMakeFiles/TradingTerminal.dir/src/ui/OptionChainWindow.cpp.o
+[ 20%] Building CXX object CMakeFiles/TradingTerminal.dir/src/ui/LoginWindow.cpp.o
+[ 21%] Building CXX object CMakeFiles/TradingTerminal.dir/src/ui/ATMWatchWindow.cpp.o
+[ 21%] Building CXX object CMakeFiles/TradingTerminal.dir/src/ui/ATMWatchSettingsDialog.cpp.o
+/Users/yashnmehta/Desktop/Autotrade/src/core/widgets/CustomTitleBar.cpp:139:29: warning: 'globalPos' is deprecated: Use globalPosition() [-Wdeprecated-declarations]
+  139 |     m_dragPosition = event->globalPos() - parentWidget()->geometry().topLeft();
+      |                             ^
+/opt/homebrew/lib/QtGui.framework/Headers/qevent.h:224:5: note: 'globalPos' has been explicitly marked deprecated here
+  224 |     QT_DEPRECATED_VERSION_X_6_0("Use globalPosition()")
+      |     ^
+/opt/homebrew/lib/QtCore.framework/Headers/qtdeprecationmarkers.h:141:44: note: expanded from macro 'QT_DEPRECATED_VERSION_X_6_0'
+  141 | # define QT_DEPRECATED_VERSION_X_6_0(text) QT_DEPRECATED_X(text)
+      |                                            ^
+/opt/homebrew/lib/QtCore.framework/Headers/qtdeprecationmarkers.h:29:33: note: expanded from macro 'QT_DEPRECATED_X'
+   29 | #  define QT_DEPRECATED_X(text) Q_DECL_DEPRECATED_X(text)
+      |                                 ^
+/opt/homebrew/lib/QtCore.framework/Headers/qcompilerdetection.h:1011:36: note: expanded from macro 'Q_DECL_DEPRECATED_X'
+ 1011 | #  define Q_DECL_DEPRECATED_X(x) [[deprecated(x)]]
+      |                                    ^
+/Users/yashnmehta/Desktop/Autotrade/src/core/widgets/CustomTitleBar.cpp:140:29: warning: 'globalPos' is deprecated: Use globalPosition() [-Wdeprecated-declarations]
+  140 |     emit dragStarted(event->globalPos());
+      |                             ^
+/opt/homebrew/lib/QtGui.framework/Headers/qevent.h:224:5: note: 'globalPos' has been explicitly marked deprecated here
+  224 |     QT_DEPRECATED_VERSION_X_6_0("Use globalPosition()")
+      |     ^
+/opt/homebrew/lib/QtCore.framework/Headers/qtdeprecationmarkers.h:141:44: note: expanded from macro 'QT_DEPRECATED_VERSION_X_6_0'
+  141 | # define QT_DEPRECATED_VERSION_X_6_0(text) QT_DEPRECATED_X(text)
+      |                                            ^
+/opt/homebrew/lib/QtCore.framework/Headers/qtdeprecationmarkers.h:29:33: note: expanded from macro 'QT_DEPRECATED_X'
+   29 | #  define QT_DEPRECATED_X(text) Q_DECL_DEPRECATED_X(text)
+      |                                 ^
+/opt/homebrew/lib/QtCore.framework/Headers/qcompilerdetection.h:1011:36: note: expanded from macro 'Q_DECL_DEPRECATED_X'
+ 1011 | #  define Q_DECL_DEPRECATED_X(x) [[deprecated(x)]]
+      |                                    ^
+[ 21%] Building CXX object CMakeFiles/TradingTerminal.dir/src/ui/StrategyManagerWindow.cpp.o
+/Users/yashnmehta/Desktop/Autotrade/src/core/widgets/CustomTitleBar.cpp:148:27: warning: 'globalPos' is deprecated: Use globalPosition() [-Wdeprecated-declarations]
+  148 |     emit dragMoved(event->globalPos());
+      |                           ^
+/opt/homebrew/lib/QtGui.framework/Headers/qevent.h:224:5: note: 'globalPos' has been explicitly marked deprecated here
+  224 |     QT_DEPRECATED_VERSION_X_6_0("Use globalPosition()")
+      |     ^
+/opt/homebrew/lib/QtCore.framework/Headers/qtdeprecationmarkers.h:141:44: note: expanded from macro 'QT_DEPRECATED_VERSION_X_6_0'
+  141 | # define QT_DEPRECATED_VERSION_X_6_0(text) QT_DEPRECATED_X(text)
+      |                                            ^
+/opt/homebrew/lib/QtCore.framework/Headers/qtdeprecationmarkers.h:29:33: note: expanded from macro 'QT_DEPRECATED_X'
+   29 | #  define QT_DEPRECATED_X(text) Q_DECL_DEPRECATED_X(text)
+      |                                 ^
+/opt/homebrew/lib/QtCore.framework/Headers/qcompilerdetection.h:1011:36: note: expanded from macro 'Q_DECL_DEPRECATED_X'
+ 1011 | #  define Q_DECL_DEPRECATED_X(x) [[deprecated(x)]]
+      |                                    ^
+3 warnings generated.
+[ 22%] Building CXX object CMakeFiles/TradingTerminal.dir/src/ui/CreateStrategyDialog.cpp.o
+[ 22%] Building CXX object CMakeFiles/TradingTerminal.dir/src/ui/ModifyParametersDialog.cpp.o
+[ 23%] Building CXX object CMakeFiles/TradingTerminal.dir/src/ui/GlobalSearchWidget.cpp.o
+[ 24%] Building CXX object CMakeFiles/TradingTerminal.dir/src/ui/TradingViewChartWidget.cpp.o
+/Users/yashnmehta/Desktop/Autotrade/src/core/widgets/CustomMainWindow.cpp:210:40: warning: 'globalPos' is deprecated: Use globalPosition() [-Wdeprecated-declarations]
+  210 |              << "globalPos:" << event->globalPos()
+      |                                        ^
+/opt/homebrew/lib/QtGui.framework/Headers/qevent.h:224:5: note: 'globalPos' has been explicitly marked deprecated here
+  224 |     QT_DEPRECATED_VERSION_X_6_0("Use globalPosition()")
+      |     ^
+/opt/homebrew/lib/QtCore.framework/Headers/qtdeprecationmarkers.h:141:44: note: expanded from macro 'QT_DEPRECATED_VERSION_X_6_0'
+  141 | # define QT_DEPRECATED_VERSION_X_6_0(text) QT_DEPRECATED_X(text)
+      |                                            ^
+/opt/homebrew/lib/QtCore.framework/Headers/qtdeprecationmarkers.h:29:33: note: expanded from macro 'QT_DEPRECATED_X'
+   29 | #  define QT_DEPRECATED_X(text) Q_DECL_DEPRECATED_X(text)
+      |                                 ^
+/opt/homebrew/lib/QtCore.framework/Headers/qcompilerdetection.h:1011:36: note: expanded from macro 'Q_DECL_DEPRECATED_X'
+ 1011 | #  define Q_DECL_DEPRECATED_X(x) [[deprecated(x)]]
+      |                                    ^
+/Users/yashnmehta/Desktop/Autotrade/src/core/widgets/CustomMainWindow.cpp:216:33: warning: 'globalPos' is deprecated: Use globalPosition() [-Wdeprecated-declarations]
+  216 |       m_resizeStartPos = event->globalPos();
+      |                                 ^
+/opt/homebrew/lib/QtGui.framework/Headers/qevent.h:224:5: note: 'globalPos' has been explicitly marked deprecated here
+  224 |     QT_DEPRECATED_VERSION_X_6_0("Use globalPosition()")
+      |     ^
+/opt/homebrew/lib/QtCore.framework/Headers/qtdeprecationmarkers.h:141:44: note: expanded from macro 'QT_DEPRECATED_VERSION_X_6_0'
+  141 | # define QT_DEPRECATED_VERSION_X_6_0(text) QT_DEPRECATED_X(text)
+      |                                            ^
+/opt/homebrew/lib/QtCore.framework/Headers/qtdeprecationmarkers.h:29:33: note: expanded from macro 'QT_DEPRECATED_X'
+   29 | #  define QT_DEPRECATED_X(text) Q_DECL_DEPRECATED_X(text)
+      |                                 ^
+/opt/homebrew/lib/QtCore.framework/Headers/qcompilerdetection.h:1011:36: note: expanded from macro 'Q_DECL_DEPRECATED_X'
+ 1011 | #  define Q_DECL_DEPRECATED_X(x) [[deprecated(x)]]
+      |                                    ^
+[ 24%] Building CXX object CMakeFiles/TradingTerminal.dir/src/views/BaseOrderWindow.cpp.o
+/Users/yashnmehta/Desktop/Autotrade/src/core/widgets/CustomMainWindow.cpp:231:26: warning: 'globalPos' is deprecated: Use globalPosition() [-Wdeprecated-declarations]
+  231 |     performResize(event->globalPos());
+      |                          ^
+/opt/homebrew/lib/QtGui.framework/Headers/qevent.h:224:5: note: 'globalPos' has been explicitly marked deprecated here
+  224 |     QT_DEPRECATED_VERSION_X_6_0("Use globalPosition()")
+      |     ^
+/opt/homebrew/lib/QtCore.framework/Headers/qtdeprecationmarkers.h:141:44: note: expanded from macro 'QT_DEPRECATED_VERSION_X_6_0'
+  141 | # define QT_DEPRECATED_VERSION_X_6_0(text) QT_DEPRECATED_X(text)
+      |                                            ^
+/opt/homebrew/lib/QtCore.framework/Headers/qtdeprecationmarkers.h:29:33: note: expanded from macro 'QT_DEPRECATED_X'
+   29 | #  define QT_DEPRECATED_X(text) Q_DECL_DEPRECATED_X(text)
+      |                                 ^
+/opt/homebrew/lib/QtCore.framework/Headers/qcompilerdetection.h:1011:36: note: expanded from macro 'Q_DECL_DEPRECATED_X'
+ 1011 | #  define Q_DECL_DEPRECATED_X(x) [[deprecated(x)]]
+      |                                    ^
+/Users/yashnmehta/Desktop/Autotrade/src/core/widgets/CustomMainWindow.cpp:276:67: warning: 'pos' is deprecated: Use position() [-Wdeprecated-declarations]
+  276 |     ResizeDirection direction = detectResizeDirection(hoverEvent->pos());
+      |                                                                   ^
+/opt/homebrew/lib/QtGui.framework/Headers/qevent.h:262:5: note: 'pos' has been explicitly marked deprecated here
+  262 |     QT_DEPRECATED_VERSION_X_6_0("Use position()")
+      |     ^
+/opt/homebrew/lib/QtCore.framework/Headers/qtdeprecationmarkers.h:141:44: note: expanded from macro 'QT_DEPRECATED_VERSION_X_6_0'
+  141 | # define QT_DEPRECATED_VERSION_X_6_0(text) QT_DEPRECATED_X(text)
+      |                                            ^
+/opt/homebrew/lib/QtCore.framework/Headers/qtdeprecationmarkers.h:29:33: note: expanded from macro 'QT_DEPRECATED_X'
+   29 | #  define QT_DEPRECATED_X(text) Q_DECL_DEPRECATED_X(text)
+      |                                 ^
+/opt/homebrew/lib/QtCore.framework/Headers/qcompilerdetection.h:1011:36: note: expanded from macro 'Q_DECL_DEPRECATED_X'
+ 1011 | #  define Q_DECL_DEPRECATED_X(x) [[deprecated(x)]]
+      |                                    ^
+/Users/yashnmehta/Desktop/Autotrade/src/core/widgets/CustomMainWindow.cpp:420:40: warning: 'globalPos' is deprecated: Use globalPosition() [-Wdeprecated-declarations]
+  420 |         m_resizeStartPos = mouseEvent->globalPos();
+      |                                        ^
+/opt/homebrew/lib/QtGui.framework/Headers/qevent.h:224:5: note: 'globalPos' has been explicitly marked deprecated here
+  224 |     QT_DEPRECATED_VERSION_X_6_0("Use globalPosition()")
+      |     ^
+/opt/homebrew/lib/QtCore.framework/Headers/qtdeprecationmarkers.h:141:44: note: expanded from macro 'QT_DEPRECATED_VERSION_X_6_0'
+  141 | # define QT_DEPRECATED_VERSION_X_6_0(text) QT_DEPRECATED_X(text)
+      |                                            ^
+/opt/homebrew/lib/QtCore.framework/Headers/qtdeprecationmarkers.h:29:33: note: expanded from macro 'QT_DEPRECATED_X'
+   29 | #  define QT_DEPRECATED_X(text) Q_DECL_DEPRECATED_X(text)
+      |                                 ^
+/opt/homebrew/lib/QtCore.framework/Headers/qcompilerdetection.h:1011:36: note: expanded from macro 'Q_DECL_DEPRECATED_X'
+ 1011 | #  define Q_DECL_DEPRECATED_X(x) [[deprecated(x)]]
+      |                                    ^
+/Users/yashnmehta/Desktop/Autotrade/src/core/widgets/CustomMainWindow.cpp:445:40: warning: 'globalPos' is deprecated: Use globalPosition() [-Wdeprecated-declarations]
+  445 |         m_resizeStartPos = mouseEvent->globalPos();
+      |                                        ^
+/opt/homebrew/lib/QtGui.framework/Headers/qevent.h:224:5: note: 'globalPos' has been explicitly marked deprecated here
+  224 |     QT_DEPRECATED_VERSION_X_6_0("Use globalPosition()")
+      |     ^
+/opt/homebrew/lib/QtCore.framework/Headers/qtdeprecationmarkers.h:141:44: note: expanded from macro 'QT_DEPRECATED_VERSION_X_6_0'
+  141 | # define QT_DEPRECATED_VERSION_X_6_0(text) QT_DEPRECATED_X(text)
+      |                                            ^
+/opt/homebrew/lib/QtCore.framework/Headers/qtdeprecationmarkers.h:29:33: note: expanded from macro 'QT_DEPRECATED_X'
+   29 | #  define QT_DEPRECATED_X(text) Q_DECL_DEPRECATED_X(text)
+      |                                 ^
+/opt/homebrew/lib/QtCore.framework/Headers/qcompilerdetection.h:1011:36: note: expanded from macro 'Q_DECL_DEPRECATED_X'
+ 1011 | #  define Q_DECL_DEPRECATED_X(x) [[deprecated(x)]]
+      |                                    ^
+/Users/yashnmehta/Desktop/Autotrade/src/core/widgets/CustomMainWindow.cpp:454:33: warning: 'globalPos' is deprecated: Use globalPosition() [-Wdeprecated-declarations]
+  454 |       performResize(mouseEvent->globalPos());
+      |                                 ^
+/opt/homebrew/lib/QtGui.framework/Headers/qevent.h:224:5: note: 'globalPos' has been explicitly marked deprecated here
+  224 |     QT_DEPRECATED_VERSION_X_6_0("Use globalPosition()")
+      |     ^
+/opt/homebrew/lib/QtCore.framework/Headers/qtdeprecationmarkers.h:141:44: note: expanded from macro 'QT_DEPRECATED_VERSION_X_6_0'
+  141 | # define QT_DEPRECATED_VERSION_X_6_0(text) QT_DEPRECATED_X(text)
+      |                                            ^
+/opt/homebrew/lib/QtCore.framework/Headers/qtdeprecationmarkers.h:29:33: note: expanded from macro 'QT_DEPRECATED_X'
+   29 | #  define QT_DEPRECATED_X(text) Q_DECL_DEPRECATED_X(text)
+      |                                 ^
+/opt/homebrew/lib/QtCore.framework/Headers/qcompilerdetection.h:1011:36: note: expanded from macro 'Q_DECL_DEPRECATED_X'
+ 1011 | #  define Q_DECL_DEPRECATED_X(x) [[deprecated(x)]]
+      |                                    ^
+/Users/yashnmehta/Desktop/Autotrade/src/core/widgets/CustomMainWindow.cpp:470:33: warning: 'globalPos' is deprecated: Use globalPosition() [-Wdeprecated-declarations]
+  470 |       performResize(mouseEvent->globalPos());
+      |                                 ^
+/opt/homebrew/lib/QtGui.framework/Headers/qevent.h:224:5: note: 'globalPos' has been explicitly marked deprecated here
+  224 |     QT_DEPRECATED_VERSION_X_6_0("Use globalPosition()")
+      |     ^
+/opt/homebrew/lib/QtCore.framework/Headers/qtdeprecationmarkers.h:141:44: note: expanded from macro 'QT_DEPRECATED_VERSION_X_6_0'
+  141 | # define QT_DEPRECATED_VERSION_X_6_0(text) QT_DEPRECATED_X(text)
+      |                                            ^
+/opt/homebrew/lib/QtCore.framework/Headers/qtdeprecationmarkers.h:29:33: note: expanded from macro 'QT_DEPRECATED_X'
+   29 | #  define QT_DEPRECATED_X(text) Q_DECL_DEPRECATED_X(text)
+      |                                 ^
+/opt/homebrew/lib/QtCore.framework/Headers/qcompilerdetection.h:1011:36: note: expanded from macro 'Q_DECL_DEPRECATED_X'
+ 1011 | #  define Q_DECL_DEPRECATED_X(x) [[deprecated(x)]]
+      |                                    ^
+/Users/yashnmehta/Desktop/Autotrade/src/core/widgets/CustomMDISubWindow.cpp:366:31: warning: 'globalPos' is deprecated: Use globalPosition() [-Wdeprecated-declarations]
+  366 |       m_dragStartPos = event->globalPos();
+      |                               ^
+/opt/homebrew/lib/QtGui.framework/Headers/qevent.h:224:5: note: 'globalPos' has been explicitly marked deprecated here
+  224 |     QT_DEPRECATED_VERSION_X_6_0("Use globalPosition()")
+      |     ^
+/opt/homebrew/lib/QtCore.framework/Headers/qtdeprecationmarkers.h:141:44: note: expanded from macro 'QT_DEPRECATED_VERSION_X_6_0'
+  141 | # define QT_DEPRECATED_VERSION_X_6_0(text) QT_DEPRECATED_X(text)
+      |                                            ^
+/opt/homebrew/lib/QtCore.framework/Headers/qtdeprecationmarkers.h:29:33: note: expanded from macro 'QT_DEPRECATED_X'
+   29 | #  define QT_DEPRECATED_X(text) Q_DECL_DEPRECATED_X(text)
+      |                                 ^
+/opt/homebrew/lib/QtCore.framework/Headers/qcompilerdetection.h:1011:36: note: expanded from macro 'Q_DECL_DEPRECATED_X'
+ 1011 | #  define Q_DECL_DEPRECATED_X(x) [[deprecated(x)]]
+      |                                    ^
+/Users/yashnmehta/Desktop/Autotrade/src/core/widgets/CustomMDISubWindow.cpp:378:27: warning: 'globalPos' is deprecated: Use globalPosition() [-Wdeprecated-declarations]
+  378 |     QPoint delta = event->globalPos() - m_dragStartPos;
+      |                           ^
+/opt/homebrew/lib/QtGui.framework/Headers/qevent.h:224:5: note: 'globalPos' has been explicitly marked deprecated here
+  224 |     QT_DEPRECATED_VERSION_X_6_0("Use globalPosition()")
+      |     ^
+/opt/homebrew/lib/QtCore.framework/Headers/qtdeprecationmarkers.h:141:44: note: expanded from macro 'QT_DEPRECATED_VERSION_X_6_0'
+  141 | # define QT_DEPRECATED_VERSION_X_6_0(text) QT_DEPRECATED_X(text)
+      |                                            ^
+/opt/homebrew/lib/QtCore.framework/Headers/qtdeprecationmarkers.h:29:33: note: expanded from macro 'QT_DEPRECATED_X'
+   29 | #  define QT_DEPRECATED_X(text) Q_DECL_DEPRECATED_X(text)
+      |                                 ^
+/opt/homebrew/lib/QtCore.framework/Headers/qcompilerdetection.h:1011:36: note: expanded from macro 'Q_DECL_DEPRECATED_X'
+ 1011 | #  define Q_DECL_DEPRECATED_X(x) [[deprecated(x)]]
+      |                                    ^
+/Users/yashnmehta/Desktop/Autotrade/src/core/widgets/CustomMDISubWindow.cpp:568:38: warning: 'globalPos' is deprecated: Use globalPosition() [-Wdeprecated-declarations]
+  568 |           QPoint delta = mouseEvent->globalPos() - m_dragStartPos;
+      |                                      ^
+/opt/homebrew/lib/QtGui.framework/Headers/qevent.h:224:5: note: 'globalPos' has been explicitly marked deprecated here
+  224 |     QT_DEPRECATED_VERSION_X_6_0("Use globalPosition()")
+      |     ^
+/opt/homebrew/lib/QtCore.framework/Headers/qtdeprecationmarkers.h:141:44: note: expanded from macro 'QT_DEPRECATED_VERSION_X_6_0'
+  141 | # define QT_DEPRECATED_VERSION_X_6_0(text) QT_DEPRECATED_X(text)
+      |                                            ^
+/opt/homebrew/lib/QtCore.framework/Headers/qtdeprecationmarkers.h:29:33: note: expanded from macro 'QT_DEPRECATED_X'
+   29 | #  define QT_DEPRECATED_X(text) Q_DECL_DEPRECATED_X(text)
+      |                                 ^
+/opt/homebrew/lib/QtCore.framework/Headers/qcompilerdetection.h:1011:36: note: expanded from macro 'Q_DECL_DEPRECATED_X'
+ 1011 | #  define Q_DECL_DEPRECATED_X(x) [[deprecated(x)]]
+      |                                    ^
+/Users/yashnmehta/Desktop/Autotrade/src/core/widgets/CustomMDISubWindow.cpp:602:40: warning: 'globalPos' is deprecated: Use globalPosition() [-Wdeprecated-declarations]
+  602 |           m_dragStartPos = mouseEvent->globalPos();
+      |                                        ^
+/opt/homebrew/lib/QtGui.framework/Headers/qevent.h:224:5: note: 'globalPos' has been explicitly marked deprecated here
+  224 |     QT_DEPRECATED_VERSION_X_6_0("Use globalPosition()")
+      |     ^
+/opt/homebrew/lib/QtCore.framework/Headers/qtdeprecationmarkers.h:141:44: note: expanded from macro 'QT_DEPRECATED_VERSION_X_6_0'
+  141 | # define QT_DEPRECATED_VERSION_X_6_0(text) QT_DEPRECATED_X(text)
+      |                                            ^
+/opt/homebrew/lib/QtCore.framework/Headers/qtdeprecationmarkers.h:29:33: note: expanded from macro 'QT_DEPRECATED_X'
+   29 | #  define QT_DEPRECATED_X(text) Q_DECL_DEPRECATED_X(text)
+      |                                 ^
+/opt/homebrew/lib/QtCore.framework/Headers/qcompilerdetection.h:1011:36: note: expanded from macro 'Q_DECL_DEPRECATED_X'
+ 1011 | #  define Q_DECL_DEPRECATED_X(x) [[deprecated(x)]]
+      |                                    ^
+[ 25%] Building CXX object CMakeFiles/TradingTerminal.dir/src/views/BaseBookWindow.cpp.o
+8 warnings generated.
+[ 25%] Building CXX object CMakeFiles/TradingTerminal.dir/src/views/BuyWindow.cpp.o
+[ 26%] Building CXX object CMakeFiles/TradingTerminal.dir/src/views/SellWindow.cpp.o
+[ 26%] Building CXX object CMakeFiles/TradingTerminal.dir/src/views/MarketWatchWindow/MarketWatchWindow.cpp.o
+[ 27%] Building CXX object CMakeFiles/TradingTerminal.dir/src/views/MarketWatchWindow/UI.cpp.o
+[ 28%] Building CXX object CMakeFiles/TradingTerminal.dir/src/views/MarketWatchWindow/Data.cpp.o
+4 warnings generated.
+[ 28%] Building CXX object CMakeFiles/TradingTerminal.dir/src/views/MarketWatchWindow/Actions.cpp.o
+[ 29%] Building CXX object CMakeFiles/TradingTerminal.dir/src/views/SnapQuoteWindow/SnapQuoteWindow.cpp.o
+[ 29%] Building CXX object CMakeFiles/TradingTerminal.dir/src/views/SnapQuoteWindow/UI.cpp.o
+In file included from /Users/yashnmehta/Desktop/Autotrade/src/app/MainWindow/Windows.cpp:18:
+/Users/yashnmehta/Desktop/Autotrade/include/ui/IndicatorChartWidget.h:7:10: fatal error: 'QCandlestickSeries' file not found
+    7 | #include <QCandlestickSeries>
+      |          ^~~~~~~~~~~~~~~~~~~~
+[ 30%] Building CXX object CMakeFiles/TradingTerminal.dir/src/views/SnapQuoteWindow/Actions.cpp.o
+[ 30%] Building CXX object CMakeFiles/TradingTerminal.dir/src/views/SnapQuoteWindow/Data.cpp.o
+1 error generated.
+make[2]: *** [CMakeFiles/TradingTerminal.dir/src/app/MainWindow/Windows.cpp.o] Error 1
+make[2]: *** Waiting for unfinished jobs....
+/Users/yashnmehta/Desktop/Autotrade/src/ui/ATMWatchWindow.cpp:541:32: warning: conditional expression between different enumeration types ('ATMWatchWindow::CallCols' and 'ATMWatchWindow::PutCols') is deprecated [-Wdeprecated-enum-compare-conditional]
+  541 |             int colIV = isCall ? CALL_IV : PUT_IV;
+      |                                ^ ~~~~~~~   ~~~~~~
+/Users/yashnmehta/Desktop/Autotrade/src/ui/ATMWatchWindow.cpp:542:35: warning: conditional expression between different enumeration types ('ATMWatchWindow::CallCols' and 'ATMWatchWindow::PutCols') is deprecated [-Wdeprecated-enum-compare-conditional]
+  542 |             int colDelta = isCall ? CALL_DELTA : PUT_DELTA;
+      |                                   ^ ~~~~~~~~~~   ~~~~~~~~~
+/Users/yashnmehta/Desktop/Autotrade/src/ui/ATMWatchWindow.cpp:543:35: warning: conditional expression between different enumeration types ('ATMWatchWindow::CallCols' and 'ATMWatchWindow::PutCols') is deprecated [-Wdeprecated-enum-compare-conditional]
+  543 |             int colGamma = isCall ? CALL_GAMMA : PUT_GAMMA;
+      |                                   ^ ~~~~~~~~~~   ~~~~~~~~~
+/Users/yashnmehta/Desktop/Autotrade/src/ui/ATMWatchWindow.cpp:544:34: warning: conditional expression between different enumeration types ('ATMWatchWindow::CallCols' and 'ATMWatchWindow::PutCols') is deprecated [-Wdeprecated-enum-compare-conditional]
+  544 |             int colVega = isCall ? CALL_VEGA : PUT_VEGA;
+      |                                  ^ ~~~~~~~~~   ~~~~~~~~
+/Users/yashnmehta/Desktop/Autotrade/src/ui/ATMWatchWindow.cpp:545:35: warning: conditional expression between different enumeration types ('ATMWatchWindow::CallCols' and 'ATMWatchWindow::PutCols') is deprecated [-Wdeprecated-enum-compare-conditional]
+  545 |             int colTheta = isCall ? CALL_THETA : PUT_THETA;
+      |                                   ^ ~~~~~~~~~~   ~~~~~~~~~
+/Users/yashnmehta/Desktop/Autotrade/src/ui/ATMWatchWindow.cpp:626:32: warning: conditional expression between different enumeration types ('ATMWatchWindow::CallCols' and 'ATMWatchWindow::PutCols') is deprecated [-Wdeprecated-enum-compare-conditional]
+  626 |             int colIV = isCall ? CALL_IV : PUT_IV;
+      |                                ^ ~~~~~~~   ~~~~~~
+/Users/yashnmehta/Desktop/Autotrade/src/ui/ATMWatchWindow.cpp:627:35: warning: conditional expression between different enumeration types ('ATMWatchWindow::CallCols' and 'ATMWatchWindow::PutCols') is deprecated [-Wdeprecated-enum-compare-conditional]
+  627 |             int colDelta = isCall ? CALL_DELTA : PUT_DELTA;
+      |                                   ^ ~~~~~~~~~~   ~~~~~~~~~
+/Users/yashnmehta/Desktop/Autotrade/src/ui/ATMWatchWindow.cpp:628:35: warning: conditional expression between different enumeration types ('ATMWatchWindow::CallCols' and 'ATMWatchWindow::PutCols') is deprecated [-Wdeprecated-enum-compare-conditional]
+  628 |             int colGamma = isCall ? CALL_GAMMA : PUT_GAMMA;
+      |                                   ^ ~~~~~~~~~~   ~~~~~~~~~
+/Users/yashnmehta/Desktop/Autotrade/src/ui/ATMWatchWindow.cpp:629:34: warning: conditional expression between different enumeration types ('ATMWatchWindow::CallCols' and 'ATMWatchWindow::PutCols') is deprecated [-Wdeprecated-enum-compare-conditional]
+  629 |             int colVega = isCall ? CALL_VEGA : PUT_VEGA;
+      |                                  ^ ~~~~~~~~~   ~~~~~~~~
+/Users/yashnmehta/Desktop/Autotrade/src/ui/ATMWatchWindow.cpp:630:35: warning: conditional expression between different enumeration types ('ATMWatchWindow::CallCols' and 'ATMWatchWindow::PutCols') is deprecated [-Wdeprecated-enum-compare-conditional]
+  630 |             int colTheta = isCall ? CALL_THETA : PUT_THETA;
+      |                                   ^ ~~~~~~~~~~   ~~~~~~~~~
+/Users/yashnmehta/Desktop/Autotrade/src/ui/ATMWatchWindow.cpp:745:27: warning: conditional expression between different enumeration types ('ATMWatchWindow::CallCols' and 'ATMWatchWindow::PutCols') is deprecated [-Wdeprecated-enum-compare-conditional]
+  745 |     int colPrice = isCall ? CALL_LTP : PUT_LTP;
+      |                           ^ ~~~~~~~~   ~~~~~~~
+/Users/yashnmehta/Desktop/Autotrade/src/ui/ATMWatchWindow.cpp:834:3: warning: ignoring return value of function declared with 'nodiscard' attribute: Use QThreadPool::start(Callable&&) if you don't need the returned QFuture [-Wunused-result]
+  834 |   QtConcurrent::run([this, repo]() {
+      |   ^~~~~~~~~~~~~~~~~ ~~~~~~~~~~~~~~~~
+  835 |     // Step 1: Get option symbols from cache (instant lookup, no contract
+      |     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  836 |     // filtering)
+      |     ~~~~~~~~~~~~~
+  837 |     QVector<QString> optionSymbols = repo->getOptionSymbols();
+      |     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  838 | 
+  839 |     qDebug() << "[ATMWatch] Loaded" << optionSymbols.size()
+      |     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  840 |              << "option-enabled symbols from cache (instant lookup)";
+      |              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  841 | 
+  842 |     // Step 4: Subscribe to base tokens (underlying cash tokens) for all symbols
+      |     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  843 |     // Note: Actual subscription happens automatically via FeedHandler
+      |     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  844 |     // when ATMWatchManager calls fetchBasePrice() during calculation
+      |     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  845 | 
+  846 |     // Clear ALL ATM watches (on main thread)
+      |     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  847 |     QMetaObject::invokeMethod(
+      |     ~~~~~~~~~~~~~~~~~~~~~~~~~~
+  848 |         &ATMWatchManager::getInstance(),
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  849 |         []() { ATMWatchManager::getInstance().clearAllWatches(); },
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+12 warnings generated.
+/Users/yashnmehta/Desktop/Autotrade/src/ui/TradingViewChartWidget.cpp:108:39: warning: 'fromSecsSinceEpoch' is deprecated: Pass QTimeZone instead of time-spec, offset [-Wdeprecated-declarations]
+  108 |         QDateTime fromDt = QDateTime::fromSecsSinceEpoch(from, Qt::LocalTime);
+      |                                       ^
+/opt/homebrew/lib/QtCore.framework/Headers/qdatetime.h:490:5: note: 'fromSecsSinceEpoch' has been explicitly marked deprecated here
+  490 |     QT_DEPRECATED_VERSION_X_6_9("Pass QTimeZone instead of time-spec, offset")
+      |     ^
+/opt/homebrew/lib/QtCore.framework/Headers/qtdeprecationmarkers.h:213:44: note: expanded from macro 'QT_DEPRECATED_VERSION_X_6_9'
+  213 | # define QT_DEPRECATED_VERSION_X_6_9(text) QT_DEPRECATED_X(text)
+      |                                            ^
+/opt/homebrew/lib/QtCore.framework/Headers/qtdeprecationmarkers.h:29:33: note: expanded from macro 'QT_DEPRECATED_X'
+   29 | #  define QT_DEPRECATED_X(text) Q_DECL_DEPRECATED_X(text)
+      |                                 ^
+/opt/homebrew/lib/QtCore.framework/Headers/qcompilerdetection.h:1011:36: note: expanded from macro 'Q_DECL_DEPRECATED_X'
+ 1011 | #  define Q_DECL_DEPRECATED_X(x) [[deprecated(x)]]
+      |                                    ^
+/Users/yashnmehta/Desktop/Autotrade/src/ui/TradingViewChartWidget.cpp:109:37: warning: 'fromSecsSinceEpoch' is deprecated: Pass QTimeZone instead of time-spec, offset [-Wdeprecated-declarations]
+  109 |         QDateTime toDt = QDateTime::fromSecsSinceEpoch(to, Qt::LocalTime);
+      |                                     ^
+/opt/homebrew/lib/QtCore.framework/Headers/qdatetime.h:490:5: note: 'fromSecsSinceEpoch' has been explicitly marked deprecated here
+  490 |     QT_DEPRECATED_VERSION_X_6_9("Pass QTimeZone instead of time-spec, offset")
+      |     ^
+/opt/homebrew/lib/QtCore.framework/Headers/qtdeprecationmarkers.h:213:44: note: expanded from macro 'QT_DEPRECATED_VERSION_X_6_9'
+  213 | # define QT_DEPRECATED_VERSION_X_6_9(text) QT_DEPRECATED_X(text)
+      |                                            ^
+/opt/homebrew/lib/QtCore.framework/Headers/qtdeprecationmarkers.h:29:33: note: expanded from macro 'QT_DEPRECATED_X'
+   29 | #  define QT_DEPRECATED_X(text) Q_DECL_DEPRECATED_X(text)
+      |                                 ^
+/opt/homebrew/lib/QtCore.framework/Headers/qcompilerdetection.h:1011:36: note: expanded from macro 'Q_DECL_DEPRECATED_X'
+ 1011 | #  define Q_DECL_DEPRECATED_X(x) [[deprecated(x)]]
+      |                                    ^
+/Users/yashnmehta/Desktop/Autotrade/src/ui/TradingViewChartWidget.cpp:171:28: warning: 'fromSecsSinceEpoch' is deprecated: Pass QTimeZone instead of time-spec, offset [-Wdeprecated-declarations]
+  171 |                 QDateTime::fromSecsSinceEpoch(searchFrom, Qt::LocalTime);
+      |                            ^
+/opt/homebrew/lib/QtCore.framework/Headers/qdatetime.h:490:5: note: 'fromSecsSinceEpoch' has been explicitly marked deprecated here
+  490 |     QT_DEPRECATED_VERSION_X_6_9("Pass QTimeZone instead of time-spec, offset")
+      |     ^
+/opt/homebrew/lib/QtCore.framework/Headers/qtdeprecationmarkers.h:213:44: note: expanded from macro 'QT_DEPRECATED_VERSION_X_6_9'
+  213 | # define QT_DEPRECATED_VERSION_X_6_9(text) QT_DEPRECATED_X(text)
+      |                                            ^
+/opt/homebrew/lib/QtCore.framework/Headers/qtdeprecationmarkers.h:29:33: note: expanded from macro 'QT_DEPRECATED_X'
+   29 | #  define QT_DEPRECATED_X(text) Q_DECL_DEPRECATED_X(text)
+      |                                 ^
+/opt/homebrew/lib/QtCore.framework/Headers/qcompilerdetection.h:1011:36: note: expanded from macro 'Q_DECL_DEPRECATED_X'
+ 1011 | #  define Q_DECL_DEPRECATED_X(x) [[deprecated(x)]]
+      |                                    ^
+/Users/yashnmehta/Desktop/Autotrade/src/ui/TradingViewChartWidget.cpp:173:28: warning: 'fromSecsSinceEpoch' is deprecated: Pass QTimeZone instead of time-spec, offset [-Wdeprecated-declarations]
+  173 |                 QDateTime::fromSecsSinceEpoch(searchTo, Qt::LocalTime);
+      |                            ^
+/opt/homebrew/lib/QtCore.framework/Headers/qdatetime.h:490:5: note: 'fromSecsSinceEpoch' has been explicitly marked deprecated here
+  490 |     QT_DEPRECATED_VERSION_X_6_9("Pass QTimeZone instead of time-spec, offset")
+      |     ^
+/opt/homebrew/lib/QtCore.framework/Headers/qtdeprecationmarkers.h:213:44: note: expanded from macro 'QT_DEPRECATED_VERSION_X_6_9'
+  213 | # define QT_DEPRECATED_VERSION_X_6_9(text) QT_DEPRECATED_X(text)
+      |                                            ^
+/opt/homebrew/lib/QtCore.framework/Headers/qtdeprecationmarkers.h:29:33: note: expanded from macro 'QT_DEPRECATED_X'
+   29 | #  define QT_DEPRECATED_X(text) Q_DECL_DEPRECATED_X(text)
+      |                                 ^
+/opt/homebrew/lib/QtCore.framework/Headers/qcompilerdetection.h:1011:36: note: expanded from macro 'Q_DECL_DEPRECATED_X'
+ 1011 | #  define Q_DECL_DEPRECATED_X(x) [[deprecated(x)]]
+      |                                    ^
+/Users/yashnmehta/Desktop/Autotrade/src/ui/TradingViewChartWidget.cpp:145:9: warning: ignoring return value of function declared with 'nodiscard' attribute: Use QThreadPool::start(Callable&&) if you don't need the returned QFuture [-Wunused-result]
+  145 |         QtConcurrent::run([this, authToken, requestId, from, to,
+      |         ^~~~~~~~~~~~~~~~~ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  146 |                            exchangeInstrumentID, segment, compressionSeconds,
+      |                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  147 |                            resolution]() {
+      |                            ~~~~~~~~~~~~~~~
+  148 |           qDebug()
+      |           ~~~~~~~~
+  149 |               << "[TradingViewChart] Starting iterative OHLC fetch for request"
+      |               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  150 |               << requestId;
+      |               ~~~~~~~~~~~~~
+  151 | 
+  152 |           QJsonArray finalBars;
+      |           ~~~~~~~~~~~~~~~~~~~~~
+  153 |           qint64 searchTo = to;
+      |           ~~~~~~~~~~~~~~~~~~~~~
+  154 |           qint64 searchFrom = from;
+      |           ~~~~~~~~~~~~~~~~~~~~~~~~~
+  155 |           int daysExtended = 0;
+      |           ~~~~~~~~~~~~~~~~~~~~~
+  156 |           const int MIN_CANDLES = 150;
+      |           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  157 |           const int MAX_EXTENSION_DAYS = 7;
+      |           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  158 | 
+  159 |           NativeHTTPClient client;
+      |           ~~~~~~~~~~~~~~~~~~~~~~~~
+  160 |           client.setTimeout(30);
+      |           ~~~~~~~~~~~~~~~~~~~~~~
+5 warnings generated.
+make[1]: *** [CMakeFiles/TradingTerminal.dir/all] Error 2
+make: *** [all] Error 2

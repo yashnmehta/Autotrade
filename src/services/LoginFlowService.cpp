@@ -61,6 +61,10 @@ void LoginFlowService::setCompleteCallback(std::function<void()> callback) {
 }
 
 void LoginFlowService::startMastersPhase() {
+  if (m_mastersPhaseStarted)
+    return;
+  m_mastersPhaseStarted = true;
+
   // Phase 3: Check shared state and handle masters accordingly
   MasterDataState *masterState = MasterDataState::getInstance();
 
@@ -75,43 +79,43 @@ void LoginFlowService::startMastersPhase() {
     updateStatus("masters", "Waiting for master loading...", 70);
 
     // Connect to state change signal to continue when loading completes
-    connect(
-        masterState, &MasterDataState::mastersReady, this,
-        [this](int contractCount) {
-          // PRIORITY: If user requested download, discard background load and
-          // download fresh
-          if (m_downloadMasters) {
-            qDebug() << "[LoginFlow] Background load complete, but user "
-                        "requested download. Proceeding to download.";
-            QString mastersDir = RepositoryManager::getMastersDirectory();
-            startMasterDownload(mastersDir);
-            return;
-          }
+    connect(masterState, &MasterDataState::mastersReady, this,
+            [this](int contractCount) {
+              // PRIORITY: If user requested download, discard background load
+              // and download fresh
+              if (m_downloadMasters) {
+                qDebug() << "[LoginFlow] Background load complete, but user "
+                            "requested download. Proceeding to download.";
+                QString mastersDir = RepositoryManager::getMastersDirectory();
+                startMasterDownload(mastersDir);
+                return;
+              }
 
-          qDebug() << "[LoginFlow] Masters loading completed with"
-                   << contractCount << "contracts";
-          updateStatus(
-              "masters",
-              QString("Masters ready (%1 contracts)").arg(contractCount), 80);
-          emit mastersLoaded();
-          continueLoginAfterMasters();
-        });
+              qDebug() << "[LoginFlow] Masters loading completed with"
+                       << contractCount << "contracts";
+              updateStatus(
+                  "masters",
+                  QString("Masters ready (%1 contracts)").arg(contractCount),
+                  80);
+              emit mastersLoaded();
+              continueLoginAfterMasters();
+            });
 
-    connect(
-        masterState, &MasterDataState::loadingError, this,
-        [this](const QString &error) {
-          qWarning() << "[LoginFlow] Background loading failed:" << error;
+    connect(masterState, &MasterDataState::loadingError, this,
+            [this](const QString &error) {
+              qWarning() << "[LoginFlow] Background loading failed:" << error;
 
-          // If user requested download, proceed with download
-          if (m_downloadMasters) {
-            QString mastersDir = RepositoryManager::getMastersDirectory();
-            startMasterDownload(mastersDir);
-          } else {
-            // Otherwise skip and continue
-            updateStatus("masters", "No masters available (continuing)", 75);
-            continueLoginAfterMasters();
-          }
-        });
+              // If user requested download, proceed with download
+              if (m_downloadMasters) {
+                QString mastersDir = RepositoryManager::getMastersDirectory();
+                startMasterDownload(mastersDir);
+              } else {
+                // Otherwise skip and continue
+                updateStatus("masters", "No masters available (continuing)",
+                             75);
+                continueLoginAfterMasters();
+              }
+            });
 
     return;
   }
@@ -152,9 +156,11 @@ void LoginFlowService::executeLogin(
     const QString &mdAppKey, const QString &mdSecretKey,
     const QString &iaAppKey, const QString &iaSecretKey, const QString &loginID,
     bool downloadMasters, const QString &baseURL, const QString &source) {
-  m_downloadMasters = downloadMasters;
   m_mdLoggedIn = false;
   m_iaLoggedIn = false;
+  m_downloadMasters = downloadMasters;
+  m_mastersPhaseStarted = false;
+  m_websocketPhaseStarted = false;
 
   updateStatus("init", "Starting login process...", 0);
 
@@ -190,42 +196,40 @@ void LoginFlowService::executeLogin(
   }
 
   // Connect MD login signal
-  connect(
-      m_mdClient, &XTSMarketDataClient::loginCompleted, this,
-      [this](bool success, const QString &message) {
-        if (!success) {
-          notifyError("md_login", message);
-          return;
-        }
-        m_mdLoggedIn = true;
-        updateStatus("md_login", "Market Data API connected", 30);
+  connect(m_mdClient, &XTSMarketDataClient::loginCompleted, this,
+          [this](bool success, const QString &message) {
+            if (!success) {
+              notifyError("md_login", message);
+              return;
+            }
+            m_mdLoggedIn = true;
+            updateStatus("md_login", "Market Data API connected", 30);
 
-        if (m_iaLoggedIn) {
-          startMastersPhase();
-        } else {
-          // Still waiting for IA
-          updateStatus("ia_login", "Waiting for Interactive API...", 40);
-        }
-      });
+            if (m_iaLoggedIn) {
+              startMastersPhase();
+            } else {
+              // Still waiting for IA
+              updateStatus("ia_login", "Waiting for Interactive API...", 40);
+            }
+          });
 
   // Connect IA login signal
-  connect(
-      m_iaClient, &XTSInteractiveClient::loginCompleted, this,
-      [this](bool success, const QString &message) {
-        if (!success) {
-          notifyError("ia_login", message);
-          return;
-        }
-        m_iaLoggedIn = true;
-        updateStatus("ia_login", "Interactive API connected", 60);
+  connect(m_iaClient, &XTSInteractiveClient::loginCompleted, this,
+          [this](bool success, const QString &message) {
+            if (!success) {
+              notifyError("ia_login", message);
+              return;
+            }
+            m_iaLoggedIn = true;
+            updateStatus("ia_login", "Interactive API connected", 60);
 
-        if (m_mdLoggedIn) {
-          startMastersPhase();
-        } else {
-          // Still waiting for MD
-          updateStatus("md_login", "Waiting for Market Data API...", 50);
-        }
-      });
+            if (m_mdLoggedIn) {
+              startMastersPhase();
+            } else {
+              // Still waiting for MD
+              updateStatus("md_login", "Waiting for Market Data API...", 50);
+            }
+          });
 
   // Trigger the actual login
   updateStatus("md_login", "Connecting to Market Data API...", 10);
@@ -402,6 +406,10 @@ void LoginFlowService::startMasterDownload(const QString &mastersDir) {
 }
 
 void LoginFlowService::continueLoginAfterMasters() {
+  if (m_websocketPhaseStarted)
+    return;
+  m_websocketPhaseStarted = true;
+
   // Phase 4: Connect WebSocket
   updateStatus("websocket", "Establishing real-time connection...", 85);
 

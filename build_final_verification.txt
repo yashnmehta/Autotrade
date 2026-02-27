@@ -1,0 +1,6 @@
+[  0%] Built target cpp_broadcast_bsefo_autogen_timestamp_deps
+[  1%] Built target cpp_broadcast_bsefo_autogen
+[  4%] Built target cpp_broadcast_bsefo
+[  4%] Built target TradingTerminal_autogen_timestamp_deps
+[  5%] Built target TradingTerminal_autogen
+[100%] Built target TradingTerminal

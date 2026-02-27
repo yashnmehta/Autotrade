@@ -1,0 +1,9 @@
+[  0%] Built target cpp_broadcast_bsefo_autogen_timestamp_deps
+[  1%] Built target cpp_broadcast_bsefo_autogen
+[  4%] Built target cpp_broadcast_bsefo
+[  4%] Built target TradingTerminal_autogen_timestamp_deps
+[  5%] Automatic MOC and UIC for target TradingTerminal
+[  5%] Built target TradingTerminal_autogen
+[  5%] Building CXX object CMakeFiles/TradingTerminal.dir/src/ui/StrategyManagerWindow.cpp.o
+[  6%] Linking CXX executable TradingTerminal.app/Contents/MacOS/TradingTerminal
+[100%] Built target TradingTerminal

@@ -1,0 +1,90 @@
+[  0%] Built target cpp_broadcast_bsefo_autogen_timestamp_deps
+[  1%] Built target cpp_broadcast_bsefo_autogen
+[  4%] Built target cpp_broadcast_bsefo
+[  4%] Built target TradingTerminal_autogen_timestamp_deps
+[  5%] Built target TradingTerminal_autogen
+[  5%] Building CXX object CMakeFiles/TradingTerminal.dir/src/app/MainWindow/Windows.cpp.o
+[  5%] Building CXX object CMakeFiles/TradingTerminal.dir/src/data/SymbolCacheManager.cpp.o
+[  6%] Building CXX object CMakeFiles/TradingTerminal.dir/src/search/SearchTokenizer.cpp.o
+[  7%] Building CXX object CMakeFiles/TradingTerminal.dir/src/utils/ClipboardHelpers.cpp.o
+[  8%] Building CXX object CMakeFiles/TradingTerminal.dir/src/utils/SelectionHelpers.cpp.o
+[  8%] Building CXX object CMakeFiles/TradingTerminal.dir/src/utils/ConfigLoader.cpp.o
+[  8%] Building CXX object CMakeFiles/TradingTerminal.dir/src/utils/MemoryProfiler.cpp.o
+[  9%] Building CXX object CMakeFiles/TradingTerminal.dir/src/utils/SoundManager.cpp.o
+[  9%] Building CXX object CMakeFiles/TradingTerminal.dir/src/utils/PreferencesManager.cpp.o
+[ 10%] Building CXX object CMakeFiles/TradingTerminal.dir/src/utils/WindowManager.cpp.o
+[ 11%] Building CXX object CMakeFiles/TradingTerminal.dir/src/views/helpers/MarketWatchHelpers.cpp.o
+[ 11%] Building CXX object CMakeFiles/TradingTerminal.dir/src/views/helpers/PositionHelpers.cpp.o
+[ 12%] Building CXX object CMakeFiles/TradingTerminal.dir/src/views/helpers/GenericTableFilter.cpp.o
+[ 12%] Building CXX object CMakeFiles/TradingTerminal.dir/src/indicators/TALibIndicators.cpp.o
+[ 13%] Building CXX object CMakeFiles/TradingTerminal.dir/lib/common/src/lzo_decompress.cpp.o
+[ 13%] Building CXX object CMakeFiles/TradingTerminal.dir/lib/common/src/lzo1z_decompress_lib.cpp.o
+[ 14%] Building CXX object CMakeFiles/TradingTerminal.dir/lib/cpp_broacast_nsefo/src/nsefo_price_store.cpp.o
+[ 15%] Building CXX object CMakeFiles/TradingTerminal.dir/lib/cpp_broacast_nsefo/src/multicast_receiver.cpp.o
+[ 15%] Building CXX object CMakeFiles/TradingTerminal.dir/lib/cpp_broacast_nsefo/src/udp_receiver.cpp.o
+[ 16%] Building CXX object CMakeFiles/TradingTerminal.dir/lib/cpp_broacast_nsefo/src/config.cpp.o
+[ 16%] Building CXX object CMakeFiles/TradingTerminal.dir/lib/cpp_broacast_nsefo/src/logger.cpp.o
+[ 16%] Building CXX object CMakeFiles/TradingTerminal.dir/lib/cpp_broacast_nsefo/src/utils/parse_uncompressed_message.cpp.o
+[ 17%] Building CXX object CMakeFiles/TradingTerminal.dir/lib/cpp_broacast_nsefo/src/utils/parse_compressed_message.cpp.o
+[ 18%] Building CXX object CMakeFiles/TradingTerminal.dir/lib/cpp_broacast_nsefo/src/parser/parse_message_7200.cpp.o
+[ 19%] Building CXX object CMakeFiles/TradingTerminal.dir/lib/cpp_broacast_nsefo/src/parser/parse_message_7201.cpp.o
+[ 19%] Building CXX object CMakeFiles/TradingTerminal.dir/lib/cpp_broacast_nsefo/src/parser/parse_message_7202.cpp.o
+[ 20%] Building CXX object CMakeFiles/TradingTerminal.dir/lib/cpp_broacast_nsefo/src/parser/parse_message_7203.cpp.o
+[ 20%] Building CXX object CMakeFiles/TradingTerminal.dir/lib/cpp_broacast_nsefo/src/parser/parse_message_7207.cpp.o
+[ 21%] Building CXX object CMakeFiles/TradingTerminal.dir/lib/cpp_broacast_nsefo/src/parser/parse_message_7208.cpp.o
+[ 21%] Building CXX object CMakeFiles/TradingTerminal.dir/lib/cpp_broacast_nsefo/src/parser/parse_message_7211.cpp.o
+[ 23%] Building CXX object CMakeFiles/TradingTerminal.dir/lib/cpp_broacast_nsefo/src/parser/parse_message_17201.cpp.o
+[ 23%] Building CXX object CMakeFiles/TradingTerminal.dir/lib/cpp_broacast_nsefo/src/parser/parse_message_7220.cpp.o
+[ 23%] Building CXX object CMakeFiles/TradingTerminal.dir/lib/cpp_broacast_nsefo/src/parser/parse_message_17202.cpp.o
+[ 24%] Building CXX object CMakeFiles/TradingTerminal.dir/lib/cpp_broacast_nsefo/src/parser/parse_message_rest.cpp.o
+[ 24%] Building CXX object CMakeFiles/TradingTerminal.dir/lib/cpp_broadcast_nsecm/src/nsecm_price_store.cpp.o
+[ 25%] Building CXX object CMakeFiles/TradingTerminal.dir/lib/cpp_broadcast_nsecm/src/nse_parsers.cpp.o
+[ 25%] Building CXX object CMakeFiles/TradingTerminal.dir/lib/cpp_broadcast_nsecm/src/udp_receiver.cpp.o
+[ 26%] Building CXX object CMakeFiles/TradingTerminal.dir/lib/cpp_broadcast_nsecm/src/multicast_receiver.cpp.o
+[ 27%] Building CXX object CMakeFiles/TradingTerminal.dir/lib/cpp_broadcast_nsecm/src/config.cpp.o
+[ 27%] Building CXX object CMakeFiles/TradingTerminal.dir/lib/cpp_broadcast_nsecm/src/logger.cpp.o
+[ 28%] Building CXX object CMakeFiles/TradingTerminal.dir/lib/cpp_broadcast_nsecm/src/utils/parse_compressed_message.cpp.o
+[ 28%] Building CXX object CMakeFiles/TradingTerminal.dir/lib/cpp_broadcast_nsecm/src/parser/parse_message_6013.cpp.o
+[ 29%] Building CXX object CMakeFiles/TradingTerminal.dir/lib/cpp_broadcast_nsecm/src/parser/parse_message_5295.cpp.o
+[ 29%] Building CXX object CMakeFiles/TradingTerminal.dir/lib/cpp_broadcast_nsecm/src/utils/parse_uncompressed_message.cpp.o
+[ 30%] Building CXX object CMakeFiles/TradingTerminal.dir/lib/cpp_broadcast_nsecm/src/parser/parse_message_7200.cpp.o
+[ 30%] Building CXX object CMakeFiles/TradingTerminal.dir/lib/cpp_broadcast_nsecm/src/parser/parse_message_7208.cpp.o
+[ 31%] Building CXX object CMakeFiles/TradingTerminal.dir/lib/cpp_broadcast_nsecm/src/parser/parse_message_7201.cpp.o
+[ 32%] Building CXX object CMakeFiles/TradingTerminal.dir/lib/cpp_broadcast_nsecm/src/parser/parse_message_18703.cpp.o
+[ 32%] Building CXX object CMakeFiles/TradingTerminal.dir/lib/cpp_broadcast_nsecm/src/parser/parse_message_18708.cpp.o
+[ 33%] Building CXX object CMakeFiles/TradingTerminal.dir/lib/cpp_broadcast_nsecm/src/parser/parse_message_7207.cpp.o
+[ 33%] Building CXX object CMakeFiles/TradingTerminal.dir/lib/cpp_broadcast_nsecm/src/parser/parse_message_7203.cpp.o
+[ 34%] Building CXX object CMakeFiles/TradingTerminal.dir/lib/cpp_broadcast_nsecm/src/parser/parse_message_6501.cpp.o
+[ 35%] Building CXX object CMakeFiles/TradingTerminal.dir/lib/cpp_broadcast_nsecm/src/parser/parse_message_7206.cpp.o
+[ 35%] Building CXX object CMakeFiles/TradingTerminal.dir/lib/cpp_broadcast_nsecm/src/parser/parse_message_7210.cpp.o
+[ 35%] Building CXX object CMakeFiles/TradingTerminal.dir/lib/cpp_broadcast_nsecm/src/parser/parse_message_6521.cpp.o
+[ 36%] Building CXX object CMakeFiles/TradingTerminal.dir/lib/cpp_broadcast_nsecm/src/parser/parse_message_6511.cpp.o
+[ 37%] Building CXX object CMakeFiles/TradingTerminal.dir/lib/cpp_broadcast_nsecm/src/parser/parse_message_6522.cpp.o
+[ 37%] Building CXX object CMakeFiles/TradingTerminal.dir/lib/cpp_broadcast_nsecm/src/parser/parse_message_6531.cpp.o
+[ 38%] Building CXX object CMakeFiles/TradingTerminal.dir/lib/cpp_broadcast_nsecm/src/parser/parse_message_6541.cpp.o
+[ 39%] Building CXX object CMakeFiles/TradingTerminal.dir/lib/cpp_broadcast_nsecm/src/parser/parse_message_6571.cpp.o
+[ 39%] Building CXX object CMakeFiles/TradingTerminal.dir/lib/cpp_broadcast_nsecm/src/parser/parse_message_9010.cpp.o
+[ 40%] Building CXX object CMakeFiles/TradingTerminal.dir/lib/cpp_broadcast_nsecm/src/parser/parse_message_9011.cpp.o
+[ 40%] Building CXX object CMakeFiles/TradingTerminal.dir/lib/cpp_broadcast_bsefo/src/bse_price_store.cpp.o
+[ 41%] Building CXX object CMakeFiles/TradingTerminal.dir/lib/cpp_broadcast_bsefo/src/bse_receiver.cpp.o
+[ 41%] Building CXX object CMakeFiles/TradingTerminal.dir/TradingTerminal_autogen/3YJK5W5UP7/qrc_resources.cpp.o
+[ 42%] Linking CXX executable TradingTerminal.app/Contents/MacOS/TradingTerminal
+Undefined symbols for architecture arm64:
+  "IndicatorChartWidget::loadSymbol(QString const&, int, long long)", referenced from:
+      MainWindow::createIndicatorChartWindow() in Windows.cpp.o
+      MainWindow::createIndicatorChartWindow()::$_0::operator()(QString const&) const in Windows.cpp.o
+  "IndicatorChartWidget::staticMetaObject", referenced from:
+      QMetaObject::Connection QObject::connect<void (IndicatorChartWidget::*)(QString const&), MainWindow::createIndicatorChartWindow()::$_0>(QtPrivate::FunctionPointer<void (IndicatorChartWidget::*)(QString const&)>::Object const*, void (IndicatorChartWidget::*)(QString const&), QtPrivate::ContextTypeForFunctor<MainWindow::createIndicatorChartWindow()::$_0, void>::ContextType const*, MainWindow::createIndicatorChartWindow()::$_0&&, Qt::ConnectionType) in Windows.cpp.o
+  "IndicatorChartWidget::setRepositoryManager(RepositoryManager*)", referenced from:
+      MainWindow::createIndicatorChartWindow() in Windows.cpp.o
+  "IndicatorChartWidget::symbolChangeRequested(QString const&)", referenced from:
+      MainWindow::createIndicatorChartWindow() in Windows.cpp.o
+  "IndicatorChartWidget::setXTSMarketDataClient(XTSMarketDataClient*)", referenced from:
+      MainWindow::createIndicatorChartWindow() in Windows.cpp.o
+  "IndicatorChartWidget::IndicatorChartWidget(QWidget*)", referenced from:
+      MainWindow::createIndicatorChartWindow() in Windows.cpp.o
+ld: symbol(s) not found for architecture arm64
+clang++: error: linker command failed with exit code 1 (use -v to see invocation)
+make[2]: *** [TradingTerminal.app/Contents/MacOS/TradingTerminal] Error 1
+make[1]: *** [CMakeFiles/TradingTerminal.dir/all] Error 2
+make: *** [all] Error 2

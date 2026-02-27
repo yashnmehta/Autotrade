@@ -28,6 +28,10 @@ XTSMarketDataClient::XTSMarketDataClient(const QString &baseURL,
 
 XTSMarketDataClient::~XTSMarketDataClient()
 {
+    // CRITICAL: Disable reconnection before disconnecting to prevent callbacks on destroyed object
+    if (m_nativeWS) {
+        m_nativeWS->setAutoReconnect(false);
+    }
     disconnectWebSocket();
     // m_nativeWS is automatically destroyed by unique_ptr
 }
@@ -506,7 +510,10 @@ void XTSMarketDataClient::onWSDisconnected(const std::string& reason)
     m_wsConnected = false;
     QString reasonStr = QString::fromStdString(reason);
     qDebug() << "❌ Native WebSocket disconnected:" << reasonStr;
-    emit wsConnectionStatusChanged(false, reasonStr);
+    // Safety: Only emit if parent still exists (avoid crash during destruction)
+    if (parent() || thread()) {
+        emit wsConnectionStatusChanged(false, reasonStr);
+    }
     // Note: Native client handles reconnection internally with exponential backoff
 }
 
@@ -514,8 +521,11 @@ void XTSMarketDataClient::onWSError(const std::string& error)
 {
     QString errorStr = QString::fromStdString(error);
     qWarning() << "Native WebSocket error:" << errorStr;
-    emit wsConnectionStatusChanged(false, errorStr);
-    emit errorOccurred(errorStr);
+    // Safety: Only emit if parent still exists (avoid crash during destruction)
+    if (parent() || thread()) {
+        emit wsConnectionStatusChanged(false, errorStr);
+        emit errorOccurred(errorStr);
+    }
 }
 
 void XTSMarketDataClient::onWSMessage(const std::string& message)

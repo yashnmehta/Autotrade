@@ -1,0 +1,204 @@
+[  0%] Built target cpp_broadcast_bsefo_autogen_timestamp_deps
+[  1%] Built target cpp_broadcast_bsefo_autogen
+[  4%] Built target cpp_broadcast_bsefo
+[  4%] Built target TradingTerminal_autogen_timestamp_deps
+[  5%] Built target TradingTerminal_autogen
+[  5%] Building CXX object CMakeFiles/TradingTerminal.dir/src/app/MainWindow/Windows.cpp.o
+[  6%] Building CXX object CMakeFiles/TradingTerminal.dir/src/views/PositionWindow/PositionWindow.cpp.o
+[  6%] Building CXX object CMakeFiles/TradingTerminal.dir/src/views/OrderBookWindow/OrderBookWindow.cpp.o
+[  7%] Building CXX object CMakeFiles/TradingTerminal.dir/src/views/TradeBookWindow/TradeBookWindow.cpp.o
+[  7%] Building CXX object CMakeFiles/TradingTerminal.dir/src/views/GenericProfileDialog.cpp.o
+[  9%] Building CXX object CMakeFiles/TradingTerminal.dir/src/views/ColumnProfileDialog.cpp.o
+[  9%] Building CXX object CMakeFiles/TradingTerminal.dir/src/views/PreferenceDialog/PreferenceDialog.cpp.o
+[  9%] Building CXX object CMakeFiles/TradingTerminal.dir/src/views/PreferenceDialog/PreferencesGeneralTab.cpp.o
+[ 10%] Building CXX object CMakeFiles/TradingTerminal.dir/src/views/PreferenceDialog/PreferencesOrderTab.cpp.o
+[ 11%] Building CXX object CMakeFiles/TradingTerminal.dir/src/views/PreferenceDialog/PreferencesWorkSpaceTab.cpp.o
+[ 11%] Building CXX object CMakeFiles/TradingTerminal.dir/src/views/PreferenceDialog/PreferencesPortfolioTab.cpp.o
+[ 12%] Building CXX object CMakeFiles/TradingTerminal.dir/src/views/IndicesView.cpp.o
+[ 12%] Building CXX object CMakeFiles/TradingTerminal.dir/src/views/CustomizeDialog.cpp.o
+[ 13%] Building CXX object CMakeFiles/TradingTerminal.dir/src/views/AllIndicesWindow.cpp.o
+[ 13%] Building CXX object CMakeFiles/TradingTerminal.dir/src/models/MarketWatchModel.cpp.o
+[ 14%] Building CXX object CMakeFiles/TradingTerminal.dir/src/models/MarketWatchColumnProfile.cpp.o
+[ 15%] Building CXX object CMakeFiles/TradingTerminal.dir/src/models/TokenAddressBook.cpp.o
+[ 15%] Building CXX object CMakeFiles/TradingTerminal.dir/src/models/OrderModel.cpp.o
+[ 16%] Building CXX object CMakeFiles/TradingTerminal.dir/src/models/TradeModel.cpp.o
+[ 16%] Building CXX object CMakeFiles/TradingTerminal.dir/src/models/PositionModel.cpp.o
+[ 17%] Building CXX object CMakeFiles/TradingTerminal.dir/src/models/PinnedRowProxyModel.cpp.o
+[ 17%] Building CXX object CMakeFiles/TradingTerminal.dir/src/models/StrategyTableModel.cpp.o
+[ 18%] Building CXX object CMakeFiles/TradingTerminal.dir/src/models/StrategyFilterProxyModel.cpp.o
+[ 19%] Building CXX object CMakeFiles/TradingTerminal.dir/src/services/TokenSubscriptionManager.cpp.o
+[ 19%] Building CXX object CMakeFiles/TradingTerminal.dir/src/services/LoginFlowService.cpp.o
+[ 20%] Building CXX object CMakeFiles/TradingTerminal.dir/src/services/TradingDataService.cpp.o
+[ 20%] Building CXX object CMakeFiles/TradingTerminal.dir/src/services/FeedHandler.cpp.o
+[ 21%] Building CXX object CMakeFiles/TradingTerminal.dir/src/services/UdpBroadcastService.cpp.o
+[ 21%] Building CXX object CMakeFiles/TradingTerminal.dir/src/services/MasterLoaderWorker.cpp.o
+/Users/yashnmehta/Desktop/Autotrade/src/models/StrategyFilterProxyModel.cpp:13:5: warning: 'invalidateFilter' is deprecated: Use begin/endFilterChange() instead [-Wdeprecated-declarations]
+   13 |     invalidateFilter();
+      |     ^
+/opt/homebrew/lib/QtCore.framework/Headers/qsortfilterproxymodel.h:127:5: note: 'invalidateFilter' has been explicitly marked deprecated here
+  127 |     QT_DEPRECATED_VERSION_X_6_13("Use begin/endFilterChange() instead")
+      |     ^
+/opt/homebrew/lib/QtCore.framework/Headers/qtdeprecationmarkers.h:245:45: note: expanded from macro 'QT_DEPRECATED_VERSION_X_6_13'
+  245 | # define QT_DEPRECATED_VERSION_X_6_13(text) QT_DEPRECATED_X(text)
+      |                                             ^
+/opt/homebrew/lib/QtCore.framework/Headers/qtdeprecationmarkers.h:29:33: note: expanded from macro 'QT_DEPRECATED_X'
+   29 | #  define QT_DEPRECATED_X(text) Q_DECL_DEPRECATED_X(text)
+      |                                 ^
+/opt/homebrew/lib/QtCore.framework/Headers/qcompilerdetection.h:1011:36: note: expanded from macro 'Q_DECL_DEPRECATED_X'
+ 1011 | #  define Q_DECL_DEPRECATED_X(x) [[deprecated(x)]]
+      |                                    ^
+/Users/yashnmehta/Desktop/Autotrade/src/models/StrategyFilterProxyModel.cpp:20:5: warning: 'invalidateFilter' is deprecated: Use begin/endFilterChange() instead [-Wdeprecated-declarations]
+   20 |     invalidateFilter();
+      |     ^
+/opt/homebrew/lib/QtCore.framework/Headers/qsortfilterproxymodel.h:127:5: note: 'invalidateFilter' has been explicitly marked deprecated here
+  127 |     QT_DEPRECATED_VERSION_X_6_13("Use begin/endFilterChange() instead")
+      |     ^
+/opt/homebrew/lib/QtCore.framework/Headers/qtdeprecationmarkers.h:245:45: note: expanded from macro 'QT_DEPRECATED_VERSION_X_6_13'
+  245 | # define QT_DEPRECATED_VERSION_X_6_13(text) QT_DEPRECATED_X(text)
+      |                                             ^
+/opt/homebrew/lib/QtCore.framework/Headers/qtdeprecationmarkers.h:29:33: note: expanded from macro 'QT_DEPRECATED_X'
+   29 | #  define QT_DEPRECATED_X(text) Q_DECL_DEPRECATED_X(text)
+      |                                 ^
+/opt/homebrew/lib/QtCore.framework/Headers/qcompilerdetection.h:1011:36: note: expanded from macro 'Q_DECL_DEPRECATED_X'
+ 1011 | #  define Q_DECL_DEPRECATED_X(x) [[deprecated(x)]]
+      |                                    ^
+/Users/yashnmehta/Desktop/Autotrade/src/models/StrategyFilterProxyModel.cpp:26:5: warning: 'invalidateFilter' is deprecated: Use begin/endFilterChange() instead [-Wdeprecated-declarations]
+   26 |     invalidateFilter();
+      |     ^
+/opt/homebrew/lib/QtCore.framework/Headers/qsortfilterproxymodel.h:127:5: note: 'invalidateFilter' has been explicitly marked deprecated here
+  127 |     QT_DEPRECATED_VERSION_X_6_13("Use begin/endFilterChange() instead")
+      |     ^
+/opt/homebrew/lib/QtCore.framework/Headers/qtdeprecationmarkers.h:245:45: note: expanded from macro 'QT_DEPRECATED_VERSION_X_6_13'
+  245 | # define QT_DEPRECATED_VERSION_X_6_13(text) QT_DEPRECATED_X(text)
+      |                                             ^
+/opt/homebrew/lib/QtCore.framework/Headers/qtdeprecationmarkers.h:29:33: note: expanded from macro 'QT_DEPRECATED_X'
+   29 | #  define QT_DEPRECATED_X(text) Q_DECL_DEPRECATED_X(text)
+      |                                 ^
+/opt/homebrew/lib/QtCore.framework/Headers/qcompilerdetection.h:1011:36: note: expanded from macro 'Q_DECL_DEPRECATED_X'
+ 1011 | #  define Q_DECL_DEPRECATED_X(x) [[deprecated(x)]]
+      |                                    ^
+3 warnings generated.
+[ 22%] Building CXX object CMakeFiles/TradingTerminal.dir/src/services/MasterDataState.cpp.o
+[ 23%] Building CXX object CMakeFiles/TradingTerminal.dir/src/services/ATMWatchManager.cpp.o
+[ 23%] Building CXX object CMakeFiles/TradingTerminal.dir/src/services/GreeksCalculationService.cpp.o
+/Users/yashnmehta/Desktop/Autotrade/src/views/PreferenceDialog/PreferencesGeneralTab.cpp:81:45: warning: 'stateChanged' is deprecated: Use checkStateChanged() instead [-Wdeprecated-declarations]
+   81 |         connect(m_beepCheckBox, &QCheckBox::stateChanged,
+      |                                             ^
+/opt/homebrew/lib/QtWidgets.framework/Headers/qcheckbox.h:41:19: note: 'stateChanged' has been explicitly marked deprecated here
+   41 |     QT_MOC_COMPAT QT_DEPRECATED_VERSION_X_6_9("Use checkStateChanged() instead")
+      |                   ^
+/opt/homebrew/lib/QtCore.framework/Headers/qtdeprecationmarkers.h:213:44: note: expanded from macro 'QT_DEPRECATED_VERSION_X_6_9'
+  213 | # define QT_DEPRECATED_VERSION_X_6_9(text) QT_DEPRECATED_X(text)
+      |                                            ^
+/opt/homebrew/lib/QtCore.framework/Headers/qtdeprecationmarkers.h:29:33: note: expanded from macro 'QT_DEPRECATED_X'
+   29 | #  define QT_DEPRECATED_X(text) Q_DECL_DEPRECATED_X(text)
+      |                                 ^
+/opt/homebrew/lib/QtCore.framework/Headers/qcompilerdetection.h:1011:36: note: expanded from macro 'Q_DECL_DEPRECATED_X'
+ 1011 | #  define Q_DECL_DEPRECATED_X(x) [[deprecated(x)]]
+      |                                    ^
+/Users/yashnmehta/Desktop/Autotrade/src/views/PreferenceDialog/PreferencesGeneralTab.cpp:86:53: warning: 'stateChanged' is deprecated: Use checkStateChanged() instead [-Wdeprecated-declarations]
+   86 |         connect(m_flashMessageCheckBox, &QCheckBox::stateChanged,
+      |                                                     ^
+/opt/homebrew/lib/QtWidgets.framework/Headers/qcheckbox.h:41:19: note: 'stateChanged' has been explicitly marked deprecated here
+   41 |     QT_MOC_COMPAT QT_DEPRECATED_VERSION_X_6_9("Use checkStateChanged() instead")
+      |                   ^
+/opt/homebrew/lib/QtCore.framework/Headers/qtdeprecationmarkers.h:213:44: note: expanded from macro 'QT_DEPRECATED_VERSION_X_6_9'
+  213 | # define QT_DEPRECATED_VERSION_X_6_9(text) QT_DEPRECATED_X(text)
+      |                                            ^
+/opt/homebrew/lib/QtCore.framework/Headers/qtdeprecationmarkers.h:29:33: note: expanded from macro 'QT_DEPRECATED_X'
+   29 | #  define QT_DEPRECATED_X(text) Q_DECL_DEPRECATED_X(text)
+      |                                 ^
+/opt/homebrew/lib/QtCore.framework/Headers/qcompilerdetection.h:1011:36: note: expanded from macro 'Q_DECL_DEPRECATED_X'
+ 1011 | #  define Q_DECL_DEPRECATED_X(x) [[deprecated(x)]]
+      |                                    ^
+/Users/yashnmehta/Desktop/Autotrade/src/views/PreferenceDialog/PreferencesGeneralTab.cpp:91:54: warning: 'stateChanged' is deprecated: Use checkStateChanged() instead [-Wdeprecated-declarations]
+   91 |         connect(m_staticMessageCheckBox, &QCheckBox::stateChanged,
+      |                                                      ^
+/opt/homebrew/lib/QtWidgets.framework/Headers/qcheckbox.h:41:19: note: 'stateChanged' has been explicitly marked deprecated here
+   41 |     QT_MOC_COMPAT QT_DEPRECATED_VERSION_X_6_9("Use checkStateChanged() instead")
+      |                   ^
+/opt/homebrew/lib/QtCore.framework/Headers/qtdeprecationmarkers.h:213:44: note: expanded from macro 'QT_DEPRECATED_VERSION_X_6_9'
+  213 | # define QT_DEPRECATED_VERSION_X_6_9(text) QT_DEPRECATED_X(text)
+      |                                            ^
+/opt/homebrew/lib/QtCore.framework/Headers/qtdeprecationmarkers.h:29:33: note: expanded from macro 'QT_DEPRECATED_X'
+   29 | #  define QT_DEPRECATED_X(text) Q_DECL_DEPRECATED_X(text)
+      |                                 ^
+/opt/homebrew/lib/QtCore.framework/Headers/qcompilerdetection.h:1011:36: note: expanded from macro 'Q_DECL_DEPRECATED_X'
+ 1011 | #  define Q_DECL_DEPRECATED_X(x) [[deprecated(x)]]
+      |                                    ^
+/Users/yashnmehta/Desktop/Autotrade/src/views/PreferenceDialog/PreferencesGeneralTab.cpp:96:50: warning: 'stateChanged' is deprecated: Use checkStateChanged() instead [-Wdeprecated-declarations]
+   96 |         connect(m_playSoundCheckBox, &QCheckBox::stateChanged,
+      |                                                  ^
+/opt/homebrew/lib/QtWidgets.framework/Headers/qcheckbox.h:41:19: note: 'stateChanged' has been explicitly marked deprecated here
+   41 |     QT_MOC_COMPAT QT_DEPRECATED_VERSION_X_6_9("Use checkStateChanged() instead")
+      |                   ^
+/opt/homebrew/lib/QtCore.framework/Headers/qtdeprecationmarkers.h:213:44: note: expanded from macro 'QT_DEPRECATED_VERSION_X_6_9'
+  213 | # define QT_DEPRECATED_VERSION_X_6_9(text) QT_DEPRECATED_X(text)
+      |                                            ^
+/opt/homebrew/lib/QtCore.framework/Headers/qtdeprecationmarkers.h:29:33: note: expanded from macro 'QT_DEPRECATED_X'
+   29 | #  define QT_DEPRECATED_X(text) Q_DECL_DEPRECATED_X(text)
+      |                                 ^
+/opt/homebrew/lib/QtCore.framework/Headers/qcompilerdetection.h:1011:36: note: expanded from macro 'Q_DECL_DEPRECATED_X'
+ 1011 | #  define Q_DECL_DEPRECATED_X(x) [[deprecated(x)]]
+      |                                    ^
+[ 24%] Building CXX object CMakeFiles/TradingTerminal.dir/src/services/StrategyService.cpp.o
+[ 24%] Building CXX object CMakeFiles/TradingTerminal.dir/src/services/StrategyRepository.cpp.o
+[ 25%] Building CXX object CMakeFiles/TradingTerminal.dir/src/services/HistoricalDataStore.cpp.o
+[ 25%] Building CXX object CMakeFiles/TradingTerminal.dir/src/services/CandleAggregator.cpp.o
+4 warnings generated.
+[ 26%] Building CXX object CMakeFiles/TradingTerminal.dir/src/strategies/StrategyBase.cpp.o
+[ 27%] Building CXX object CMakeFiles/TradingTerminal.dir/src/strategies/StrategyFactory.cpp.o
+[ 27%] Building CXX object CMakeFiles/TradingTerminal.dir/src/strategies/MomentumStrategy.cpp.o
+[ 28%] Building CXX object CMakeFiles/TradingTerminal.dir/src/strategies/RangeBreakoutStrategy.cpp.o
+[ 28%] Building CXX object CMakeFiles/TradingTerminal.dir/src/strategies/JodiATMStrategy.cpp.o
+[ 29%] Building CXX object CMakeFiles/TradingTerminal.dir/src/api/XTSMarketDataClient.cpp.o
+[ 29%] Building CXX object CMakeFiles/TradingTerminal.dir/src/api/XTSInteractiveClient.cpp.o
+[ 30%] Building CXX object CMakeFiles/TradingTerminal.dir/src/api/NativeWebSocketClient.cpp.o
+[ 31%] Building CXX object CMakeFiles/TradingTerminal.dir/src/api/NativeHTTPClient.cpp.o
+[ 31%] Building CXX object CMakeFiles/TradingTerminal.dir/src/repository/Greeks.cpp.o
+[ 32%] Building CXX object CMakeFiles/TradingTerminal.dir/src/repository/IVCalculator.cpp.o
+[ 32%] Building CXX object CMakeFiles/TradingTerminal.dir/src/repository/MasterFileParser.cpp.o
+In file included from /Users/yashnmehta/Desktop/Autotrade/src/app/MainWindow/Windows.cpp:18:
+/Users/yashnmehta/Desktop/Autotrade/include/ui/IndicatorChartWidget.h:22:17: error: expected namespace name
+   22 | using namespace QtCharts;
+      |                 ^
+[ 33%] Building CXX object CMakeFiles/TradingTerminal.dir/src/utils/DateUtils.cpp.o
+[ 33%] Building CXX object CMakeFiles/TradingTerminal.dir/src/repository/NSEFORepository.cpp.o
+[ 34%] Building CXX object CMakeFiles/TradingTerminal.dir/src/repository/NSECMRepository.cpp.o
+[ 35%] Building CXX object CMakeFiles/TradingTerminal.dir/src/repository/NSEFORepositoryPreSorted.cpp.o
+[ 35%] Building CXX object CMakeFiles/TradingTerminal.dir/src/repository/BSEFORepository.cpp.o
+[ 36%] Building CXX object CMakeFiles/TradingTerminal.dir/src/repository/BSECMRepository.cpp.o
+[ 36%] Building CXX object CMakeFiles/TradingTerminal.dir/src/repository/RepositoryManager.cpp.o
+[ 37%] Building CXX object CMakeFiles/TradingTerminal.dir/src/data/PriceStoreGateway.cpp.o
+1 error generated.
+make[2]: *** [CMakeFiles/TradingTerminal.dir/src/app/MainWindow/Windows.cpp.o] Error 1
+make[2]: *** Waiting for unfinished jobs....
+/Users/yashnmehta/Desktop/Autotrade/src/services/ATMWatchManager.cpp:27:13: warning: ignoring return value of function declared with 'nodiscard' attribute: Use QThreadPool::start(Callable&&) if you don't need the returned QFuture [-Wunused-result]
+   27 |             QtConcurrent::run([this]() {
+      |             ^~~~~~~~~~~~~~~~~ ~~~~~~~~~~
+   28 |               calculateAll();
+      |               ~~~~~~~~~~~~~~~
+   29 |               subscribeToUnderlyingPrices(); // P2: Subscribe after first
+      |               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   30 |                                              // calculation
+      |                                              ~~~~~~~~~~~~~~
+   31 |             });
+      |             ~
+/Users/yashnmehta/Desktop/Autotrade/src/services/ATMWatchManager.cpp:66:3: warning: ignoring return value of function declared with 'nodiscard' attribute: Use QThreadPool::start(Callable&&) if you don't need the returned QFuture [-Wunused-result]
+   66 |   QtConcurrent::run([this]() { calculateAll(); });
+      |   ^~~~~~~~~~~~~~~~~ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/Users/yashnmehta/Desktop/Autotrade/src/services/ATMWatchManager.cpp:84:5: warning: ignoring return value of function declared with 'nodiscard' attribute: Use QThreadPool::start(Callable&&) if you don't need the returned QFuture [-Wunused-result]
+   84 |     QtConcurrent::run([this]() { calculateAll(); });
+      |     ^~~~~~~~~~~~~~~~~ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/Users/yashnmehta/Desktop/Autotrade/src/services/ATMWatchManager.cpp:127:3: warning: ignoring return value of function declared with 'nodiscard' attribute: Use QThreadPool::start(Callable&&) if you don't need the returned QFuture [-Wunused-result]
+  127 |   QtConcurrent::run([this]() { calculateAll(); });
+      |   ^~~~~~~~~~~~~~~~~ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/Users/yashnmehta/Desktop/Autotrade/src/services/ATMWatchManager.cpp:164:3: warning: ignoring return value of function declared with 'nodiscard' attribute: Use QThreadPool::start(Callable&&) if you don't need the returned QFuture [-Wunused-result]
+  164 |   QtConcurrent::run([this]() { calculateAll(); });
+      |   ^~~~~~~~~~~~~~~~~ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/Users/yashnmehta/Desktop/Autotrade/src/services/ATMWatchManager.cpp:486:5: warning: ignoring return value of function declared with 'nodiscard' attribute: Use QThreadPool::start(Callable&&) if you don't need the returned QFuture [-Wunused-result]
+  486 |     QtConcurrent::run([this]() { calculateAll(); });
+      |     ^~~~~~~~~~~~~~~~~ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+6 warnings generated.
+make[1]: *** [CMakeFiles/TradingTerminal.dir/all] Error 2
+make: *** [all] Error 2

@@ -18,6 +18,12 @@
 #include "utils/LatencyTracker.h"
 #include "views/IndicesView.h"
 #include "views/MarketWatchWindow.h" // Needed for getActiveMarketWatch cast
+#ifdef HAVE_QTCHARTS
+#include "ui/IndicatorChartWidget.h"
+#endif
+#ifdef HAVE_QTWEBENGINE
+#include "ui/TradingViewChartWidget.h"
+#endif
 #include <QAction>
 #include <QDebug>
 #include <QDockWidget>
@@ -25,7 +31,6 @@
 #include <QShortcut>
 #include <QStatusBar>
 #include <QTimer>
-
 
 MainWindow::MainWindow(QWidget *parent)
     : CustomMainWindow(parent), m_xtsMarketDataClient(nullptr),
@@ -102,6 +107,36 @@ void MainWindow::setXTSClients(XTSMarketDataClient *mdClient,
   // Set XTS client for cached SnapQuote window
   WindowCacheManager::instance().setXTSClientForSnapQuote(
       m_xtsMarketDataClient);
+
+  // Propagate clients to all existing charts if they were loaded before login
+  // (e.g. from workspace)
+  if (m_mdiArea) {
+    for (auto subWindow : m_mdiArea->windowList()) {
+      if (subWindow->windowType() == "IndicatorChart" ||
+          subWindow->windowType() == "ChartWindow") {
+        QWidget *content = subWindow->contentWidget();
+        if (!content)
+          continue;
+
+#ifdef HAVE_QTCHARTS
+        if (subWindow->windowType() == "IndicatorChart") {
+          IndicatorChartWidget *chart =
+              qobject_cast<IndicatorChartWidget *>(content);
+          if (chart)
+            chart->setXTSMarketDataClient(m_xtsMarketDataClient);
+        }
+#endif
+#ifdef HAVE_QTWEBENGINE
+        if (subWindow->windowType() == "ChartWindow") {
+          TradingViewChartWidget *chart =
+              qobject_cast<TradingViewChartWidget *>(content);
+          if (chart)
+            chart->setXTSMarketDataClient(m_xtsMarketDataClient);
+        }
+#endif
+      }
+    }
+  }
 }
 
 void MainWindow::setTradingDataService(TradingDataService *service) {
@@ -114,7 +149,7 @@ void MainWindow::setConfigLoader(ConfigLoader *loader) {
   // Update ATM default source from config
   if (m_configLoader) {
     QString mode = m_configLoader->getBasePriceMode();
-    auto& atm = ATMWatchManager::getInstance();
+    auto &atm = ATMWatchManager::getInstance();
     ATMWatchManager::BasePriceSource source =
         (mode == "future") ? ATMWatchManager::BasePriceSource::Future
                            : ATMWatchManager::BasePriceSource::Cash;

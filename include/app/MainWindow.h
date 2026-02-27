@@ -103,6 +103,9 @@ private slots:
   void onAddToWatchRequested(const InstrumentData &instrument);
   void resetLayout();
 
+  // Template management for TradingView charts
+  void manageChartTemplates();
+
   // Window limit helper
   int countWindowsOfType(const QString &type);
   void closeWindowsByType(const QString &type);

@@ -641,6 +641,12 @@
         <span class="shortcut">Ctrl+F</span>
     </button>
 
+    <!-- Template Button -->
+    <button id="templateButton" onclick="openTemplateManager()" style="position: fixed; top: 10px; left: 220px; z-index: 1000; background: linear-gradient(135deg, #ff6d00 0%, #ff9100 100%); border: none; color: #ffffff; padding: 8px 14px; border-radius: 6px; font-size: 12px; font-weight: 500; cursor: pointer; box-shadow: 0 4px 12px rgba(255, 109, 0, 0.4); transition: all 0.2s;">
+        📋 Templates
+        <span class="shortcut" style="background: rgba(255, 255, 255, 0.2); padding: 2px 5px; border-radius: 4px; font-size: 9px; margin-left: 6px;">F9</span>
+    </button>
+
     <div id="loading">
         <div class="spinner"></div>
         <p>Initializing TradingView Chart...</p>
@@ -836,6 +842,23 @@
         // Close custom search dialog
         function closeCustomSearch() {
             document.getElementById('customSearchDialog').style.display = 'none';
+        }
+
+        // Open Template Manager (calls C++ dialog)
+        function openTemplateManager() {
+            console.log('[Templates] Opening template manager via C++');
+            // This will trigger the F9 shortcut which opens the C++ dialog
+            // Or we can call a specific method if exposed via QWebChannel
+            if (window.parent && window.parent.postMessage) {
+                window.parent.postMessage({ type: 'OPEN_TEMPLATE_MANAGER' }, '*');
+            }
+            // Alternative: if we have a direct bridge method
+            if (dataBridge && typeof dataBridge.openTemplateManager === 'function') {
+                dataBridge.openTemplateManager();
+            } else {
+                // Fallback: show notification
+                showNotification('Templates', '📋 Press F9 to manage templates', 'info');
+            }
         }
 
         // Perform search with C++ backend

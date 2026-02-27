@@ -39,38 +39,51 @@ void IndicatorChartWidget::setupUI() {
 void IndicatorChartWidget::setupPriceChart() {
   // Create chart
   m_priceChart = new QChart();
-  m_priceChart->setTitle("Price Chart");
+  m_priceChart->setTitle(""); // No title for cleaner look
   m_priceChart->setAnimationOptions(
       QChart::NoAnimation); // Disable for performance
   m_priceChart->legend()->setVisible(true);
-  m_priceChart->legend()->setAlignment(Qt::AlignBottom);
-
-  // Create candlestick series
+  m_priceChart->legend()->setAlignment(Qt::AlignTop);
+  m_priceChart->setMargins(QMargins(0, 0, 0, 0)); // Minimize margins
+  
+  // Create candlestick series with TradingView colors
   m_candlestickSeries = new QCandlestickSeries();
   m_candlestickSeries->setName("Price");
-  m_candlestickSeries->setIncreasingColor(QColor("#26a69a"));
-  m_candlestickSeries->setDecreasingColor(QColor("#ef5350"));
+  // TradingView green/red colors
+  m_candlestickSeries->setIncreasingColor(QColor("#089981")); // Green
+  m_candlestickSeries->setDecreasingColor(QColor("#f23645")); // Red
+  m_candlestickSeries->setBodyOutlineVisible(false); // Cleaner candles
+  m_candlestickSeries->setCapsVisible(true);
+  m_candlestickSeries->setBodyWidth(0.7); // Thicker candles
   m_priceChart->addSeries(m_candlestickSeries);
 
-  // Create axes
-  m_axisX = new QDateTimeAxis();
-  m_axisX->setFormat("dd MMM hh:mm");
-  m_axisX->setTitleText("Time");
+  // Create axes with TradingView styling
+  m_axisX = new QValueAxis();
+  m_axisX->setTitleText("");
+  m_axisX->setLabelsVisible(false); // Hide numeric labels, we'll show time below
+  m_axisX->setGridLineVisible(false); // Cleaner look
   m_priceChart->addAxis(m_axisX, Qt::AlignBottom);
   m_candlestickSeries->attachAxis(m_axisX);
 
   m_axisYPrice = new QValueAxis();
-  m_axisYPrice->setTitleText("Price");
+  m_axisYPrice->setTitleText(""); // No title
   m_axisYPrice->setLabelFormat("%.2f");
-  m_priceChart->addAxis(m_axisYPrice, Qt::AlignLeft);
+  m_axisYPrice->setGridLineVisible(true); // Horizontal grid lines only
+  m_axisYPrice->setTickCount(10);
+  m_priceChart->addAxis(m_axisYPrice, Qt::AlignRight); // Price on right like TradingView
   m_candlestickSeries->attachAxis(m_axisYPrice);
+  
+  // Apply axis styling
+  applyAxisStyling(m_axisX);
+  applyAxisStyling(m_axisYPrice);
 
-  // Create chart view
-  m_priceChartView = new QChartView(m_priceChart);
-  m_priceChartView->setRenderHint(QPainter::Antialiasing);
-  m_priceChartView->setRubberBand(
-      QChartView::HorizontalRubberBand); // Enable zoom
-
+  // Create chart view with enhanced rendering
+  m_priceChartView = new CustomChartView(m_priceChart);
+  
+  // Connect zoom and pan signals
+  connect(m_priceChartView, &CustomChartView::zoomChanged,
+          this, &IndicatorChartWidget::onChartZoomChanged);
+  
   m_mainLayout->addWidget(m_priceChartView, 3); // Stretch factor 3 (larger)
 }
 
@@ -185,6 +198,39 @@ void IndicatorChartWidget::loadSymbol(const QString &symbol, int segment,
 void IndicatorChartWidget::setXTSMarketDataClient(XTSMarketDataClient *client) {
   m_xtsClient = client;
   qDebug() << "[IndicatorChart] XTS client set:" << (client != nullptr);
+
+  if (m_xtsClient) {
+    connect(m_xtsClient, &XTSMarketDataClient::tickReceived, this,
+            [this](const XTS::Tick &tick) {
+              if (tick.exchangeInstrumentID == m_currentToken) {
+                // Convert tick to candle (simplified)
+                ChartData::Candle candle;
+                // Use lastUpdateTime if available, else current time
+                // Assuming tick.lastUpdateTime is in seconds or milliseconds
+                candle.timestamp = tick.lastUpdateTime;
+                
+                // If timestamp seems to be in seconds (< year 3000 in milliseconds), convert
+                if (candle.timestamp < 32503680000000LL) {
+                  candle.timestamp *= 1000;
+                }
+
+                // If timestamp is 0 (sometimes happens), use current time
+                if (candle.timestamp == 0) {
+                  candle.timestamp = QDateTime::currentMSecsSinceEpoch();
+                }
+
+                candle.open = tick.open;
+                candle.high = tick.high;
+                candle.low = tick.low;
+                candle.close = tick.lastTradedPrice;
+                candle.volume = tick.volume; // Cumulative volume
+
+                // Update current candle logic (simplified: just append/update
+                // last)
+                updateCurrentCandle(candle);
+              }
+            });
+  }
 }
 
 void IndicatorChartWidget::setRepositoryManager(
@@ -201,23 +247,26 @@ void IndicatorChartWidget::fetchOHLCData(const QString &symbol, int segment,
     return;
   }
 
-  if (token == 0) {
-    qWarning() << "[IndicatorChart] Cannot fetch OHLC: Invalid token";
+  qWarning() << "[IndicatorChart] fetchOHLCData called for" << symbol << "token"
+             << token;
+  if (!m_xtsClient) {
+    qWarning() << "[IndicatorChart] Cannot fetch OHLC: XTS client is null";
     return;
   }
 
-  QString authToken = m_xtsClient->token();
+  QString authToken = m_xtsClient->getToken();
   if (authToken.isEmpty()) {
-    qWarning() << "[IndicatorChart] Cannot fetch OHLC: Not logged in to XTS";
+    qWarning() << "[IndicatorChart] Cannot fetch OHLC: No auth token available "
+                  "(logged in?)";
     return;
   }
+  qDebug() << "[IndicatorChart]   Auth Token length:" << authToken.length();
 
-  // Calculate time range (last 7 days to now)
-  QDateTime now = QDateTime::currentDateTime();
-  QDateTime startDt = now.addDays(-7);
-
-  QString startTime = startDt.toString("MMM dd yyyy HHmmss");
-  QString endTime = now.toString("MMM dd yyyy HHmmss");
+  // Format timestamps for API ("MMM dd yyyy HHmmss")
+  // NOTE: This format is REQUIRED by the server at 192.168.102.9:3000
+  QString startTime =
+      QDateTime::currentDateTime().addDays(-7).toString("MMM dd yyyy HHmmss");
+  QString endTime = QDateTime::currentDateTime().toString("MMM dd yyyy HHmmss");
 
   // Default to 5-minute candles
   int compressionSeconds = 300; // 5 minutes
@@ -237,8 +286,8 @@ void IndicatorChartWidget::fetchOHLCData(const QString &symbol, int segment,
   qDebug() << "[IndicatorChart]   From:" << startTime << "To:" << endTime;
   qDebug() << "[IndicatorChart]   URL:" << urlStr;
 
-  // Fetch in background thread
-  QtConcurrent::run([this, authToken, urlStr, symbol]() {
+  // Fetch in background thread (Qt6: store QFuture to avoid warning)
+  auto future = QtConcurrent::run([this, authToken, urlStr, symbol]() {
     NativeHTTPClient client;
     client.setTimeout(30);
 
@@ -252,21 +301,28 @@ void IndicatorChartWidget::fetchOHLCData(const QString &symbol, int segment,
       QJsonDocument doc =
           QJsonDocument::fromJson(QByteArray::fromStdString(response.body));
 
-      qDebug() << "[IndicatorChart] API Response for" << symbol << ":"
-               << QString::fromStdString(response.body).left(500);
+      qWarning() << "[IndicatorChart] full API Response for" << symbol << ":"
+                 << QString::fromStdString(response.body);
 
       if (doc.isObject()) {
         QJsonObject root = doc.object();
+        
+        qDebug() << "[IndicatorChart] Root keys:" << root.keys();
+        
         QJsonObject result = root["result"].toObject();
+        
+        qDebug() << "[IndicatorChart] Result keys:" << result.keys();
 
         // Handle the backend typo: dataReponse vs dataResponse
         QString dataResponse;
         if (result.contains("dataReponse") &&
             !result["dataReponse"].toString().isEmpty()) {
           dataResponse = result["dataReponse"].toString();
+          qDebug() << "[IndicatorChart] Found dataReponse (with typo)";
         } else if (result.contains("dataResponse") &&
                    !result["dataResponse"].toString().isEmpty()) {
           dataResponse = result["dataResponse"].toString();
+          qDebug() << "[IndicatorChart] Found dataResponse (correct spelling)";
         }
 
         qDebug() << "[IndicatorChart] dataResponse found?"
@@ -276,12 +332,15 @@ void IndicatorChartWidget::fetchOHLCData(const QString &symbol, int segment,
         if (!dataResponse.isEmpty()) {
           QVector<ChartData::Candle> candles;
           QStringList barStrings = dataResponse.split(',', Qt::SkipEmptyParts);
+          
+          qDebug() << "[IndicatorChart] Parsing" << barStrings.size() << "bar strings";
 
           for (const QString &barStr : barStrings) {
             QStringList fields = barStr.split('|', Qt::SkipEmptyParts);
             if (fields.size() >= 6) {
               ChartData::Candle candle;
-              candle.timestamp = fields[0].toLongLong();
+              // API returns seconds -> Convert to MS for QDateTimeAxis
+              candle.timestamp = fields[0].toLongLong() * 1000;
               candle.open = fields[1].toDouble();
               candle.high = fields[2].toDouble();
               candle.low = fields[3].toDouble();
@@ -316,6 +375,8 @@ void IndicatorChartWidget::fetchOHLCData(const QString &symbol, int segment,
     } else {
       qWarning() << "[IndicatorChart] OHLC fetch failed for" << symbol << ":"
                  << response.statusCode;
+      qWarning() << "[IndicatorChart] Error Body:"
+                 << QString::fromStdString(response.body);
 
       // Clear chart on error
       QMetaObject::invokeMethod(
@@ -328,6 +389,10 @@ void IndicatorChartWidget::fetchOHLCData(const QString &symbol, int segment,
 void IndicatorChartWidget::setCandleData(
     const QVector<ChartData::Candle> &candles) {
   m_candles = candles;
+  
+  // Start from the end (most recent candles)
+  m_startIndex = qMax(0, candles.size() - m_visibleCandleCount);
+  
   updatePriceChart();
   recalculateAllIndicators();
 
@@ -388,11 +453,12 @@ void IndicatorChartWidget::updatePriceChart() {
     return;
   }
 
-  // Determine visible range
-  int startIdx = qMax(0, m_candles.size() - m_visibleCandleCount);
-  int endIdx = m_candles.size();
+  // Determine visible range with panning support
+  int totalCandles = m_candles.size();
+  int endIdx = qMin(m_startIndex + m_visibleCandleCount, totalCandles);
+  int startIdx = qMax(0, endIdx - m_visibleCandleCount);
 
-  // Add candlesticks
+  // Add candlesticks using timestamp as X position (required by QCandlestickSeries)
   for (int i = startIdx; i < endIdx; i++) {
     const auto &candle = m_candles[i];
 
@@ -408,15 +474,16 @@ void IndicatorChartWidget::updatePriceChart() {
   updateAxisRanges();
 
   qDebug() << "[IndicatorChart] Updated price chart with" << (endIdx - startIdx)
-           << "candles";
+           << "candles (indices" << startIdx << "-" << endIdx << ")";
 }
 
 void IndicatorChartWidget::updateAxisRanges() {
   if (m_candles.isEmpty())
     return;
 
-  int startIdx = qMax(0, m_candles.size() - m_visibleCandleCount);
-  int endIdx = m_candles.size();
+  int totalCandles = m_candles.size();
+  int endIdx = qMin(m_startIndex + m_visibleCandleCount, totalCandles);
+  int startIdx = qMax(0, endIdx - m_visibleCandleCount);
 
   // Find min/max prices in visible range
   double minPrice = std::numeric_limits<double>::max();
@@ -427,19 +494,16 @@ void IndicatorChartWidget::updateAxisRanges() {
     maxPrice = qMax(maxPrice, m_candles[i].high);
   }
 
-  // Add 5% padding
-  double padding = (maxPrice - minPrice) * 0.05;
+  // Add 2% padding (tighter like TradingView)
+  double padding = (maxPrice - minPrice) * 0.02;
   minPrice -= padding;
   maxPrice += padding;
 
-  // Update axes
+  // Update axes - use timestamp range for X axis
   m_axisYPrice->setRange(minPrice, maxPrice);
-
-  // Update time axis
-  QDateTime startTime =
-      QDateTime::fromSecsSinceEpoch(m_candles[startIdx].timestamp);
-  QDateTime endTime =
-      QDateTime::fromSecsSinceEpoch(m_candles[endIdx - 1].timestamp);
+  
+  qint64 startTime = m_candles[startIdx].timestamp;
+  qint64 endTime = m_candles[endIdx - 1].timestamp;
   m_axisX->setRange(startTime, endTime);
 }
 
@@ -457,10 +521,17 @@ void IndicatorChartWidget::addOverlayIndicator(const QString &name,
   info.params = params;
   info.isOverlay = true;
 
-  // Create line series for overlay indicators
+  // Create line series for overlay indicators with TradingView styling
   if (type == "SMA" || type == "EMA" || type == "WMA") {
     info.series1 = new QLineSeries();
     info.series1->setName(name);
+    
+    // TradingView-style indicator colors
+    QPen pen;
+    pen.setWidth(2);
+    pen.setColor(QColor("#2962ff")); // Blue for MA
+    info.series1->setPen(pen);
+    
     m_priceChart->addSeries(info.series1);
     info.series1->attachAxis(m_axisX);
     info.series1->attachAxis(m_axisYPrice);
@@ -484,10 +555,14 @@ void IndicatorChartWidget::addOverlayIndicator(const QString &name,
     info.series3->attachAxis(m_axisX);
     info.series3->attachAxis(m_axisYPrice);
 
-    // Apply styling
-    info.series1->setColor(QColor("#2196f3"));
-    info.series2->setColor(QColor("#9c27b0"));
-    info.series3->setColor(QColor("#2196f3"));
+    // Apply TradingView-style Bollinger Bands styling
+    QPen upperPen(QColor("#2962ff"), 2); // Blue
+    QPen middlePen(QColor("#ff6d00"), 2); // Orange
+    QPen lowerPen(QColor("#2962ff"), 2);  // Blue
+    
+    info.series1->setPen(upperPen);
+    info.series2->setPen(middlePen);
+    info.series3->setPen(lowerPen);
   }
 
   m_indicators[name] = info;
@@ -550,8 +625,8 @@ void IndicatorChartWidget::addPanelIndicator(const QString &name,
   }
 
   // Create axes for panel chart
-  QDateTimeAxis *axisX = new QDateTimeAxis();
-  axisX->setFormat("dd MMM hh:mm");
+  QValueAxis *axisX = new QValueAxis();
+  axisX->setLabelsVisible(false);
   info.chart->addAxis(axisX, Qt::AlignBottom);
 
   QValueAxis *axisY = new QValueAxis();
@@ -591,7 +666,10 @@ void IndicatorChartWidget::calculateOverlayIndicator(IndicatorInfo &info) {
   // Extract price data
   auto prices = TALibIndicators::extractPrices(m_candles);
 
-  int startIdx = qMax(0, m_candles.size() - m_visibleCandleCount);
+  // Use visible range for indicator calculation
+  int totalCandles = m_candles.size();
+  int endIdx = qMin(m_startIndex + m_visibleCandleCount, totalCandles);
+  int startIdx = qMax(0, endIdx - m_visibleCandleCount);
 
   if (info.type == "SMA") {
     int period = info.params.value("period", 20).toInt();
@@ -599,11 +677,9 @@ void IndicatorChartWidget::calculateOverlayIndicator(IndicatorInfo &info) {
 
     if (info.series1) {
       info.series1->clear();
-      for (int i = startIdx; i < sma.size(); i++) {
+      for (int i = startIdx; i < qMin(endIdx, sma.size()); i++) {
         if (sma[i] > 0) {
-          QDateTime time =
-              QDateTime::fromSecsSinceEpoch(m_candles[i].timestamp);
-          info.series1->append(time.toMSecsSinceEpoch(), sma[i]);
+          info.series1->append(m_candles[i].timestamp, sma[i]); // Use timestamp as X
         }
       }
     }
@@ -613,11 +689,9 @@ void IndicatorChartWidget::calculateOverlayIndicator(IndicatorInfo &info) {
 
     if (info.series1) {
       info.series1->clear();
-      for (int i = startIdx; i < ema.size(); i++) {
+      for (int i = startIdx; i < qMin(endIdx, ema.size()); i++) {
         if (ema[i] > 0) {
-          QDateTime time =
-              QDateTime::fromSecsSinceEpoch(m_candles[i].timestamp);
-          info.series1->append(time.toMSecsSinceEpoch(), ema[i]);
+          info.series1->append(m_candles[i].timestamp, ema[i]); // Use timestamp as X
         }
       }
     }
@@ -634,14 +708,12 @@ void IndicatorChartWidget::calculateOverlayIndicator(IndicatorInfo &info) {
       info.series2->clear();
       info.series3->clear();
 
-      for (int i = startIdx; i < bb.upperBand.size(); i++) {
+      for (int i = startIdx; i < qMin(endIdx, static_cast<int>(bb.upperBand.size())); i++) {
         if (bb.middleBand[i] > 0) {
-          QDateTime time =
-              QDateTime::fromSecsSinceEpoch(m_candles[i].timestamp);
-          qint64 msec = time.toMSecsSinceEpoch();
-          info.series1->append(msec, bb.upperBand[i]);
-          info.series2->append(msec, bb.middleBand[i]);
-          info.series3->append(msec, bb.lowerBand[i]);
+          qint64 ts = m_candles[i].timestamp;
+          info.series1->append(ts, bb.upperBand[i]); // Use timestamp as X
+          info.series2->append(ts, bb.middleBand[i]);
+          info.series3->append(ts, bb.lowerBand[i]);
         }
       }
     }
@@ -949,18 +1021,18 @@ void IndicatorChartWidget::onRemoveIndicatorClicked() {
 }
 
 void IndicatorChartWidget::onZoomInClicked() {
-  m_visibleCandleCount = qMax(10, m_visibleCandleCount - 20);
-  setVisibleRange(m_visibleCandleCount);
+  onChartZoomChanged(0.8); // Show 20% fewer candles
 }
 
 void IndicatorChartWidget::onZoomOutClicked() {
-  m_visibleCandleCount = qMin(500, m_visibleCandleCount + 20);
-  setVisibleRange(m_visibleCandleCount);
+  onChartZoomChanged(1.2); // Show 20% more candles
 }
 
 void IndicatorChartWidget::onResetZoomClicked() {
   m_visibleCandleCount = 100;
-  setVisibleRange(m_visibleCandleCount);
+  m_startIndex = qMax(0, m_candles.size() - m_visibleCandleCount);
+  updatePriceChart();
+  recalculateAllIndicators();
 }
 
 // ============================================================================
@@ -968,23 +1040,86 @@ void IndicatorChartWidget::onResetZoomClicked() {
 // ============================================================================
 
 void IndicatorChartWidget::applyDarkTheme(QChart *chart) {
-  chart->setBackgroundBrush(QBrush(QColor("#131722")));
+  // TradingView dark theme colors
+  chart->setBackgroundBrush(QBrush(QColor("#131722"))); // Dark background
   chart->setTitleBrush(QBrush(QColor("#d1d4dc")));
-  chart->setPlotAreaBackgroundBrush(QBrush(QColor("#1e222d")));
+  chart->setPlotAreaBackgroundBrush(QBrush(QColor("#1e222d"))); // Slightly lighter plot area
   chart->setPlotAreaBackgroundVisible(true);
+  
+  // Remove borders for cleaner look
+  chart->setBackgroundRoundness(0);
+  chart->setDropShadowEnabled(false);
 
-  // Style legend
+  // Style legend - compact and modern
   if (chart->legend()) {
     chart->legend()->setLabelColor(QColor("#d1d4dc"));
     chart->legend()->setBackgroundVisible(false);
+    chart->legend()->setBorderColor(Qt::transparent);
+    QFont legendFont;
+    legendFont.setPointSize(9);
+    legendFont.setFamily("SF Pro Text"); // macOS system font
+    chart->legend()->setFont(legendFont);
   }
 }
 
 void IndicatorChartWidget::applyAxisStyling(QAbstractAxis *axis) {
-  axis->setLabelsColor(QColor("#d1d4dc"));
+  // TradingView-style axis colors
+  axis->setLabelsColor(QColor("#787b86")); // Muted gray labels
   axis->setTitleBrush(QBrush(QColor("#d1d4dc")));
-  axis->setGridLineColor(QColor("#363c4e"));
+  axis->setGridLineColor(QColor("#2a2e39")); // Subtle grid lines
+  axis->setLineVisible(false); // Hide axis line for cleaner look
+  
+  // Improved font for labels
+  QFont axisFont;
+  axisFont.setPointSize(9);
+  axisFont.setFamily("SF Mono"); // Monospace for numbers
+  axis->setLabelsFont(axisFont);
+  
+  // Grid line pen styling
+  QPen gridPen(QColor("#2a2e39"));
+  gridPen.setWidth(1);
+  gridPen.setStyle(Qt::SolidLine);
+  axis->setGridLinePen(gridPen);
 }
+
+void IndicatorChartWidget::updateTimeAxis() {
+  // With QValueAxis, we just use the numeric range
+  // Time labels can be shown via custom drawing if needed
+  // For now, keep it simple - the index-based approach works
+  // Future: Could add custom QGraphicsTextItem labels for time display
+}
+
+QString IndicatorChartWidget::formatTimeLabel(qint64 timestamp) const {
+  QDateTime dt = QDateTime::fromMSecsSinceEpoch(timestamp);
+  QDate today = QDate::currentDate();
+  
+  if (dt.date() == today) {
+    return dt.toString("hh:mm");
+  } else if (dt.date().year() == today.year()) {
+    return dt.toString("dd MMM hh:mm");
+  } else {
+    return dt.toString("dd/MM/yy");
+  }
+}
+
+void IndicatorChartWidget::onChartZoomChanged(double factor) {
+  // Adjust visible candle count
+  int newCount = static_cast<int>(m_visibleCandleCount * factor);
+  newCount = qBound(20, newCount, m_candles.size()); // Min 20, max all candles
+  
+  if (newCount != m_visibleCandleCount) {
+    m_visibleCandleCount = newCount;
+    
+    // Adjust start index to keep center in view
+    m_startIndex = qBound(0, m_startIndex, m_candles.size() - m_visibleCandleCount);
+    
+    updatePriceChart();
+    recalculateAllIndicators();
+    
+    qDebug() << "[IndicatorChart] Zoom changed - showing" << m_visibleCandleCount << "candles";
+  }
+}
+
 void IndicatorChartWidget::onGlobalSearchClicked() {
   QDialog dialog(this);
   dialog.setWindowTitle("Global Script Search");

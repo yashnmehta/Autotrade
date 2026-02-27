@@ -13,6 +13,7 @@
 #include "ui/StrategyManagerWindow.h"
 #ifdef HAVE_QTWEBENGINE
 #include "ui/TradingViewChartWidget.h"
+#include "ui/TemplateManagerDialog.h"
 #endif
 #ifdef HAVE_QTCHARTS
 #include "ui/IndicatorChartWidget.h"
@@ -1117,4 +1118,46 @@ void MainWindow::onRestoreWindowRequested(
 
     settings.endGroup();
   }
+}
+
+void MainWindow::manageChartTemplates() {
+#ifdef HAVE_QTWEBENGINE
+  // Find the active TradingView chart window
+  TradingViewChartWidget *chartWidget = nullptr;
+  CustomMDISubWindow *activeWindow = m_mdiArea->activeWindow();
+  
+  if (activeWindow && activeWindow->windowType() == "ChartWindow") {
+    chartWidget = qobject_cast<TradingViewChartWidget *>(activeWindow->contentWidget());
+  }
+  
+  // If no active chart, find any chart window
+  if (!chartWidget) {
+    for (auto win : m_mdiArea->windowList()) {
+      if (win->windowType() == "ChartWindow") {
+        chartWidget = qobject_cast<TradingViewChartWidget *>(win->contentWidget());
+        if (chartWidget) {
+          break;
+        }
+      }
+    }
+  }
+  
+  if (!chartWidget) {
+    qWarning() << "[MainWindow] No TradingView chart window found. Create a chart first (F7).";
+    if (m_statusBar) {
+      m_statusBar->showMessage("No chart window found. Open a chart first (F7).", 3000);
+    }
+    return;
+  }
+  
+  // Open template manager dialog
+  TemplateManagerDialog *dialog = new TemplateManagerDialog(chartWidget, this);
+  dialog->setAttribute(Qt::WA_DeleteOnClose);
+  dialog->exec();
+#else
+  qWarning() << "[MainWindow] TradingView charts not enabled in this build";
+  if (m_statusBar) {
+    m_statusBar->showMessage("TradingView charts not available in this build.", 3000);
+  }
+#endif
 }

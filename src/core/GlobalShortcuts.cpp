@@ -116,6 +116,8 @@ void setupMainWindowShortcuts(MainWindow *window) {
                 SLOT(createSnapQuoteWindow()));
   new QShortcut(QKeySequence(Qt::Key_F8), window,
                 SLOT(createTradeBookWindow()));
+  new QShortcut(QKeySequence(Qt::Key_F9), window,
+                SLOT(manageChartTemplates()));
   new QShortcut(QKeySequence(Qt::Key_F10), window,
                 SLOT(createOrderBookWindow()));
 

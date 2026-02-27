@@ -582,14 +582,20 @@ void XTSInteractiveClient::onWSDisconnected(const std::string& reason)
 {
     m_wsConnected = false;
     qDebug() << "❌ Interactive Native WebSocket disconnected:" << QString::fromStdString(reason);
-    emit connectionStatusChanged(false);
+    // Safety: Only emit if parent still exists (avoid crash during destruction)
+    if (parent() || thread()) {
+        emit connectionStatusChanged(false);
+    }
 }
 
 void XTSInteractiveClient::onWSError(const std::string& error)
 {
     QString errorStr = QString::fromStdString(error);
     qWarning() << "Interactive Native WebSocket error:" << errorStr;
-    emit errorOccurred(errorStr);
+    // Safety: Only emit if parent still exists (avoid crash during destruction)
+    if (parent() || thread()) {
+        emit errorOccurred(errorStr);
+    }
     
     if (m_wsConnectCallback) {
         m_wsConnectCallback(false, errorStr);

@@ -53,8 +53,8 @@ find_package(Boost 1.70 REQUIRED)
 # Optional Qt Charts support (Native charting with QChart)
 option(ENABLE_QTCHARTS "Enable Qt Charts for native charting" ON)
 if(ENABLE_QTCHARTS)
-    find_package(Qt6Charts QUIET)
-    if(Qt5Charts_FOUND)
+    find_package(Qt6 COMPONENTS Charts QUIET)
+    if(Qt6Charts_FOUND)
         message(STATUS "Qt Charts found. Enabling native QChart-based charting!")
         add_definitions(-DHAVE_QTCHARTS)
     else()
@@ -363,16 +363,28 @@ set(UI_HEADERS
 )
 
 # Add TradingView chart widget if enabled
-if(ENABLE_TRADINGVIEW AND (Qt5WebEngineWidgets_FOUND OR Qt6WebEngineWidgets_FOUND) AND (Qt5WebChannel_FOUND OR Qt6WebChannel_FOUND))
-    list(APPEND UI_SOURCES src/ui/TradingViewChartWidget.cpp)
-    list(APPEND UI_HEADERS include/ui/TradingViewChartWidget.h)
+if(ENABLE_TRADINGVIEW AND Qt6WebEngineWidgets_FOUND AND Qt6WebChannel_FOUND)
+    list(APPEND UI_SOURCES 
+        src/ui/TradingViewChartWidget.cpp
+        src/ui/TemplateManagerDialog.cpp
+    )
+    list(APPEND UI_HEADERS 
+        include/ui/TradingViewChartWidget.h
+        include/ui/TemplateManagerDialog.h
+    )
     message(STATUS "Added TradingView chart widget to build")
 endif()
 
 # Add Indicator Chart Widget if QtCharts is available
-if(ENABLE_QTCHARTS AND Qt5Charts_FOUND)
-    list(APPEND UI_SOURCES src/ui/IndicatorChartWidget.cpp)
-    list(APPEND UI_HEADERS include/ui/IndicatorChartWidget.h)
+if(ENABLE_QTCHARTS AND Qt6Charts_FOUND)
+    list(APPEND UI_SOURCES 
+        src/ui/IndicatorChartWidget.cpp
+        src/ui/CustomChartView.cpp
+    )
+    list(APPEND UI_HEADERS 
+        include/ui/IndicatorChartWidget.h
+        include/ui/CustomChartView.h
+    )
     message(STATUS "Added Indicator Chart Widget to build")
 endif()
 
@@ -841,8 +853,8 @@ if(ENABLE_TRADINGVIEW AND Qt6WebEngineWidgets_FOUND AND Qt6WebChannel_FOUND)
 endif()
 
 # Add QtCharts if enabled
-if(ENABLE_QTCHARTS AND Qt5Charts_FOUND)
-    target_link_libraries(TradingTerminal PRIVATE Qt5::Charts)
+if(ENABLE_QTCHARTS AND Qt6Charts_FOUND)
+    target_link_libraries(TradingTerminal PRIVATE Qt6::Charts)
 endif()
 
 # Add TA-Lib if found
@@ -904,7 +916,7 @@ if(WIN32)
     set(QT_DEPS Core Gui Widgets Network WebSockets Sql Concurrent UiTools)
     
     foreach(DEP ${QT_DEPS})
-        set(DLL_NAME "Qt5${DEP}${DLL_SUFFIX}.dll")
+        set(DLL_NAME "Qt6${DEP}${DLL_SUFFIX}.dll")
         if(EXISTS "${QT_BIN_DIR}/${DLL_NAME}")
             add_custom_command(TARGET TradingTerminal POST_BUILD
                 COMMAND ${CMAKE_COMMAND} -E copy_if_different
@@ -995,17 +1007,18 @@ if(WIN32)
         endif()
     endif()
     
-    # Copy TradingView library files to build directory if enabled
-    if(ENABLE_TRADINGVIEW AND Qt5WebEngineWidgets_FOUND AND Qt5WebChannel_FOUND)
-        add_custom_command(TARGET TradingTerminal POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:TradingTerminal>/resources"
-            COMMAND ${CMAKE_COMMAND} -E copy_directory
-                "${CMAKE_SOURCE_DIR}/resources/tradingview"
-                "$<TARGET_FILE_DIR:TradingTerminal>/resources/tradingview"
-            COMMENT "Copying TradingView library files to build directory..."
-        )
-        message(STATUS "TradingView library will be copied to build directory")
-    endif()
+endif() # End of WIN32 block
+
+# Copy TradingView library files to build directory if enabled
+if(ENABLE_TRADINGVIEW AND Qt6WebEngineWidgets_FOUND AND Qt6WebChannel_FOUND)
+    add_custom_command(TARGET TradingTerminal POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:TradingTerminal>/resources"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${CMAKE_SOURCE_DIR}/resources/tradingview"
+            "$<TARGET_FILE_DIR:TradingTerminal>/resources/tradingview"
+        COMMENT "Copying TradingView library files to build directory..."
+    )
+    message(STATUS "TradingView library will be copied to build directory")
 endif()
 
 # ========================================
@@ -1017,7 +1030,7 @@ endif()
 option(BUILD_TESTS "Build unit tests" OFF)  # Disabled due to build config issues
 if(BUILD_TESTS)
     enable_testing()
-    find_package(Qt5 COMPONENTS Test REQUIRED)
+    find_package(Qt6 COMPONENTS Test REQUIRED)
     
     # SearchTokenizer Unit Test (lightweight - just tokenizer parsing)
     add_executable(test_search_tokenizer
@@ -1032,8 +1045,8 @@ if(BUILD_TESTS)
     )
     
     target_link_libraries(test_search_tokenizer
-        Qt5::Core
-        Qt5::Test
+        Qt6::Core
+        Qt6::Test
     )
     
     # Use C++17 instead of C++20 for test compatibility

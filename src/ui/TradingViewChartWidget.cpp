@@ -1,3 +1,4 @@
+#ifdef HAVE_QTWEBENGINE
 #include "ui/TradingViewChartWidget.h"
 #include "api/NativeHTTPClient.h"
 #include "api/XTSMarketDataClient.h"
@@ -9,6 +10,7 @@
 #include <QCoreApplication>
 #include <QDateTime>
 #include <QDebug>
+#include <QDir>
 #include <QElapsedTimer>
 #include <QFile>
 #include <QJsonArray>
@@ -211,9 +213,9 @@ TradingViewChartWidget::TradingViewChartWidget(QWidget *parent)
                       bar["time"] = fields[0].toLongLong() * 1000;
                       bar["open"] = fields[1].toDouble();
                       bar["high"] = fields[2].toDouble();
-                      bar["low"] = fields[3].toDouble();
-                      bar["close"] = fields[4].toDouble();
                       bar["volume"] = fields[5].toDouble();
+                      bar["close"] = fields[4].toDouble();
+                      bar["low"] = fields[3].toDouble();
                       batchBars.append(bar);
                     }
                   }
@@ -269,9 +271,6 @@ TradingViewChartWidget::TradingViewChartWidget(QWidget *parent)
   connect(&CandleAggregator::instance(), &CandleAggregator::candleUpdate, this,
           &TradingViewChartWidget::onCandleUpdate);
 
-  // Connect to XTS Market Data Client for real-time ticks (will be set later)
-  // Connection happens after setXTSMarketDataClient() is called
-
   // Load chart HTML
   loadChartHTML();
 
@@ -312,9 +311,7 @@ void TradingViewChartWidget::loadChartHTML() {
   if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
     QString html = QString::fromUtf8(file.readAll());
 
-    // Set base URL to the resources/tradingview directory so that relative
-    // paths work This allows the HTML to load
-    // charting_library/charting_library.standalone.js
+    // Set base URL to the resources/tradingview directory
     QString appPath = QCoreApplication::applicationDirPath();
     QUrl baseUrl = QUrl::fromLocalFile(appPath + "/resources/tradingview/");
 
@@ -399,28 +396,120 @@ void TradingViewChartWidget::loadSymbol(const QString &symbol, int segment,
   qDebug() << "[TradingViewChart] Subscribed to candles:" << symbol << segment
            << timeframe;
 
-  // Construct full ticker for TradingView to enable token extraction
+  // Construct full ticker for TradingView
   QString ticker = QString("%1_%2_%3").arg(symbol).arg(segment).arg(token);
 
-  QString script = QString("if (window.widget) {"
-                           "  window.widget.setSymbol('%1', '%2', function() {"
-                           "    console.log('Symbol changed to %1');"
-                           "  });"
-                           "}")
-                       .arg(ticker, interval);
+  executeScript(QString("if (window.tvWidget) { window.tvWidget.setSymbol('%1', "
+                        "'%2'); }")
+                    .arg(ticker, interval));
+}
 
-  executeScript(script);
+bool TradingViewChartWidget::saveTemplate(const QString &templateName) {
+  if (!m_chartReady) {
+    qWarning() << "[TradingViewChart] Chart not ready, cannot save template";
+    return false;
+  }
 
-  qDebug() << "[TradingViewChart] Loading symbol:" << ticker
-           << "interval:" << interval;
+  // Request JavaScript to save and send template data
+  executeScript(QString("if (window.tvWidget) {"
+                        "  window.tvWidget.save(function(data) {"
+                        "    if (window.dataBridge) {"
+                        "      window.dataBridge.receiveTemplateData('%1', "
+                        "JSON.stringify(data));"
+                        "    }"
+                        "  });"
+                        "}")
+                    .arg(templateName));
+  return true;
+}
+
+bool TradingViewChartWidget::loadTemplate(const QString &templateName) {
+  if (!m_chartReady) {
+    qWarning() << "[TradingViewChart] Chart not ready, cannot load template";
+    return false;
+  }
+
+  // Read template from file
+  QString appDataPath = QCoreApplication::applicationDirPath() + "/templates";
+  QString filePath = appDataPath + "/" + templateName + ".json";
+
+  QFile file(filePath);
+  if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+    qWarning() << "[TradingViewChart] Failed to load template:" << filePath;
+    return false;
+  }
+
+  QJsonDocument doc = QJsonDocument::fromJson(file.readAll());
+  file.close();
+
+  if (doc.isNull() || !doc.isObject()) {
+    qWarning() << "[TradingViewChart] Invalid template data:" << templateName;
+    return false;
+  }
+
+  QJsonObject rootObj = doc.object();
+  QJsonObject templateData = rootObj["data"].toObject();
+
+  // Convert template data back to JSON string
+  QString dataStr = QString::fromUtf8(QJsonDocument(templateData).toJson());
+
+  // Escape quotes for JavaScript
+  dataStr.replace("\"", "\\\"");
+  dataStr.replace("\n", " ");
+
+  executeScript(QString("if (window.tvWidget) {"
+                        "  var data = JSON.parse(\"%1\");"
+                        "  window.tvWidget.load(data);"
+                        "}")
+                    .arg(dataStr));
+
+  qDebug() << "[TradingViewChart] Template loaded:" << templateName;
+  return true;
+}
+
+QStringList TradingViewChartWidget::getTemplateList() const {
+  QString appDataPath = QCoreApplication::applicationDirPath() + "/templates";
+  QDir dir(appDataPath);
+
+  if (!dir.exists()) {
+    return QStringList();
+  }
+
+  QStringList filters;
+  filters << "*.json";
+  QFileInfoList files = dir.entryInfoList(filters, QDir::Files);
+
+  QStringList templateNames;
+  for (const QFileInfo &fileInfo : files) {
+    templateNames << fileInfo.baseName();
+  }
+
+  return templateNames;
+}
+
+bool TradingViewChartWidget::deleteTemplate(const QString &templateName) {
+  QString appDataPath = QCoreApplication::applicationDirPath() + "/templates";
+  QString filePath = appDataPath + "/" + templateName + ".json";
+
+  QFile file(filePath);
+  if (file.exists()) {
+    bool success = file.remove();
+    if (success) {
+      qDebug() << "[TradingViewChart] Template deleted:" << templateName;
+    } else {
+      qWarning() << "[TradingViewChart] Failed to delete template:"
+                 << templateName;
+    }
+    return success;
+  }
+
+  return false;
 }
 
 void TradingViewChartWidget::setInterval(const QString &interval) {
   m_currentInterval = interval;
-
-  if (!m_chartReady) {
+  if (!m_chartReady)
     return;
-  }
 
   QString script = QString("if (window.widget) {"
                            "  window.widget.setResolution('%1');"
@@ -431,9 +520,8 @@ void TradingViewChartWidget::setInterval(const QString &interval) {
 }
 
 void TradingViewChartWidget::setTheme(const QString &theme) {
-  if (!m_chartReady) {
+  if (!m_chartReady)
     return;
-  }
 
   QString script = QString("if (window.widget) {"
                            "  window.widget.changeTheme('%1');"
@@ -444,9 +532,8 @@ void TradingViewChartWidget::setTheme(const QString &theme) {
 }
 
 void TradingViewChartWidget::addIndicator(const QString &indicatorName) {
-  if (!m_chartReady) {
+  if (!m_chartReady)
     return;
-  }
 
   QString script = QString("if (window.widget) {"
                            "  window.widget.activeChart().createStudy('%1');"
@@ -460,20 +547,8 @@ void TradingViewChartWidget::addOrderMarker(qint64 time, double price,
                                             const QString &text,
                                             const QString &color,
                                             const QString &shape) {
-  if (!m_chartReady) {
+  if (!m_chartReady)
     return;
-  }
-
-  QJsonObject marker;
-  marker["time"] = time * 1000; // TradingView expects milliseconds
-  marker["position"] =
-      (shape.contains("up") || shape.contains("buy")) ? "belowBar" : "aboveBar";
-  marker["color"] = color;
-  marker["shape"] = shape;
-  marker["text"] = text;
-
-  QString markerJson =
-      QString::fromUtf8(QJsonDocument(marker).toJson(QJsonDocument::Compact));
 
   QString script = QString("if (window.widget) {"
                            "  window.widget.activeChart().createShape("
@@ -500,18 +575,13 @@ void TradingViewChartWidget::onCandleComplete(const QString &symbol,
                                               int segment,
                                               const QString &timeframe,
                                               const ChartData::Candle &candle) {
-  // Only update if this is the current symbol
-  if (symbol != m_currentSymbol || segment != m_currentSegment) {
+  if (symbol != m_currentSymbol || segment != m_currentSegment)
     return;
-  }
 
-  // Convert timeframe to interval
   QString interval = convertTimeframeToInterval(timeframe);
-  if (interval != m_currentInterval) {
+  if (interval != m_currentInterval)
     return;
-  }
 
-  // Send to chart
   QJsonObject bar;
   bar["time"] = candle.timestamp * 1000;
   bar["open"] = candle.open;
@@ -526,17 +596,13 @@ void TradingViewChartWidget::onCandleComplete(const QString &symbol,
 void TradingViewChartWidget::onCandleUpdate(const QString &symbol, int segment,
                                             const QString &timeframe,
                                             const ChartData::Candle &candle) {
-  // Only update if this is the current symbol/timeframe
-  if (symbol != m_currentSymbol || segment != m_currentSegment) {
+  if (symbol != m_currentSymbol || segment != m_currentSegment)
     return;
-  }
 
   QString interval = convertTimeframeToInterval(timeframe);
-  if (interval != m_currentInterval) {
+  if (interval != m_currentInterval)
     return;
-  }
 
-  // Send partial update
   QJsonObject bar;
   bar["time"] = candle.timestamp * 1000;
   bar["open"] = candle.open;
@@ -549,55 +615,33 @@ void TradingViewChartWidget::onCandleUpdate(const QString &symbol, int segment,
 }
 
 void TradingViewChartWidget::onTickUpdate(const XTS::Tick &tick) {
-  // Only process ticks for our current token
-  if (static_cast<int64_t>(tick.exchangeInstrumentID) != m_currentToken) {
+  if (static_cast<int64_t>(tick.exchangeInstrumentID) != m_currentToken)
     return;
-  }
-
-  if (tick.exchangeSegment != m_currentSegment) {
+  if (tick.exchangeSegment != m_currentSegment)
     return;
-  }
 
-  // Send real-time tick as partial bar update to TradingView
-  // This provides instant feedback while CandleAggregator builds proper candles
   QJsonObject bar;
-  bar["time"] = tick.lastUpdateTime; // XTS provides milliseconds
+  bar["time"] = tick.lastUpdateTime;
   bar["open"] = tick.open;
   bar["high"] = tick.high;
   bar["low"] = tick.low;
   bar["close"] = tick.lastTradedPrice;
   bar["volume"] = static_cast<qint64>(tick.volume);
 
-  // Send to chart if ready
   if (m_chartReady && m_dataBridge) {
     m_dataBridge->sendRealtimeBar(bar);
   }
 }
 
 void TradingViewChartWidget::onLoadFinished(bool success) {
-  if (success) {
+  if (success)
     qDebug() << "[TradingViewChart] Page loaded successfully";
-  } else {
+  else
     qWarning() << "[TradingViewChart] Page load failed";
-  }
 }
 
 void TradingViewChartWidget::onJavaScriptMessage(const QString &message) {
-  // Handle messages from JavaScript
   qDebug() << "[TradingViewChart] JS Message:" << message;
-
-  // Parse JSON messages if needed
-  QJsonDocument doc = QJsonDocument::fromJson(message.toUtf8());
-  if (!doc.isNull() && doc.isObject()) {
-    QJsonObject obj = doc.object();
-    QString type = obj["type"].toString();
-
-    if (type == "error") {
-      qWarning() << "[TradingViewChart] JS Error:" << obj["message"].toString();
-    } else if (type == "log") {
-      qDebug() << "[TradingViewChart] JS Log:" << obj["message"].toString();
-    }
-  }
 }
 
 QString TradingViewChartWidget::convertTimeframeToInterval(
@@ -618,29 +662,20 @@ QString TradingViewChartWidget::convertTimeframeToInterval(
     return "D";
   if (timeframe == "1W")
     return "W";
-  return "5"; // default
+  return "5";
 }
 
-// ============================================================================
-// TradingViewDataBridge Implementation
-// ============================================================================
-
+// Data Bridge Implementation
 TradingViewDataBridge::TradingViewDataBridge(QObject *parent)
     : QObject(parent) {}
 
-void TradingViewDataBridge::onChartReady() {
-  qDebug() << "[TradingViewDataBridge] Chart ready signal received";
-  emit chartReady();
-}
+void TradingViewDataBridge::onChartReady() { emit chartReady(); }
 
 void TradingViewDataBridge::onChartClick(qint64 time, double price) {
-  qDebug() << "[TradingViewDataBridge] Chart clicked at" << time << price;
-  emit chartClicked(time / 1000, price); // Convert from milliseconds
+  emit chartClicked(time / 1000, price);
 }
 
 void TradingViewDataBridge::onOrderRequest(const QString &side, double price) {
-  qDebug() << "[TradingViewDataBridge] Order requested:" << side << "@"
-           << price;
   emit orderRequested(side, price);
 }
 
@@ -649,31 +684,13 @@ void TradingViewDataBridge::requestHistoricalData(const QString &symbol,
                                                   const QString &resolution,
                                                   qint64 from, qint64 to,
                                                   qint64 token, int requestId) {
-  qDebug() << "[TradingViewDataBridge] Historical data requested:" << symbol
-           << resolution << "from" << from << "to" << to << "token:" << token
-           << "requestId:" << requestId;
   emit historicalDataRequested(symbol, segment, resolution, from / 1000,
                                to / 1000, token, requestId);
 }
 
 void TradingViewDataBridge::sendHistoricalData(const QJsonArray &bars,
                                                int requestId) {
-  qDebug() << "[TradingViewDataBridge] ========== SENDING HISTORICAL DATA "
-              "==========";
-  qDebug() << "[TradingViewDataBridge] Bar count:" << bars.size()
-           << "requestId:" << requestId;
-
-  if (bars.size() > 0) {
-    qDebug() << "[TradingViewDataBridge] First bar:" << bars[0];
-    qDebug() << "[TradingViewDataBridge] Last bar:" << bars[bars.size() - 1];
-  } else {
-    qWarning() << "[TradingViewDataBridge] ⚠️ Empty bars array - chart will "
-                  "show 'No data'!";
-  }
-
-  qDebug() << "[TradingViewDataBridge] Emitting historicalDataReady signal...";
   emit historicalDataReady(bars, requestId);
-  qDebug() << "[TradingViewDataBridge] ✅ Signal emitted to JavaScript";
 }
 
 void TradingViewDataBridge::sendRealtimeBar(const QJsonObject &bar) {
@@ -681,251 +698,132 @@ void TradingViewDataBridge::sendRealtimeBar(const QJsonObject &bar) {
 }
 
 void TradingViewDataBridge::sendError(const QString &error) {
-  qWarning() << "[TradingViewDataBridge] Error:" << error;
   emit errorOccurred(error);
 }
 
 void TradingViewDataBridge::searchSymbols(const QString &searchText,
                                           const QString &exchange,
                                           const QString &segment) {
-  QElapsedTimer timer;
-  timer.start();
-
-<<<<<<< Updated upstream
-  qDebug() << "";
-  qDebug() << "═══════════════════════════════════════════════════════";
-  qDebug() << "[SYMBOL SEARCH] Query:" << searchText
-           << "| Exchange:" << exchange << "| Segment:" << segment;
-  qDebug() << "═══════════════════════════════════════════════════════";
-
-  // Get parent widget to access RepositoryManager
   TradingViewChartWidget *widget =
       qobject_cast<TradingViewChartWidget *>(parent());
   if (!widget || !widget->m_repoManager) {
-    qWarning() << "[SYMBOL SEARCH] ✗ No RepositoryManager available";
     emit symbolSearchResults(QJsonArray());
     return;
   }
 
-  // Use the new fuzzy global search for much better results
   QVector<ContractData> results = widget->m_repoManager->searchScripsGlobal(
       searchText, exchange, segment, "", 20);
 
-  qDebug() << "[SEARCH RESULTS] Found" << results.size()
-           << "results using Global Search";
-  qDebug() << "";
-
-  // Convert to JSON format for TradingView
   QJsonArray jsonResults;
-  for (int i = 0; i < results.size(); ++i) {
-    const ContractData &contract = results[i];
+  for (const ContractData &contract : results) {
     QJsonObject item;
-
-    // Identify exchange and segment from contract data
     QString contractExchange =
         (contract.exchangeInstrumentID >= 11000000) ? "BSE" : "NSE";
     QString contractSegment =
         (contract.strikePrice > 0 || contract.instrumentType == 1) ? "FO"
                                                                    : "CM";
 
-    int segmentInt = 1; // Default NSE CM
-    if (contractExchange == "NSE") {
-      segmentInt = (contractSegment == "FO") ? 2 : 1;
-    } else {
-      segmentInt = (contractSegment == "FO") ? 12 : 11;
-    }
+    int segmentInt = (contractExchange == "NSE")
+                         ? (contractSegment == "FO" ? 2 : 1)
+                         : (contractSegment == "FO" ? 12 : 11);
 
-    // Build display name and description for better UX
-    QString displayName;
-    QString description;
-    QString searchDisplayText;
-    QString tvType = "stock"; // fallback
-
-    if (contractSegment == "FO") {
-      // For F&O contracts, show strike/type/expiry clearly
-      if (contract.strikePrice > 0) {
-        // Options: "BANKNIFTY 24000 CE"
-        QString optType = "CE";
-        if (contract.optionType.contains("P", Qt::CaseInsensitive)) {
-          optType = "PE";
-        }
-        displayName = QString("%1 %2 %3")
-                          .arg(contract.name)
-                          .arg(contract.strikePrice, 0, 'f',
-                               1) // 1 dec place for cleaner look
-                          .arg(optType);
-        description = QString("%1 %2 | %3")
-                          .arg(contract.name)
-                          .arg(contract.strikePrice, 0, 'f', 1)
-                          .arg(contract.expiryDate);
-        searchDisplayText =
-            QString("%1 · %2 %3 · %4")
-                .arg(contract.name,
-                     QString::number(contract.strikePrice, 'f', 1), optType,
-                     contract.expiryDate);
-        tvType = "options";
-      } else {
-        // Futures: "BANKNIFTY FUT"
-        displayName = QString("%1 FUT").arg(contract.name);
-        description =
-            QString("%1 | Exp: %2").arg(displayName).arg(contract.expiryDate);
-        searchDisplayText =
-            QString("%1 · FUT · %2").arg(contract.name, contract.expiryDate);
-        tvType = "futures";
-      }
-    } else {
-      // Cash market: "RELIANCE EQ"
-      displayName = contract.name;
-      description = QString("%1 | %2").arg(contract.name, contract.series);
-      searchDisplayText =
-          QString("%1 · %2 · %3")
-              .arg(contract.name, contractExchange, contract.series);
-      tvType = "stock";
-    }
-
-    item["symbol"] = displayName;
-    item["full_name"] = searchDisplayText;
-    item["description"] = description;
+    item["symbol"] = contract.name;
+    item["description"] = contract.description;
     item["exchange"] = contractExchange;
-    item["type"] = tvType; // Standarized for TradingView filters
     item["token"] = static_cast<qint64>(contract.exchangeInstrumentID);
     item["segment"] = segmentInt;
     item["ticker"] = QString("%1_%2_%3")
                          .arg(contract.name)
                          .arg(segmentInt)
                          .arg(contract.exchangeInstrumentID);
-    item["expiry"] = contract.expiryDate;
-    item["strike"] = contract.strikePrice;
-    item["optionType"] = contract.optionType;
 
     jsonResults.append(item);
   }
-
-  // Log detailed results
-  qDebug() << "[SEARCH SUGGESTIONS]";
-  for (int i = 0; i < qMin(jsonResults.size(), 10); ++i) {
-    QJsonObject obj = jsonResults[i].toObject();
-    QString logLine = QString("  %1. %2 (Token: %3)")
-                          .arg(i + 1, 2)
-                          .arg(obj["full_name"].toString())
-                          .arg(obj["token"].toVariant().toLongLong());
-    qDebug().noquote() << logLine;
-  }
-  if (jsonResults.size() > 10) {
-    qDebug() << QString("  ... and %1 more").arg(jsonResults.size() - 10);
-  }
-
-  qint64 totalTime = timer.nsecsElapsed() / 1000; // microseconds
-  qDebug() << "";
-  qDebug() << QString("[SEARCH COMPLETE] Total time: %1 μs (%2 ms)")
-                  .arg(totalTime)
-                  .arg(totalTime / 1000.0, 0, 'f', 2);
-  qDebug() << "═══════════════════════════════════════════════════════";
-  qDebug() << "";
 
   emit symbolSearchResults(jsonResults);
 }
 
 void TradingViewDataBridge::loadSymbol(const QString &symbol, int segment,
                                        qint64 token, const QString &interval) {
-  qDebug() << "[TradingViewDataBridge] loadSymbol called from JavaScript:"
-           << "symbol=" << symbol << "segment=" << segment << "token=" << token
-           << "interval=" << interval;
-
-  // Get parent widget and call its loadSymbol method
   TradingViewChartWidget *widget =
       qobject_cast<TradingViewChartWidget *>(parent());
-  if (widget) {
+  if (widget)
     widget->loadSymbol(symbol, segment, token, interval);
-  } else {
-    qWarning() << "[TradingViewDataBridge] Failed to get parent widget";
-  }
 }
 
 void TradingViewDataBridge::placeOrder(const QString &symbol, int segment,
                                        const QString &side, int quantity,
                                        const QString &orderType, double price,
                                        double slPrice) {
-  qDebug() << "[TradingViewDataBridge] placeOrder called from JavaScript:";
-  qDebug() << "  Symbol:" << symbol << "| Segment:" << segment;
-  qDebug() << "  Side:" << side << "| Qty:" << quantity;
-  qDebug() << "  Type:" << orderType << "| Price:" << price
-           << "| SL:" << slPrice;
-
-  // Get parent widget to access RepositoryManager and emit to MainWindow
   TradingViewChartWidget *widget =
       qobject_cast<TradingViewChartWidget *>(parent());
-
-  if (!widget || !widget->m_repoManager) {
-    qWarning()
-        << "[TradingViewDataBridge] No parent widget or RepositoryManager";
-    emit orderFailed("Chart widget not initialized");
+  if (!widget || !widget->m_repoManager)
     return;
-  }
 
-  // Resolve token for the symbol if not provided
-  qint64 token = 0;
-  QString exchange = (segment == 1 || segment == 2) ? "NSE" : "BSE";
-  QString segmentName = (segment == 2 || segment == 12) ? "FO" : "CM";
-
-  // Search for the symbol to get token
-  QVector<ContractData> results = widget->m_repoManager->searchScripsGlobal(
-      symbol, exchange, segmentName, "", 1);
-
-  if (results.isEmpty()) {
-    QString error = QString("Symbol '%1' not found in %2 %3")
-                        .arg(symbol, exchange, segmentName);
-    qWarning() << "[TradingViewDataBridge]" << error;
-    emit orderFailed(error);
+  QVector<ContractData> results =
+      widget->m_repoManager->searchScripsGlobal(symbol, "NSE", "FO", "", 1);
+  if (results.isEmpty())
     return;
-  }
 
   const ContractData &contract = results.first();
-  token = contract.exchangeInstrumentID;
-
-  qDebug() << "[TradingViewDataBridge] Resolved token:" << token << "for"
-           << contract.name;
-
-  // Build OrderParams struct
   XTS::OrderParams params;
   params.exchangeSegment = QString::number(segment);
-  params.exchangeInstrumentID = token;
-  params.orderSide = side.toUpper(); // "BUY" or "SELL"
+  params.exchangeInstrumentID = contract.exchangeInstrumentID;
+  params.orderSide = side.toUpper();
   params.orderQuantity = quantity;
-  params.productType = "NRML"; // Default to NRML (can be MIS/CNC)
-  params.disclosedQuantity = 0;
-  params.timeInForce = "DAY";
+  params.productType = "NRML";
+  params.orderType = orderType.toUpper();
+  params.limitPrice = price;
+  params.stopPrice = slPrice;
+  params.orderUniqueIdentifier =
+      QString("CHART_%1").arg(QDateTime::currentMSecsSinceEpoch());
 
-  // Set order type and prices
-  if (orderType.toUpper() == "MARKET") {
-    params.orderType = "MARKET";
-    params.limitPrice = 0;
-    params.stopPrice = 0;
-  } else if (orderType.toUpper() == "LIMIT") {
-    params.orderType = "LIMIT";
-    params.limitPrice = price;
-    params.stopPrice = 0;
-  } else if (orderType.toUpper() == "SL" ||
-             orderType.toUpper() == "STOPLIMIT") {
-    params.orderType = "STOPLIMIT";
-    params.limitPrice = price;
-    params.stopPrice = slPrice;
-  } else if (orderType.toUpper() == "SL-M" ||
-             orderType.toUpper() == "STOPMARKET") {
-    params.orderType = "STOPMARKET";
-    params.limitPrice = 0;
-    params.stopPrice = slPrice;
-  } else {
-    emit orderFailed("Unknown order type: " + orderType);
+  emit widget->orderRequestedFromChart(params);
+}
+
+void TradingViewDataBridge::receiveTemplateData(const QString &templateName,
+                                                const QString &templateData) {
+  TradingViewChartWidget *widget =
+      qobject_cast<TradingViewChartWidget *>(parent());
+  if (!widget)
     return;
+
+  // Save template data to file
+  QString appDataPath = QCoreApplication::applicationDirPath() + "/templates";
+  QDir dir;
+  if (!dir.exists(appDataPath)) {
+    dir.mkpath(appDataPath);
   }
 
-  params.orderUniqueIdentifier = QString("CHART_%1_%2")
-                                     .arg(symbol)
-                                     .arg(QDateTime::currentMSecsSinceEpoch());
+  QString filePath = appDataPath + "/" + templateName + ".json";
+  QFile file(filePath);
+  if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+    QJsonObject rootObj;
+    rootObj["name"] = templateName;
+    rootObj["timestamp"] = QDateTime::currentSecsSinceEpoch();
+    rootObj["data"] = QJsonDocument::fromJson(templateData.toUtf8()).object();
 
-  // Emit signal to parent widget which will forward to MainWindow
-  emit widget->orderRequestedFromChart(params);
-
-  qDebug() << "[TradingViewDataBridge] Order request emitted to MainWindow";
+    QJsonDocument doc(rootObj);
+    file.write(doc.toJson());
+    file.close();
+    qDebug() << "[TradingViewChart] Template saved:" << templateName;
+  } else {
+    qWarning() << "[TradingViewChart] Failed to save template:" << filePath;
+  }
 }
+
+void TradingViewDataBridge::openTemplateManager() {
+  TradingViewChartWidget *widget =
+      qobject_cast<TradingViewChartWidget *>(parent());
+  if (!widget)
+    return;
+
+  // Call the manageChartTemplates method via the parent MainWindow
+  QWidget *mainWindow = widget->window();
+  if (mainWindow) {
+    QMetaObject::invokeMethod(mainWindow, "manageChartTemplates",
+                              Qt::QueuedConnection);
+  }
+}
+
+#endif // HAVE_QTWEBENGINE

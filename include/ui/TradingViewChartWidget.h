@@ -20,7 +20,7 @@ class XTSMarketDataClient;
 
 // XTS namespace forward declaration
 namespace XTS {
-    struct Tick;
+struct Tick;
 }
 
 /**
@@ -54,7 +54,6 @@ class TradingViewChartWidget : public QWidget {
   Q_OBJECT
 
 public:
-<<<<<<< Updated upstream
   explicit TradingViewChartWidget(QWidget *parent = nullptr);
   ~TradingViewChartWidget();
 
@@ -121,81 +120,33 @@ public:
    * @return true if TradingView widget is initialized
    */
   bool isReady() const { return m_chartReady; }
-=======
-    explicit TradingViewChartWidget(QWidget* parent = nullptr);
-    ~TradingViewChartWidget();
-    
-    /**
-     * @brief Set XTS Market Data Client for API access
-     */
-    void setXTSMarketDataClient(class XTSMarketDataClient* client);
-    
-    /**
-     * @brief Set Repository Manager for symbol search
-     */
-    void setRepositoryManager(class RepositoryManager* repo) { m_repoManager = repo; }
-    
-    /**
-     * @brief Get Repository Manager (used by TradingViewDataBridge)
-     */
-    class RepositoryManager* repositoryManager() const { return m_repoManager; }
-    
-    /**
-     * @brief Load a symbol on the chart
-     * @param symbol Trading symbol (e.g., "NIFTY", "BANKNIFTY")
-     * @param segment Exchange segment (1=NSECM, 2=NSEFO, etc.)
-     * @param token Exchange instrument ID (token)
-     * @param interval Chart interval ("1", "5", "15", "60", "D", "W")
-     */
-    void loadSymbol(const QString& symbol, int segment, int64_t token, const QString& interval = "5");
-    
-    /**
-     * @brief Handle real-time tick updates from XTS feed
-     */
-    void onTickUpdate(const XTS::Tick& tick);
-    
-    /**
-     * @brief Change chart interval/timeframe
-     * @param interval Interval string ("1", "5", "15", "30", "60", "D", "W")
-     */
-    void setInterval(const QString& interval);
-    
-    /**
-     * @brief Apply a theme to the chart
-     * @param theme "Light" or "Dark"
-     */
-    void setTheme(const QString& theme);
-    
-    /**
-     * @brief Add an indicator to the chart
-     * @param indicatorName TradingView indicator name (e.g., "RSI", "MACD")
-     */
-    void addIndicator(const QString& indicatorName);
-    
-    /**
-     * @brief Add an order marker on the chart
-     * @param time Unix timestamp
-     * @param price Price level
-     * @param text Marker text (e.g., "BUY", "SELL")
-     * @param color Marker color
-     * @param shape "arrow_up", "arrow_down", "circle", etc.
-     */
-    void addOrderMarker(qint64 time, double price, const QString& text,
-                       const QString& color = "#26a69a", 
-                       const QString& shape = "arrow_up");
-    
-    /**
-     * @brief Execute JavaScript in the chart context
-     * @param script JavaScript code to execute
-     */
-    void executeScript(const QString& script);
-    
-    /**
-     * @brief Check if chart is ready
-     * @return true if TradingView widget is initialized
-     */
-    bool isReady() const { return m_chartReady; }
->>>>>>> Stashed changes
+
+  /**
+   * @brief Save current chart configuration as a template
+   * @param templateName Name for the template
+   * @return true if save was successful
+   */
+  bool saveTemplate(const QString &templateName);
+
+  /**
+   * @brief Load a chart template
+   * @param templateName Name of the template to load
+   * @return true if load was successful
+   */
+  bool loadTemplate(const QString &templateName);
+
+  /**
+   * @brief Get list of available template names
+   * @return List of template names
+   */
+  QStringList getTemplateList() const;
+
+  /**
+   * @brief Delete a template
+   * @param templateName Name of the template to delete
+   * @return true if deletion was successful
+   */
+  bool deleteTemplate(const QString &templateName);
 
 signals:
   /**
@@ -311,6 +262,19 @@ public:
                               const QString &side, int quantity,
                               const QString &orderType, double price,
                               double slPrice);
+
+  /**
+   * @brief Receive template data from JavaScript after save
+   * @param templateName Name of the template
+   * @param templateData JSON data from TradingView widget.save()
+   */
+  Q_INVOKABLE void receiveTemplateData(const QString &templateName,
+                                       const QString &templateData);
+
+  /**
+   * @brief Open template manager dialog (called from JavaScript)
+   */
+  Q_INVOKABLE void openTemplateManager();
 
 public slots:
   // Called from C++ to send data to JavaScript
