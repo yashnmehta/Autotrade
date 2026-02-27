@@ -15,18 +15,19 @@
 #include "nsecm_multicast_receiver.h"  // NSE CM
 #include "bse_receiver.h"             // BSE FO/CM
 
-#include "api/XTSTypes.h"
+#include "api/xts/XTSTypes.h"
 #include "udp/UDPTypes.h"
+#include "core/ExchangeSegment.h"
 
 /**
- * @brief Exchange segment identifiers for individual receiver control
+ * @brief DEPRECATED — Use ::ExchangeSegment from "core/ExchangeSegment.h" directly.
+ *
+ * ExchangeReceiver was a redundant enum with arbitrary values (0,1,2,3).
+ * It is now a type alias to the canonical ExchangeSegment enum.
+ * All call-sites use symbolic names (NSEFO, NSECM, BSEFO, BSECM)
+ * which exist identically in ExchangeSegment, so no value mismatch.
  */
-enum class ExchangeReceiver {
-    NSEFO = 0,
-    NSECM = 1,
-    BSEFO = 2,
-    BSECM = 3
-};
+using ExchangeReceiver = ::ExchangeSegment;
 
 class UdpBroadcastService : public QObject {
     Q_OBJECT

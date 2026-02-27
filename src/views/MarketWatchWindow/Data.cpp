@@ -1,4 +1,4 @@
-#include "models/TokenAddressBook.h"
+#include "models/domain/TokenAddressBook.h"
 #include "repository/RepositoryManager.h"
 #include "utils/LatencyTracker.h"
 #include "views/MarketWatchWindow.h"

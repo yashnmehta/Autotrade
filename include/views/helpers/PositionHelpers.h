@@ -5,7 +5,7 @@
 #include <QStringList>
 #include <QList>
 
-#include "models/PositionModel.h"
+#include "models/qt/PositionModel.h"
 
 // Forward declaration if needed, but we included the header
 // struct PositionData;

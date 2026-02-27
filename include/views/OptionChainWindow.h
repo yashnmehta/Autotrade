@@ -15,12 +15,12 @@
 #include <QMap>
 #include <QKeyEvent>
 #include <QShortcut>
-#include "api/XTSTypes.h"
+#include "api/xts/XTSTypes.h"
 #include "udp/UDPTypes.h"
 #include "repository/ContractData.h"
-#include "models/WindowContext.h"
-#include "models/GenericTableProfile.h"
-#include "models/GenericProfileManager.h"
+#include "models/domain/WindowContext.h"
+#include "models/profiles/GenericTableProfile.h"
+#include "models/profiles/GenericProfileManager.h"
 
 /**
  * @brief Data structure for a single strike in the option chain

@@ -7,7 +7,7 @@
 #include <vector>
 #include <mutex>
 #include <memory>
-#include "api/XTSTypes.h"
+#include "api/xts/XTSTypes.h"
 #include "udp/UDPTypes.h"
 
 /**

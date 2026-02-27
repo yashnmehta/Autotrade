@@ -1,5 +1,5 @@
 #include "ui/GlobalSearchWidget.h"
-#include "api/XTSTypes.h"
+#include "api/xts/XTSTypes.h"
 #include "repository/RepositoryManager.h"
 #include <QDebug>
 #include <QHeaderView>

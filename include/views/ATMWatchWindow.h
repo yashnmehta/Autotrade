@@ -1,7 +1,7 @@
 #ifndef ATM_WATCH_WINDOW_H
 #define ATM_WATCH_WINDOW_H
 
-#include "models/WindowContext.h"
+#include "models/domain/WindowContext.h"
 #include "services/ATMWatchManager.h"
 #include "udp/UDPTypes.h"
 #include <QComboBox>

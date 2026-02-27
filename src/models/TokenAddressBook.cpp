@@ -1,4 +1,4 @@
-#include "models/TokenAddressBook.h"
+#include "models/domain/TokenAddressBook.h"
 #include <QDebug>
 
 TokenAddressBook::TokenAddressBook(QObject *parent)

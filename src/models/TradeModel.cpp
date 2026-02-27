@@ -1,4 +1,4 @@
-#include "models/TradeModel.h"
+#include "models/qt/TradeModel.h"
 #include <QColor>
 #include <QBrush>
 #include <QFont>

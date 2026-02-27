@@ -5,7 +5,7 @@
 #include <QVBoxLayout>
 
 
-#include "models/PinnedRowProxyModel.h"
+#include "models/qt/PinnedRowProxyModel.h"
 #include <QComboBox>
 #include <QDebug>
 #include <QHBoxLayout>

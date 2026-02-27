@@ -1,6 +1,6 @@
 #include "views/BuyWindow.h"
 #include "views/SellWindow.h"
-#include "api/XTSTypes.h"
+#include "api/xts/XTSTypes.h"
 #include "utils/PreferencesManager.h"
 #include "utils/SoundManager.h"
 #include "utils/WindowSettingsHelper.h"

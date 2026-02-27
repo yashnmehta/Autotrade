@@ -10,7 +10,7 @@
 #include <QLabel>
 #include <QMenu>
 #include <QDebug>
-#include "models/PinnedRowProxyModel.h"
+#include "models/qt/PinnedRowProxyModel.h"
 
 TradeBookWindow::TradeBookWindow(TradingDataService* tradingDataService, QWidget *parent)
     : BaseBookWindow("TradeBook", parent), m_tradingDataService(tradingDataService) 

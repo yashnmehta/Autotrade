@@ -2,8 +2,8 @@
 #define TRADEBOOKWINDOW_H
 
 #include "views/BaseBookWindow.h"
-#include "api/XTSTypes.h"
-#include "models/TradeModel.h"
+#include "api/xts/XTSTypes.h"
+#include "models/qt/TradeModel.h"
 
 class CustomTradeBook;
 class TradingDataService;

@@ -2,24 +2,18 @@
 #define UDP_ENUMS_H
 
 #include <cstdint>
+#include "core/ExchangeSegment.h"
 
 namespace UDP {
 
 /**
- * @brief Exchange segment identifiers for UDP broadcast data
- * 
- * These match the official exchange segment codes used in market data feeds.
- * Values are consistent with XTS API for cross-compatibility.
+ * @brief DEPRECATED — Use ::ExchangeSegment from "core/ExchangeSegment.h" directly.
+ *
+ * This alias exists for backward compatibility so that existing code using
+ * UDP::ExchangeSegment still compiles without changes.  New code should
+ * use the global ::ExchangeSegment enum.
  */
-enum class ExchangeSegment : uint8_t {
-    NSECM = 1,   // NSE Cash Market (Equities)
-    NSEFO = 2,   // NSE Futures & Options (Derivatives)
-    NSECD = 3,   // NSE Currency Derivatives (per XTS API)
-    BSECM = 11,  // BSE Cash Market (Equities)
-    BSEFO = 12,  // BSE Futures & Options (Derivatives)
-    MCXFO = 51,  // MCX Commodity Derivatives
-    BSECD = 61   // BSE Currency Derivatives
-};
+using ExchangeSegment = ::ExchangeSegment;
 
 /**
  * @brief NSE broadcast message types (Transaction Codes)

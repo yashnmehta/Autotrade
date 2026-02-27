@@ -3,8 +3,9 @@
 #include "nsecm_price_store.h"
 #include "nsefo_price_store.h"
 #include "repository/ContractData.h"
-#include "repository/Greeks.h"
-#include "repository/IVCalculator.h"
+#include "quant/Greeks.h"
+#include "quant/IVCalculator.h"
+#include "quant/TimeToExpiry.h"
 #include "repository/RepositoryManager.h"
 
 #include <QDate>
@@ -660,104 +661,24 @@ bool GreeksCalculationService::shouldRecalculate(
 
 double
 GreeksCalculationService::calculateTimeToExpiry(const QString &expiryDate) {
-  // Parse expiry date (format: "27JAN2026" or "27-JAN-2026")
-  QDate expiry;
-
-  // Try different formats
-  expiry = QDate::fromString(expiryDate, "ddMMMyyyy");
-  if (!expiry.isValid()) {
-    expiry = QDate::fromString(expiryDate, "dd-MMM-yyyy");
-  }
-  if (!expiry.isValid()) {
-    expiry = QDate::fromString(expiryDate, "yyyy-MM-dd");
-  }
-
-  if (!expiry.isValid()) {
-    qWarning() << "[GreeksCalculationService] Failed to parse expiry date:"
-               << expiryDate;
-    return 0.0;
-  }
-
-  return calculateTimeToExpiry(expiry);
+  return TimeToExpiry::tradingDays(expiryDate);
 }
 
 double GreeksCalculationService::calculateTimeToExpiry(const QDate &expiry) {
-  QDate today = QDate::currentDate();
-
-  if (expiry < today) {
-    return 0.0; // Expired
-  }
-
-  // Calculate trading days
-  int tradingDays = calculateTradingDays(today, expiry);
-
-  // Add intraday component
-  QTime now = QTime::currentTime();
-  QTime marketClose(15, 30, 0); // NSE closes at 3:30 PM
-
-  double intraDayFraction = 0.0;
-  if (now < marketClose) {
-    // Trading day not over
-    int secondsRemaining = now.secsTo(marketClose);
-    // int tradingSeconds = 6.5 * 60 * 60; // 6.5 hours trading day
-    intraDayFraction = static_cast<double>(secondsRemaining) / (24 * 60 * 60);
-
-    // For Greeks, T is typically (Days + TimeFrac)/252
-    if (tradingDays > 0) {
-      tradingDays--; // Don't double count today
-    }
-  }
-
-  // Convert to years (252 trading days per year in India)
-  double T = (tradingDays + intraDayFraction) / 252.0;
-
-  // Minimum time to avoid division by zero
-  return std::max(T, 0.0001);
+  return TimeToExpiry::tradingDays(expiry);
 }
 
 int GreeksCalculationService::calculateTradingDays(const QDate &start,
                                                    const QDate &end) {
-  int count = 0;
-  QDate current = start;
-
-  while (current <= end) {
-    if (isNSETradingDay(current)) {
-      count++;
-    }
-    current = current.addDays(1);
-  }
-
-  return count;
+  return TimeToExpiry::countTradingDays(start, end);
 }
 
 bool GreeksCalculationService::isNSETradingDay(const QDate &date) {
-  // Weekend check
-  int dayOfWeek = date.dayOfWeek();
-  if (dayOfWeek == Qt::Saturday || dayOfWeek == Qt::Sunday) {
-    return false;
-  }
-
-  // Holiday check
-  return !m_nseHolidays.contains(date);
+  return TimeToExpiry::isNSETradingDay(date);
 }
 
 void GreeksCalculationService::loadNSEHolidays() {
-  // NSE Holidays 2026 (update annually)
-  // These are approximate - should be loaded from a config file
-  m_nseHolidays = {
-      QDate(2026, 1, 26),  // Republic Day
-      QDate(2026, 3, 14),  // Holi
-      QDate(2026, 3, 30),  // Good Friday
-      QDate(2026, 4, 2),   // Ram Navami
-      QDate(2026, 4, 14),  // Dr. Ambedkar Jayanti
-      QDate(2026, 5, 1),   // Maharashtra Day
-      QDate(2026, 8, 15),  // Independence Day
-      QDate(2026, 8, 19),  // Janmashtami
-      QDate(2026, 10, 2),  // Gandhi Jayanti
-      QDate(2026, 10, 24), // Dussehra
-      QDate(2026, 11, 12), // Diwali
-      QDate(2026, 11, 13), // Diwali (Laxmi Pujan)
-      QDate(2026, 11, 14), // Diwali (Balipratipada)
-      QDate(2026, 12, 25), // Christmas
-  };
+  // TimeToExpiry loads defaults automatically.
+  // To override, call TimeToExpiry::setHolidays() with a custom set.
+  m_nseHolidays = TimeToExpiry::holidays();
 }

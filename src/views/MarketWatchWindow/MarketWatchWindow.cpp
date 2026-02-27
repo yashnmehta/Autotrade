@@ -1,6 +1,6 @@
 #include "views/MarketWatchWindow.h"
 #include "data/PriceStoreGateway.h"
-#include "models/TokenAddressBook.h"
+#include "models/domain/TokenAddressBook.h"
 #include "repository/RepositoryManager.h"
 #include "services/FeedHandler.h"
 #include "services/TokenSubscriptionManager.h"

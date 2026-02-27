@@ -1,9 +1,9 @@
 #ifndef STRATEGY_SERVICE_H
 #define STRATEGY_SERVICE_H
 
-#include "api/XTSTypes.h"
+#include "api/xts/XTSTypes.h"
 #include "strategy/model/StrategyInstance.h"
-#include "strategy/manager/StrategyRepository.h"
+#include "strategy/persistence/StrategyRepository.h"
 #include <QHash>
 #include <QMutex>
 #include <QTimer>

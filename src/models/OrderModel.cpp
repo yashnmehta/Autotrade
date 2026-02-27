@@ -1,4 +1,4 @@
-#include "models/OrderModel.h"
+#include "models/qt/OrderModel.h"
 #include <QColor>
 #include <QBrush>
 #include <QFont>

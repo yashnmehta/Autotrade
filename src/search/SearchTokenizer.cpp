@@ -1,4 +1,4 @@
-#include "SearchTokenizer.h"
+#include "search/SearchTokenizer.h"
 
 #include <QRegularExpression>
 #include <QDate>

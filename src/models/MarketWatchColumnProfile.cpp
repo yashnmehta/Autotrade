@@ -1,4 +1,4 @@
-#include "models/MarketWatchColumnProfile.h"
+#include "models/profiles/MarketWatchColumnProfile.h"
 #include <QDebug>
 
 // Static member initialization

@@ -1,5 +1,5 @@
 #include "ui/IndicatorChartWidget.h"
-#include "api/NativeHTTPClient.h"
+#include "api/transport/NativeHTTPClient.h"
 #include "indicators/TALibIndicators.h"
 #include "ui/GlobalSearchWidget.h"
 #include <QDebug>

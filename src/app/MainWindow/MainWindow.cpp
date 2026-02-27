@@ -1,5 +1,7 @@
 #include "app/MainWindow.h"
-#include "api/XTSInteractiveClient.h"
+#include "app/WindowFactory.h"
+#include "app/WorkspaceManager.h"
+#include "api/xts/XTSInteractiveClient.h"
 #include "app/ScripBar.h"
 #include "core/widgets/CustomMDIArea.h"
 #include "core/widgets/CustomMDISubWindow.h"
@@ -23,7 +25,7 @@
 #include "utils/LatencyTracker.h"
 #include "utils/WindowManager.h"
 #include "views/IndicesView.h"
-#include "views/MarketWatchWindow.h" // Needed for getActiveMarketWatch cast
+#include "views/MarketWatchWindow.h"
 #include <QAction>
 #include <QDebug>
 #include <QDockWidget>
@@ -34,7 +36,8 @@
 
 
 MainWindow::MainWindow(QWidget *parent)
-    : CustomMainWindow(parent), m_xtsMarketDataClient(nullptr),
+    : CustomMainWindow(parent), m_windowFactory(nullptr),
+      m_workspaceManager(nullptr), m_xtsMarketDataClient(nullptr),
       m_xtsInteractiveClient(nullptr), m_tradingDataService(nullptr),
       m_configLoader(nullptr), m_indicesDock(nullptr), m_indicesView(nullptr),
       m_allIndicesWindow(nullptr) {
@@ -42,8 +45,17 @@ MainWindow::MainWindow(QWidget *parent)
   resize(1600, 900);
   setMinimumSize(800, 600);
 
-  // Setup content FIRST (creates layout and widgets)
+  // Setup content FIRST (creates layout, widgets, and m_mdiArea)
   setupContent();
+
+  // Create extracted collaborators (requires m_mdiArea from setupContent)
+  m_windowFactory = new WindowFactory(this, m_mdiArea, this);
+  m_workspaceManager =
+      new WorkspaceManager(this, m_mdiArea, m_windowFactory, this);
+
+  // Wire workspace restore signal to WorkspaceManager instead of MainWindow
+  connect(m_mdiArea, &CustomMDIArea::restoreWindowRequested,
+          m_workspaceManager, &WorkspaceManager::onRestoreWindowRequested);
 
   // Setup keyboard shortcuts
   setupShortcuts();
@@ -100,6 +112,10 @@ void MainWindow::setXTSClients(XTSMarketDataClient *mdClient,
   m_xtsMarketDataClient = mdClient;
   m_xtsInteractiveClient = iaClient;
 
+  // Propagate to WindowFactory
+  if (m_windowFactory)
+    m_windowFactory->setXTSClients(mdClient, iaClient);
+
   if (m_xtsMarketDataClient) {
     connect(m_xtsMarketDataClient, &XTSMarketDataClient::tickReceived, this,
             &MainWindow::onTickReceived);
@@ -116,6 +132,10 @@ void MainWindow::setXTSClients(XTSMarketDataClient *mdClient,
 
 void MainWindow::setTradingDataService(TradingDataService *service) {
   m_tradingDataService = service;
+
+  // Propagate to WindowFactory
+  if (m_windowFactory)
+    m_windowFactory->setTradingDataService(service);
 }
 
 void MainWindow::setConfigLoader(ConfigLoader *loader) {
@@ -174,32 +194,6 @@ void MainWindow::closeEvent(QCloseEvent *event) {
     s.setValue("mainwindow/indices_visible", m_indicesDock->isVisible());
 
   CustomMainWindow::closeEvent(event);
-}
-
-MarketWatchWindow *MainWindow::getActiveMarketWatch() const {
-  // Get the currently active MDI sub-window
-  CustomMDISubWindow *activeSubWindow =
-      m_mdiArea ? m_mdiArea->activeWindow() : nullptr;
-  if (!activeSubWindow) {
-    return nullptr;
-  }
-
-  // Check if the active sub-window is a MarketWatch
-  if (activeSubWindow->windowType() == "MarketWatch") {
-    QWidget *widget = activeSubWindow->contentWidget();
-    return qobject_cast<MarketWatchWindow *>(widget);
-  }
-
-  // If not, search through all MDI windows for the first MarketWatch
-  QList<CustomMDISubWindow *> windows = m_mdiArea->windowList();
-  for (CustomMDISubWindow *win : windows) {
-    if (win->windowType() == "MarketWatch") {
-      QWidget *widget = win->contentWidget();
-      return qobject_cast<MarketWatchWindow *>(widget);
-    }
-  }
-
-  return nullptr;
 }
 
 void MainWindow::onTickReceived(const XTS::Tick &tick) {
@@ -538,98 +532,6 @@ void MainWindow::cancelOrder(int64_t appOrderID) {
   });
 }
 
-#include "core/widgets/CustomMDISubWindow.h"
-#include "views/BuyWindow.h"
-#include "views/SellWindow.h"
-
-void MainWindow::openBuyWindowForModification(const XTS::Order &order) {
-  // Note: We deliberately DO NOT close existing windows here to allow multiple
-  // modification windows closeWindowsByType("BuyWindow");
-  // closeWindowsByType("SellWindow");
-
-  CustomMDISubWindow *window =
-      new CustomMDISubWindow("Modify Buy Order", m_mdiArea);
-  window->setWindowType("BuyWindow");
-
-  BuyWindow *buyWindow = new BuyWindow(window);
-  buyWindow->loadFromOrder(order); // Load order data for modification
-
-  // Connect the modification signal
-  connect(buyWindow, &BaseOrderWindow::orderModificationSubmitted, this,
-          &MainWindow::modifyOrder);
-
-  window->setContentWidget(buyWindow);
-  window->resize(1220, 260);
-  connectWindowSignals(window);
-  m_mdiArea->addWindow(window);
-  window->activateWindow();
-}
-
-void MainWindow::openSellWindowForModification(const XTS::Order &order) {
-  // Note: We deliberately DO NOT close existing windows here to allow multiple
-  // modification windows closeWindowsByType("BuyWindow");
-  // closeWindowsByType("SellWindow");
-
-  CustomMDISubWindow *window =
-      new CustomMDISubWindow("Modify Sell Order", m_mdiArea);
-  window->setWindowType("SellWindow");
-
-  SellWindow *sellWindow = new SellWindow(window);
-  sellWindow->loadFromOrder(order); // Load order data for modification
-
-  // Connect the modification signal
-  connect(sellWindow, &BaseOrderWindow::orderModificationSubmitted, this,
-          &MainWindow::modifyOrder);
-
-  window->setContentWidget(sellWindow);
-  window->resize(1220, 260);
-  connectWindowSignals(window);
-  m_mdiArea->addWindow(window);
-  window->activateWindow();
-}
-
-void MainWindow::openBatchBuyWindowForModification(
-    const QVector<XTS::Order> &orders) {
-  // Batch Modify Buy Window
-  CustomMDISubWindow *window =
-      new CustomMDISubWindow("Batch Modify Buy", m_mdiArea);
-  window->setWindowType("BuyWindow");
-
-  BuyWindow *buyWindow = new BuyWindow(window);
-  buyWindow->loadFromOrders(orders); // Load BATCH of orders
-
-  // Connect the modification signal
-  connect(buyWindow, &BaseOrderWindow::orderModificationSubmitted, this,
-          &MainWindow::modifyOrder);
-
-  window->setContentWidget(buyWindow);
-  window->resize(1220, 260);
-  connectWindowSignals(window);
-  m_mdiArea->addWindow(window);
-  window->activateWindow();
-}
-
-void MainWindow::openBatchSellWindowForModification(
-    const QVector<XTS::Order> &orders) {
-  // Batch Modify Sell Window
-  CustomMDISubWindow *window =
-      new CustomMDISubWindow("Batch Modify Sell", m_mdiArea);
-  window->setWindowType("SellWindow");
-
-  SellWindow *sellWindow = new SellWindow(window);
-  sellWindow->loadFromOrders(orders); // Load BATCH of orders
-
-  // Connect the modification signal
-  connect(sellWindow, &BaseOrderWindow::orderModificationSubmitted, this,
-          &MainWindow::modifyOrder);
-
-  window->setContentWidget(sellWindow);
-  window->resize(1220, 260);
-  connectWindowSignals(window);
-  m_mdiArea->addWindow(window);
-  window->activateWindow();
-}
-
 // setupShortcuts() is defined in core/GlobalShortcuts.cpp
 
 void MainWindow::onScripBarEscapePressed() {
@@ -647,8 +549,8 @@ void MainWindow::onScripBarEscapePressed() {
     WindowManager::instance().restoreFocusState(activeWin);
     qDebug() << "[MainWindow] ScripBar Esc → restored focus to last active window";
   } else {
-    // Fallback: focus any MarketWatch
-    MarketWatchWindow *activeMW = getActiveMarketWatch();
+    // Fallback: focus any MarketWatch (via WindowFactory)
+    MarketWatchWindow *activeMW = m_windowFactory->getActiveMarketWatch();
     if (activeMW) {
       activeMW->setFocus();
       qDebug() << "[MainWindow] ScripBar Esc → fallback to MarketWatch";

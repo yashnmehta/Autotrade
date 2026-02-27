@@ -1,9 +1,9 @@
 #ifndef POSITIONWINDOW_H
 #define POSITIONWINDOW_H
 
-#include "models/WindowContext.h"
+#include "models/domain/WindowContext.h"
 #include "views/BaseBookWindow.h"
-#include "api/XTSTypes.h"
+#include "api/xts/XTSTypes.h"
 #include "PositionModel.h"
 #include <QMutex>
 

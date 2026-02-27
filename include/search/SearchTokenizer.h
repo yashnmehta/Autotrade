@@ -15,10 +15,6 @@ public:
         QStringList rawTokens;       // Original split tokens (uppercased)
     };
 
-    // Parse the query into ParsedTokens. Handles tokens in any order.
-    static ParsedTokens parse(const QString& query);
-
-private:
     enum TokenType {
         SYMBOL,
         NUMBER,
@@ -32,6 +28,10 @@ private:
         double numericValue = 0.0; // for NUMBER: numeric value; for OPTION_TYPE: 3 or 4
     };
 
+    // Parse the query into ParsedTokens. Handles tokens in any order.
+    static ParsedTokens parse(const QString& query);
+
+private:
     static QVector<ClassifiedToken> classifyTokens(const QStringList& tokens);
     static bool isMonthName(const QString& token);
     static bool isOptionType(const QString& token, int& optionTypeOut);

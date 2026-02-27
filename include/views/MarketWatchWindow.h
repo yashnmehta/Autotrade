@@ -2,9 +2,9 @@
 #define MARKETWATCHWINDOW_H
 
 #include "core/widgets/CustomMarketWatch.h"
-#include "models/MarketWatchModel.h"  // For ScripData
-#include "models/IMarketWatchViewCallback.h"  // For native C++ callbacks
-#include "models/WindowContext.h"  // For context-aware window opening
+#include "models/qt/MarketWatchModel.h"  // For ScripData
+#include "models/interfaces/IMarketWatchViewCallback.h"  // For native C++ callbacks
+#include "models/domain/WindowContext.h"  // For context-aware window opening
 #include "services/FeedHandler.h"  // Phase 2: Direct callback-based updates
 #include "udp/UDPTypes.h"  // Phase 3: UDP-specific tick data
 #include <QVBoxLayout>

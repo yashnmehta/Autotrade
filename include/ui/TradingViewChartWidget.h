@@ -1,7 +1,7 @@
 #ifndef TRADINGVIEWCHARTWIDGET_H
 #define TRADINGVIEWCHARTWIDGET_H
 
-#include "api/XTSTypes.h" // For XTS::Tick
+#include "api/xts/XTSTypes.h" // For XTS::Tick
 #include "data/CandleData.h"
 #include <QString>
 #ifdef HAVE_TRADINGVIEW

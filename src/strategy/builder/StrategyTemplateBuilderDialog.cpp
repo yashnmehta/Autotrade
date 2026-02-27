@@ -150,7 +150,7 @@ void StrategyTemplateBuilderDialog::populateSymbols(
   ui->symbolsTable->setRowCount(0);
   for (const auto &sym : tmpl.symbols)
     addSymbolRow(sym.id, sym.label, sym.role == SymbolRole::Trade ? 1 : 0,
-                 (int)sym.segment);
+                 segmentToComboIndex(sym.segment));
   ui->symbolsTable->blockSignals(false);
 }
 
@@ -649,8 +649,8 @@ StrategyTemplateBuilderDialog::extractSymbols() const {
 
     auto *segCombo =
         qobject_cast<QComboBox *>(ui->symbolsTable->cellWidget(r, SC_TYPE));
-    sym.segment = segCombo ? (SymbolSegment)segCombo->currentIndex()
-                           : SymbolSegment::NSE_CM;
+    sym.segment = segCombo ? segmentFromComboIndex(segCombo->currentIndex())
+                           : ExchangeSegment::NSECM;
     sym.tradeType = sym.segment; // keep alias in sync
 
     if (!sym.id.isEmpty())

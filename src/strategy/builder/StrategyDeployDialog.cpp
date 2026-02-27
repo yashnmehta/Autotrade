@@ -5,7 +5,7 @@
 
 #include "strategy/builder/StrategyDeployDialog.h"
 #include "repository/RepositoryManager.h"
-#include "strategy/builder/StrategyTemplateRepository.h"
+#include "strategy/persistence/StrategyTemplateRepository.h"
 #include "ui/GlobalSearchWidget.h"
 
 #include <QCheckBox>

@@ -2,7 +2,7 @@
 #include "core/widgets/CustomOrderBook.h"
 #include "services/TradingDataService.h"
 #include "utils/PreferencesManager.h"
-#include "api/XTSTypes.h"
+#include "api/xts/XTSTypes.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QComboBox>
@@ -13,7 +13,7 @@
 #include <QDebug>
 #include <QMenu>
 #include <QKeyEvent>
-#include "models/PinnedRowProxyModel.h"
+#include "models/qt/PinnedRowProxyModel.h"
 
 OrderBookWindow::OrderBookWindow(TradingDataService* tradingDataService, QWidget *parent)
     : BaseBookWindow("OrderBook", parent), m_tradingDataService(tradingDataService) 

@@ -2,8 +2,8 @@
 #define ORDERBOOKWINDOW_H
 
 #include "views/BaseBookWindow.h"
-#include "api/XTSTypes.h"
-#include "models/OrderModel.h"
+#include "api/xts/XTSTypes.h"
+#include "models/qt/OrderModel.h"
 
 class CustomOrderBook;
 class TradingDataService;

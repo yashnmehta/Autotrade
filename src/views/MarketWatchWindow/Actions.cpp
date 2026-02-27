@@ -1,6 +1,6 @@
 #include "data/PriceStoreGateway.h"
 #include "data/UnifiedPriceState.h"
-#include "models/TokenAddressBook.h"
+#include "models/domain/TokenAddressBook.h"
 #include "repository/RepositoryManager.h"
 #include "services/TokenSubscriptionManager.h"
 #include "utils/ClipboardHelpers.h"

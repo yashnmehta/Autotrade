@@ -1,8 +1,8 @@
 #ifndef BASEORDERWINDOW_H
 #define BASEORDERWINDOW_H
 
-#include "api/XTSTypes.h"
-#include "models/WindowContext.h"
+#include "api/xts/XTSTypes.h"
+#include "models/domain/WindowContext.h"
 #include <QCloseEvent>
 #include <QComboBox>
 #include <QFile>

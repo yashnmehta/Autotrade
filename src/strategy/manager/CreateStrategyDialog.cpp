@@ -39,7 +39,7 @@ CreateStrategyDialog::CreateStrategyDialog(QWidget *parent)
 
 CreateStrategyDialog::~CreateStrategyDialog() { delete ui; }
 
-#include "strategy/builder/StrategyTemplateRepository.h"
+#include "strategy/persistence/StrategyTemplateRepository.h"
 #include "strategy/builder/SymbolBindingWidget.h"
 #include <QVariantMap>
 

@@ -11,7 +11,7 @@
 #include "data/PriceStoreGateway.h"
 #include "services/CandleAggregator.h"
 #include "services/FeedHandler.h"
-#include "strategy/builder/StrategyTemplateRepository.h"
+#include "strategy/persistence/StrategyTemplateRepository.h"
 #include <QDebug>
 #include <QJsonArray>
 #include <QJsonDocument>

@@ -1,4 +1,4 @@
-#include "models/PositionModel.h"
+#include "models/qt/PositionModel.h"
 #include <QColor>
 #include <QFont>
 #include <QSet>

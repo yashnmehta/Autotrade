@@ -8,8 +8,8 @@
 #include "services/TradingDataService.h"
 #include "app/ScripBar.h"
 #include "core/widgets/InfoBar.h"
-#include "models/TokenAddressBook.h"
-#include "models/MarketWatchModel.h"
+#include "models/domain/TokenAddressBook.h"
+#include "models/qt/MarketWatchModel.h"
 #include <QDebug>
 #include <QPushButton>
 

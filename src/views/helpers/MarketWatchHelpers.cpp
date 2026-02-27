@@ -1,5 +1,5 @@
 #include "views/helpers/MarketWatchHelpers.h"
-#include "models/MarketWatchModel.h"  // For ScripData struct
+#include "models/qt/MarketWatchModel.h"  // For ScripData struct
 #include "repository/RepositoryManager.h"
 #include <QDebug>
 #include <QFile>

@@ -5,8 +5,8 @@
 #include <QListWidget>
 #include <QComboBox>
 #include <QPushButton>
-#include "models/GenericTableProfile.h"
-#include "models/GenericProfileManager.h"
+#include "models/profiles/GenericTableProfile.h"
+#include "models/profiles/GenericProfileManager.h"
 
 /**
  * @brief Universal dual-list column profile dialog.

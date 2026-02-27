@@ -1,8 +1,8 @@
 #include "views/MarketWatchWindow.h"
 #include "views/GenericProfileDialog.h"
-#include "models/GenericProfileManager.h"
+#include "models/profiles/GenericProfileManager.h"
 #include "utils/WindowSettingsHelper.h"
-#include "models/TokenAddressBook.h"
+#include "models/domain/TokenAddressBook.h"
 #include <QHeaderView>
 #include <QShortcut>
 #include <QMenu>

@@ -1,10 +1,10 @@
 #include "core/WindowCacheManager.h"
-#include "api/XTSMarketDataClient.h"
+#include "api/xts/XTSMarketDataClient.h"
 #include "app/MainWindow.h"
 #include "core/WindowConstants.h"
 #include "core/widgets/CustomMDIArea.h"
 #include "core/widgets/CustomMDISubWindow.h"
-#include "models/WindowContext.h"
+#include "models/domain/WindowContext.h"
 #include "services/UdpBroadcastService.h" // ⚡ For real-time UDP updates
 #include "views/BuyWindow.h"
 #include "views/SellWindow.h"

@@ -1,7 +1,7 @@
 #ifndef INDICESVIEW_H
 #define INDICESVIEW_H
 
-#include "api/XTSTypes.h"
+#include "api/xts/XTSTypes.h"
 #include "udp/UDPTypes.h"
 #include <QAbstractTableModel>
 #include <QHash>

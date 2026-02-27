@@ -2,7 +2,7 @@
 #include "strategy/manager/StrategyFilterProxyModel.h"
 #include "strategy/manager/StrategyTableModel.h"
 #include "strategy/manager/StrategyService.h"
-#include "strategy/builder/StrategyTemplateRepository.h"
+#include "strategy/persistence/StrategyTemplateRepository.h"
 #include "strategy/manager/CreateStrategyDialog.h"
 #include "strategy/manager/ModifyParametersDialog.h"
 #include "strategy/builder/StrategyDeployDialog.h"

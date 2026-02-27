@@ -1,13 +1,13 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
-#include "api/XTSMarketDataClient.h"
+#include "api/xts/XTSMarketDataClient.h"
 #include "bse_receiver.h"
 #include "core/widgets/CustomMainWindow.h"
 #include "multicast_receiver.h"
 #include "nsecm_multicast_receiver.h"
 class QRect;
-#include "models/WindowContext.h"
+#include "models/domain/WindowContext.h"
 #include <QString>
 #include <QTimer>
 #include <memory>
@@ -27,8 +27,10 @@ class InfoBar;
 class QDockWidget;
 class QAction;
 class XTSInteractiveClient;
-class IndicesView;      // Forward declaration
-class AllIndicesWindow; // Forward declaration
+class IndicesView;
+class AllIndicesWindow;
+class WindowFactory;
+class WorkspaceManager;
 struct InstrumentData;
 
 /**
@@ -36,7 +38,10 @@ struct InstrumentData;
  *
  * This is the application-specific main window that uses CustomMainWindow
  * as its base. CustomMainWindow handles all the frameless window mechanics,
- * while this class focuses on trading terminal specific UI and logic.
+ * while this class focuses on trading terminal specific UI and layout.
+ *
+ * Window creation is delegated to WindowFactory.
+ * Workspace persistence is delegated to WorkspaceManager.
  */
 class MainWindow : public CustomMainWindow {
   Q_OBJECT
@@ -46,6 +51,12 @@ public:
   ~MainWindow();
 
   CustomMDIArea *mdiArea() const { return m_mdiArea; }
+
+  /// Access the window factory (used by external components)
+  WindowFactory *windowFactory() const { return m_windowFactory; }
+
+  /// Access the workspace manager
+  WorkspaceManager *workspaceManager() const { return m_workspaceManager; }
 
   // XTS API clients
   void setXTSClients(XTSMarketDataClient *mdClient,
@@ -61,63 +72,44 @@ public:
   void refreshScripBar();
 
   // IndicesView management
-  bool hasIndicesView() const; // Check if IndicesView exists
-  void createIndicesView();    // Create IndicesView (called from main.cpp)
-  void showAllIndices();       // Show AllIndicesWindow (creates on-demand)
+  bool hasIndicesView() const;
+  void createIndicesView();
+  void showAllIndices();
 
-  // Order operations
+  // ── Order operations (stay on MainWindow — they need XTS clients) ────
   bool loadWorkspaceByName(const QString &name);
   void placeOrder(const XTS::OrderParams &params);
   void modifyOrder(const XTS::ModifyOrderParams &params);
   void cancelOrder(int64_t appOrderID);
 
-  // Open order window for modification
-  void openBuyWindowForModification(const XTS::Order &order);
-  void openSellWindowForModification(const XTS::Order &order);
-
-  // Batch modification
-  void openBatchBuyWindowForModification(const QVector<XTS::Order> &orders);
-  void openBatchSellWindowForModification(const QVector<XTS::Order> &orders);
-
 private slots:
-  // Window actions
-  CustomMDISubWindow *createMarketWatch();
-  CustomMDISubWindow *createBuyWindow();
-  CustomMDISubWindow *createSellWindow();
-  CustomMDISubWindow *createSnapQuoteWindow();
-  CustomMDISubWindow *createOptionChainWindow();
-  CustomMDISubWindow *createOptionChainWindowForSymbol(const QString &symbol,
-                                                       const QString &expiry);
-  CustomMDISubWindow *createATMWatchWindow();
-  CustomMDISubWindow *createTradeBookWindow();
-  CustomMDISubWindow *createOrderBookWindow();
-  CustomMDISubWindow *createPositionWindow();
-  CustomMDISubWindow *createStrategyManagerWindow();
-  CustomMDISubWindow *createGlobalSearchWindow();
-  CustomMDISubWindow *createChartWindow();
-  CustomMDISubWindow *createIndicatorChartWindow();
-  CustomMDISubWindow *createMarketMovementWindow();
-  CustomMDISubWindow *createOptionCalculatorWindow();
+  // ── Thin delegators to WindowFactory (kept as slots for menu/shortcut) ──
+  void createMarketWatch();
+  void createBuyWindow();
+  void createSellWindow();
+  void createSnapQuoteWindow();
+  void createOptionChainWindow();
+  void createATMWatchWindow();
+  void createTradeBookWindow();
+  void createOrderBookWindow();
+  void createPositionWindow();
+  void createStrategyManagerWindow();
+  void createGlobalSearchWindow();
+  void createChartWindow();
+  void createIndicatorChartWindow();
+  void createMarketMovementWindow();
+  void createOptionCalculatorWindow();
   void focusScripBar();
   void onAddToWatchRequested(const InstrumentData &instrument);
   void resetLayout();
 
-  // Window limit helper
-  int countWindowsOfType(const QString &type);
-  void closeWindowsByType(const QString &type);
-
   // Market data updates
   void onTickReceived(const XTS::Tick &tick);
 
-  // Workspace management
+  // Workspace management (delegated to WorkspaceManager)
   void saveCurrentWorkspace();
   void loadWorkspace();
-
   void manageWorkspaces();
-  void onRestoreWindowRequested(const QString &type, const QString &title,
-                                const QRect &geometry, bool isMinimized,
-                                bool isMaximized, bool isPinned,
-                                const QString &workspaceName, int index);
   void showPreferences();
 
   // Window cycling (Ctrl+Tab / Ctrl+Shift+Tab)
@@ -126,27 +118,13 @@ private slots:
 
   void startBroadcastReceiver();
   void stopBroadcastReceiver();
-  /**
-   * @brief Route price subscription request to PriceCache (zero-copy)
-   * Called when new PriceCache is enabled (use_legacy_mode = false)
-   * @param requesterId Unique ID to route response back to requester
-   * @param token Token to subscribe
-   * @param segment Market segment (1=NSECM, 2=NSEFO, 11=BSECM, 12=BSEFO)
-   */
+
   void onPriceSubscriptionRequest(QString requesterId, uint32_t token,
                                   uint16_t segment);
   void onScripBarEscapePressed();
 
-  // Context-aware window creation with explicit initiating window
-  void createBuyWindowWithContext(const WindowContext &context,
-                                  QWidget *initiatingWindow);
-  void createSellWindowWithContext(const WindowContext &context,
-                                   QWidget *initiatingWindow);
-  void createSnapQuoteWindowWithContext(const WindowContext &context,
-                                        QWidget *initiatingWindow);
-
   // Widget-aware window creation (invoked from CustomMDISubWindow F1/F2
-  // fallback)
+  // fallback) — delegated to WindowFactory
   Q_INVOKABLE void createBuyWindowFromWidget(QWidget *initiatingWidget);
   Q_INVOKABLE void createSellWindowFromWidget(QWidget *initiatingWidget);
 
@@ -161,19 +139,13 @@ private:
   void createConnectionBar();
   void createStatusBar();
   void createInfoBar();
-  // createIndicesView() is now public (see above)
-
-  // Window signal connection helper
-  void connectWindowSignals(class CustomMDISubWindow *window);
-
-  // Helper to get active MarketWatch for context
-  class MarketWatchWindow *getActiveMarketWatch() const;
-
-  // Helper to get the best available window context
-  WindowContext getBestWindowContext() const;
 
   // Persist state
   void closeEvent(QCloseEvent *event) override;
+
+  // ── Extracted collaborators ──────────────────────────────────────────
+  WindowFactory *m_windowFactory;
+  WorkspaceManager *m_workspaceManager;
 
   CustomMDIArea *m_mdiArea;
   QMenuBar *m_menuBar;
@@ -182,7 +154,7 @@ private:
   QWidget *m_connectionBar;
   QStatusBar *m_statusBar;
   InfoBar *m_infoBar;
-  QDockWidget *m_infoDock; // Added dock widget
+  QDockWidget *m_infoDock;
 
   // Indices View
   QDockWidget *m_indicesDock;
@@ -191,7 +163,7 @@ private:
 
   QAction *m_statusBarAction;
   QAction *m_infoBarAction;
-  QAction *m_indicesViewAction; // New actionBar;
+  QAction *m_indicesViewAction;
   QAction *m_allIndicesAction;
   ScripBar *m_scripBar;
   QToolBar *m_scripToolBar;

@@ -1,4 +1,4 @@
-#include "models/PinnedRowProxyModel.h"
+#include "models/qt/PinnedRowProxyModel.h"
 #include <QDebug>
 
 PinnedRowProxyModel::PinnedRowProxyModel(QObject *parent)

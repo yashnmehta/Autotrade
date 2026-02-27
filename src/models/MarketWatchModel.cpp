@@ -1,5 +1,5 @@
-#include "models/MarketWatchModel.h"
-#include "models/MarketWatchColumnProfile.h"
+#include "models/qt/MarketWatchModel.h"
+#include "models/profiles/MarketWatchColumnProfile.h"
 #include "services/GreeksCalculationService.h"
 #include "utils/LatencyTracker.h"
 #include <QColor>

@@ -1,7 +1,7 @@
 #ifndef TRADINGDATASERVICE_H
 #define TRADINGDATASERVICE_H
 
-#include "api/XTSTypes.h"
+#include "api/xts/XTSTypes.h"
 #include <QObject>
 #include <QVector>
 #include <QMutex>

@@ -1,5 +1,5 @@
 #include "services/XTSFeedBridge.h"
-#include "api/XTSMarketDataClient.h"
+#include "api/xts/XTSMarketDataClient.h"
 #include <QDebug>
 #include <QDateTime>
 #include <algorithm>

@@ -3,6 +3,7 @@
 
 #include "strategy/model/ConditionNode.h"
 #include "strategy/runtime/IndicatorEngine.h"
+#include "core/ExchangeSegment.h"
 #include <QDateTime>
 #include <QString>
 #include <QStringList>
@@ -35,30 +36,56 @@ enum class SymbolRole {
 };
 
 // Exchange segment — which market this symbol slot belongs to.
-// Matches the segment codes used throughout the app (SymbolBinding::segment).
-enum class SymbolSegment {
-    NSE_CM  = 0,  // NSE Cash / Equity
-    NSE_FO  = 1,  // NSE Futures & Options
-    BSE_CM  = 2,  // BSE Cash / Equity
-    BSE_FO  = 3,  // BSE Futures & Options
-};
+// Now uses the canonical ::ExchangeSegment from core/ExchangeSegment.h.
+// SymbolSegment is a DEPRECATED alias for backward compatibility.
+using SymbolSegment = ::ExchangeSegment;
 
 // Backward-compat alias so existing code using TradeSymbolType still compiles
-using TradeSymbolType = SymbolSegment;
+using TradeSymbolType = ::ExchangeSegment;
+
+/**
+ * @brief Map a UI combo-box index (0–3) to ExchangeSegment
+ *
+ * The strategy template builder presents segments in a fixed order:
+ *   0 = NSE CM,  1 = NSE FO,  2 = BSE CM,  3 = BSE FO
+ */
+inline ExchangeSegment segmentFromComboIndex(int idx) {
+    static const ExchangeSegment table[] = {
+        ExchangeSegment::NSECM,   // 0
+        ExchangeSegment::NSEFO,   // 1
+        ExchangeSegment::BSECM,   // 2
+        ExchangeSegment::BSEFO    // 3
+    };
+    if (idx >= 0 && idx < 4) return table[idx];
+    return ExchangeSegment::NSECM;
+}
+
+/**
+ * @brief Map ExchangeSegment back to a combo-box index (0–3)
+ */
+inline int segmentToComboIndex(ExchangeSegment seg) {
+    switch (seg) {
+        case ExchangeSegment::NSECM: return 0;
+        case ExchangeSegment::NSEFO: return 1;
+        case ExchangeSegment::BSECM: return 2;
+        case ExchangeSegment::BSEFO: return 3;
+        default: return 0;
+    }
+}
 
 struct SymbolDefinition {
     QString id;              // Template-scoped id: "REF_1", "TRADE_1"
     QString label;           // Human label: "Reference Index", "Trade Instrument"
     SymbolRole role = SymbolRole::Reference;
 
-    SymbolSegment segment = SymbolSegment::NSE_CM;
+    ExchangeSegment segment = ExchangeSegment::NSECM;
 
     // Entry side for TRADE symbols
     enum class EntrySide { Buy, Sell };
     EntrySide entrySide = EntrySide::Buy;
 
     // Convenience helpers
-    bool isFO()     const { return segment == SymbolSegment::NSE_FO || segment == SymbolSegment::BSE_FO; }
+    bool isFO()     const { return ExchangeSegmentUtil::isDerivative(segment); }
     bool isOption() const { return isFO(); } // kept for backward compat
 
     // Backward-compat accessor

@@ -1,7 +1,7 @@
 #ifndef INDICATORCHARTWIDGET_H
 #define INDICATORCHARTWIDGET_H
 
-#include "api/XTSMarketDataClient.h"
+#include "api/xts/XTSMarketDataClient.h"
 #include "repository/RepositoryManager.h"
 #include "services/CandleAggregator.h"
 #include <QCandlestickSeries>

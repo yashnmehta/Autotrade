@@ -3,7 +3,7 @@
 
 #include "repository/ContractData.h"
 #include "udp/UDPTypes.h"
-#include "utils/ATMCalculator.h"
+#include "quant/ATMCalculator.h"
 #include <QDateTime>
 #include <QHash>
 #include <QObject>

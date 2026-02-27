@@ -7,7 +7,7 @@
  */
 
 #include "strategy/builder/TemplateManagerDialog.h"
-#include "strategy/builder/StrategyTemplateRepository.h"
+#include "strategy/persistence/StrategyTemplateRepository.h"
 #include "strategy/builder/StrategyDeployDialog.h"
 #include "strategy/builder/StrategyTemplateBuilderDialog.h"
 

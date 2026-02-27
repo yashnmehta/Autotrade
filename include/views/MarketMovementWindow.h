@@ -1,7 +1,7 @@
 #ifndef MARKET_MOVEMENT_WINDOW_H
 #define MARKET_MOVEMENT_WINDOW_H
 
-#include "models/WindowContext.h"
+#include "models/domain/WindowContext.h"
 #include <QDateTime>
 #include <QLabel>
 #include <QNetworkAccessManager>

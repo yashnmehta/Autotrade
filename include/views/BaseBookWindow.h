@@ -8,7 +8,7 @@
 #include <QShortcut>
 #include <QSettings>
 #include <QMap>
-#include "models/GenericTableProfile.h"
+#include "models/profiles/GenericTableProfile.h"
 
 class BaseBookWindow : public QWidget {
     Q_OBJECT

@@ -4,8 +4,8 @@
 #include <QTableView>
 #include <QHeaderView>
 #include <QAbstractItemModel>
-#include "models/GenericTableProfile.h"
-#include "models/GenericProfileManager.h"
+#include "models/profiles/GenericTableProfile.h"
+#include "models/profiles/GenericProfileManager.h"
 #include "views/GenericProfileDialog.h"
 
 class TableProfileHelper {

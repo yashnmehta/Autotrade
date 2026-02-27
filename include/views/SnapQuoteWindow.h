@@ -10,8 +10,8 @@
 #include <QPushButton>
 #include <QDebug>
 #include <QShortcut>
-#include "models/WindowContext.h"
-#include "api/XTSTypes.h"
+#include "models/domain/WindowContext.h"
+#include "api/xts/XTSTypes.h"
 #include "udp/UDPTypes.h"
 #include "app/SnapQuoteScripBar.h"
 

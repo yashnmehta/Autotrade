@@ -1,7 +1,7 @@
 #ifndef STRATEGY_BASE_H
 #define STRATEGY_BASE_H
 
-#include "api/XTSTypes.h"
+#include "api/xts/XTSTypes.h"
 #include "strategy/model/StrategyInstance.h"
 #include "services/FeedHandler.h"
 #include <QObject>

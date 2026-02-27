@@ -4,8 +4,8 @@
 #include <QString>
 #include <QStringList>
 #include <QJsonObject>
-#include "models/MarketWatchColumnProfile.h"
-#include "models/GenericTableProfile.h"
+#include "models/profiles/MarketWatchColumnProfile.h"
+#include "models/profiles/GenericTableProfile.h"
 
 // Forward declaration
 struct ScripData;

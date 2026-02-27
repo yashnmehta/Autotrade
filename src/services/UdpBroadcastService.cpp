@@ -1178,6 +1178,10 @@ bool UdpBroadcastService::startReceiver(ExchangeReceiver receiver,
                << port;
       return true;
     }
+    default:
+      qWarning() << "[UdpBroadcastService] startReceiver: unsupported segment"
+                 << static_cast<int>(receiver);
+      return false;
     }
   } catch (const std::exception &e) {
     qCritical() << "[UdpBroadcastService] Failed to start receiver:"
@@ -1239,6 +1243,10 @@ void UdpBroadcastService::stopReceiver(ExchangeReceiver receiver) {
       qDebug() << "[UdpBroadcastService] BSE CM: STOPPED";
     }
     break;
+  default:
+    qWarning() << "[UdpBroadcastService] stopReceiver: unsupported segment"
+               << static_cast<int>(receiver);
+    break;
   }
 
   // Update overall active status
@@ -1256,8 +1264,9 @@ bool UdpBroadcastService::isReceiverActive(ExchangeReceiver receiver) const {
     return m_bseFoActive;
   case ExchangeReceiver::BSECM:
     return m_bseCmActive;
+  default:
+    return false;
   }
-  return false;
 }
 
 bool UdpBroadcastService::restartReceiver(ExchangeReceiver receiver,

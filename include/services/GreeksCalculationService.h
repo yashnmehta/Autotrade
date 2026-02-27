@@ -10,6 +10,8 @@
 #include <optional>
 #include <cstdint>
 
+#include "quant/TimeToExpiry.h"
+
 class NSEFORepository;
 class NSECMRepository;
 class BSEFORepository;
@@ -277,6 +279,7 @@ private:
      * 
      * @param expiryDate Expiry date string (DDMMMYYYY format)
      * @return Time to expiry in years
+     * @note Delegates to TimeToExpiry::tradingDays()
      */
     double calculateTimeToExpiry(const QString& expiryDate);
  
@@ -285,6 +288,7 @@ private:
      * 
      * @param expiryDate Parsed expiry date
      * @return Time to expiry in years
+     * @note Delegates to TimeToExpiry::tradingDays()
      */
     double calculateTimeToExpiry(const QDate& expiryDate);
     
@@ -292,11 +296,13 @@ private:
      * @brief Calculate trading days between two dates
      * 
      * Excludes weekends and NSE holidays.
+     * @note Delegates to TimeToExpiry::countTradingDays()
      */
     int calculateTradingDays(const QDate& start, const QDate& end);
     
     /**
      * @brief Check if a date is an NSE trading day
+     * @note Delegates to TimeToExpiry::isNSETradingDay()
      */
     bool isNSETradingDay(const QDate& date);
     

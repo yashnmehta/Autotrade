@@ -1,9 +1,9 @@
 #ifndef LOGINFLOWSERVICE_H
 #define LOGINFLOWSERVICE_H
 
-#include "api/XTSMarketDataClient.h"
-#include "api/XTSInteractiveClient.h"
-#include "api/XTSTypes.h"
+#include "api/xts/XTSMarketDataClient.h"
+#include "api/xts/XTSInteractiveClient.h"
+#include "api/xts/XTSTypes.h"
 #include "services/MasterLoaderWorker.h"
 #include <QObject>
 #include <QTimer>
