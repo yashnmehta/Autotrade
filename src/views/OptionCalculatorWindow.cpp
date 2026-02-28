@@ -1,4 +1,5 @@
 #include "views/OptionCalculatorWindow.h"
+#include "utils/WindowSettingsHelper.h"
 #include <QDoubleValidator>
 #include <QFormLayout>
 #include <QGridLayout>
@@ -9,6 +10,7 @@ OptionCalculatorWindow::OptionCalculatorWindow(QWidget *parent)
     : QWidget(parent) {
   setupUI();
   setupConnections();
+  WindowSettingsHelper::loadAndApplyWindowSettings(this, "OptionCalculator");
 }
 
 OptionCalculatorWindow::~OptionCalculatorWindow() = default;
@@ -438,4 +440,9 @@ void OptionCalculatorWindow::onCancelClicked() {
 
   // Fallback if not inside an MDI window
   close();
+}
+
+void OptionCalculatorWindow::closeEvent(QCloseEvent *event) {
+  WindowSettingsHelper::saveWindowSettings(this, "OptionCalculator");
+  QWidget::closeEvent(event);
 }

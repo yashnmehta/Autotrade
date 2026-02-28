@@ -6,6 +6,7 @@
 #include "services/FeedHandler.h"
 #include "core/ExchangeSegment.h"
 #include "repository/RepositoryManager.h"
+#include <QCoreApplication>
 #include <QDebug>
 #include <algorithm>
 
@@ -85,6 +86,9 @@ ConnectionStatusManager::ConnectionStatusManager()
 }
 
 ConnectionStatusManager::~ConnectionStatusManager() {
+    // Disconnect all incoming signals to prevent use-after-free during
+    // static destruction. UdpBroadcastService may outlive this manager.
+    disconnect();
     if (m_statsTimer) m_statsTimer->stop();
 }
 
@@ -433,6 +437,11 @@ void ConnectionStatusManager::migrateBatchToXTS(
 
 void ConnectionStatusManager::setState(ConnectionId id, ConnectionState state,
                                         const QString& errorMessage) {
+    // Guard: during static destruction (exit / __cxa_finalize), QApplication
+    // is already gone. Emitting signals at this point delivers them to
+    // destroyed widgets (e.g. ConnectionBarWidget) → SIGSEGV.
+    if (!QCoreApplication::instance()) return;
+
     ConnectionInfo snapshot;
     bool changed = false;
     bool overallChanged = false;

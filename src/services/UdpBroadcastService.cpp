@@ -384,7 +384,15 @@ UdpBroadcastService::UdpBroadcastService(QObject *parent) : QObject(parent) {
           });
 }
 
-UdpBroadcastService::~UdpBroadcastService() { stop(); }
+UdpBroadcastService::~UdpBroadcastService() {
+  // Disconnect ALL outgoing signals before stopping.
+  // During static destruction (__cxa_finalize), the ConnectionStatusManager
+  // may still be alive and forward the statusChanged→stateChanged signal to
+  // ConnectionBarWidget — which is already freed. Disconnecting first prevents
+  // the entire chain from firing.
+  disconnect();
+  stop();
+}
 
 // ========== SUBSCRIPTION MANAGEMENT ==========
 

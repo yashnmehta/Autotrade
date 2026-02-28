@@ -5,6 +5,7 @@
 #include <QInputDialog>
 #include <QMessageBox>
 #include <QDebug>
+#include <QtGlobal>    // Q_OS_MACOS
 
 // ============================================================================
 // Constructor
@@ -22,34 +23,57 @@ GenericProfileDialog::GenericProfileDialog(const QString &windowTitle,
 {
     setWindowTitle(windowTitle + " — Column Selection");
     setModal(true);
+
+#ifdef Q_OS_MACOS
+    // macOS: larger dialog to accommodate native control sizes and Retina DPI
+    resize(560, 400);
+#else
     resize(480, 340);
+#endif
 
     // ── Light-theme stylesheet (compact) ─────────────────────────────────
-    setStyleSheet(
-        "QDialog { background-color: #ffffff; color: #1e293b; font-size: 11px; }"
-        "QLabel { color: #334155; font-size: 11px; font-weight: 500; }"
+    // macOS uses slightly larger font/padding for native feel
+#ifdef Q_OS_MACOS
+    const QString fontSize     = "12px";
+    const QString btnMinHeight = "26px";
+    const QString btnPadding   = "4px 12px";
+    const QString comboPadding = "4px 8px";
+    const QString comboHeight  = "22px";
+    const QString itemPadding  = "3px 8px";
+#else
+    const QString fontSize     = "11px";
+    const QString btnMinHeight = "20px";
+    const QString btnPadding   = "3px 10px";
+    const QString comboPadding = "3px 6px";
+    const QString comboHeight  = "18px";
+    const QString itemPadding  = "2px 6px";
+#endif
+
+    setStyleSheet(QString(
+        "QDialog { background-color: #ffffff; color: #1e293b; font-size: %1; }"
+        "QLabel { color: #334155; font-size: %1; font-weight: 500; }"
         "QComboBox {"
         "    background-color: #ffffff; color: #1e293b;"
         "    border: 1px solid #cbd5e1; border-radius: 3px;"
-        "    padding: 3px 6px; min-height: 18px; font-size: 11px;"
+        "    padding: %5; min-height: %6; font-size: %1;"
         "}"
         "QComboBox:hover { border: 1px solid #94a3b8; }"
         "QComboBox:focus { border: 1px solid #3b82f6; }"
         "QComboBox::drop-down { subcontrol-origin: padding; subcontrol-position: top right; width: 16px; border: none; }"
         "QComboBox::down-arrow { image: none; border-left: 3px solid transparent; border-right: 3px solid transparent; border-top: 4px solid #64748b; margin-right: 4px; }"
         "QComboBox QAbstractItemView { background-color: #ffffff; color: #1e293b; selection-background-color: #dbeafe; selection-color: #1e40af; border: 1px solid #e2e8f0; }"
-        "QComboBox QAbstractItemView::item { min-height: 18px; padding: 2px 6px; }"
-        "QListWidget { background-color: #ffffff; color: #1e293b; border: 1px solid #e2e8f0; border-radius: 3px; outline: none; font-size: 11px; padding: 1px; }"
-        "QListWidget::item { padding: 2px 6px; border: none; border-radius: 2px; margin: 0px; }"
+        "QComboBox QAbstractItemView::item { min-height: %6; padding: %7; }"
+        "QListWidget { background-color: #ffffff; color: #1e293b; border: 1px solid #e2e8f0; border-radius: 3px; outline: none; font-size: %1; padding: 1px; }"
+        "QListWidget::item { padding: %7; border: none; border-radius: 2px; margin: 0px; }"
         "QListWidget::item:selected { background-color: #dbeafe; color: #1e40af; }"
         "QListWidget::item:hover:!selected { background-color: #f1f5f9; }"
         "QListWidget::item:focus { outline: none; }"
-        "QPushButton { background-color: #2563eb; color: #ffffff; border: 1px solid #2563eb; border-radius: 3px; padding: 3px 10px; font-size: 11px; font-weight: 500; min-width: 54px; min-height: 20px; }"
+        "QPushButton { background-color: #2563eb; color: #ffffff; border: 1px solid #2563eb; border-radius: 3px; padding: %3; font-size: %1; font-weight: 500; min-width: 54px; min-height: %2; }"
         "QPushButton:hover { background-color: #1d4ed8; border: 1px solid #1d4ed8; }"
         "QPushButton:pressed { background-color: #1e40af; border: 1px solid #1e40af; }"
         "QPushButton:disabled { background-color: #f1f5f9; color: #94a3b8; border: 1px solid #e2e8f0; }"
         "QPushButton:focus { outline: none; border: 1px solid #3b82f6; }"
-    );
+    ).arg(fontSize, btnMinHeight, btnPadding, /*unused*/ QString(), comboPadding, comboHeight, itemPadding));
 
     setupUI();
     setupConnections();
@@ -62,8 +86,13 @@ GenericProfileDialog::GenericProfileDialog(const QString &windowTitle,
 void GenericProfileDialog::setupUI()
 {
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
+#ifdef Q_OS_MACOS
+    mainLayout->setContentsMargins(12, 12, 12, 12);
+    mainLayout->setSpacing(8);
+#else
     mainLayout->setContentsMargins(8, 8, 8, 8);
     mainLayout->setSpacing(6);
+#endif
 
     // ── Top: profile combo + buttons ─────────────────────────────────────
     QHBoxLayout *profileLayout = new QHBoxLayout();
@@ -307,6 +336,7 @@ void GenericProfileDialog::onSaveProfile()
     m_profile.setColumnOrder(newOrder);
 
     m_manager->saveCustomProfile(m_profile);
+    m_manager->saveLastUsedProfile(m_profile);       // always persist as last-used too
 
     QMessageBox::information(this, "Profile Saved",
                              QString("Profile '%1' has been saved.").arg(name));
@@ -336,9 +366,14 @@ void GenericProfileDialog::onDeleteProfile()
 
 void GenericProfileDialog::onSetAsDefault()
 {
-    m_manager->saveDefaultProfileName(m_profileCombo->currentText());
+    QString profileName = m_profileCombo->currentText();
+    m_manager->saveDefaultProfileName(profileName);
+    // Also persist the selected profile as last-used so it survives restart
+    if (m_manager->hasProfile(profileName)) {
+        m_manager->saveLastUsedProfile(m_manager->getProfile(profileName));
+    }
     QMessageBox::information(this, "Default Set",
-                             QString("Profile '%1' set as default.").arg(m_profileCombo->currentText()));
+                             QString("Profile '%1' set as default.").arg(profileName));
 }
 
 void GenericProfileDialog::onAccepted()

@@ -2,6 +2,7 @@
 #include "core/widgets/CustomNetPosition.h"
 #include "repository/RepositoryManager.h"
 #include "services/TradingDataService.h"
+#include "utils/WindowSettingsHelper.h"
 #include <QVBoxLayout>
 
 
@@ -10,6 +11,7 @@
 #include <QDebug>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QMenu>
 #include <QMessageBox>
 #include <QPushButton>
 #include <QSortFilterProxyModel>
@@ -45,6 +47,9 @@ PositionWindow::PositionWindow(TradingDataService *tradingDataService,
   connect(m_priceUpdateTimer, &QTimer::timeout, this,
           &PositionWindow::updateMarketPrices);
   m_priceUpdateTimer->start(500);
+
+  // Restore saved runtime state (combo selections, geometry)
+  WindowSettingsHelper::loadAndApplyWindowSettings(this, "PositionBook");
 }
 
 PositionWindow::~PositionWindow() {}
@@ -103,6 +108,19 @@ QWidget *PositionWindow::createFilterWidget() {
 
 void PositionWindow::setupTable() {
   m_tableView = new CustomNetPosition(this);
+  m_tableView->setContextMenuPolicy(Qt::CustomContextMenu);
+  connect(m_tableView, &QTableView::customContextMenuRequested, this, [this](const QPoint &pos) {
+    showPositionContextMenu(pos);
+  });
+  // Unified: same context menu when right-clicking the header
+  m_tableView->horizontalHeader()->setContextMenuPolicy(Qt::CustomContextMenu);
+  connect(m_tableView->horizontalHeader(), &QHeaderView::customContextMenuRequested, this,
+          [this](const QPoint &headerPos) {
+              QPoint viewportPos = m_tableView->viewport()->mapFromGlobal(
+                  m_tableView->horizontalHeader()->mapToGlobal(headerPos));
+              showPositionContextMenu(viewportPos);
+          });
+
   CustomNetPosition *posTable = qobject_cast<CustomNetPosition *>(m_tableView);
   if (posTable) {
     connect(posTable, &CustomNetPosition::exportRequested, this,
@@ -114,7 +132,6 @@ void PositionWindow::setupTable() {
   }
 
   PositionModel *model = new PositionModel(this);
-  m_model = model;
   m_model = model;
   m_proxyModel = new PinnedRowProxyModel(this);
   m_proxyModel->setSourceModel(m_model);
@@ -604,6 +621,24 @@ void PositionWindow::onExportClicked() {
   BaseBookWindow::exportToCSV(m_model, m_tableView);
 }
 void PositionWindow::onSquareOffClicked() { qDebug() << "Square off"; }
+
+void PositionWindow::showPositionContextMenu(const QPoint &pos) {
+    QMenu menu(this);
+    menu.addAction("Column Profile...", this, &PositionWindow::showColumnProfileDialog);
+    menu.addSeparator();
+    QAction *closeAct = menu.addAction("Close Position");
+    closeAct->setEnabled(m_tableView->selectionModel() && m_tableView->selectionModel()->hasSelection());
+    connect(closeAct, &QAction::triggered, this, &PositionWindow::onSquareOffClicked);
+    menu.addSeparator();
+    menu.addAction("Export to CSV", this, &PositionWindow::onExportClicked);
+    menu.addAction("Copy", this, [this]() {
+        // TODO: copy selected rows
+    });
+    menu.addSeparator();
+    menu.addAction("Show/Hide Filter (Ctrl+F)", this, [this]() { toggleFilterRow(); });
+    menu.addAction("Refresh", this, &PositionWindow::onRefreshClicked);
+    menu.exec(m_tableView->viewport()->mapToGlobal(pos));
+}
 
 void PositionWindow::updateMarketPrices() {
   // Prevent concurrent updates - skip if already updating

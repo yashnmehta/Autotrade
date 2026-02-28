@@ -13,18 +13,25 @@ public:
     static void loadProfile(const QString& windowName, QTableView* tableView, QAbstractItemModel* model, GenericTableProfile& profile) {
         GenericProfileManager manager("profiles", windowName);
         manager.loadCustomProfiles();
-        QString defName = manager.loadDefaultProfileName();
-        if (manager.hasProfile(defName)) {
-            profile = manager.getProfile(defName);
+
+        // Priority: LastUsed file > named default/custom > built-in default
+        GenericTableProfile lastUsed;
+        if (manager.loadLastUsedProfile(lastUsed)) {
+            profile = lastUsed;
         } else {
-            profile = GenericTableProfile("Default");
-            QList<int> defaultOrder;
-            for (int i = 0; i < model->columnCount(); ++i) {
-                profile.setColumnVisible(i, true);
-                profile.setColumnWidth(i, 100);
-                defaultOrder.append(i);
+            QString defName = manager.loadDefaultProfileName();
+            if (manager.hasProfile(defName)) {
+                profile = manager.getProfile(defName);
+            } else {
+                profile = GenericTableProfile("Default");
+                QList<int> defaultOrder;
+                for (int i = 0; i < model->columnCount(); ++i) {
+                    profile.setColumnVisible(i, true);
+                    profile.setColumnWidth(i, 100);
+                    defaultOrder.append(i);
+                }
+                profile.setColumnOrder(defaultOrder);
             }
-            profile.setColumnOrder(defaultOrder);
         }
         applyProfile(tableView, model, profile);
     }
@@ -75,7 +82,8 @@ public:
     static void saveCurrentProfile(const QString& windowName, QTableView* tableView, QAbstractItemModel* model, GenericTableProfile& profile) {
         captureProfile(tableView, model, profile);
         GenericProfileManager manager("profiles", windowName);
-        manager.saveCustomProfile(profile);
+        manager.saveLastUsedProfile(profile);          // always works, even for preset names
+        manager.saveCustomProfile(profile);             // also save as custom if not a preset
         manager.saveDefaultProfileName(profile.name());
     }
 
@@ -102,7 +110,8 @@ public:
             applyProfile(tableView, model, profile);
             
             // Save as default
-            manager.saveCustomProfile(profile);
+            manager.saveLastUsedProfile(profile);          // always works, even for preset names
+            manager.saveCustomProfile(profile);             // also save as custom if not a preset
             manager.saveDefaultProfileName(profile.name());
             return true;
         }

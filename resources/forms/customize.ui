@@ -6,194 +6,547 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>380</width>
-    <height>420</height>
+    <width>520</width>
+    <height>520</height>
    </rect>
+  </property>
+  <property name="minimumSize">
+   <size>
+    <width>480</width>
+    <height>460</height>
+   </size>
   </property>
   <property name="windowTitle">
    <string>Customize</string>
   </property>
-  <layout class="QVBoxLayout" name="verticalLayout">
+  <property name="styleSheet">
+   <string notr="true">
+/* ── Global Dialog ── */
+QDialog#CustomizeDialog {
+  background-color: #ffffff;
+  color: #1e293b;
+  font-family: "Segoe UI", Tahoma, sans-serif;
+  font-size: 12px;
+}
+
+/* ── Tab Widget ── */
+QTabWidget::pane {
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  background: #ffffff;
+  padding: 6px;
+}
+QTabBar::tab {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-bottom: none;
+  padding: 6px 18px;
+  margin-right: 2px;
+  border-top-left-radius: 4px;
+  border-top-right-radius: 4px;
+  color: #475569;
+  font-weight: 500;
+}
+QTabBar::tab:selected {
+  background: #ffffff;
+  color: #1e40af;
+  border-bottom: 2px solid #2563eb;
+  font-weight: 600;
+}
+QTabBar::tab:hover:!selected {
+  background: #dbeafe;
+}
+
+/* ── GroupBox ── */
+QGroupBox {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  margin-top: 14px;
+  padding: 10px 8px 8px 8px;
+  font-weight: 600;
+  color: #1e293b;
+}
+QGroupBox::title {
+  subcontrol-origin: margin;
+  subcontrol-position: top left;
+  padding: 0 6px;
+  color: #1e40af;
+  font-weight: 600;
+}
+
+/* ── Labels ── */
+QLabel {
+  color: #1e293b;
+  font-size: 12px;
+}
+QLabel#titleLabel {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+/* ── Combo / Spin / LineEdit ── */
+QComboBox, QSpinBox, QFontComboBox {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  padding: 4px 8px;
+  color: #1e293b;
+  min-height: 24px;
+}
+QComboBox:focus, QSpinBox:focus, QFontComboBox:focus {
+  border-color: #3b82f6;
+}
+QComboBox::drop-down {
+  border: none;
+  width: 20px;
+}
+
+/* ── CheckBox / RadioButton ── */
+QCheckBox, QRadioButton {
+  color: #1e293b;
+  spacing: 6px;
+  font-size: 12px;
+}
+QCheckBox::indicator, QRadioButton::indicator {
+  width: 16px;
+  height: 16px;
+}
+
+/* ── Buttons ── */
+QPushButton {
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  padding: 6px 14px;
+  background: #f8fafc;
+  color: #1e293b;
+  font-weight: 500;
+  min-height: 26px;
+}
+QPushButton:hover {
+  background: #dbeafe;
+  border-color: #3b82f6;
+}
+QPushButton:pressed {
+  background: #bfdbfe;
+}
+QPushButton#resetButton {
+  background: #fef2f2;
+  color: #dc2626;
+  border-color: #fca5a5;
+}
+QPushButton#resetButton:hover {
+  background: #fee2e2;
+}
+
+/* ── Color Swatch Button ── */
+QPushButton#colorPickerButton {
+  min-width: 60px;
+  min-height: 28px;
+  border: 2px solid #e2e8f0;
+  border-radius: 4px;
+}
+
+/* ── List Widget (attribute list) ── */
+QListWidget {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  color: #1e293b;
+  outline: none;
+}
+QListWidget::item {
+  padding: 4px 8px;
+  border-bottom: 1px solid #f1f5f9;
+}
+QListWidget::item:selected {
+  background: #dbeafe;
+  color: #1e40af;
+}
+QListWidget::item:hover:!selected {
+  background: #f1f5f9;
+}
+
+/* ── Preview Frame ── */
+QFrame#previewFrame {
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #f8fafc;
+  padding: 8px;
+}
+
+/* ── Dialog Button Box ── */
+QDialogButtonBox QPushButton {
+  min-width: 80px;
+}
+
+/* ── Separator line ── */
+QFrame[frameShape="4"] {
+  background-color: #e2e8f0;
+  max-height: 1px;
+  min-height: 1px;
+}
+   </string>
+  </property>
+
+  <layout class="QVBoxLayout" name="mainLayout">
+   <property name="spacing"><number>8</number></property>
+   <property name="leftMargin"><number>10</number></property>
+   <property name="topMargin"><number>10</number></property>
+   <property name="rightMargin"><number>10</number></property>
+   <property name="bottomMargin"><number>10</number></property>
+
+   <!-- ──────────────────────────────────── Title bar ── -->
    <item>
-    <layout class="QGridLayout" name="gridLayout">
-     <item row="0" column="0">
-      <widget class="QLabel" name="label">
-       <property name="text">
-        <string>Font:</string>
-       </property>
-      </widget>
-     </item>
-     <item row="0" column="1">
-      <widget class="QFontComboBox" name="fontComboBox"/>
-     </item>
-     <item row="1" column="0">
-      <widget class="QLabel" name="label_2">
-       <property name="text">
-        <string>Color For:</string>
-       </property>
-      </widget>
-     </item>
-     <item row="1" column="1">
-      <widget class="QComboBox" name="colorForComboBox">
-       <item>
-        <property name="text">
-         <string>Background</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>Foreground</string>
-        </property>
-       </item>
-      </widget>
-     </item>
-     <item row="2" column="0">
-      <widget class="QLabel" name="label_3">
-       <property name="text">
-        <string>Color Picker:</string>
-       </property>
-      </widget>
-     </item>
-     <item row="2" column="1">
-      <widget class="QPushButton" name="colorPickerButton">
-       <property name="text">
-        <string>Select Color</string>
-       </property>
-      </widget>
-     </item>
-    </layout>
-   </item>
-   <item>
-    <widget class="QListWidget" name="attributeListWidget">
-     <item>
-      <property name="text">
-       <string>General Appearance</string>
-      </property>
-     </item>
-     <item>
-      <property name="text">
-       <string>Table Grid</string>
-      </property>
-     </item>
-     <item>
-      <property name="text">
-       <string>Labels</string>
-      </property>
-     </item>
+    <widget class="QLabel" name="titleLabel">
+     <property name="text"><string>Customize</string></property>
+     <property name="alignment"><set>Qt::AlignLeft|Qt::AlignVCenter</set></property>
     </widget>
    </item>
+
+   <!-- ──────────────────────────────────── Tab widget ── -->
    <item>
-    <widget class="QLabel" name="previewTextLabel">
-     <property name="minimumSize">
-      <size>
-       <width>0</width>
-       <height>40</height>
-      </size>
-     </property>
-     <property name="frameShape">
-      <enum>QFrame::Box</enum>
-     </property>
-     <property name="text">
-      <string>Preview Text</string>
-     </property>
-     <property name="alignment">
-      <set>Qt::AlignCenter</set>
-     </property>
-    </widget>
-   </item>
-   <item>
-    <layout class="QHBoxLayout" name="horizontalLayout">
-     <item>
-      <layout class="QVBoxLayout" name="verticalLayout_2">
+    <widget class="QTabWidget" name="tabWidget">
+     <property name="currentIndex"><number>0</number></property>
+
+     <!-- ==================== TAB 1 : Color ==================== -->
+     <widget class="QWidget" name="tabColor">
+      <attribute name="title"><string>Color</string></attribute>
+      <layout class="QVBoxLayout" name="colorTabLayout">
+       <property name="spacing"><number>8</number></property>
+
+       <!-- View selector -->
        <item>
-        <widget class="QCheckBox" name="titleBarCheckBox">
-         <property name="text">
-          <string>Show Title Bar</string>
-         </property>
+        <layout class="QHBoxLayout" name="viewSelectorLayout">
+         <item>
+          <widget class="QLabel" name="lblView">
+           <property name="text"><string>View:</string></property>
+           <property name="minimumSize"><size><width>70</width><height>0</height></size></property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QComboBox" name="viewComboBox">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+             <horstretch>1</horstretch><verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <item><property name="text"><string>All Views</string></property></item>
+          </widget>
+         </item>
+        </layout>
+       </item>
+
+       <!-- Attribute list + color picker side-by-side -->
+       <item>
+        <layout class="QHBoxLayout" name="colorMainLayout">
+         <property name="spacing"><number>10</number></property>
+
+         <!-- Left: Attribute list -->
+         <item>
+          <widget class="QListWidget" name="attributeListWidget">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+             <horstretch>2</horstretch><verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="minimumSize"><size><width>180</width><height>0</height></size></property>
+          </widget>
+         </item>
+
+         <!-- Right: Color controls -->
+         <item>
+          <layout class="QVBoxLayout" name="colorControlsLayout">
+           <property name="spacing"><number>8</number></property>
+
+           <item>
+            <widget class="QLabel" name="lblColorFor">
+             <property name="text"><string>Color For:</string></property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QComboBox" name="colorForComboBox">
+             <item><property name="text"><string>Background</string></property></item>
+             <item><property name="text"><string>Foreground</string></property></item>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="colorPickerButton">
+             <property name="text"><string></string></property>
+             <property name="toolTip"><string>Click to select color</string></property>
+            </widget>
+           </item>
+
+           <!-- Spacer -->
+           <item>
+            <spacer name="colorSpacer">
+             <property name="orientation"><enum>Qt::Vertical</enum></property>
+             <property name="sizeHint" stdset="0">
+              <size><width>20</width><height>10</height></size>
+             </property>
+            </spacer>
+           </item>
+
+           <!-- Apply to all views checkbox -->
+           <item>
+            <widget class="QCheckBox" name="applyToAllViewsCheckBox">
+             <property name="text"><string>Apply to all Views</string></property>
+            </widget>
+           </item>
+          </layout>
+         </item>
+        </layout>
+       </item>
+
+       <!-- Color Preview -->
+       <item>
+        <widget class="QFrame" name="previewFrame">
+         <property name="minimumSize"><size><width>0</width><height>50</height></size></property>
+         <property name="frameShape"><enum>QFrame::StyledPanel</enum></property>
+         <layout class="QVBoxLayout" name="previewLayout">
+          <item>
+           <widget class="QLabel" name="previewTextLabel">
+            <property name="text"><string>Preview Text — AaBbCc 12345</string></property>
+            <property name="alignment"><set>Qt::AlignCenter</set></property>
+            <property name="minimumSize"><size><width>0</width><height>36</height></size></property>
+           </widget>
+          </item>
+         </layout>
         </widget>
        </item>
-       <item>
-        <widget class="QCheckBox" name="toolBarCheckBox">
-         <property name="text">
-          <string>Show Tool Bar</string>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QCheckBox" name="labelsOnCheckBox">
-         <property name="text">
-          <string>Labels On</string>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QCheckBox" name="gridCheckBox">
-         <property name="text">
-          <string>Show Grid</string>
-         </property>
-        </widget>
-       </item>
+
       </layout>
-     </item>
-     <item>
-      <widget class="QGroupBox" name="groupBox">
-       <property name="title">
-        <string>Open With</string>
-       </property>
-       <layout class="QVBoxLayout" name="verticalLayout_3">
-        <item>
-         <widget class="QRadioButton" name="defaultRadio">
-          <property name="text">
-           <string>Default</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QRadioButton" name="sizePositionRadio">
-          <property name="text">
-           <string>Last Size/Pos</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QRadioButton" name="lastSavedRadio">
-          <property name="text">
-           <string>Last Saved Workspace</string>
-          </property>
-         </widget>
-        </item>
-       </layout>
-      </widget>
-     </item>
-    </layout>
+     </widget>
+
+     <!-- ==================== TAB 2 : Layout ==================== -->
+     <widget class="QWidget" name="tabLayout">
+      <attribute name="title"><string>Layout</string></attribute>
+      <layout class="QVBoxLayout" name="layoutTabLayout">
+       <property name="spacing"><number>10</number></property>
+
+       <!-- Display Options group -->
+       <item>
+        <widget class="QGroupBox" name="displayOptionsGroup">
+         <property name="title"><string>Display Options</string></property>
+         <layout class="QVBoxLayout" name="displayOptionsLayout">
+          <property name="spacing"><number>6</number></property>
+          <item>
+           <widget class="QCheckBox" name="titleBarCheckBox">
+            <property name="text"><string>Show Title Bar</string></property>
+            <property name="checked"><bool>true</bool></property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="toolBarCheckBox">
+            <property name="text"><string>Show Tool Bar</string></property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="labelsOnCheckBox">
+            <property name="text"><string>Show Column Labels</string></property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="gridCheckBox">
+            <property name="text"><string>Show Grid Lines</string></property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+
+       <!-- Open With group -->
+       <item>
+        <widget class="QGroupBox" name="openWithGroup">
+         <property name="title"><string>Open View With</string></property>
+         <layout class="QVBoxLayout" name="openWithLayout">
+          <property name="spacing"><number>6</number></property>
+          <item>
+           <widget class="QRadioButton" name="defaultRadio">
+            <property name="text"><string>Default Size &amp; Position</string></property>
+            <property name="checked"><bool>true</bool></property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QRadioButton" name="sizePositionRadio">
+            <property name="text"><string>Last Size / Position</string></property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QRadioButton" name="lastSavedRadio">
+            <property name="text"><string>Last Saved Workspace</string></property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+
+       <!-- Vertical spacer -->
+       <item>
+        <spacer name="layoutSpacer">
+         <property name="orientation"><enum>Qt::Vertical</enum></property>
+         <property name="sizeHint" stdset="0">
+          <size><width>20</width><height>40</height></size>
+         </property>
+        </spacer>
+       </item>
+
+      </layout>
+     </widget>
+
+     <!-- ==================== TAB 3 : Font ==================== -->
+     <widget class="QWidget" name="tabFont">
+      <attribute name="title"><string>Font</string></attribute>
+      <layout class="QVBoxLayout" name="fontTabLayout">
+       <property name="spacing"><number>10</number></property>
+
+       <!-- Font Family + Size -->
+       <item>
+        <widget class="QGroupBox" name="fontSettingsGroup">
+         <property name="title"><string>Font Settings</string></property>
+         <layout class="QGridLayout" name="fontGrid">
+          <property name="horizontalSpacing"><number>10</number></property>
+          <property name="verticalSpacing"><number>8</number></property>
+
+          <item row="0" column="0">
+           <widget class="QLabel" name="lblFontFamily">
+            <property name="text"><string>Family:</string></property>
+           </widget>
+          </item>
+          <item row="0" column="1" colspan="2">
+           <widget class="QFontComboBox" name="fontComboBox">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+              <horstretch>1</horstretch><verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+           </widget>
+          </item>
+
+          <item row="1" column="0">
+           <widget class="QLabel" name="lblFontSize">
+            <property name="text"><string>Size:</string></property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QSpinBox" name="fontSizeSpinBox">
+            <property name="minimum"><number>6</number></property>
+            <property name="maximum"><number>36</number></property>
+            <property name="value"><number>12</number></property>
+            <property name="suffix"><string> pt</string></property>
+           </widget>
+          </item>
+          <item row="1" column="2">
+           <spacer name="fontSizeSpacer">
+            <property name="orientation"><enum>Qt::Horizontal</enum></property>
+            <property name="sizeHint" stdset="0">
+             <size><width>40</width><height>20</height></size>
+            </property>
+           </spacer>
+          </item>
+
+          <!-- Style toggles -->
+          <item row="2" column="0">
+           <widget class="QLabel" name="lblFontStyle">
+            <property name="text"><string>Style:</string></property>
+           </widget>
+          </item>
+          <item row="2" column="1" colspan="2">
+           <layout class="QHBoxLayout" name="fontStyleLayout">
+            <property name="spacing"><number>12</number></property>
+            <item>
+             <widget class="QCheckBox" name="boldCheckBox">
+              <property name="text"><string>Bold</string></property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QCheckBox" name="italicCheckBox">
+              <property name="text"><string>Italic</string></property>
+             </widget>
+            </item>
+            <item>
+             <spacer name="fontStyleSpacer">
+              <property name="orientation"><enum>Qt::Horizontal</enum></property>
+              <property name="sizeHint" stdset="0">
+               <size><width>40</width><height>20</height></size>
+              </property>
+             </spacer>
+            </item>
+           </layout>
+          </item>
+         </layout>
+        </widget>
+       </item>
+
+       <!-- Font Preview -->
+       <item>
+        <widget class="QGroupBox" name="fontPreviewGroup">
+         <property name="title"><string>Preview</string></property>
+         <layout class="QVBoxLayout" name="fontPreviewLayout">
+          <item>
+           <widget class="QLabel" name="fontPreviewLabel">
+            <property name="text"><string>AaBbCcDd 0123456789 — The quick brown fox jumps over the lazy dog</string></property>
+            <property name="alignment"><set>Qt::AlignCenter</set></property>
+            <property name="minimumSize"><size><width>0</width><height>50</height></size></property>
+            <property name="wordWrap"><bool>true</bool></property>
+            <property name="styleSheet"><string notr="true">
+              background-color: #ffffff;
+              border: 1px solid #e2e8f0;
+              border-radius: 4px;
+              padding: 12px;
+              color: #1e293b;
+            </string></property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+
+       <!-- Vertical spacer -->
+       <item>
+        <spacer name="fontSpacer">
+         <property name="orientation"><enum>Qt::Vertical</enum></property>
+         <property name="sizeHint" stdset="0">
+          <size><width>20</width><height>40</height></size>
+         </property>
+        </spacer>
+       </item>
+
+      </layout>
+     </widget>
+
+    </widget>
    </item>
+
+   <!-- ──────────────── Separator ── -->
    <item>
-    <layout class="QHBoxLayout" name="horizontalLayout_2">
+    <widget class="QFrame" name="separator">
+     <property name="frameShape"><enum>QFrame::HLine</enum></property>
+     <property name="frameShadow"><enum>QFrame::Sunken</enum></property>
+    </widget>
+   </item>
+
+   <!-- ──────────────── Bottom buttons ── -->
+   <item>
+    <layout class="QHBoxLayout" name="bottomLayout">
+     <property name="spacing"><number>8</number></property>
      <item>
       <widget class="QPushButton" name="resetButton">
-       <property name="text">
-        <string>Reset Defaults</string>
-       </property>
+       <property name="text"><string>Restore Defaults</string></property>
       </widget>
      </item>
      <item>
-      <spacer name="horizontalSpacer">
-       <property name="orientation">
-        <enum>Qt::Horizontal</enum>
-       </property>
+      <spacer name="bottomSpacer">
+       <property name="orientation"><enum>Qt::Horizontal</enum></property>
        <property name="sizeHint" stdset="0">
-        <size>
-         <width>40</width>
-         <height>20</height>
-        </size>
+        <size><width>40</width><height>20</height></size>
        </property>
       </spacer>
      </item>
      <item>
       <widget class="QDialogButtonBox" name="buttonBox">
-       <property name="orientation">
-        <enum>Qt::Horizontal</enum>
-       </property>
+       <property name="orientation"><enum>Qt::Horizontal</enum></property>
        <property name="standardButtons">
         <set>QDialogButtonBox::Apply|QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
        </property>
@@ -201,8 +554,10 @@
      </item>
     </layout>
    </item>
+
   </layout>
  </widget>
+ <customwidgets/>
  <resources/>
  <connections/>
 </ui>

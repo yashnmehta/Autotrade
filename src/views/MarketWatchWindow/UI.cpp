@@ -71,8 +71,15 @@ void MarketWatchWindow::setupUI()
     // Create token address book
     m_tokenAddressBook = new TokenAddressBook(this);
 
-    // Set context menu policy
+    // Set context menu policy — unified for both table body AND header
     setContextMenuPolicy(Qt::CustomContextMenu);
+    horizontalHeader()->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(horizontalHeader(), &QHeaderView::customContextMenuRequested, this,
+            [this](const QPoint &headerPos) {
+                // Map header-local pos into viewport coords so indexAt / mapToGlobal work correctly
+                QPoint viewportPos = viewport()->mapFromGlobal(horizontalHeader()->mapToGlobal(headerPos));
+                showContextMenu(viewportPos);
+            });
 }
 
 void MarketWatchWindow::showContextMenu(const QPoint &pos)
@@ -168,6 +175,12 @@ void MarketWatchWindow::showColumnProfileDialog()
         GenericTableProfile newProfile = dialog.getProfile();
         m_model->setColumnProfile(newProfile);
         applyProfileToView(newProfile);
+
+        // Persist to JSON file so it survives restart
+        mgr.saveLastUsedProfile(newProfile);           // always works, even for preset names
+        mgr.saveCustomProfile(newProfile);              // also save as custom if not a preset
+        mgr.saveDefaultProfileName(newProfile.name());
+
         qDebug() << "[MarketWatchWindow] Column profile updated to:" << newProfile.name();
     }
 }

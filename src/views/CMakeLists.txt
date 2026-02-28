@@ -7,9 +7,15 @@ add_library(views STATIC
     BaseBookWindow.cpp
     BuyWindow.cpp
     SellWindow.cpp
-    ATMWatchWindow.cpp
+    ATMWatch/ATMWatchWindow.cpp
+    ATMWatch/UI.cpp
+    ATMWatch/Data.cpp
+    ATMWatch/Actions.cpp
     ATMWatchSettingsDialog.cpp
-    OptionChainWindow.cpp
+    OptionChainWindow/OptionChainWindow.cpp
+    OptionChainWindow/UI.cpp
+    OptionChainWindow/Data.cpp
+    OptionChainWindow/Actions.cpp
     OptionCalculatorWindow.cpp
     MarketWatchWindow/MarketWatchWindow.cpp
     MarketWatchWindow/UI.cpp

@@ -89,6 +89,11 @@ void CustomTradeBook::setSummaryRowEnabled(bool enabled)
 
 void CustomTradeBook::contextMenuEvent(QContextMenuEvent *event)
 {
+    // If the parent has set CustomContextMenu policy, defer to its handler
+    if (contextMenuPolicy() == Qt::CustomContextMenu) {
+        QTableView::contextMenuEvent(event);
+        return;
+    }
     QMenu *menu = createContextMenu();
     if (menu) {
         menu->exec(event->globalPos());

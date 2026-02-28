@@ -1,6 +1,8 @@
 #include "views/MarketWatchWindow.h"
 #include "data/PriceStoreGateway.h"
 #include "models/domain/TokenAddressBook.h"
+#include "models/profiles/GenericProfileManager.h"
+#include "models/profiles/MarketWatchColumnProfile.h"
 #include "repository/RepositoryManager.h"
 #include "services/FeedHandler.h"
 #include "services/TokenSubscriptionManager.h"
@@ -59,6 +61,29 @@ MarketWatchWindow::MarketWatchWindow(QWidget *parent)
   qint64 t2 = constructionTimer.elapsed();
   qDebug() << "[PERF] [MARKETWATCH_CONSTRUCT] setupConnections() took:"
            << (t2 - t1) << "ms";
+
+  // Load persisted column profile from JSON file (survives restart)
+  {
+    GenericProfileManager mgr("profiles", "MarketWatch");
+    MarketWatchColumnProfile::registerPresets(mgr);
+    mgr.loadCustomProfiles();
+
+    // Priority: LastUsed file > named default > built-in preset
+    GenericTableProfile savedProfile;
+    if (mgr.loadLastUsedProfile(savedProfile)) {
+      m_model->setColumnProfile(savedProfile);
+      applyProfileToView(savedProfile);
+      qDebug() << "[MarketWatch] Restored last-used column profile:" << savedProfile.name();
+    } else {
+      QString defName = mgr.loadDefaultProfileName();
+      if (mgr.hasProfile(defName)) {
+        savedProfile = mgr.getProfile(defName);
+        m_model->setColumnProfile(savedProfile);
+        applyProfileToView(savedProfile);
+        qDebug() << "[MarketWatch] Restored column profile:" << defName;
+      }
+    }
+  }
 
   // OPTIMIZATION: Defer keyboard shortcuts to after window is visible (saves
   // 9ms) setupKeyboardShortcuts();
@@ -158,6 +183,31 @@ void MarketWatchWindow::focusInEvent(QFocusEvent *event) {
     QTimer::singleShot(50, this, [this]() {
       if (m_lastFocusedToken > 0) {
         restoreFocusedRow();
+      }
+    });
+  } else {
+    // No previously stored token — auto-select the first non-blank row
+    // so keyboard shortcuts (F1/F2/Enter) work immediately
+    QTimer::singleShot(50, this, [this]() {
+      if (!selectionModel() || selectionModel()->hasSelection())
+        return;
+      if (!m_model || m_model->rowCount() == 0)
+        return;
+
+      // Find the first non-blank row in the source model
+      for (int srcRow = 0; srcRow < m_model->rowCount(); ++srcRow) {
+        if (!m_model->isBlankRow(srcRow)) {
+          int proxyRow = mapToProxy(srcRow);
+          if (proxyRow >= 0) {
+            QModelIndex idx = proxyModel()->index(proxyRow, 0);
+            setCurrentIndex(idx);
+            selectRow(proxyRow);
+            scrollTo(idx, QAbstractItemView::EnsureVisible);
+            qDebug() << "[MarketWatch] Auto-selected first data row:" << srcRow
+                     << "(proxy:" << proxyRow << ")";
+            break;
+          }
+        }
       }
     });
   }
@@ -273,6 +323,14 @@ void MarketWatchWindow::onRowsRemoved(int firstRow, int lastRow) {
 void MarketWatchWindow::onModelReset() { viewport()->update(); }
 
 void MarketWatchWindow::closeEvent(QCloseEvent *event) {
+  // Persist column profile to JSON file (survives restart)
+  {
+    GenericTableProfile currentProfile = m_model->getColumnProfile();
+    captureProfileFromView(currentProfile);
+    GenericProfileManager mgr("profiles", "MarketWatch");
+    mgr.saveLastUsedProfile(currentProfile);         // always works, even for preset names
+    mgr.saveDefaultProfileName(currentProfile.name());
+  }
   WindowSettingsHelper::saveWindowSettings(this, "MarketWatch");
   QWidget::closeEvent(event);
 }

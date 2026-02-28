@@ -30,6 +30,15 @@ ConnectionBarWidget::ConnectionBarWidget(QWidget *parent)
     onStatsUpdated();
 }
 
+ConnectionBarWidget::~ConnectionBarWidget()
+{
+    // Disconnect from the singleton ConnectionStatusManager to prevent
+    // use-after-free during static destruction.  The UdpBroadcastService
+    // destructor calls stop() → emits statusChanged → ConnectionStatusManager
+    // emits stateChanged → arrives here after this widget is already destroyed.
+    disconnect(&ConnectionStatusManager::instance(), nullptr, this, nullptr);
+}
+
 // ═══════════════════════════════════════════════════════════════════════
 // Build UI
 // ═══════════════════════════════════════════════════════════════════════
@@ -186,7 +195,7 @@ void ConnectionBarWidget::onStateChanged(ConnectionId id, ConnectionState newSta
 
     // Update tooltip with details
     auto it = m_indicators.find(id);
-    if (it != m_indicators.end()) {
+    if (it != m_indicators.end() && it->dot && it->label) {
         QString tip = QString("%1\nState: %2\nAddress: %3\nUptime: %4")
             .arg(info.displayName)
             .arg(connectionStateToString(newState))
@@ -203,6 +212,9 @@ void ConnectionBarWidget::onStateChanged(ConnectionId id, ConnectionState newSta
 
 void ConnectionBarWidget::onStatsUpdated()
 {
+    // Guard: during shutdown, the summary label or indicators may be freed
+    if (!m_udpSummaryLabel) return;
+
     auto& mgr = ConnectionStatusManager::instance();
 
     // Update UDP summary
@@ -263,6 +275,11 @@ void ConnectionBarWidget::updateIndicatorDot(ConnectionId id, ConnectionState st
 {
     auto it = m_indicators.find(id);
     if (it == m_indicators.end()) return;
+
+    // Guard against use-after-free during static destruction:
+    // the dot QLabel may have been destroyed by Qt's parent-child cleanup
+    // before the signal fires during app exit.
+    if (!it->dot) return;
 
     it->dot->setStyleSheet(
         QString("QLabel { color: %1; font-size: 10px; }")

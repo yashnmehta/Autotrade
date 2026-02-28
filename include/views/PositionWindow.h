@@ -43,6 +43,7 @@ private:
     void setupTable();
     void setupConnections();
     void updateSummaryRow();
+    void showPositionContextMenu(const QPoint &pos);
     QWidget* createFilterWidget();
     
     TradingDataService* m_tradingDataService;

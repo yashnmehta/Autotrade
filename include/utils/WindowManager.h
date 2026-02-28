@@ -119,7 +119,7 @@ private:
     WindowManager& operator=(const WindowManager&) = delete;
 
     struct WindowEntry {
-        QWidget* window;
+        QPointer<QWidget> window;
         QString name;
         qint64 timestamp;
 
@@ -128,7 +128,7 @@ private:
     };
 
     QList<WindowEntry> m_windowStack;
-    QMap<QWidget*, QWidget*> m_initiatingWindows;  // child -> parent mapping
+    QMap<QWidget*, QPointer<QWidget>> m_initiatingWindows;  // child -> parent mapping
     QMap<QWidget*, QPointer<QWidget>> m_lastFocusedWidgets;  // window -> last focused child widget
 
     // ─── Item-view selection memory ─────────────────────────────────────────

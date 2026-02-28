@@ -176,10 +176,17 @@ void IndicesView::setupUI() {
       "QTableView::item:selected { background-color: #dbeafe; color: #1e40af; "
       "}");
 
-  // Enable custom context menu
+  // Enable custom context menu — unified for table body and header
   m_view->setContextMenuPolicy(Qt::CustomContextMenu);
   connect(m_view, &QTableView::customContextMenuRequested, this,
           &IndicesView::showContextMenu);
+  m_view->horizontalHeader()->setContextMenuPolicy(Qt::CustomContextMenu);
+  connect(m_view->horizontalHeader(), &QHeaderView::customContextMenuRequested, this,
+          [this](const QPoint &headerPos) {
+              QPoint viewportPos = m_view->viewport()->mapFromGlobal(
+                  m_view->horizontalHeader()->mapToGlobal(headerPos));
+              showContextMenu(viewportPos);
+          });
 
   layout->addWidget(m_view);
 }

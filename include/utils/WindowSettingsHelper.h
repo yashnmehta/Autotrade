@@ -27,7 +27,11 @@ public:
             subWin = subWin->parentWidget();
         }
         if (subWin) {
-            settings.setValue("geometry", subWin->saveGeometry());
+            QRect geom = subWin->geometry();
+            settings.setValue("x", geom.x());
+            settings.setValue("y", geom.y());
+            settings.setValue("width", geom.width());
+            settings.setValue("height", geom.height());
         }
 
         // Find all ComboBoxes and save their current text
@@ -60,19 +64,36 @@ public:
         QSettings settings("TradingCompany", "TradingTerminal");
         settings.beginGroup(QString("WindowState/%1").arg(windowType));
         
-        // Restore Geometry if openWith is sizePosition or lastSaved
-        QSettings custSettings("TradingCompany", "TradingTerminal");
-        QString openWith = custSettings.value(QString("Customize/%1/openWith").arg(windowType), "default").toString();
-        
-        if (openWith != "default") {
+        // Restore Geometry — always restore last-saved position/size
+        {
             QWidget* subWin = window->parentWidget();
             while (subWin && !subWin->inherits("CustomMDISubWindow")) {
                 subWin = subWin->parentWidget();
             }
             if (subWin) {
-                QByteArray geom = settings.value("geometry").toByteArray();
-                if (!geom.isEmpty()) {
-                    subWin->restoreGeometry(geom);
+                // Use individual x/y/width/height keys (reliable for child widgets)
+                bool hasX = settings.contains("x");
+                bool hasY = settings.contains("y");
+                bool hasW = settings.contains("width");
+                bool hasH = settings.contains("height");
+
+                if (hasX && hasY && hasW && hasH) {
+                    int x = settings.value("x").toInt();
+                    int y = settings.value("y").toInt();
+                    int w = settings.value("width").toInt();
+                    int h = settings.value("height").toInt();
+                    if (w > 0 && h > 0) {
+                        subWin->setGeometry(x, y, w, h);
+                        qDebug() << "[WindowSettingsHelper] Restored geometry for"
+                                 << windowType << "-> (" << x << y << w << h << ")";
+                    }
+                } else {
+                    // Legacy fallback: try old QByteArray key
+                    QByteArray geom = settings.value("geometry").toByteArray();
+                    if (!geom.isEmpty()) {
+                        subWin->restoreGeometry(geom);
+                        qDebug() << "[WindowSettingsHelper] Restored legacy geometry for" << windowType;
+                    }
                 }
             }
         }
@@ -110,23 +131,39 @@ public:
         QSettings settings("TradingCompany", "TradingTerminal");
         settings.beginGroup(QString("Customize/%1").arg(windowType));
         
+        // ── Read legacy keys (also written by the new dialog for compat) ──
         QString bgColor = settings.value("backgroundColor", "").toString();
         QString fgColor = settings.value("foregroundColor", "").toString();
+
+        // ── Font settings (new: fontSize, fontBold, fontItalic) ──
         QString fontName = settings.value("font", "").toString();
+        int     fontSize = settings.value("fontSize", 0).toInt();
+        bool    fontBold = settings.value("fontBold", false).toBool();
+        bool    fontItalic = settings.value("fontItalic", false).toBool();
+
+        // ── Layout toggles ──
         bool titleBarVisible = settings.value("titleBar", true).toBool();
-        bool toolBarVisible = settings.value("toolBar", true).toBool();
-        bool gridVisible = settings.value("grid", true).toBool();
+        bool toolBarVisible  = settings.value("toolBar", true).toBool();
+        bool gridVisible     = settings.value("grid", true).toBool();
         
+        // ── Per-attribute colors (new) ──
+        QString selBg     = settings.value("color/Selection/Background", "").toString();
+        QString selFg     = settings.value("color/Selection/Foreground", "").toString();
+        QString hdrBg     = settings.value("color/Table Header/Background", "").toString();
+        QString hdrFg     = settings.value("color/Table Header/Foreground", "").toString();
+        QString gridColor = settings.value("color/Grid Lines/Foreground", "").toString();
+        QString evenRowBg = settings.value("color/Table Row (Even)/Background", "").toString();
+        QString oddRowBg  = settings.value("color/Table Row (Odd)/Background", "").toString();
+        QString upColor   = settings.value("color/Positive \\/ Up/Foreground", "").toString();
+        QString downColor = settings.value("color/Negative \\/ Down/Foreground", "").toString();
+
         // Handle TitleBar visibility if parent is CustomMDISubWindow
         QWidget* subWin = window->parentWidget();
         while (subWin && !subWin->inherits("CustomMDISubWindow")) {
             subWin = subWin->parentWidget();
         }
         if (subWin) {
-            // Use meta-method or direct call if possible. 
-            // Since we might not have the header here, we can set property and let it handle
             subWin->setProperty("titleBarVisible", titleBarVisible);
-            // Trigger update if it's a known method
             QMetaObject::invokeMethod(subWin, "updateTitleBarVisibility");
         }
 
@@ -152,23 +189,51 @@ public:
             style += " QLineEdit, QComboBox { background-color: white; color: black; border: 1px solid #ccc; }";
             style += " QLabel { background-color: transparent; }";
             
-            // Handle Grid visibility for table views if applicable
+            // ── Per-attribute table styling ──
+            // Grid
             if (!gridVisible) {
                 style += " QTableView { gridline-color: transparent; }";
+            } else if (!gridColor.isEmpty()) {
+                style += QString(" QTableView { gridline-color: %1; }").arg(gridColor);
             } else {
                 style += " QTableView { gridline-color: #d4d4d8; }";
             }
-            
+
+            // Header
+            if (!hdrBg.isEmpty() || !hdrFg.isEmpty()) {
+                style += " QHeaderView::section { ";
+                if (!hdrBg.isEmpty()) style += QString("background-color: %1; ").arg(hdrBg);
+                if (!hdrFg.isEmpty()) style += QString("color: %1; ").arg(hdrFg);
+                style += "} ";
+            }
+
+            // Selection
+            if (!selBg.isEmpty() || !selFg.isEmpty()) {
+                style += " QTableView::item:selected { ";
+                if (!selBg.isEmpty()) style += QString("background-color: %1; ").arg(selBg);
+                if (!selFg.isEmpty()) style += QString("color: %1; ").arg(selFg);
+                style += "} ";
+            }
+
+            // Alternating row colors
+            if (!evenRowBg.isEmpty() || !oddRowBg.isEmpty()) {
+                if (!evenRowBg.isEmpty())
+                    style += QString(" QTableView { alternate-background-color: %1; }").arg(oddRowBg.isEmpty() ? evenRowBg : oddRowBg);
+            }
+
             widgetToStyle->setStyleSheet(style);
-            
-            // Apply Font
-            if (!fontName.isEmpty()) {
-                QFont f = window->font();
-                f.setFamily(fontName);
-                window->setFont(f);
-                for (QWidget* child : window->findChildren<QWidget*>()) {
-                    child->setFont(f);
-                }
+        }
+
+        // ── Apply Font (family + size + bold + italic) ──
+        if (!fontName.isEmpty()) {
+            QFont f = window->font();
+            f.setFamily(fontName);
+            if (fontSize > 0) f.setPointSize(fontSize);
+            f.setBold(fontBold);
+            f.setItalic(fontItalic);
+            window->setFont(f);
+            for (QWidget* child : window->findChildren<QWidget*>()) {
+                child->setFont(f);
             }
         }
         

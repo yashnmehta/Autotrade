@@ -73,7 +73,7 @@ void WindowCacheManager::createBuyWindow() {
   // Only apply default size if user hasn't saved a geometry preference
   QSettings buySettings("TradingCompany", "TradingTerminal");
   QString buyOpenWith = buySettings.value("Customize/BuyWindow/openWith", "default").toString();
-  if (buyOpenWith == "default" || !buySettings.contains("WindowState/BuyWindow/geometry")) {
+  if (buyOpenWith == "default" || !buySettings.contains("WindowState/BuyWindow/width")) {
     m_cachedBuyMdiWindow->resize(925, 155);
   }
 
@@ -110,7 +110,7 @@ void WindowCacheManager::createSellWindow() {
   // Only apply default size if user hasn't saved a geometry preference
   QSettings sellSettings("TradingCompany", "TradingTerminal");
   QString sellOpenWith = sellSettings.value("Customize/SellWindow/openWith", "default").toString();
-  if (sellOpenWith == "default" || !sellSettings.contains("WindowState/SellWindow/geometry")) {
+  if (sellOpenWith == "default" || !sellSettings.contains("WindowState/SellWindow/width")) {
     m_cachedSellMdiWindow->resize(925, 155);
   }
 

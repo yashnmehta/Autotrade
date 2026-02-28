@@ -4,6 +4,7 @@
 #include "quant/Greeks.h"
 #include "quant/IVCalculator.h"
 #include <QCheckBox>
+#include <QCloseEvent>
 #include <QGroupBox>
 #include <QLabel>
 #include <QLineEdit>
@@ -24,6 +25,9 @@ class OptionCalculatorWindow : public QWidget {
 public:
   explicit OptionCalculatorWindow(QWidget *parent = nullptr);
   ~OptionCalculatorWindow() override;
+
+protected:
+  void closeEvent(QCloseEvent *event) override;
 
 private slots:
   void onCalculateClicked();

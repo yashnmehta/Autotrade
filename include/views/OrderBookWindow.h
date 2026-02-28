@@ -52,6 +52,7 @@ private:
     void setupConnections();
     void applyFilterToModel();
     void updateSummary();
+    void showOrderBookContextMenu(const QPoint &pos);
     
     QWidget* createFilterWidget();
     QWidget* createSummaryWidget();

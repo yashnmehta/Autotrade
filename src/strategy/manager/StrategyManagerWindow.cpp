@@ -9,6 +9,7 @@
 #include "strategy/builder/StrategyTemplateBuilderDialog.h"
 #include "strategy/builder/TemplateManagerDialog.h"
 #include "ui_StrategyManagerWindow.h"
+#include "utils/WindowSettingsHelper.h"
 #include <QButtonGroup>
 #include <QComboBox>
 #include <QFile>
@@ -79,6 +80,9 @@ StrategyManagerWindow::StrategyManagerWindow(QWidget *parent)
   m_model->setInstances(existing);
   refreshStrategyTypes();
   updateSummary();
+
+  // Restore saved runtime state (geometry, combo selections)
+  WindowSettingsHelper::loadAndApplyWindowSettings(this, "StrategyManager");
 }
 
 StrategyManagerWindow::~StrategyManagerWindow() { delete ui; }
@@ -470,4 +474,9 @@ void StrategyManagerWindow::updateSummary() {
     ui->SummaryLabel->setStyleSheet("color: #dc2626;");
   else
     ui->SummaryLabel->setStyleSheet("color: #64748b;");
+}
+
+void StrategyManagerWindow::closeEvent(QCloseEvent *event) {
+  WindowSettingsHelper::saveWindowSettings(this, "StrategyManager");
+  QWidget::closeEvent(event);
 }

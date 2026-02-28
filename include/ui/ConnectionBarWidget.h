@@ -28,6 +28,7 @@ class ConnectionBarWidget : public QWidget
 
 public:
     explicit ConnectionBarWidget(QWidget *parent = nullptr);
+    ~ConnectionBarWidget() override;
 
 signals:
     /** @brief User clicked the feed-mode toggle / dropdown */

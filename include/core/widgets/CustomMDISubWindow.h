@@ -3,6 +3,7 @@
 
 #include <QCloseEvent>
 #include <QPoint>
+#include <QPointer>
 #include <QVBoxLayout>
 #include <QWidget>
 
@@ -58,6 +59,10 @@ public:
   void setCached(bool cached) { m_isCached = cached; }
   bool isCached() const { return m_isCached; }
 
+  // Geometry pre-set flag — when true, addWindow() won't override with cascade
+  void setGeometryRestored(bool restored) { m_geometryRestored = restored; }
+  bool isGeometryRestored() const { return m_geometryRestored; }
+
   // Focus Management — Centralized through MDI wrapper
   // Sets the initiating window (the window that opened this one).
   // Used for focus restoration when this window is closed.
@@ -93,7 +98,7 @@ private:
   void updateCursor(const QPoint &pos);
 
   CustomTitleBar *m_titleBar;
-  QWidget *m_contentWidget;
+  QPointer<QWidget> m_contentWidget;
   QVBoxLayout *m_mainLayout;
   QVBoxLayout *m_contentLayout;
   QString m_windowType; // For workspace persistence
@@ -103,7 +108,8 @@ private:
   bool m_isMaximized;
   bool m_isPinned;
   bool m_isCached;        // Flag for cached windows (don't destroy on close)
-  QWidget *m_initiatingWindow = nullptr; // Window that opened this one (for focus restore)
+  bool m_geometryRestored = false; // Flag: geometry was pre-set, don't cascade
+  QPointer<QWidget> m_initiatingWindow; // Window that opened this one (for focus restore)
   QRect m_normalGeometry; // For restoring from maximize
 
   // Dragging/Resizing (Native C++)

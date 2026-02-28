@@ -1,5 +1,6 @@
 #include "views/MarketMovementWindow.h"
 #include "utils/ConfigLoader.h"
+#include "utils/WindowSettingsHelper.h"
 #include <QBrush>
 #include <QColor>
 #include <QDateTime>
@@ -44,6 +45,7 @@ MarketMovementWindow::MarketMovementWindow(QWidget *parent)
   setupUI();
   setupConnections();
   setupNetworkManager();
+  WindowSettingsHelper::loadAndApplyWindowSettings(this, "MarketMovement");
 }
 
 MarketMovementWindow::MarketMovementWindow(const WindowContext &context,
@@ -57,6 +59,7 @@ MarketMovementWindow::MarketMovementWindow(const WindowContext &context,
   setupUI();
   setupConnections();
   setupNetworkManager();
+  WindowSettingsHelper::loadAndApplyWindowSettings(this, "MarketMovement");
 
   // Set instrument and subscribe to candle updates
   if (m_context.isValid()) {
@@ -580,4 +583,9 @@ void MarketMovementWindow::onHistoricalDataReceived(QNetworkReply *reply) {
   QTimer::singleShot(3000, this, [this]() { m_statusLabel->setText(""); });
 
   reply->deleteLater();
+}
+
+void MarketMovementWindow::closeEvent(QCloseEvent *event) {
+  WindowSettingsHelper::saveWindowSettings(this, "MarketMovement");
+  QWidget::closeEvent(event);
 }

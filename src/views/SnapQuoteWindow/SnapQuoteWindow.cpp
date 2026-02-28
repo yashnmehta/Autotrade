@@ -1,6 +1,7 @@
 #include "views/SnapQuoteWindow.h"
 #include "repository/RepositoryManager.h"
 #include "services/FeedHandler.h"
+#include "utils/WindowSettingsHelper.h"
 #include <QDebug>
 #include <QShowEvent>
 #include <QTimer>
@@ -9,6 +10,7 @@
 SnapQuoteWindow::SnapQuoteWindow(QWidget *parent)
     : QWidget(parent), m_formWidget(nullptr), m_token(0), m_xtsClient(nullptr) {
   initUI();
+  WindowSettingsHelper::loadAndApplyWindowSettings(this, "SnapQuote");
 }
 
 SnapQuoteWindow::SnapQuoteWindow(const WindowContext &context, QWidget *parent)
@@ -120,6 +122,7 @@ bool SnapQuoteWindow::focusNextPrevChild(bool /*next*/) {
 }
 
 void SnapQuoteWindow::closeEvent(QCloseEvent *event) {
+  WindowSettingsHelper::saveWindowSettings(this, "SnapQuote");
   // Focus management is handled centrally by CustomMDISubWindow wrapper
   QWidget::closeEvent(event);
 }

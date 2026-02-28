@@ -2,6 +2,7 @@
 #define STRATEGY_MANAGER_WINDOW_H
 
 #include "strategy/model/StrategyInstance.h"
+#include <QCloseEvent>
 #include <QWidget>
 
 class QButtonGroup;
@@ -42,6 +43,9 @@ private slots:
   void onInstanceRemoved(qint64 instanceId);
 
   void onInstanceEdited(const StrategyInstance &instance);
+
+protected:
+  void closeEvent(QCloseEvent *event) override;
 
 private:
   void setupUI();

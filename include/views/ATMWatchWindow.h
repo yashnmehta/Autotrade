@@ -2,9 +2,12 @@
 #define ATM_WATCH_WINDOW_H
 
 #include "models/domain/WindowContext.h"
+#include "models/profiles/GenericTableProfile.h"
+#include "models/profiles/GenericProfileManager.h"
 #include "services/ATMWatchManager.h"
 #include "udp/UDPTypes.h"
 #include <QComboBox>
+#include <QCloseEvent>
 #include <QHBoxLayout>
 #include <QKeyEvent>
 #include <QLabel>
@@ -13,6 +16,7 @@
 #include <QPainter>
 #include <QPushButton>
 #include <QScrollBar>
+#include <QSettings>
 #include <QStandardItem>
 #include <QStandardItemModel>
 #include <QStyledItemDelegate>
@@ -123,6 +127,10 @@ public:
   // Public Context Access for Global Shortcuts
   WindowContext getCurrentContext();
 
+  // Workspace save/restore
+  void saveState(QSettings &settings);
+  void restoreState(QSettings &settings);
+
 signals:
   void openOptionChainRequested(const QString &symbol, const QString &expiry);
   void buyRequested(const WindowContext &context);
@@ -147,6 +155,7 @@ private slots:
 protected:
   bool eventFilter(QObject *obj, QEvent *event) override;
   void showEvent(QShowEvent *event) override;
+  void closeEvent(QCloseEvent *event) override;
 
 private:
   void setupUI();
@@ -165,7 +174,28 @@ private:
   void updateItemWithColor(QStandardItemModel *model, int row, int col,
                            double newValue,
                            int precision = 2); // Color helper
-  void applyColumnVisibility();  // Show/hide columns from settings
+  // Column profile management — uses GenericProfileManager + TableProfileHelper per table
+  void initProfileManagers();      // Create managers + register presets
+  void saveAllColumnProfiles();    // Save all three tables' last-used profiles
+  void loadAllColumnProfiles();    // Load all three tables' last-used profiles
+  void showCallColumnDialog();     // Show GenericProfileDialog for Call table
+  void showSymbolColumnDialog();   // Show GenericProfileDialog for Symbol table
+  void showPutColumnDialog();      // Show GenericProfileDialog for Put table
+
+  // Build column metadata for profile dialogs
+  static QList<GenericColumnInfo> buildCallColumnMetadata();
+  static QList<GenericColumnInfo> buildPutColumnMetadata();
+  static QList<GenericColumnInfo> buildSymbolColumnMetadata();
+
+  // Profile managers (one per table)
+  GenericProfileManager *m_callProfileMgr   = nullptr;
+  GenericProfileManager *m_symbolProfileMgr = nullptr;
+  GenericProfileManager *m_putProfileMgr    = nullptr;
+
+  // Current active profiles
+  GenericTableProfile m_callProfile;
+  GenericTableProfile m_symbolProfile;
+  GenericTableProfile m_putProfile;
 
   // Sort State
   enum SortSource { SORT_SYMBOL_TABLE, SORT_CALL_TABLE, SORT_PUT_TABLE };
@@ -216,6 +246,7 @@ private:
       m_previousATMData; // P2: Track previous state for incremental updates
 
   bool m_syncingScroll = false; // Re-entrancy guard for tri-directional scroll sync
+  bool m_initialColumnsResized = false; // One-time auto-fit after first data load
 
   // Timer for LTP updates
   QTimer *m_basePriceTimer;

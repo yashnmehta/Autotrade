@@ -2,6 +2,7 @@
 #define MARKET_MOVEMENT_WINDOW_H
 
 #include "models/domain/WindowContext.h"
+#include <QCloseEvent>
 #include <QDateTime>
 #include <QLabel>
 #include <QNetworkAccessManager>
@@ -94,6 +95,9 @@ private slots:
    */
   void onCandleCompleted(quint32 token, const CandleData &candle);
   void onCandleUpdated(quint32 token, const CandleData &candle);
+
+protected:
+  void closeEvent(QCloseEvent *event) override;
 
 private:
   void setupUI();

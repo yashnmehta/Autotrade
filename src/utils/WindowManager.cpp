@@ -78,16 +78,16 @@ void WindowManager::unregisterWindow(QWidget* window) {
             m_windowStack.removeAt(i);
             qWarning() << "[WindowManager][FOCUS-DEBUG] Unregistered:" << name
                      << "| Remaining:" << m_windowStack.size();
-            // Dump current stack for debugging
+            // Dump current stack for debugging (guard against destroyed windows)
             qWarning() << "[WindowManager][FOCUS-DEBUG] Stack dump:";
             for (int j = 0; j < qMin(m_windowStack.size(), 5); j++) {
                 auto &e = m_windowStack[j];
                 qDebug() << "  [" << j << "]" << e.name
-                         << "(" << (e.window ? e.window->metaObject()->className() : "null") << ")";
+                         << "(" << (e.window ? e.window->metaObject()->className() : "DESTROYED") << ")";
             }
             
-            // Check if this window had an initiating window
-            QWidget* initiatingWindow = m_initiatingWindows.value(window, nullptr);
+            // Check if this window had an initiating window (use QPointer — safe if destroyed)
+            QPointer<QWidget> initiatingWindow = m_initiatingWindows.value(window, nullptr);
             qWarning() << "[WindowManager][FOCUS-DEBUG] initiatingWindow for" << name << ":"
                      << (initiatingWindow ? initiatingWindow->metaObject()->className() : "nullptr")
                      << (initiatingWindow ? initiatingWindow->objectName() : "");
@@ -102,12 +102,13 @@ void WindowManager::unregisterWindow(QWidget* window) {
                 
                 // Activate the initiating window (the one that opened this window)
                 if (initiatingWindow->isVisible() && !initiatingWindow->isHidden()) {
-                    QTimer::singleShot(50, [initiatingWindow, name, this]() {
-                        if (initiatingWindow && !initiatingWindow->isHidden()) {
+                    QPointer<QWidget> safeInitiating = initiatingWindow;
+                    QTimer::singleShot(50, [safeInitiating, name, this]() {
+                        if (safeInitiating && !safeInitiating->isHidden()) {
                             // If initiatingWindow is a content widget (not top-level),
                             // activate its parent CustomMDISubWindow for proper z-order
-                            QWidget *activateTarget = initiatingWindow;
-                            QWidget *p = initiatingWindow->parentWidget();
+                            QWidget *activateTarget = safeInitiating;
+                            QWidget *p = safeInitiating->parentWidget();
                             while (p) {
                                 if (p->inherits("CustomMDISubWindow")) {
                                     activateTarget = p;
@@ -119,7 +120,7 @@ void WindowManager::unregisterWindow(QWidget* window) {
                             activateTarget->raise();
                             
                             // Restore last focused widget (tracked via focusChanged signal)
-                            restoreFocusState(initiatingWindow);
+                            restoreFocusState(safeInitiating);
                             qDebug() << "[WindowManager] ✓ Activated initiating window with focus restoration";
                         }
                     });
@@ -127,11 +128,20 @@ void WindowManager::unregisterWindow(QWidget* window) {
                 } else {
                     qDebug() << "[WindowManager] Initiating window is not visible, falling back to stack";
                 }
+            } else {
+                // Clean up mapping even if initiating window was destroyed
+                m_initiatingWindows.remove(window);
             }
             
             // No initiating window or it's not visible - fall back to stack-based activation
+            // Purge any destroyed windows from the top of the stack first
+            while (!m_windowStack.isEmpty() && m_windowStack.first().window.isNull()) {
+                qDebug() << "[WindowManager] Purging destroyed window from stack:" << m_windowStack.first().name;
+                m_windowStack.removeFirst();
+            }
+
             if (!m_windowStack.isEmpty()) {
-                QWidget* nextWindow = m_windowStack.first().window;
+                QPointer<QWidget> nextWindow = m_windowStack.first().window;
                 if (nextWindow && nextWindow->isVisible()) {
                     // Use a delayed activation to ensure proper focus handling
                     QTimer::singleShot(50, [nextWindow, this]() {
@@ -164,6 +174,12 @@ void WindowManager::bringToTop(QWidget* window) {
 
     // Find the window and move it to the top
     for (int i = 0; i < m_windowStack.size(); ++i) {
+        if (m_windowStack[i].window.isNull()) {
+            // Purge destroyed entry
+            m_windowStack.removeAt(i);
+            --i;
+            continue;
+        }
         if (m_windowStack[i].window == window) {
             if (i == 0) {
                 // Already at the top, just update timestamp
@@ -225,6 +241,7 @@ void WindowManager::onFocusChanged(QWidget* old, QWidget* /*now*/) {
 
     // Find which registered window the losing-focus widget belongs to
     for (const auto& entry : m_windowStack) {
+        if (entry.window.isNull()) continue;  // Skip destroyed windows
         if (entry.window && (entry.window == old || entry.window->isAncestorOf(old))) {
             m_lastFocusedWidgets[entry.window] = old;
 

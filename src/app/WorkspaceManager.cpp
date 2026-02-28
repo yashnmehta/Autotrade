@@ -12,8 +12,10 @@
 #include "core/widgets/CustomMDISubWindow.h"
 #include "models/profiles/GenericProfileManager.h"
 #include "models/profiles/GenericTableProfile.h"
+#include "views/ATMWatchWindow.h"
 #include "views/BaseBookWindow.h"
 #include "views/MarketWatchWindow.h"
+#include "views/OptionChainWindow.h"
 
 #include <QDebug>
 #include <QInputDialog>
@@ -47,23 +49,45 @@ void WorkspaceManager::saveCurrentWorkspace() {
   m_mdiArea->saveWorkspace(name);
 
   // 2. Save Specific Content (Scrips, Profiles) for OPEN windows
+  //    IMPORTANT: Use the same savedIndex counter as CustomMDIArea::saveWorkspace()
+  //    to keep content indices aligned with geometry indices. Skip off-screen
+  //    cached windows just like saveWorkspace() does.
   QSettings settings("TradingCompany", "TradingTerminal");
   settings.beginGroup("workspaces/" + name);
 
   QList<CustomMDISubWindow *> windows = m_mdiArea->windowList();
+  int savedIndex = 0;
   for (int i = 0; i < windows.count(); ++i) {
     CustomMDISubWindow *window = windows[i];
-    if (!window->contentWidget())
+
+    // Skip off-screen cached windows (matches CustomMDIArea::saveWorkspace logic)
+    if (window->geometry().x() < -1000)
       continue;
 
-    settings.beginGroup(QString("window_%1").arg(i));
+    if (!window->contentWidget()) {
+      savedIndex++;
+      continue;
+    }
+
+    settings.beginGroup(QString("window_%1").arg(savedIndex));
 
     if (window->windowType() == "MarketWatch") {
       MarketWatchWindow *mw =
           qobject_cast<MarketWatchWindow *>(window->contentWidget());
       if (mw)
         mw->saveState(settings);
+    } else if (window->windowType() == "ATMWatch") {
+      ATMWatchWindow *atm =
+          qobject_cast<ATMWatchWindow *>(window->contentWidget());
+      if (atm)
+        atm->saveState(settings);
+    } else if (window->windowType() == "OptionChain") {
+      OptionChainWindow *oc =
+          qobject_cast<OptionChainWindow *>(window->contentWidget());
+      if (oc)
+        oc->saveState(settings);
     } else {
+      // BaseBookWindow covers OrderBook, TradeBook, PositionWindow
       BaseBookWindow *book =
           qobject_cast<BaseBookWindow *>(window->contentWidget());
       if (book)
@@ -71,6 +95,7 @@ void WorkspaceManager::saveCurrentWorkspace() {
     }
 
     settings.endGroup();
+    savedIndex++;
   }
 
   // 3. Save Default Profiles for specific window types
@@ -165,6 +190,16 @@ void WorkspaceManager::onRestoreWindowRequested(
     window = m_factory->createSnapQuoteWindow();
   } else if (type == "OptionChain") {
     window = m_factory->createOptionChainWindow();
+  } else if (type == "ATMWatch") {
+    window = m_factory->createATMWatchWindow();
+  } else if (type == "OptionCalculator") {
+    window = m_factory->createOptionCalculatorWindow();
+  } else if (type == "StrategyManager") {
+    window = m_factory->createStrategyManagerWindow();
+  } else if (type == "MarketMovement") {
+    // MarketMovement requires a context — skip on workspace restore
+    qDebug() << "[WorkspaceManager] Skipping MarketMovement (needs live context)";
+    return;
   } else if (type == "OrderBook") {
     window = m_factory->createOrderBookWindow();
   } else if (type == "TradeBook") {
@@ -232,7 +267,18 @@ void WorkspaceManager::onRestoreWindowRequested(
         mw->setupZeroCopyMode();
         mw->restoreState(settings);
       }
+    } else if (type == "ATMWatch") {
+      ATMWatchWindow *atm =
+          qobject_cast<ATMWatchWindow *>(window->contentWidget());
+      if (atm)
+        atm->restoreState(settings);
+    } else if (type == "OptionChain") {
+      OptionChainWindow *oc =
+          qobject_cast<OptionChainWindow *>(window->contentWidget());
+      if (oc)
+        oc->restoreState(settings);
     } else {
+      // BaseBookWindow covers OrderBook, TradeBook, PositionWindow
       BaseBookWindow *book =
           qobject_cast<BaseBookWindow *>(window->contentWidget());
       if (book)

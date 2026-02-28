@@ -2,6 +2,7 @@
 #include "core/widgets/CustomOrderBook.h"
 #include "services/TradingDataService.h"
 #include "utils/PreferencesManager.h"
+#include "utils/WindowSettingsHelper.h"
 #include "api/xts/XTSTypes.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -52,6 +53,9 @@ OrderBookWindow::OrderBookWindow(TradingDataService* tradingDataService, QWidget
     } else {
         qDebug() << "[OrderBookWindow] Using default 'All' status (combo exists:" << (m_statusCombo != nullptr) << ")";
     }
+
+    // Restore saved runtime state (combo selections, geometry)
+    WindowSettingsHelper::loadAndApplyWindowSettings(this, "OrderBook");
 }
 
 OrderBookWindow::~OrderBookWindow() {}
@@ -101,14 +105,16 @@ void OrderBookWindow::setupTable() {
     m_tableView = new CustomOrderBook(this);
     m_tableView->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(m_tableView, &QTableView::customContextMenuRequested, this, [this](const QPoint &pos) {
-        QMenu menu(this);
-        menu.addAction("Modify Order (Shift+F2)", this, &OrderBookWindow::onModifyOrder);
-        menu.addAction("Cancel Order (Delete)", this, &OrderBookWindow::onCancelOrder);
-        menu.addSeparator();
-        menu.addAction("Export to CSV", this, &OrderBookWindow::exportToCSV);
-        menu.addAction("Column Profile...", this, &OrderBookWindow::showColumnProfileDialog);
-        menu.exec(m_tableView->viewport()->mapToGlobal(pos));
+        showOrderBookContextMenu(pos);
     });
+    // Unified: same context menu when right-clicking the header
+    m_tableView->horizontalHeader()->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(m_tableView->horizontalHeader(), &QHeaderView::customContextMenuRequested, this,
+            [this](const QPoint &headerPos) {
+                QPoint viewportPos = m_tableView->viewport()->mapFromGlobal(
+                    m_tableView->horizontalHeader()->mapToGlobal(headerPos));
+                showOrderBookContextMenu(viewportPos);
+            });
     OrderModel* model = new OrderModel(this);
     m_model = model;
     m_proxyModel = new PinnedRowProxyModel(this);
@@ -230,6 +236,22 @@ void OrderBookWindow::toggleFilterRow() {
 }
 
 void OrderBookWindow::exportToCSV() { BaseBookWindow::exportToCSV(m_model, m_tableView); }
+
+void OrderBookWindow::showOrderBookContextMenu(const QPoint &pos) {
+    QMenu menu(this);
+    menu.addAction("Column Profile...", this, &OrderBookWindow::showColumnProfileDialog);
+    menu.addSeparator();
+    menu.addAction("Modify Order (Shift+F2)", this, &OrderBookWindow::onModifyOrder);
+    menu.addAction("Cancel Order (Delete)", this, &OrderBookWindow::onCancelOrder);
+    menu.addSeparator();
+    menu.addAction("Export to CSV", this, &OrderBookWindow::exportToCSV);
+    menu.addAction("Copy", this, [this]() {
+        // TODO: copy selected rows
+    });
+    menu.addSeparator();
+    menu.addAction("Refresh", this, &OrderBookWindow::refreshOrders);
+    menu.exec(m_tableView->viewport()->mapToGlobal(pos));
+}
 void OrderBookWindow::refreshOrders() { if (m_tradingDataService) onOrdersUpdated(m_tradingDataService->getOrders()); }
 
 

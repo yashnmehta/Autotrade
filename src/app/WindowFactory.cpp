@@ -46,6 +46,71 @@
 #include <QTimer>
 
 // ═══════════════════════════════════════════════════════════════════════
+// Local helper: apply saved geometry or fall back to default size
+// ═══════════════════════════════════════════════════════════════════════
+
+/**
+ * @brief Restore saved geometry for a window type, or fall back to default.
+ *
+ * The MDI subwindow geometry is saved as individual x/y/width/height keys
+ * under WindowState/<type>/ on close.  This helper reads those keys and
+ * applies them.  If no saved geometry exists, the caller-supplied default
+ * size is used and the window will be cascade-positioned by addWindow().
+ *
+ * IMPORTANT: Must be called BEFORE m_mdiArea->addWindow() so that the
+ * geometryRestored flag is set and addWindow() won't override the position.
+ */
+static void applyRestoredGeometryOrDefault(CustomMDISubWindow *window,
+                                           const QString &windowType,
+                                           int defaultW, int defaultH) {
+  QSettings settings("TradingCompany", "TradingTerminal");
+  QString prefix = QString("WindowState/%1/").arg(windowType);
+
+  bool hasX = settings.contains(prefix + "x");
+  bool hasY = settings.contains(prefix + "y");
+  bool hasW = settings.contains(prefix + "width");
+  bool hasH = settings.contains(prefix + "height");
+
+  if (hasX && hasY && hasW && hasH) {
+    int x = settings.value(prefix + "x").toInt();
+    int y = settings.value(prefix + "y").toInt();
+    int w = settings.value(prefix + "width").toInt();
+    int h = settings.value(prefix + "height").toInt();
+
+    // Sanity-check: width/height must be positive
+    if (w > 0 && h > 0) {
+      window->setGeometry(x, y, w, h);
+      window->setGeometryRestored(true);  // Tell addWindow() not to cascade
+      qDebug() << "[WindowFactory] Restored saved geometry for" << windowType
+               << "-> (" << x << "," << y << "," << w << "x" << h << ")";
+      return;
+    }
+  }
+
+  // Also try the legacy QByteArray key for backward compatibility
+  QByteArray legacyGeom = settings.value(
+      QString("WindowState/%1/geometry").arg(windowType)).toByteArray();
+  if (!legacyGeom.isEmpty()) {
+    window->restoreGeometry(legacyGeom);
+    window->setGeometryRestored(true);
+    qDebug() << "[WindowFactory] Restored legacy geometry for" << windowType;
+    // Migrate: save as individual keys and remove legacy key
+    QRect geom = window->geometry();
+    settings.setValue(prefix + "x", geom.x());
+    settings.setValue(prefix + "y", geom.y());
+    settings.setValue(prefix + "width", geom.width());
+    settings.setValue(prefix + "height", geom.height());
+    settings.remove(QString("WindowState/%1/geometry").arg(windowType));
+    return;
+  }
+
+  // No saved geometry — use default size; let addWindow() cascade the position
+  window->resize(defaultW, defaultH);
+  qDebug() << "[WindowFactory] No saved geometry for" << windowType
+           << "— using default" << defaultW << "x" << defaultH;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
 // Construction & dependency injection
 // ═══════════════════════════════════════════════════════════════════════
 
@@ -343,7 +408,7 @@ CustomMDISubWindow *WindowFactory::createGlobalSearchWindow() {
       });
 
   window->setContentWidget(searchWidget);
-  window->resize(800, 500);
+  applyRestoredGeometryOrDefault(window, "GlobalSearch", 800, 500);
   connectWindowSignals(window);
   m_mdiArea->addWindow(window);
   window->show();
@@ -374,7 +439,7 @@ CustomMDISubWindow *WindowFactory::createMarketWatch() {
   qint64 t2 = mwTimer.elapsed();
 
   window->setContentWidget(marketWatch);
-  window->resize(900, 400);
+  applyRestoredGeometryOrDefault(window, "MarketWatch", 900, 400);
   qint64 t3 = mwTimer.elapsed();
 
   connectWindowSignals(window);
@@ -432,7 +497,7 @@ CustomMDISubWindow *WindowFactory::createChartWindow() {
   chartWidget->setXTSMarketDataClient(m_xtsMarketDataClient);
   chartWidget->setRepositoryManager(RepositoryManager::getInstance());
   window->setContentWidget(chartWidget);
-  window->resize(1200, 700);
+  applyRestoredGeometryOrDefault(window, "ChartWindow", 1200, 700);
 
   connectWindowSignals(window);
 
@@ -476,7 +541,7 @@ CustomMDISubWindow *WindowFactory::createIndicatorChartWindow() {
 
   IndicatorChartWidget *chartWidget = new IndicatorChartWidget(window);
   window->setContentWidget(chartWidget);
-  window->resize(1400, 900);
+  applyRestoredGeometryOrDefault(window, "IndicatorChart", 1400, 900);
 
   connectWindowSignals(window);
 
@@ -639,7 +704,7 @@ CustomMDISubWindow *WindowFactory::createBuyWindow() {
   }
 
   window->setContentWidget(buyWindow);
-  window->resize(925, 155);
+  window->resize(975, 155);
   connectWindowSignals(window);
   m_mdiArea->addWindow(window);
 
@@ -706,7 +771,7 @@ CustomMDISubWindow *WindowFactory::createSellWindow() {
   }
 
   window->setContentWidget(sellWindow);
-  window->resize(925, 155);
+  window->resize(975, 155);
   connectWindowSignals(window);
   m_mdiArea->addWindow(window);
 
@@ -851,7 +916,7 @@ CustomMDISubWindow *WindowFactory::createSnapQuoteWindow() {
           &SnapQuoteWindow::onTickUpdate);
 
   window->setContentWidget(snapWindow);
-  window->resize(780, 250);
+  applyRestoredGeometryOrDefault(window, "SnapQuote", 780, 250);
   if (currentlyActive) {
     window->setInitiatingWindow(currentlyActive);
   } else if (activeMarketWatch) {
@@ -889,7 +954,7 @@ CustomMDISubWindow *WindowFactory::createOptionChainWindow() {
   if (currentlyActive) {
     window->setInitiatingWindow(currentlyActive);
   }
-  window->resize(1600, 800);
+  applyRestoredGeometryOrDefault(window, "OptionChain", 1600, 800);
   connectWindowSignals(window);
   m_mdiArea->addWindow(window);
   window->activateWindow();
@@ -925,7 +990,7 @@ CustomMDISubWindow *WindowFactory::createOptionCalculatorWindow() {
   if (currentlyActive) {
     window->setInitiatingWindow(currentlyActive);
   }
-  window->resize(500, 600);
+  applyRestoredGeometryOrDefault(window, "OptionCalculator", 500, 600);
   connectWindowSignals(window);
   m_mdiArea->addWindow(window);
   window->activateWindow();
@@ -947,7 +1012,7 @@ CustomMDISubWindow *WindowFactory::createATMWatchWindow() {
   if (currentlyActive) {
     window->setInitiatingWindow(currentlyActive);
   }
-  window->resize(1200, 600);
+  applyRestoredGeometryOrDefault(window, "ATMWatch", 1200, 600);
   connectWindowSignals(window);
   m_mdiArea->addWindow(window);
   window->activateWindow();
@@ -985,7 +1050,7 @@ CustomMDISubWindow *WindowFactory::createOrderBookWindow() {
           &MainWindow::cancelOrder);
 
   window->setContentWidget(ob);
-  window->resize(1400, 600);
+  applyRestoredGeometryOrDefault(window, "OrderBook", 1400, 600);
   connectWindowSignals(window);
   m_mdiArea->addWindow(window);
   window->activateWindow();
@@ -999,7 +1064,7 @@ CustomMDISubWindow *WindowFactory::createTradeBookWindow() {
   window->setWindowType("TradeBook");
   TradeBookWindow *tb = new TradeBookWindow(m_tradingDataService, window);
   window->setContentWidget(tb);
-  window->resize(1400, 600);
+  applyRestoredGeometryOrDefault(window, "TradeBook", 1400, 600);
   connectWindowSignals(window);
   m_mdiArea->addWindow(window);
   window->activateWindow();
@@ -1014,7 +1079,7 @@ CustomMDISubWindow *WindowFactory::createPositionWindow() {
   window->setWindowType("PositionWindow");
   PositionWindow *pw = new PositionWindow(m_tradingDataService, window);
   window->setContentWidget(pw);
-  window->resize(1000, 500);
+  applyRestoredGeometryOrDefault(window, "PositionWindow", 1000, 500);
   connectWindowSignals(window);
   m_mdiArea->addWindow(window);
   window->activateWindow();
@@ -1029,7 +1094,7 @@ CustomMDISubWindow *WindowFactory::createStrategyManagerWindow() {
   StrategyManagerWindow *strategyWindow = new StrategyManagerWindow(window);
 
   window->setContentWidget(strategyWindow);
-  window->resize(1000, 600);
+  applyRestoredGeometryOrDefault(window, "StrategyManager", 1000, 600);
   connectWindowSignals(window);
   m_mdiArea->addWindow(window);
   window->activateWindow();
@@ -1070,7 +1135,7 @@ CustomMDISubWindow *WindowFactory::createMarketMovementWindow() {
       new MarketMovementWindow(context, window);
 
   window->setContentWidget(marketMovement);
-  window->resize(1000, 600);
+  applyRestoredGeometryOrDefault(window, "MarketMovement", 1000, 600);
 
   connectWindowSignals(window);
   m_mdiArea->addWindow(window);
@@ -1098,7 +1163,7 @@ void WindowFactory::openBuyWindowForModification(const XTS::Order &order) {
           &MainWindow::modifyOrder);
 
   window->setContentWidget(buyWindow);
-  window->resize(925, 180);
+  window->resize(975, 180);
   connectWindowSignals(window);
   m_mdiArea->addWindow(window);
   window->activateWindow();
@@ -1116,7 +1181,7 @@ void WindowFactory::openSellWindowForModification(const XTS::Order &order) {
           m_mainWindow, &MainWindow::modifyOrder);
 
   window->setContentWidget(sellWindow);
-  window->resize(925, 180);
+  window->resize(975, 180);
   connectWindowSignals(window);
   m_mdiArea->addWindow(window);
   window->activateWindow();
@@ -1135,7 +1200,7 @@ void WindowFactory::openBatchBuyWindowForModification(
           &MainWindow::modifyOrder);
 
   window->setContentWidget(buyWindow);
-  window->resize(925, 180);
+  window->resize(975, 180);
   connectWindowSignals(window);
   m_mdiArea->addWindow(window);
   window->activateWindow();
@@ -1154,7 +1219,7 @@ void WindowFactory::openBatchSellWindowForModification(
           m_mainWindow, &MainWindow::modifyOrder);
 
   window->setContentWidget(sellWindow);
-  window->resize(925, 180);
+  window->resize(975, 180);
   connectWindowSignals(window);
   m_mdiArea->addWindow(window);
   window->activateWindow();

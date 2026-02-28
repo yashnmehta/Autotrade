@@ -12,7 +12,6 @@
 #include <QFormLayout>
 #include <QSettings>
 #include <QLabel>
-#include <QMap>
 #include "services/ATMWatchManager.h"
 
 /**
@@ -23,8 +22,10 @@
  * - Timer interval (backup calculation frequency)
  * - Threshold multiplier (recalculation sensitivity)
  * - Base price source (Cash/Future)
- * - Column visibility for Call/Put tables
  * - Alert preferences
+ * 
+ * Note: Column visibility is managed via GenericProfileDialog from the
+ * context menu, not from this settings dialog.
  */
 class ATMWatchSettingsDialog : public QDialog {
     Q_OBJECT
@@ -32,13 +33,6 @@ class ATMWatchSettingsDialog : public QDialog {
 public:
     explicit ATMWatchSettingsDialog(QWidget* parent = nullptr);
     ~ATMWatchSettingsDialog() = default;
-    
-    // Column visibility results
-    QList<int> hiddenCallColumns() const { return m_hiddenCallColumns; }
-    QList<int> hiddenPutColumns() const { return m_hiddenPutColumns; }
-    
-signals:
-    void columnVisibilityChanged();
     
 private slots:
     void onOkClicked();
@@ -64,13 +58,6 @@ private:
     QSpinBox* m_updateIntervalSpinBox;
     QDoubleSpinBox* m_thresholdMultiplierSpinBox;
     QComboBox* m_basePriceSourceCombo;
-    
-    // UI Components - Column Visibility
-    QGroupBox* m_columnVisibilityGroup;
-    QMap<int, QCheckBox*> m_callColumnChecks;  // col index -> checkbox
-    QMap<int, QCheckBox*> m_putColumnChecks;   // col index -> checkbox
-    QList<int> m_hiddenCallColumns;
-    QList<int> m_hiddenPutColumns;
     
     // UI Components - Greeks (Future - Phase 4)
     QGroupBox* m_greeksGroup;

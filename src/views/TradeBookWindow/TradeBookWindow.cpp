@@ -1,6 +1,7 @@
 #include "views/TradeBookWindow.h"
 #include "core/widgets/CustomTradeBook.h"
 #include "services/TradingDataService.h"
+#include "utils/WindowSettingsHelper.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QComboBox>
@@ -28,6 +29,9 @@ TradeBookWindow::TradeBookWindow(TradingDataService* tradingDataService, QWidget
         onTradesUpdated(m_tradingDataService->getTrades());
     }
     connect(m_filterShortcut, &QShortcut::activated, this, &TradeBookWindow::toggleFilterRow);
+
+    // Restore saved runtime state (combo selections, geometry)
+    WindowSettingsHelper::loadAndApplyWindowSettings(this, "TradeBook");
 }
 
 TradeBookWindow::~TradeBookWindow() {}
@@ -77,13 +81,16 @@ void TradeBookWindow::setupTable() {
     m_tableView = new CustomTradeBook(this);
     m_tableView->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(m_tableView, &QTableView::customContextMenuRequested, this, [this](const QPoint &pos) {
-        QMenu menu(this);
-        menu.addAction("Export to CSV", this, &TradeBookWindow::exportToCSV);
-        menu.addAction("Refresh", this, &TradeBookWindow::refreshTrades);
-        menu.addSeparator();
-        menu.addAction("Column Profile...", this, &TradeBookWindow::showColumnProfileDialog);
-        menu.exec(m_tableView->viewport()->mapToGlobal(pos));
+        showTradeBookContextMenu(pos);
     });
+    // Unified: same context menu when right-clicking the header
+    m_tableView->horizontalHeader()->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(m_tableView->horizontalHeader(), &QHeaderView::customContextMenuRequested, this,
+            [this](const QPoint &headerPos) {
+                QPoint viewportPos = m_tableView->viewport()->mapFromGlobal(
+                    m_tableView->horizontalHeader()->mapToGlobal(headerPos));
+                showTradeBookContextMenu(viewportPos);
+            });
     TradeModel* model = new TradeModel(this);
     m_model = model;
     m_proxyModel = new PinnedRowProxyModel(this);
@@ -171,5 +178,18 @@ void TradeBookWindow::onTextFilterChanged(int col, const QString& text) {
 
 void TradeBookWindow::toggleFilterRow() { BaseBookWindow::toggleFilterRow(m_model, m_tableView); }
 void TradeBookWindow::exportToCSV() { BaseBookWindow::exportToCSV(m_model, m_tableView); }
+
+void TradeBookWindow::showTradeBookContextMenu(const QPoint &pos) {
+    QMenu menu(this);
+    menu.addAction("Column Profile...", this, &TradeBookWindow::showColumnProfileDialog);
+    menu.addSeparator();
+    menu.addAction("Export to CSV", this, &TradeBookWindow::exportToCSV);
+    menu.addAction("Copy", this, [this]() {
+        // TODO: copy selected rows
+    });
+    menu.addSeparator();
+    menu.addAction("Refresh", this, &TradeBookWindow::refreshTrades);
+    menu.exec(m_tableView->viewport()->mapToGlobal(pos));
+}
 void TradeBookWindow::refreshTrades() { if (m_tradingDataService) onTradesUpdated(m_tradingDataService->getTrades()); }
 

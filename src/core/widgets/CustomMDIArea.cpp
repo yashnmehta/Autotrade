@@ -68,8 +68,13 @@ CustomMDIArea::CustomMDIArea(QWidget *parent)
 }
 
 CustomMDIArea::~CustomMDIArea() {
+  // Disconnect focus tracking before destroying windows to prevent
+  // dangling pointer access in the focusChanged lambda during teardown
+  disconnect(qApp, &QApplication::focusChanged, this, nullptr);
+
   // Clean up windows
   qDeleteAll(m_windows);
+  m_windows.clear();
 }
 
 void CustomMDIArea::addWindow(CustomMDISubWindow *window,
@@ -81,9 +86,15 @@ void CustomMDIArea::addWindow(CustomMDISubWindow *window,
   // Set parent to this MDI area
   window->setParent(this);
 
-  // Position window
-  QPoint pos = getNextWindowPosition();
-  window->move(pos);
+  // Only cascade-position the window if it does NOT already have restored geometry.
+  // When geometry was restored from settings, we must NOT overwrite x,y.
+  if (!window->isGeometryRestored()) {
+    QPoint pos = getNextWindowPosition();
+    window->move(pos);
+  } else {
+    qDebug() << "[MDIArea] Skipping cascade — window has restored geometry:"
+             << window->title() << window->geometry();
+  }
 
   // Add to list
   m_windows.append(window);

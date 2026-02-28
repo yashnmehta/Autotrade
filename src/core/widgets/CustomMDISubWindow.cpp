@@ -44,7 +44,7 @@ CustomMDISubWindow::CustomMDISubWindow(const QString &title, QWidget *parent)
   contentContainer->setObjectName("contentContainer");
   QVBoxLayout *containerLayout = new QVBoxLayout(contentContainer);
   // Small margin on sides/bottom for resize grip area.
-  containerLayout->setContentsMargins(2, 0, 2, 2);
+  containerLayout->setContentsMargins(4, 4, 4, 4);
   containerLayout->setSpacing(0);
   m_mainLayout->addWidget(contentContainer);
 
@@ -214,6 +214,26 @@ void CustomMDISubWindow::closeEvent(QCloseEvent *event) {
       WindowCacheManager::instance().markSnapQuoteWindowClosed(windowIndex);
     }
 
+    // Save geometry for cached windows too (before moving off-screen)
+    if (!m_windowType.isEmpty()) {
+      QPoint windowPos = geometry().topLeft();
+      if (windowPos.x() >= WindowConstants::VISIBLE_THRESHOLD_X &&
+          windowPos.y() >= WindowConstants::VISIBLE_THRESHOLD_Y) {
+        QSettings settings("TradingCompany", "TradingTerminal");
+        QRect geom = geometry();
+        settings.setValue(
+            QString("WindowState/%1/x").arg(m_windowType), geom.x());
+        settings.setValue(
+            QString("WindowState/%1/y").arg(m_windowType), geom.y());
+        settings.setValue(
+            QString("WindowState/%1/width").arg(m_windowType), geom.width());
+        settings.setValue(
+            QString("WindowState/%1/height").arg(m_windowType), geom.height());
+        qDebug() << "[MDISubWindow] Saved geometry for cached" << m_windowType
+                 << "rect:" << geom;
+      }
+    }
+
     event->ignore(); // Prevent actual close
 
     // ⚡ CRITICAL OPTIMIZATION: Move off-screen instead of hide() (10x faster
@@ -274,6 +294,22 @@ void CustomMDISubWindow::closeEvent(QCloseEvent *event) {
   // if (m_contentWidget) {
   //     m_contentWidget->close();
   // }
+
+  // Save geometry for ALL window types so the factory can restore it on re-open
+  if (!m_windowType.isEmpty()) {
+    QSettings settings("TradingCompany", "TradingTerminal");
+    QRect geom = geometry();
+    settings.setValue(
+        QString("WindowState/%1/x").arg(m_windowType), geom.x());
+    settings.setValue(
+        QString("WindowState/%1/y").arg(m_windowType), geom.y());
+    settings.setValue(
+        QString("WindowState/%1/width").arg(m_windowType), geom.width());
+    settings.setValue(
+        QString("WindowState/%1/height").arg(m_windowType), geom.height());
+    qDebug() << "[MDISubWindow] Saved geometry for" << m_windowType
+             << "rect:" << geom;
+  }
 
   // Remove ourselves from the MDI area before closing
   CustomMDIArea *mdiArea = qobject_cast<CustomMDIArea *>(parent());

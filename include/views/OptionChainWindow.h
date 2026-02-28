@@ -14,6 +14,8 @@
 #include <QStyledItemDelegate>
 #include <QMap>
 #include <QKeyEvent>
+#include <QCloseEvent>
+#include <QFocusEvent>
 #include <QShortcut>
 #include "api/xts/XTSTypes.h"
 #include "udp/UDPTypes.h"
@@ -21,6 +23,8 @@
 #include "models/domain/WindowContext.h"
 #include "models/profiles/GenericTableProfile.h"
 #include "models/profiles/GenericProfileManager.h"
+
+class QSettings;
 
 /**
  * @brief Data structure for a single strike in the option chain
@@ -135,6 +139,10 @@ public:
     QString currentSymbol() const { return m_currentSymbol; }
     QString currentExpiry() const { return m_currentExpiry; }
     WindowContext getSelectedContext() const;
+
+    // Workspace save/restore
+    void saveState(QSettings &settings);
+    void restoreState(QSettings &settings);
     
 signals:
     void tradeRequested(const QString &symbol, const QString &expiry, 
@@ -160,6 +168,8 @@ protected:
     bool eventFilter(QObject *obj, QEvent *event) override;
     void keyPressEvent(QKeyEvent *event) override;
     void showEvent(QShowEvent *event) override;
+    void focusInEvent(QFocusEvent *event) override;
+    void closeEvent(QCloseEvent *event) override;
 
 private:
     void setupUI();

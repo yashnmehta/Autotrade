@@ -7,9 +7,12 @@
 #include <QMap>
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
+#include <QCoreApplication>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
+#include <QDebug>
 #include "models/profiles/GenericTableProfile.h"
 
 /**
@@ -32,9 +35,37 @@
 class GenericProfileManager {
 public:
     GenericProfileManager(const QString &baseDir, const QString &windowName)
-        : m_baseDir(baseDir), m_windowName(windowName)
+        : m_windowName(windowName)
     {
+        // Resolve relative paths against the application directory, not the CWD.
+        // On macOS the CWD is often "/" when launched from Finder/.app bundle,
+        // so a relative "profiles" would write to "/profiles/" — wrong.
+        if (QDir::isRelativePath(baseDir)) {
+            QString appDir = QCoreApplication::applicationDirPath();
+            // Walk up from the binary to the project root.
+            // macOS .app bundle: <project>/build/TradingTerminal.app/Contents/MacOS/
+            // Normal build:      <project>/build/
+            QDir d(appDir);
+            // Try to find the profiles dir by walking up (max 5 levels)
+            bool found = false;
+            for (int i = 0; i < 5; ++i) {
+                if (QDir(d.filePath(baseDir)).exists() ||
+                    QFileInfo(d.filePath("CMakeLists.txt")).exists()) {
+                    m_baseDir = d.filePath(baseDir);
+                    found = true;
+                    break;
+                }
+                if (!d.cdUp()) break;
+            }
+            if (!found) {
+                // Fallback: create next to the executable
+                m_baseDir = appDir + "/" + baseDir;
+            }
+        } else {
+            m_baseDir = baseDir;
+        }
         QDir().mkpath(m_baseDir);
+        qDebug() << "[GenericProfileManager]" << m_windowName << "→ baseDir resolved to:" << m_baseDir;
     }
 
     // ── Preset profiles (built-in, read-only) ────────────────────────────
@@ -111,6 +142,30 @@ public:
         if (file.open(QIODevice::ReadOnly))
             return QString::fromUtf8(file.readAll()).trimmed();
         return m_presetOrder.isEmpty() ? "Default" : m_presetOrder.first();
+    }
+
+    // ── Last-used profile (always persists, even for preset names) ───────
+    /// Saves the current profile state to a special _LastUsed.json file.
+    /// Unlike saveCustomProfile(), this works even for preset-named profiles
+    /// (e.g. "Default") so that user's column width/order tweaks survive restart.
+    bool saveLastUsedProfile(const GenericTableProfile &profile) {
+        QDir().mkpath(m_baseDir);
+        QString path = m_baseDir + "/" + m_windowName + "_LastUsed.json";
+        QFile file(path);
+        if (!file.open(QIODevice::WriteOnly)) return false;
+        file.write(QJsonDocument(profile.toJson()).toJson(QJsonDocument::Indented));
+        return true;
+    }
+
+    /// Loads the last-used profile state. Returns true if found.
+    bool loadLastUsedProfile(GenericTableProfile &profile) const {
+        QString path = m_baseDir + "/" + m_windowName + "_LastUsed.json";
+        QFile file(path);
+        if (!file.open(QIODevice::ReadOnly)) return false;
+        QJsonDocument doc = QJsonDocument::fromJson(file.readAll());
+        if (!doc.isObject()) return false;
+        profile.fromJson(doc.object());
+        return !profile.name().isEmpty();
     }
 
     // ── Legacy compat (old API used by GenericProfileDialog) ─────────────

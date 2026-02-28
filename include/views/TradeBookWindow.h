@@ -39,6 +39,7 @@ private:
     void setupConnections();
     void applyFilterToModel();
     void updateSummary();
+    void showTradeBookContextMenu(const QPoint &pos);
     
     QWidget* createFilterWidget();
     QWidget* createSummaryWidget();
