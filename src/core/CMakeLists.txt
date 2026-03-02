@@ -8,7 +8,6 @@ add_library(core_widgets STATIC
     widgets/CustomMainWindow.cpp
     widgets/CustomMDIArea.cpp
     widgets/CustomMDISubWindow.cpp
-    widgets/CustomMDIChild.cpp
     widgets/CustomTitleBar.cpp
     widgets/CustomScripComboBox.cpp
     widgets/MDITaskBar.cpp
@@ -25,7 +24,6 @@ add_library(core_widgets STATIC
     ${CMAKE_SOURCE_DIR}/include/core/widgets/CustomMainWindow.h
     ${CMAKE_SOURCE_DIR}/include/core/widgets/CustomMDIArea.h
     ${CMAKE_SOURCE_DIR}/include/core/widgets/CustomMDISubWindow.h
-    ${CMAKE_SOURCE_DIR}/include/core/widgets/CustomMDIChild.h
     ${CMAKE_SOURCE_DIR}/include/core/widgets/CustomTitleBar.h
     ${CMAKE_SOURCE_DIR}/include/core/widgets/CustomScripComboBox.h
     ${CMAKE_SOURCE_DIR}/include/core/widgets/MDITaskBar.h
@@ -71,7 +69,6 @@ target_include_directories(core_widgets PUBLIC
     ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_nsefo/include
     ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_nsecm/include
     ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_bsefo/include
-    ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_bsecm/include
     ${LZO_INCLUDE_DIRS}
 )
 

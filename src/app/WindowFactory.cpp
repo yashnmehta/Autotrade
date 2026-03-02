@@ -433,9 +433,6 @@ CustomMDISubWindow *WindowFactory::createMarketWatch() {
   qint64 t0 = mwTimer.elapsed();
 
   MarketWatchWindow *marketWatch = new MarketWatchWindow(window);
-  qint64 t1 = mwTimer.elapsed();
-
-  marketWatch->setupZeroCopyMode();
   qint64 t2 = mwTimer.elapsed();
 
   window->setContentWidget(marketWatch);
@@ -474,12 +471,9 @@ CustomMDISubWindow *WindowFactory::createMarketWatch() {
   qDebug() << "  Breakdown:";
   qDebug() << "    - Create MDI SubWindow:" << t0 << "ms";
   qDebug() << "    - Create MarketWatchWindow (see constructor logs):"
-           << (t1 - t0) << "ms";
-  qDebug() << "    - Setup zero-copy mode:" << (t2 - t1) << "ms";
+           << (t2 - t0) << "ms";
   qDebug() << "    - Set content widget + resize:" << (t3 - t2) << "ms";
   qDebug() << "    - Connect signals:" << (t4 - t3) << "ms";
-  qDebug() << "    - Add to MDI area (batched):" << (t5 - t4) << "ms";
-  qDebug() << "    - Focus/raise/activate (batched):" << (t6 - t5) << "ms";
   qDebug() << "    - Add to MDI area:" << (t5 - t4) << "ms";
   qDebug() << "    - Focus/raise/activate:" << (t6 - t5) << "ms";
   return window;
@@ -1316,8 +1310,6 @@ void WindowFactory::onAddToWatchRequested(const InstrumentData &instrument) {
     if (activeWindow) {
       marketWatch =
           qobject_cast<MarketWatchWindow *>(activeWindow->contentWidget());
-      if (marketWatch)
-        marketWatch->setupZeroCopyMode();
     }
   }
 

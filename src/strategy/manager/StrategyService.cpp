@@ -1,6 +1,7 @@
 #include "strategy/manager/StrategyService.h"
 #include "strategy/runtime/StrategyBase.h"
 #include "strategy/runtime/StrategyFactory.h"
+#include "data/PriceStoreGateway.h"
 #include <QDateTime>
 #include <QDebug>
 #include <QMutexLocker>
@@ -313,17 +314,41 @@ void StrategyService::onUpdateTick() {
     QMutexLocker locker(&m_mutex);
     for (auto it = m_instances.begin(); it != m_instances.end(); ++it) {
       StrategyInstance &instance = it.value();
-      if (instance.state == StrategyState::Running) {
-        // TODO (Phase 2): Compute MTM from FeedHandler
-        // - Get current price for instance.symbol + instance.segment
-        // - Formula: MTM = instance.quantity * (currentPrice -
-        // instance.entryPrice)
-        // - Update instance.mtm only if value changed
-        // Reference: FeedHandler::instance().subscribe(segment, token, ...)
-        // Reference: PriceStoreGateway for direct price lookup
+      if (instance.state != StrategyState::Running)
+        continue;
 
-        instance.lastUpdated = QDateTime::currentDateTime();
-        updates.append(instance);
+      // ── Compute MTM from PriceStoreGateway ──
+      // Only applicable if instance has a valid entry price and segment/token
+      if (instance.entryPrice > 0.0 && instance.segment > 0 &&
+          instance.quantity != 0) {
+        // Resolve token — check if __token__ was stored in parameters
+        uint32_t token = 0;
+        QVariant tokenVar = instance.parameters.value("__token__");
+        if (tokenVar.isValid() && tokenVar.toLongLong() > 0) {
+          token = static_cast<uint32_t>(tokenVar.toLongLong());
+        }
+
+        if (token > 0) {
+          auto snapshot =
+              MarketData::PriceStoreGateway::instance().getUnifiedSnapshot(
+                  instance.segment, token);
+          double ltp = snapshot.ltp;
+
+          if (ltp > 0.0) {
+            double newMtm =
+                instance.quantity * (ltp - instance.entryPrice);
+            // Only emit update if MTM actually changed (avoid UI churn)
+            if (qAbs(newMtm - instance.mtm) > 0.01) {
+              instance.mtm = newMtm;
+              instance.lastUpdated = QDateTime::currentDateTime();
+              updates.append(instance);
+            }
+          }
+        } else {
+          // No token stored — just timestamp update
+          instance.lastUpdated = QDateTime::currentDateTime();
+          updates.append(instance);
+        }
       }
     }
   }

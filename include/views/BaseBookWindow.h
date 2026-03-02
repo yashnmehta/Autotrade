@@ -26,6 +26,7 @@ protected:
     
     void toggleFilterRow(QAbstractItemModel* model, QTableView* tableView);
     void exportToCSV(QAbstractItemModel* model, QTableView* tableView);
+    void copySelectedRows();
 
     QString m_windowName;
     QTableView* m_tableView;
@@ -35,6 +36,7 @@ protected:
     bool m_filterRowVisible;
     QList<QWidget*> m_filterWidgets;
     QShortcut* m_filterShortcut;
+    QShortcut* m_copyShortcut;
     QMap<int, QString> m_textFilters;  ///< Column -> filter text for inline filtering
 
 protected slots:

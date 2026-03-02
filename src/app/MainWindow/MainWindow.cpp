@@ -1,8 +1,8 @@
 #include "app/MainWindow.h"
-#include "app/WindowFactory.h"
-#include "app/WorkspaceManager.h"
 #include "api/xts/XTSInteractiveClient.h"
 #include "app/ScripBar.h"
+#include "app/WindowFactory.h"
+#include "app/WorkspaceManager.h"
 #include "core/widgets/CustomMDIArea.h"
 #include "core/widgets/CustomMDISubWindow.h"
 #include "core/widgets/InfoBar.h"
@@ -15,13 +15,13 @@
 #include "core/WindowCacheManager.h"
 #include "repository/RepositoryManager.h"
 #include "services/ATMWatchManager.h"
+#include "services/ConnectionStatusManager.h"
 #include "services/FeedHandler.h"
 #include "services/GreeksCalculationService.h"
-#include "strategy/manager/StrategyService.h"
 #include "services/TradingDataService.h"
 #include "services/UdpBroadcastService.h"
 #include "services/XTSFeedBridge.h"
-#include "services/ConnectionStatusManager.h"
+#include "strategy/manager/StrategyService.h"
 #include "utils/ConfigLoader.h"
 #include "utils/LatencyTracker.h"
 #include "utils/WindowManager.h"
@@ -34,7 +34,6 @@
 #include <QShortcut>
 #include <QStatusBar>
 #include <QTimer>
-
 
 MainWindow::MainWindow(QWidget *parent)
     : CustomMainWindow(parent), m_windowFactory(nullptr),
@@ -55,8 +54,8 @@ MainWindow::MainWindow(QWidget *parent)
       new WorkspaceManager(this, m_mdiArea, m_windowFactory, this);
 
   // Wire workspace restore signal to WorkspaceManager instead of MainWindow
-  connect(m_mdiArea, &CustomMDIArea::restoreWindowRequested,
-          m_workspaceManager, &WorkspaceManager::onRestoreWindowRequested);
+  connect(m_mdiArea, &CustomMDIArea::restoreWindowRequested, m_workspaceManager,
+          &WorkspaceManager::onRestoreWindowRequested);
 
   // Setup keyboard shortcuts
   setupShortcuts();
@@ -77,8 +76,8 @@ MainWindow::MainWindow(QWidget *parent)
           Qt::QueuedConnection); // Async, thread-safe
 
   // Connect strategy order requests to order placement pipeline
-  connect(&StrategyService::instance(), &StrategyService::orderRequested,
-          this, &MainWindow::placeOrder, Qt::QueuedConnection);
+  connect(&StrategyService::instance(), &StrategyService::orderRequested, this,
+          &MainWindow::placeOrder, Qt::QueuedConnection);
 
   // setupNetwork() will be called once configLoader is set
   // to ensure we have the correct multicast IPs and ports.
@@ -131,7 +130,7 @@ void MainWindow::setXTSClients(XTSMarketDataClient *mdClient,
       m_xtsMarketDataClient);
 
   // Wire ConnectionStatusManager for live connection state tracking
-  auto& connMgr = ConnectionStatusManager::instance();
+  auto &connMgr = ConnectionStatusManager::instance();
   connMgr.wireXTSMarketDataClient(m_xtsMarketDataClient);
   connMgr.wireXTSInteractiveClient(m_xtsInteractiveClient);
 }
@@ -150,52 +149,49 @@ void MainWindow::setConfigLoader(ConfigLoader *loader) {
   // Update ATM default source from config
   if (m_configLoader) {
     QString mode = m_configLoader->getBasePriceMode();
-    auto& atm = ATMWatchManager::getInstance();
+    auto &atm = ATMWatchManager::getInstance();
     ATMWatchManager::BasePriceSource source =
         (mode == "future") ? ATMWatchManager::BasePriceSource::Future
                            : ATMWatchManager::BasePriceSource::Cash;
 
     atm.setDefaultBasePriceSource(source);
 
-    // Add default watches using the configured source
-    atm.addWatch("NIFTY", "27JAN2026", source);
-    atm.addWatch("BANKNIFTY", "27JAN2026", source);
-  }
+    // ✅ DO NOT create IndicesView here!
+    // IndicesView will be created in main.cpp continue button callback
+    // AFTER mainWindow->show() completes rendering
+    // This prevents the race condition where IndicesView appears during login
 
-  // ✅ DO NOT create IndicesView here!
-  // IndicesView will be created in main.cpp continue button callback
-  // AFTER mainWindow->show() completes rendering
-  // This prevents the race condition where IndicesView appears during login
+    // ✅ Initialize GreeksCalculationService
+    GreeksCalculationService::instance().loadConfiguration();
+    GreeksCalculationService::instance().setRepositoryManager(
+        RepositoryManager::getInstance());
+    qDebug() << "[MainWindow] GreeksCalculationService initialized";
 
-  // ✅ Initialize GreeksCalculationService
-  GreeksCalculationService::instance().loadConfiguration();
-  GreeksCalculationService::instance().setRepositoryManager(
-      RepositoryManager::getInstance());
-  qDebug() << "[MainWindow] GreeksCalculationService initialized";
+    // Start UDP broadcast receivers AFTER main window is fully shown
+    // Using QTimer to ensure window is rendered and responsive first
+    setupNetwork();
 
-  // Start UDP broadcast receivers AFTER main window is fully shown
-  // Using QTimer to ensure window is rendered and responsive first
-  setupNetwork();
+    // ✅ Initialize XTSFeedBridge (XTS-only fallback for internet users)
+    initializeXTSFeedBridge();
 
-  // ✅ Initialize XTSFeedBridge (XTS-only fallback for internet users)
-  initializeXTSFeedBridge();
+    // ✅ Initialize ConnectionStatusManager with config
+    auto &connMgr = ConnectionStatusManager::instance();
+    connMgr.wireUdpBroadcastService();
 
-  // ✅ Initialize ConnectionStatusManager with config
-  auto& connMgr = ConnectionStatusManager::instance();
-  connMgr.wireUdpBroadcastService();
-
-  // Set default primary source from config.ini [FEED] primary_data_provider
-  QString provider = m_configLoader->getPrimaryDataProvider();
-  PrimaryDataSource defaultSource = PrimaryDataSource::UDP_PRIMARY;
-  if (provider == "xts") {
+    // Set default primary source from config.ini [FEED] primary_data_provider
+    QString provider = m_configLoader->getPrimaryDataProvider();
+    PrimaryDataSource defaultSource = PrimaryDataSource::UDP_PRIMARY;
+    if (provider == "xts") {
       defaultSource = PrimaryDataSource::XTS_PRIMARY;
-  }
-  connMgr.setDefaultPrimarySource(defaultSource);
+    }
+    connMgr.setDefaultPrimarySource(defaultSource);
 
-  qDebug() << "[MainWindow] ConnectionStatusManager initialized — default source:"
-           << (defaultSource == PrimaryDataSource::UDP_PRIMARY ? "UDP" : "XTS")
-           << "(config: primary_data_provider=" << provider << ")";
-}
+    qDebug()
+        << "[MainWindow] ConnectionStatusManager initialized — default source:"
+        << (defaultSource == PrimaryDataSource::UDP_PRIMARY ? "UDP" : "XTS")
+        << "(config: primary_data_provider=" << provider << ")";
+  } // end if (m_configLoader)
+} // end setConfigLoader()
 
 void MainWindow::refreshScripBar() {
   if (m_scripBar)
@@ -262,17 +258,17 @@ void MainWindow::onTickReceived(const XTS::Tick &tick) {
       if (it != indexMap.constEnd()) {
         UDP::IndexTick idxTick;
         idxTick.exchangeSegment = UDP::ExchangeSegment::NSECM;
-        idxTick.token           = token;
+        idxTick.token = token;
         const QByteArray nameBytes = it.value().toUtf8();
         qstrncpy(idxTick.name, nameBytes.constData(), sizeof(idxTick.name) - 1);
         idxTick.name[sizeof(idxTick.name) - 1] = '\0';
-        idxTick.value     = tick.lastTradedPrice;
-        idxTick.open      = tick.open;
-        idxTick.high      = tick.high;
-        idxTick.low       = tick.low;
+        idxTick.value = tick.lastTradedPrice;
+        idxTick.open = tick.open;
+        idxTick.high = tick.high;
+        idxTick.low = tick.low;
         idxTick.prevClose = tick.close;
         if (tick.close > 0.0) {
-          idxTick.change        = tick.lastTradedPrice - tick.close;
+          idxTick.change = tick.lastTradedPrice - tick.close;
           idxTick.changePercent = idxTick.change / tick.close * 100.0;
         }
         idxTick.numAdvances = 0;
@@ -373,9 +369,10 @@ void MainWindow::placeOrder(const XTS::OrderParams &params) {
   // Capture order parameters for chart marker visualization
   XTS::OrderParams capturedParams = params;
 
-  m_xtsInteractiveClient->placeOrder(orderJson, [this, capturedParams](bool success,
-                                                       const QString &orderID,
-                                                       const QString &message) {
+  m_xtsInteractiveClient->placeOrder(orderJson, [this, capturedParams](
+                                                    bool success,
+                                                    const QString &orderID,
+                                                    const QString &message) {
     // CRITICAL: This callback runs from HTTP background thread!
     // Must use invokeMethod to safely update UI on main thread
     QMetaObject::invokeMethod(
@@ -395,28 +392,37 @@ void MainWindow::placeOrder(const XTS::OrderParams &params) {
                 if (window->windowType() == "ChartWindow") {
 #ifdef HAVE_TRADINGVIEW
                   TradingViewChartWidget *chart =
-                      qobject_cast<TradingViewChartWidget *>(window->contentWidget());
+                      qobject_cast<TradingViewChartWidget *>(
+                          window->contentWidget());
                   if (chart && chart->isReady()) {
                     // Use current time for marker
                     qint64 currentTime = QDateTime::currentSecsSinceEpoch();
-                    
-                    // Determine price (use limit price for limit orders, or 0 for market)
-                    double price = capturedParams.limitPrice > 0 
-                                    ? capturedParams.limitPrice 
-                                    : capturedParams.stopPrice;
-                    
+
+                    // Determine price (use limit price for limit orders, or 0
+                    // for market)
+                    double price = capturedParams.limitPrice > 0
+                                       ? capturedParams.limitPrice
+                                       : capturedParams.stopPrice;
+
                     // Determine marker properties based on order side
-                    QString text = capturedParams.orderSide == "BUY" ? "BUY" : "SELL";
-                    QString color = capturedParams.orderSide == "BUY" ? "#26a69a" : "#ef5350";
-                    QString shape = capturedParams.orderSide == "BUY" ? "arrow_up" : "arrow_down";
-                    
+                    QString text =
+                        capturedParams.orderSide == "BUY" ? "BUY" : "SELL";
+                    QString color = capturedParams.orderSide == "BUY"
+                                        ? "#26a69a"
+                                        : "#ef5350";
+                    QString shape = capturedParams.orderSide == "BUY"
+                                        ? "arrow_up"
+                                        : "arrow_down";
+
                     if (price > 0) {
-                      chart->addOrderMarker(currentTime, price, text, color, shape);
-                      qDebug() << "[MainWindow] Added order marker to chart:"
-                               << text << "@" << price;
+                      chart->addOrderMarker(currentTime, price, text, color,
+                                            shape);
+                      qDebug()
+                          << "[MainWindow] Added order marker to chart:" << text
+                          << "@" << price;
                     }
                   }
-#endif // HAVE_TRADINGVIEW
+#endif            // HAVE_TRADINGVIEW
                 } // if ChartWindow
               }
             }
@@ -593,10 +599,11 @@ void MainWindow::cancelOrder(int64_t appOrderID) {
 
 void MainWindow::onScripBarEscapePressed() {
   // Restore focus to the last active MDI window + its last focused widget
-  QWidget* activeWin = WindowManager::instance().getActiveWindow();
+  QWidget *activeWin = WindowManager::instance().getActiveWindow();
   if (activeWin) {
     // Find the MDI sub-window that contains this content widget
-    if (auto* parent = qobject_cast<CustomMDISubWindow*>(activeWin->parentWidget())) {
+    if (auto *parent =
+            qobject_cast<CustomMDISubWindow *>(activeWin->parentWidget())) {
       parent->activateWindow();
       parent->raise();
     } else {
@@ -604,7 +611,8 @@ void MainWindow::onScripBarEscapePressed() {
       activeWin->raise();
     }
     WindowManager::instance().restoreFocusState(activeWin);
-    qDebug() << "[MainWindow] ScripBar Esc → restored focus to last active window";
+    qDebug()
+        << "[MainWindow] ScripBar Esc → restored focus to last active window";
   } else {
     // Fallback: focus any MarketWatch (via WindowFactory)
     MarketWatchWindow *activeMW = m_windowFactory->getActiveMarketWatch();

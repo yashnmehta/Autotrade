@@ -21,6 +21,17 @@
 #include <QSet>
 #include <algorithm>
 
+// ============================================================================
+// Helper: Convert exchange string to UDP segment (eliminates 4x duplication)
+// ============================================================================
+static UDP::ExchangeSegment exchangeToSegment(const QString &exchange) {
+  if (exchange == "NSEFO") return UDP::ExchangeSegment::NSEFO;
+  if (exchange == "NSECM") return UDP::ExchangeSegment::NSECM;
+  if (exchange == "BSEFO") return UDP::ExchangeSegment::BSEFO;
+  if (exchange == "BSECM") return UDP::ExchangeSegment::BSECM;
+  return UDP::ExchangeSegment::NSECM; // default
+}
+
 
 bool MarketWatchWindow::addScrip(const QString &symbol, const QString &exchange,
                                  int token) {
@@ -73,16 +84,8 @@ bool MarketWatchWindow::addScrip(const QString &symbol, const QString &exchange,
 
   TokenSubscriptionManager::instance()->subscribe(exchange, token);
 
-  // Subscribe to UDP ticks (new) - Convert exchange string to segment
-  UDP::ExchangeSegment segment = UDP::ExchangeSegment::NSECM; // default
-  if (exchange == "NSEFO")
-    segment = UDP::ExchangeSegment::NSEFO;
-  else if (exchange == "NSECM")
-    segment = UDP::ExchangeSegment::NSECM;
-  else if (exchange == "BSEFO")
-    segment = UDP::ExchangeSegment::BSEFO;
-  else if (exchange == "BSECM")
-    segment = UDP::ExchangeSegment::BSECM;
+  // Subscribe to UDP ticks
+  UDP::ExchangeSegment segment = exchangeToSegment(exchange);
   FeedHandler::instance().subscribeUDP(segment, token, this,
                                        &MarketWatchWindow::onUdpTickUpdate);
 
@@ -121,29 +124,10 @@ bool MarketWatchWindow::addScrip(const QString &symbol, const QString &exchange,
 }
 
 bool MarketWatchWindow::addScripFromContract(const ScripData &contractData) {
-  // ⏱️ PERFORMANCE LOG: Start timing scrip addition
-  static int addScripCounter = 0;
-  addScripCounter++;
-  QElapsedTimer addScripTimer;
-  addScripTimer.start();
-  qint64 startTime = QDateTime::currentMSecsSinceEpoch();
-
-  qDebug() << "[PERF] [MW_ADD_SCRIP] #" << addScripCounter
-           << "START - Token:" << contractData.token
-           << "Symbol:" << contractData.symbol;
-
-  if (contractData.token <= 0) {
-    qDebug() << "[PERF] [MW_ADD_SCRIP] #" << addScripCounter
-             << "FAILED - Invalid token:" << contractData.token;
+  if (contractData.token <= 0)
     return false;
-  }
-  if (hasDuplicate(contractData.token)) {
-    qDebug() << "[PERF] [MW_ADD_SCRIP] #" << addScripCounter
-             << "FAILED - Duplicate token:" << contractData.token;
+  if (hasDuplicate(contractData.token))
     return false;
-  }
-
-  qint64 t0 = addScripTimer.elapsed();
 
   ScripData scrip = contractData;
 
@@ -166,28 +150,16 @@ bool MarketWatchWindow::addScripFromContract(const ScripData &contractData) {
         scrip.close = contract->prevClose;
     }
   }
-  qint64 t1 = addScripTimer.elapsed();
 
   int newRow = m_model->rowCount();
   m_model->addScrip(scrip);
-  qint64 t2 = addScripTimer.elapsed();
 
   TokenSubscriptionManager::instance()->subscribe(scrip.exchange, scrip.token);
-  qint64 t3 = addScripTimer.elapsed();
 
-  // Subscribe to UDP ticks (new) - Convert exchange string to segment
-  UDP::ExchangeSegment segment = UDP::ExchangeSegment::NSECM; // default
-  if (scrip.exchange == "NSEFO")
-    segment = UDP::ExchangeSegment::NSEFO;
-  else if (scrip.exchange == "NSECM")
-    segment = UDP::ExchangeSegment::NSECM;
-  else if (scrip.exchange == "BSEFO")
-    segment = UDP::ExchangeSegment::BSEFO;
-  else if (scrip.exchange == "BSECM")
-    segment = UDP::ExchangeSegment::BSECM;
+  // Subscribe to UDP ticks
+  UDP::ExchangeSegment segment = exchangeToSegment(scrip.exchange);
   FeedHandler::instance().subscribeUDP(segment, scrip.token, this,
                                        &MarketWatchWindow::onUdpTickUpdate);
-  qint64 t4 = addScripTimer.elapsed();
 
   // Initial Load from Distributed Store (thread-safe snapshot)
   if (m_useZeroCopyPriceCache) {
@@ -214,33 +186,16 @@ bool MarketWatchWindow::addScripFromContract(const ScripData &contractData) {
       onUdpTickUpdate(udpTick);
     }
   }
-  qint64 t5 = addScripTimer.elapsed();
 
   m_tokenAddressBook->addCompositeToken(scrip.exchange, "", scrip.token,
                                         newRow);
   m_tokenAddressBook->addIntKeyToken(static_cast<int>(segment), scrip.token,
                                      newRow);
-  qint64 t6 = addScripTimer.elapsed();
 
   emit scripAdded(scrip.symbol, scrip.exchange, scrip.token);
 
   // Set focus to the newly added scrip
   setFocusToToken(scrip.token);
-  qint64 t7 = addScripTimer.elapsed();
-
-  qint64 totalTime = addScripTimer.elapsed();
-  qDebug() << "[PERF] [MW_ADD_SCRIP] #" << addScripCounter
-           << "COMPLETE - Token:" << contractData.token;
-  qDebug() << "  TOTAL TIME:" << totalTime << "ms";
-  qDebug() << "  Breakdown:";
-  qDebug() << "    - Validation:" << t0 << "ms";
-  qDebug() << "    - Enrich from repo:" << (t1 - t0) << "ms";
-  qDebug() << "    - Add to model:" << (t2 - t1) << "ms";
-  qDebug() << "    - Token subscription:" << (t3 - t2) << "ms";
-  qDebug() << "    - UDP subscription:" << (t4 - t3) << "ms";
-  qDebug() << "    - Load initial data:" << (t5 - t4) << "ms";
-  qDebug() << "    - Address book update:" << (t6 - t5) << "ms";
-  qDebug() << "    - Set focus to scrip:" << (t7 - t6) << "ms";
 
   return true;
 }
@@ -262,20 +217,7 @@ void MarketWatchWindow::removeScrip(int row) {
                                                       scrip.token);
 
     // Unsubscribe from UDP ticks
-    // Convert exchange string to segment for specific unsubscription
-    UDP::ExchangeSegment segment = UDP::ExchangeSegment::NSECM; // default
-    if (scrip.exchange == "NSEFO")
-      segment = UDP::ExchangeSegment::NSEFO;
-    else if (scrip.exchange == "NSECM")
-      segment = UDP::ExchangeSegment::NSECM;
-    else if (scrip.exchange == "BSEFO")
-      segment = UDP::ExchangeSegment::BSEFO;
-    else if (scrip.exchange == "BSECM")
-      segment = UDP::ExchangeSegment::BSECM;
-
-    // Note: Individual token unsubscription for a specific receiver
-    // FeedHandler::unsubscribe(token, this) is DEPRECATED as it unsubscribes
-    // all segments
+    UDP::ExchangeSegment segment = exchangeToSegment(scrip.exchange);
     FeedHandler::instance().unsubscribe(static_cast<int>(segment), scrip.token,
                                         this);
 
@@ -378,16 +320,8 @@ void MarketWatchWindow::pasteFromClipboard() {
       TokenSubscriptionManager::instance()->subscribe(scrip.exchange,
                                                       scrip.token);
 
-      // Subscribe to UDP ticks (new) - Convert exchange string to segment
-      UDP::ExchangeSegment segment = UDP::ExchangeSegment::NSECM; // default
-      if (scrip.exchange == "NSEFO")
-        segment = UDP::ExchangeSegment::NSEFO;
-      else if (scrip.exchange == "NSECM")
-        segment = UDP::ExchangeSegment::NSECM;
-      else if (scrip.exchange == "BSEFO")
-        segment = UDP::ExchangeSegment::BSEFO;
-      else if (scrip.exchange == "BSECM")
-        segment = UDP::ExchangeSegment::BSECM;
+      // Subscribe to UDP ticks
+      UDP::ExchangeSegment segment = exchangeToSegment(scrip.exchange);
       FeedHandler::instance().subscribeUDP(segment, scrip.token, this,
                                            &MarketWatchWindow::onUdpTickUpdate);
 
@@ -498,6 +432,15 @@ void MarketWatchWindow::performRowMoveByTokens(const QList<int> &tokens,
       if (segment > 0) {
         m_tokenAddressBook->addIntKeyToken(segment, scrips[i].token,
                                            adjustedTarget + i);
+      }
+
+      // Re-subscribe after multi-row move (removeScrip unsubscribed them)
+      if (scrips[i].isValid()) {
+        TokenSubscriptionManager::instance()->subscribe(scrips[i].exchange,
+                                                        scrips[i].token);
+        UDP::ExchangeSegment udpSeg = exchangeToSegment(scrips[i].exchange);
+        FeedHandler::instance().subscribeUDP(udpSeg, scrips[i].token, this,
+                                             &MarketWatchWindow::onUdpTickUpdate);
       }
     }
   }

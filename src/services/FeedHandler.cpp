@@ -134,9 +134,6 @@ void FeedHandler::onUdpTickReceived(const UDP::MarketTick& tick) {
         }
     }
     
-    // Mark FeedHandler processing timestamp
-    trackedTick.timestampFeedHandler = LatencyTracker::now();
-    
     TokenPublisher* pub = nullptr;
     {
         std::lock_guard<std::mutex> lock(m_mutex);

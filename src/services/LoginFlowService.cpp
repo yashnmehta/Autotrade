@@ -41,8 +41,20 @@ LoginFlowService::~LoginFlowService() {
     m_masterLoader->wait(3000); // Wait up to 3 seconds for clean shutdown
   }
 
-  delete m_mdClient;
-  delete m_iaClient;
+  // Cancel fetch timeout to prevent dangling timer callback
+  cancelFetchTimeout();
+
+  // Disconnect WebSockets before deleting to avoid signals during destruction
+  if (m_mdClient) {
+    m_mdClient->disconnectWebSocket();
+    delete m_mdClient;
+    m_mdClient = nullptr;
+  }
+  if (m_iaClient) {
+    m_iaClient->disconnectWebSocket();
+    delete m_iaClient;
+    m_iaClient = nullptr;
+  }
   // m_masterLoader will be deleted automatically (parent is 'this')
 }
 
@@ -181,10 +193,13 @@ void LoginFlowService::executeLogin(
   QString mdBaseURL = baseURL + "/apimarketdata";
   QString iaBaseURL = baseURL;
 
+  // NOTE: Do NOT pass `this` as Qt parent — we manually manage lifetime
+  // in executeLogin() cleanup and ~LoginFlowService(). Passing `this` would
+  // cause double-delete (manual delete + Qt parent cleanup).
   m_mdClient =
-      new XTSMarketDataClient(mdBaseURL, mdAppKey, mdSecretKey, source, this);
+      new XTSMarketDataClient(mdBaseURL, mdAppKey, mdSecretKey, source, nullptr);
   m_iaClient =
-      new XTSInteractiveClient(iaBaseURL, iaAppKey, iaSecretKey, source, this);
+      new XTSInteractiveClient(iaBaseURL, iaAppKey, iaSecretKey, source, nullptr);
 
   // Connect Interactive Events to TradingDataService
   if (m_tradingDataService) {

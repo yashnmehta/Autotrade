@@ -16,7 +16,6 @@
 #include <QTimer>
 #include <QUuid>
 
-
 // ============================================================================
 // PERFORMANCE LOGGING - MarketWatch Window
 // ============================================================================
@@ -36,8 +35,7 @@ MarketWatchWindow::MarketWatchWindow(QWidget *parent)
     : CustomMarketWatch(parent), m_model(nullptr), m_tokenAddressBook(nullptr),
       m_xtsClient(nullptr),
       m_useZeroCopyPriceCache(false) // Will be loaded from preferences
-      ,
-      m_zeroCopyUpdateTimer(nullptr) {
+      {
   // ⏱️ PERFORMANCE LOG: Start timing window construction
   QElapsedTimer constructionTimer;
   constructionTimer.start();
@@ -73,7 +71,8 @@ MarketWatchWindow::MarketWatchWindow(QWidget *parent)
     if (mgr.loadLastUsedProfile(savedProfile)) {
       m_model->setColumnProfile(savedProfile);
       applyProfileToView(savedProfile);
-      qDebug() << "[MarketWatch] Restored last-used column profile:" << savedProfile.name();
+      qDebug() << "[MarketWatch] Restored last-used column profile:"
+               << savedProfile.name();
     } else {
       QString defName = mgr.loadDefaultProfileName();
       if (mgr.hasProfile(defName)) {
@@ -109,7 +108,8 @@ MarketWatchWindow::MarketWatchWindow(QWidget *parent)
   m_useZeroCopyPriceCache = s_useZeroCopyPriceCache_Cached;
   qint64 t5 = constructionTimer.elapsed();
   qDebug() << "[PERF] [MARKETWATCH_CONSTRUCT] Load PriceCache preference took:"
-           << (t5 - t4) << "ms" << "(cached)";
+           << (t5 - t4) << "ms"
+           << "(cached)";
 
   qDebug() << "[MarketWatch] PriceCache mode:"
            << (m_useZeroCopyPriceCache ? "ZERO-COPY (New)" : "LEGACY (Old)");
@@ -135,11 +135,6 @@ MarketWatchWindow::MarketWatchWindow(QWidget *parent)
 }
 
 MarketWatchWindow::~MarketWatchWindow() {
-  // Stop timer if using zero-copy mode
-  if (m_zeroCopyUpdateTimer) {
-    m_zeroCopyUpdateTimer->stop();
-  }
-
   // Unsubscribe from FeedHandler (legacy mode)
   FeedHandler::instance().unsubscribeAll(this);
 
@@ -153,9 +148,6 @@ MarketWatchWindow::~MarketWatchWindow() {
       }
     }
   }
-
-  // Clear pointer map
-  m_tokenUnifiedPointers.clear();
 }
 
 void MarketWatchWindow::removeScripByToken(int token) {
@@ -170,16 +162,33 @@ void MarketWatchWindow::keyPressEvent(QKeyEvent *event) {
     event->accept();
     return;
   }
+
+  // Shift+Enter — insert a blank separator row below the current selection
+  if (event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter) {
+    if (event->modifiers() & Qt::ShiftModifier) {
+      QModelIndexList selection = selectionModel()->selectedRows();
+      if (!selection.isEmpty()) {
+        int sourceRow = mapToSource(selection.last().row());
+        insertBlankRow(sourceRow + 1);
+      } else {
+        insertBlankRow(m_model->rowCount());
+      }
+      event->accept();
+      return;
+    }
+  }
+
   CustomMarketWatch::keyPressEvent(event);
 }
 
 void MarketWatchWindow::focusInEvent(QFocusEvent *event) {
   CustomMarketWatch::focusInEvent(event);
-  
+
   // Restore focus to the last focused row when the Market Watch gains focus
   // Use a delayed timer to ensure the model is fully ready
   if (m_lastFocusedToken > 0) {
-    qDebug() << "[MarketWatch] Focus gained, scheduling delayed focus restoration";
+    qDebug()
+        << "[MarketWatch] Focus gained, scheduling delayed focus restoration";
     QTimer::singleShot(50, this, [this]() {
       if (m_lastFocusedToken > 0) {
         restoreFocusedRow();
@@ -328,293 +337,180 @@ void MarketWatchWindow::closeEvent(QCloseEvent *event) {
     GenericTableProfile currentProfile = m_model->getColumnProfile();
     captureProfileFromView(currentProfile);
     GenericProfileManager mgr("profiles", "MarketWatch");
-    mgr.saveLastUsedProfile(currentProfile);         // always works, even for preset names
+    mgr.saveLastUsedProfile(
+        currentProfile); // always works, even for preset names
     mgr.saveDefaultProfileName(currentProfile.name());
   }
   WindowSettingsHelper::saveWindowSettings(this, "MarketWatch");
   QWidget::closeEvent(event);
 }
 
-// ============================================================================
-// Zero-Copy PriceCache Implementation (New Mode)
-// ============================================================================
-
-void MarketWatchWindow::setupZeroCopyMode() {
-  if (!m_useZeroCopyPriceCache)
-    return;
-
-  // Setup zero-copy mode
-  qDebug() << "[MarketWatch] Setting up Zero-Copy mode connections...";
-
-  // Setup timer for periodic zero-copy reads (100ms refresh)
-  if (!m_zeroCopyUpdateTimer) {
-    m_zeroCopyUpdateTimer = new QTimer(this);
-    connect(m_zeroCopyUpdateTimer, &QTimer::timeout, this,
-            &MarketWatchWindow::onZeroCopyTimerUpdate);
-    m_zeroCopyUpdateTimer->start(100); // 100ms = 10 updates/sec
-  }
-
-  qDebug() << "[MarketWatch] ✓ Zero-copy PriceCache mode configured with 100ms "
-              "timer";
-}
-
-void MarketWatchWindow::onZeroCopyTimerUpdate() {
-  if (m_tokenUnifiedPointers.empty()) {
+void MarketWatchWindow::storeFocusedRow() {
+  QModelIndexList selection = selectionModel()->selectedRows();
+  if (selection.isEmpty()) {
+    qDebug() << "[MarketWatch] No row selected, cannot store focus";
     return;
   }
 
-  for (auto it = m_tokenUnifiedPointers.begin();
-       it != m_tokenUnifiedPointers.end(); ++it) {
-    uint32_t token = it.key();
-    const MarketData::UnifiedState *dataPtr = it.value();
+  QModelIndex lastIndex = selection.last();
+  int sourceRow = mapToSource(lastIndex.row());
 
-    if (!dataPtr)
-      continue;
+  if (sourceRow < 0 || sourceRow >= m_model->rowCount()) {
+    qDebug() << "[MarketWatch] Invalid source row, cannot store focus";
+    return;
+  }
 
-    const MarketData::UnifiedState &data = *dataPtr;
-
-    QList<int> rows = m_tokenAddressBook->getRowsForToken(token);
-    if (rows.isEmpty())
-      continue;
-
-    // 1. Update LTP and change
-    if (data.ltp > 0) {
-      double ltp = data.ltp;
-      double change = 0;
-      double changePercent = 0;
-      if (data.close > 0) {
-        change = ltp - data.close;
-        changePercent = (change / data.close) * 100.0;
-      }
-
-      for (int row : rows) {
-        m_model->updatePrice(row, ltp, change, changePercent);
-      }
-    }
-
-    // 2. Update OHLC
-    if (data.open > 0 || data.high > 0 || data.low > 0) {
-      for (int row : rows) {
-        m_model->updateOHLC(row, data.open, data.high, data.low, data.close);
-      }
-    }
-
-    // 3. Update volume
-    if (data.volume > 0) {
-      for (int row : rows) {
-        m_model->updateVolume(row, data.volume);
-      }
-    }
-
-    // 4. Update best bid/ask
-    if (data.bids[0].price > 0 || data.asks[0].price > 0) {
-      for (int row : rows) {
-        m_model->updateBidAsk(row, data.bids[0].price, data.asks[0].price);
-        m_model->updateBidAskQuantities(row, data.bids[0].quantity,
-                                        data.asks[0].quantity);
-      }
-    }
-
-    // 5. Update total buy/sell quantities
-    if (data.totalBuyQty > 0 || data.totalSellQty > 0) {
-      for (int row : rows) {
-        m_model->updateTotalBuySellQty(row, data.totalBuyQty,
-                                       data.totalSellQty);
-      }
-    }
-
-    // 6. Update Open Interest
-    if (data.openInterest > 0) {
-      double oiChangePercent = 0.0;
-      if (data.openInterestChange != 0) {
-        oiChangePercent =
-            (static_cast<double>(data.openInterestChange) / data.openInterest) *
-            100.0;
-      }
-      for (int row : rows) {
-        m_model->updateOpenInterestWithChange(row, data.openInterest,
-                                              oiChangePercent);
-      }
-    }
-
-    // 7. Update LTQ
-    if (data.lastTradeQty > 0) {
-      for (int row : rows) {
-        m_model->updateLastTradedQuantity(row, data.lastTradeQty);
-      }
-    }
-
-    // 8. Average Traded Price
-    if (data.avgPrice > 0) {
-      for (int row : rows) {
-        m_model->updateAveragePrice(row, data.avgPrice);
-      }
-    }
+  const ScripData &scrip = m_model->getScripAt(sourceRow);
+  if (scrip.isValid() && !scrip.isBlankRow) {
+    m_lastFocusedToken = scrip.token;
+    m_lastFocusedSymbol = scrip.symbol; // Store symbol for fallback
+    qDebug() << "[MarketWatch] Stored focus on token:" << m_lastFocusedToken
+             << "Symbol:" << scrip.symbol << "Row:" << sourceRow;
+  } else {
+    qDebug()
+        << "[MarketWatch] Selected row is blank or invalid, cannot store focus";
   }
 }
 
-void MarketWatchWindow::storeFocusedRow()
-{
-    QModelIndexList selection = selectionModel()->selectedRows();
-    if (selection.isEmpty()) {
-        qDebug() << "[MarketWatch] No row selected, cannot store focus";
-        return;
-    }
-    
-    QModelIndex lastIndex = selection.last();
-    int sourceRow = mapToSource(lastIndex.row());
-    
-    if (sourceRow < 0 || sourceRow >= m_model->rowCount()) {
-        qDebug() << "[MarketWatch] Invalid source row, cannot store focus";
-        return;
-    }
-    
-    const ScripData &scrip = m_model->getScripAt(sourceRow);
-    if (scrip.isValid() && !scrip.isBlankRow) {
+void MarketWatchWindow::restoreFocusedRow() {
+  if (m_lastFocusedToken <= 0 && m_lastFocusedSymbol.isEmpty()) {
+    qDebug()
+        << "[MarketWatch] No stored focus token or symbol, skipping restore";
+    return;
+  }
+
+  // Check if model is valid and has data
+  if (!m_model || m_model->rowCount() == 0) {
+    qDebug()
+        << "[MarketWatch] Model is not ready or empty, skipping focus restore";
+    return;
+  }
+
+  int row = -1;
+
+  // Try token-based lookup first (faster, O(1) via hash map)
+  if (m_lastFocusedToken > 0) {
+    row = findTokenRow(m_lastFocusedToken);
+  }
+
+  // Fallback to symbol-based lookup if token failed
+  if (row < 0 && !m_lastFocusedSymbol.isEmpty()) {
+    qDebug() << "[MarketWatch] Token" << m_lastFocusedToken
+             << "not found, trying symbol fallback:" << m_lastFocusedSymbol;
+    row = findSymbolRow(m_lastFocusedSymbol);
+
+    if (row >= 0) {
+      // Update token to match the found row for next time
+      const ScripData &scrip = m_model->getScripAt(row);
+      if (scrip.isValid()) {
         m_lastFocusedToken = scrip.token;
-        m_lastFocusedSymbol = scrip.symbol;  // Store symbol for fallback
-        qDebug() << "[MarketWatch] Stored focus on token:" << m_lastFocusedToken 
-                 << "Symbol:" << scrip.symbol << "Row:" << sourceRow;
-    } else {
-        qDebug() << "[MarketWatch] Selected row is blank or invalid, cannot store focus";
+        qDebug() << "[MarketWatch] ✓ Found by symbol, updated token to"
+                 << m_lastFocusedToken;
+      }
     }
+  }
+
+  if (row < 0) {
+    qDebug() << "[MarketWatch] Neither token" << m_lastFocusedToken
+             << "nor symbol" << m_lastFocusedSymbol << "found in model";
+    // Don't clear immediately - keep for potential model updates/retries
+    return;
+  }
+
+  int proxyRow = mapToProxy(row);
+  if (proxyRow < 0) {
+    qDebug() << "[MarketWatch] Could not map source row" << row
+             << "to proxy row";
+    return;
+  }
+
+  // Get the visual position of the row to simulate a click
+  QModelIndex proxyIndex = proxyModel()->index(proxyRow, 0);
+  QRect rowRect = visualRect(proxyIndex);
+
+  // Simulate what happens on manual click:
+  // 1. Clear existing selection
+  clearSelection();
+
+  // 2. Set current index (this is what Qt does on click)
+  setCurrentIndex(proxyIndex);
+
+  // 3. Select the row
+  selectRow(proxyRow);
+
+  // 4. Scroll to make it visible
+  scrollTo(proxyIndex, QAbstractItemView::PositionAtCenter);
+
+  // 5. Give focus to the viewport (where clicks happen)
+  viewport()->setFocus(Qt::MouseFocusReason);
+
+  // 6. Also set focus on the view itself
+  setFocus(Qt::MouseFocusReason);
+
+  qDebug() << "[MarketWatch] ✓ Restored focus to token:" << m_lastFocusedToken
+           << "Source Row:" << row << "Proxy Row:" << proxyRow
+           << "Using simulated click behavior";
 }
 
-void MarketWatchWindow::restoreFocusedRow()
-{
-    if (m_lastFocusedToken <= 0 && m_lastFocusedSymbol.isEmpty()) {
-        qDebug() << "[MarketWatch] No stored focus token or symbol, skipping restore";
-        return;
-    }
-    
-    // Check if model is valid and has data
-    if (!m_model || m_model->rowCount() == 0) {
-        qDebug() << "[MarketWatch] Model is not ready or empty, skipping focus restore";
-        return;
-    }
-    
-    int row = -1;
-    
-    // Try token-based lookup first (faster, O(1) via hash map)
-    if (m_lastFocusedToken > 0) {
-        row = findTokenRow(m_lastFocusedToken);
-    }
-    
-    // Fallback to symbol-based lookup if token failed
-    if (row < 0 && !m_lastFocusedSymbol.isEmpty()) {
-        qDebug() << "[MarketWatch] Token" << m_lastFocusedToken << "not found, trying symbol fallback:" << m_lastFocusedSymbol;
-        row = findSymbolRow(m_lastFocusedSymbol);
-        
-        if (row >= 0) {
-            // Update token to match the found row for next time
-            const ScripData &scrip = m_model->getScripAt(row);
-            if (scrip.isValid()) {
-                m_lastFocusedToken = scrip.token;
-                qDebug() << "[MarketWatch] ✓ Found by symbol, updated token to" << m_lastFocusedToken;
-            }
-        }
-    }
-    
-    if (row < 0) {
-        qDebug() << "[MarketWatch] Neither token" << m_lastFocusedToken << "nor symbol" << m_lastFocusedSymbol << "found in model";
-        // Don't clear immediately - keep for potential model updates/retries
-        return;
-    }
-    
-    int proxyRow = mapToProxy(row);
-    if (proxyRow < 0) {
-        qDebug() << "[MarketWatch] Could not map source row" << row << "to proxy row";
-        return;
-    }
-    
-    // Get the visual position of the row to simulate a click
-    QModelIndex proxyIndex = proxyModel()->index(proxyRow, 0);
-    QRect rowRect = visualRect(proxyIndex);
-    
-    // Simulate what happens on manual click:
-    // 1. Clear existing selection
-    clearSelection();
-    
-    // 2. Set current index (this is what Qt does on click)
-    setCurrentIndex(proxyIndex);
-    
-    // 3. Select the row
-    selectRow(proxyRow);
-    
-    // 4. Scroll to make it visible
-    scrollTo(proxyIndex, QAbstractItemView::PositionAtCenter);
-    
-    // 5. Give focus to the viewport (where clicks happen)
-    viewport()->setFocus(Qt::MouseFocusReason);
-    
-    // 6. Also set focus on the view itself
-    setFocus(Qt::MouseFocusReason);
-    
-    qDebug() << "[MarketWatch] ✓ Restored focus to token:" << m_lastFocusedToken 
-             << "Source Row:" << row << "Proxy Row:" << proxyRow
-             << "Using simulated click behavior";
+void MarketWatchWindow::setFocusToToken(int token) {
+  if (token <= 0) {
+    qDebug() << "[MarketWatch] Invalid token:" << token;
+    return;
+  }
+
+  int row = findTokenRow(token);
+  if (row < 0) {
+    qDebug() << "[MarketWatch] Token" << token << "not found in model";
+    return;
+  }
+
+  int proxyRow = mapToProxy(row);
+  if (proxyRow < 0) {
+    qDebug() << "[MarketWatch] Could not map source row" << row
+             << "to proxy row";
+    return;
+  }
+
+  // Simulate what happens on manual click:
+  QModelIndex proxyIndex = proxyModel()->index(proxyRow, 0);
+
+  // 1. Clear existing selection
+  clearSelection();
+
+  // 2. Set current index (this is what Qt does on click)
+  setCurrentIndex(proxyIndex);
+
+  // 3. Select the row
+  selectRow(proxyRow);
+
+  // 4. Scroll to make it visible
+  scrollTo(proxyIndex, QAbstractItemView::PositionAtCenter);
+
+  // 5. Give focus to the viewport (where clicks happen)
+  viewport()->setFocus(Qt::MouseFocusReason);
+
+  // 6. Also set focus on the view itself
+  setFocus(Qt::MouseFocusReason);
+
+  // Update the last focused token and symbol
+  m_lastFocusedToken = token;
+
+  // Store symbol for fallback
+  const ScripData &scrip = m_model->getScripAt(row);
+  if (scrip.isValid()) {
+    m_lastFocusedSymbol = scrip.symbol;
+  }
+
+  qDebug() << "[MarketWatch] ✓ Set focus to token:" << token
+           << "Source Row:" << row << "Proxy Row:" << proxyRow
+           << "Using simulated click behavior";
 }
 
-void MarketWatchWindow::setFocusToToken(int token)
-{
-    if (token <= 0) {
-        qDebug() << "[MarketWatch] Invalid token:" << token;
-        return;
-    }
-    
-    int row = findTokenRow(token);
-    if (row < 0) {
-        qDebug() << "[MarketWatch] Token" << token << "not found in model";
-        return;
-    }
-    
-    int proxyRow = mapToProxy(row);
-    if (proxyRow < 0) {
-        qDebug() << "[MarketWatch] Could not map source row" << row << "to proxy row";
-        return;
-    }
-    
-    // Simulate what happens on manual click:
-    QModelIndex proxyIndex = proxyModel()->index(proxyRow, 0);
-    
-    // 1. Clear existing selection
-    clearSelection();
-    
-    // 2. Set current index (this is what Qt does on click)
-    setCurrentIndex(proxyIndex);
-    
-    // 3. Select the row
-    selectRow(proxyRow);
-    
-    // 4. Scroll to make it visible
-    scrollTo(proxyIndex, QAbstractItemView::PositionAtCenter);
-    
-    // 5. Give focus to the viewport (where clicks happen)
-    viewport()->setFocus(Qt::MouseFocusReason);
-    
-    // 6. Also set focus on the view itself
-    setFocus(Qt::MouseFocusReason);
-    
-    // Update the last focused token and symbol
-    m_lastFocusedToken = token;
-    
-    // Store symbol for fallback
-    const ScripData &scrip = m_model->getScripAt(row);
-    if (scrip.isValid()) {
-        m_lastFocusedSymbol = scrip.symbol;
-    }
-    
-    qDebug() << "[MarketWatch] ✓ Set focus to token:" << token 
-             << "Source Row:" << row << "Proxy Row:" << proxyRow
-             << "Using simulated click behavior";
-}
+int MarketWatchWindow::findSymbolRow(const QString &symbol) const {
+  if (!m_model || symbol.isEmpty()) {
+    return -1;
+  }
 
-int MarketWatchWindow::findSymbolRow(const QString& symbol) const
-{
-    if (!m_model || symbol.isEmpty()) {
-        return -1;
-    }
-    
-    // Delegate to model's findScrip method
-    return m_model->findScrip(symbol);
+  // Delegate to model's findScrip method
+  return m_model->findScrip(symbol);
 }

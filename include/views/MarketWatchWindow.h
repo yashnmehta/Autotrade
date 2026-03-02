@@ -12,10 +12,6 @@
 #include <QMessageBox>
 #include <unordered_map>
 #include <QSettings>
-#include <QTimer>
-#include <QMap>
-#include "data/UnifiedPriceState.h"
-#include "data/PriceStoreGateway.h"
 
 class TokenAddressBook;
 class XTSMarketDataClient;
@@ -134,11 +130,6 @@ public:
      */
     MarketWatchModel* getModel() const { return m_model; }
 
-    /**
-     * @brief Configure zero-copy mode for high frequency updates
-     */
-    void setupZeroCopyMode();
-    
     /**
      * @brief Store the currently focused row (before opening other windows)
      */
@@ -349,9 +340,6 @@ private slots:
     void onSavePortfolio();
     void onLoadPortfolio();
     
-    // Zero-Copy Slots
-    void onZeroCopyTimerUpdate();
-
 private:
     void setupUI();
     void setupConnections();
@@ -378,8 +366,6 @@ private:
     
     // Zero-Copy Members
     bool m_useZeroCopyPriceCache = true; // Default to true
-    QTimer *m_zeroCopyUpdateTimer = nullptr;
-    QMap<uint32_t, const MarketData::UnifiedState*> m_tokenUnifiedPointers;
 
     // Internal Helpers for Visual Persistence
     void captureProfileFromView(GenericTableProfile &profile);

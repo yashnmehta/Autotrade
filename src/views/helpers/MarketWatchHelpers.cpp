@@ -244,9 +244,8 @@ ScripData MarketWatchHelpers::scripFromJson(const QJsonObject &obj)
         scrip.scripName = obj["scripName"].toString();
         scrip.instrumentName = obj["instrumentName"].toString();
     } else {
-         if (scrip.symbol.isEmpty()) {
-             scrip.symbol = "───────────────";
-         }
+         // Blank separator row — clear symbol so no garbled text is shown
+         scrip.symbol = "";
          scrip.token = -1;
     }
     

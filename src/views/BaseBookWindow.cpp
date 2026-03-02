@@ -3,6 +3,8 @@
 #include "utils/WindowSettingsHelper.h"
 #include "utils/BookWindowHelper.h"
 #include "views/helpers/GenericTableFilter.h"
+#include <QApplication>
+#include <QClipboard>
 #include <QCloseEvent>
 
 BaseBookWindow::BaseBookWindow(const QString& windowName, QWidget* parent)
@@ -10,6 +12,8 @@ BaseBookWindow::BaseBookWindow(const QString& windowName, QWidget* parent)
       m_proxyModel(nullptr), m_filterRowVisible(false) 
 {
     m_filterShortcut = new QShortcut(QKeySequence("Ctrl+F"), this);
+    m_copyShortcut = new QShortcut(QKeySequence::Copy, this);
+    connect(m_copyShortcut, &QShortcut::activated, this, &BaseBookWindow::copySelectedRows);
 }
 
 BaseBookWindow::~BaseBookWindow() {}
@@ -114,6 +118,54 @@ void BaseBookWindow::onTextFilterChanged(int col, const QString& text) {
     // Notify subclasses to refresh data with text filter applied
     // Subclasses should override this and implement filtering in their applyFilterToModel()
 }
+void BaseBookWindow::copySelectedRows() {
+    if (!m_tableView) return;
+
+    QAbstractItemModel *viewModel = m_tableView->model();
+    if (!viewModel) return;
+
+    QItemSelectionModel *sel = m_tableView->selectionModel();
+    if (!sel || !sel->hasSelection()) return;
+
+    QModelIndexList selectedIndexes = sel->selectedIndexes();
+    if (selectedIndexes.isEmpty()) return;
+
+    // Determine unique rows and visible columns
+    QSet<int> rowSet;
+    for (const auto &idx : selectedIndexes)
+        rowSet.insert(idx.row());
+    QList<int> rows = rowSet.values();
+    std::sort(rows.begin(), rows.end());
+
+    QList<int> visibleCols;
+    for (int c = 0; c < viewModel->columnCount(); ++c) {
+        if (!m_tableView->isColumnHidden(c))
+            visibleCols.append(c);
+    }
+
+    // Build TSV text: header + selected rows
+    QStringList lines;
+
+    // Header row
+    QStringList headerCells;
+    for (int c : visibleCols)
+        headerCells << viewModel->headerData(c, Qt::Horizontal).toString();
+    lines << headerCells.join('\t');
+
+    // Data rows
+    for (int r : rows) {
+        // Skip filter row if visible
+        if (m_filterRowVisible && r == 0) continue;
+
+        QStringList cells;
+        for (int c : visibleCols)
+            cells << viewModel->data(viewModel->index(r, c), Qt::DisplayRole).toString();
+        lines << cells.join('\t');
+    }
+
+    QApplication::clipboard()->setText(lines.join('\n'));
+}
+
 void BaseBookWindow::exportToCSV(QAbstractItemModel* model, QTableView* tableView) {
     BookWindowHelper::exportToCSV(tableView, model, m_filterRowVisible, this);
 }

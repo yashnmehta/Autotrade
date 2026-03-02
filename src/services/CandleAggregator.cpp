@@ -1,6 +1,7 @@
 #include "services/CandleAggregator.h"
 #include "services/HistoricalDataStore.h"
 #include "services/FeedHandler.h"
+#include "repository/RepositoryManager.h"
 #include <QDebug>
 #include <QDateTime>
 
@@ -60,6 +61,29 @@ void CandleAggregator::subscribeTo(const QString& symbol, int segment,
         for (const QString& tf : timeframes) {
             if (!existing.contains(tf)) {
                 existing.append(tf);
+            }
+        }
+    }
+    
+    // ── Build reverse token→symbol map for O(1) lookup in onTick() ──
+    // Resolve the token from RepositoryManager so we can match incoming ticks
+    auto *repo = RepositoryManager::getInstance();
+    if (repo) {
+        QString exchange, series;
+        switch (segment) {
+            case 1:  exchange = "NSE"; series = "CM"; break;
+            case 2:  exchange = "NSE"; series = "FO"; break;
+            case 11: exchange = "BSE"; series = "CM"; break;
+            case 12: exchange = "BSE"; series = "FO"; break;
+            default: break;
+        }
+        if (!exchange.isEmpty()) {
+            auto contracts = repo->searchScrips(exchange, series, "", symbol, 1);
+            if (!contracts.isEmpty()) {
+                uint32_t token = static_cast<uint32_t>(contracts.first().exchangeInstrumentID);
+                int64_t compositeKey = (static_cast<int64_t>(segment) << 32) |
+                                       static_cast<uint32_t>(token);
+                m_tokenToSymbol[compositeKey] = symbol;
             }
         }
     }
@@ -148,31 +172,33 @@ QMap<QString, QStringList> CandleAggregator::getActiveSubscriptions() const
 
 void CandleAggregator::onTick(const UDP::MarketTick& tick)
 {
-    // Find symbol from token (would need RepositoryManager integration)
-    // For now, we work with all subscriptions and match by segment/token
-    
     QMutexLocker locker(&m_mutex);
-    
-    // Iterate through all builders and update matching ones
-    for (auto it = m_builders.begin(); it != m_builders.end(); ++it) {
-        const QString& key = it.key();
-        CandleBuilder& builder = it.value();
-        
-        // Parse key: "SYMBOL_SEGMENT_TIMEFRAME"
-        QStringList parts = key.split('_');
-        if (parts.size() < 3) continue;
-        
-        // QString symbol = parts[0];
-        int segment = parts[1].toInt();
-        QString timeframe = parts[2];
-        
-        // Match by segment (in full implementation, also match by token/symbol)
-        if (static_cast<int>(tick.exchangeSegment) == segment) {
-            // Update builder with this tick
-            builder.update(tick);
-            
-            // Emit partial update for real-time chart
-            emit candleUpdate(parts[0], segment, timeframe, builder.build());
+
+    // ── O(1) token→symbol resolution via reverse map ──
+    int segment = static_cast<int>(tick.exchangeSegment);
+    int64_t compositeKey = (static_cast<int64_t>(segment) << 32) |
+                            static_cast<uint32_t>(tick.token);
+
+    auto symIt = m_tokenToSymbol.find(compositeKey);
+    if (symIt == m_tokenToSymbol.end()) {
+        return; // No subscription for this token — ignore
+    }
+    const QString &symbol = symIt.value();
+    QString subKey = QString("%1_%2").arg(symbol).arg(segment);
+
+    // Get the subscribed timeframes for this symbol
+    auto subIt = m_subscriptions.find(subKey);
+    if (subIt == m_subscriptions.end()) {
+        return;
+    }
+
+    // Update builders for each subscribed timeframe
+    for (const QString &tf : subIt.value()) {
+        QString key = makeKey(symbol, segment, tf);
+        auto builderIt = m_builders.find(key);
+        if (builderIt != m_builders.end()) {
+            builderIt.value().update(tick);
+            emit candleUpdate(symbol, segment, tf, builderIt.value().build());
         }
     }
 }

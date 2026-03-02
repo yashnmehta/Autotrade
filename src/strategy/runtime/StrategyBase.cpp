@@ -50,25 +50,67 @@ void StrategyBase::resume() {
 }
 
 void StrategyBase::subscribe() {
-  // Determine token based on symbol
-  auto repo = RepositoryManager::getInstance();
+  // Base-class subscription uses the instance's single symbol + segment.
+  // TemplateStrategy overrides start() to handle multi-symbol bindings itself,
+  // so this path is only for simple single-symbol strategies.
 
-  if (m_instance.segment == 1) {        // NSECM
-                                        // Not implemented fully
-  } else if (m_instance.segment == 2) { // NSEFO
-    // Find token. In real app, we need to find specific contract based on
-    // symbol/expiry StrategyInstance has 'symbol' which might be just "NIFTY".
-    // Where is Expiry stored? In parameters?
-    // Assume 'symbol' in StrategyInstance is the TRADING SYMBOL if fully
-    // qualified, or we need to lookup. For now, let's assume instance.symbol is
-    // enough or we use parameters.
-
-    // TODO: Implement proper token lookup.
+  if (m_instance.symbol.isEmpty()) {
+    log("WARNING: No symbol set — skipping subscription");
+    return;
   }
+
+  auto repo = RepositoryManager::getInstance();
+  if (!repo) {
+    log("ERROR: RepositoryManager not available");
+    return;
+  }
+
+  // Resolve trading symbol → token via RepositoryManager
+  int segment = m_instance.segment;
+  QString exchange, series;
+
+  // Map segment ID to exchange/series for repository lookup
+  switch (segment) {
+    case 1:  exchange = "NSE"; series = "CM"; break;
+    case 2:  exchange = "NSE"; series = "FO"; break;
+    case 11: exchange = "BSE"; series = "CM"; break;
+    case 12: exchange = "BSE"; series = "FO"; break;
+    default:
+      log(QString("ERROR: Unknown segment %1").arg(segment));
+      return;
+  }
+
+  // Try direct token lookup from parameters (StrategyDeployDialog may provide it)
+  QVariant tokenVar = m_instance.parameters.value("__token__");
+  uint32_t token = 0;
+
+  if (tokenVar.isValid() && tokenVar.toLongLong() > 0) {
+    token = static_cast<uint32_t>(tokenVar.toLongLong());
+  } else {
+    // Fallback: search by symbol name
+    auto contracts = repo->searchScrips(exchange, series, "",
+                                        m_instance.symbol, 1);
+    if (!contracts.isEmpty()) {
+      token = static_cast<uint32_t>(contracts.first().exchangeInstrumentID);
+    }
+  }
+
+  if (token == 0) {
+    log(QString("ERROR: Could not resolve token for '%1' in %2/%3")
+            .arg(m_instance.symbol, exchange, series));
+    return;
+  }
+
+  FeedHandler::instance().subscribe(segment, static_cast<int>(token),
+                                    this, &StrategyBase::onTick);
+  log(QString("Subscribed to %1 (seg=%2, tok=%3)")
+          .arg(m_instance.symbol).arg(segment).arg(token));
 }
 
 void StrategyBase::unsubscribe() {
-  // Unsubscribe logic
+  // Unsubscribe this receiver from all FeedHandler publishers
+  FeedHandler::instance().unsubscribeAll(this);
+  log("Unsubscribed from all feeds");
 }
 
 void StrategyBase::log(const QString &message) {

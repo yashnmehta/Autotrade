@@ -7,6 +7,7 @@ add_library(utils STATIC
     SelectionHelpers.cpp
     ConfigLoader.cpp
     DateUtils.cpp
+    FileLogger.cpp
     MemoryProfiler.cpp
     PreferencesManager.cpp
     SoundManager.cpp
@@ -21,7 +22,6 @@ add_library(utils STATIC
     ${CMAKE_SOURCE_DIR}/include/utils/FileLogger.h
     ${CMAKE_SOURCE_DIR}/include/utils/LatencyTracker.h
     ${CMAKE_SOURCE_DIR}/include/utils/LicenseManager.h
-    ${CMAKE_SOURCE_DIR}/include/utils/LockFreeQueue.h
     ${CMAKE_SOURCE_DIR}/include/utils/MemoryProfiler.h
     ${CMAKE_SOURCE_DIR}/include/utils/PreferencesManager.h
     ${CMAKE_SOURCE_DIR}/include/utils/SelectionHelpers.h

@@ -3,11 +3,13 @@
 
 #include <QAbstractTableModel>
 #include <QList>
+#include <QHash>
 #include <QString>
 #include <QDateTime>
 #include "models/profiles/MarketWatchColumnProfile.h"
 #include "models/profiles/GenericTableProfile.h"
 #include "models/interfaces/IMarketWatchViewCallback.h"
+#include "udp/UDPTypes.h"
 
 /**
  * @brief Data structure for a single scrip (security) in the market watch
@@ -108,7 +110,7 @@ struct ScripData
     static ScripData createBlankRow() {
         ScripData blank;
         blank.isBlankRow = true;
-        blank.symbol = "───────────────";  // Visual separator
+        blank.symbol = "";            // No text needed — separator is painted via BackgroundRole
         blank.token = -1;  // Invalid token for blank rows
         return blank;
     }
@@ -232,6 +234,19 @@ public:
     // Batch updates for efficiency
     void updateScripData(int row, const ScripData &scrip);
     
+    /**
+     * @brief Batch-update all fields from a single UDP tick — emits ONE dataChanged
+     * 
+     * Replaces 9 separate updateXxx() calls that each emit their own dataChanged.
+     * Performance: 9× fewer Qt signal emissions per tick per row.
+     * 
+     * @param row Source model row index
+     * @param tick UDP market tick with all fields
+     * @param change Pre-calculated absolute price change
+     * @param changePercent Pre-calculated percentage change
+     */
+    void updateFromUdpTick(int row, const UDP::MarketTick& tick, double change, double changePercent);
+    
     // Statistics
     int scripCount() const;  // Count excluding blank rows
     int totalRowCount() const { return m_scrips.count(); }
@@ -244,6 +259,9 @@ signals:
 private:
     QList<ScripData> m_scrips;
     GenericTableProfile m_columnProfile;
+    
+    // O(1) token → row lookup (maintained on add/remove/move/clear)
+    QHash<int, int> m_tokenToRow;
     
     // Native C++ callback for ultra-low latency updates (bypasses Qt signals)
     IMarketWatchViewCallback* m_viewCallback = nullptr;

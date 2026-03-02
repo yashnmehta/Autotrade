@@ -29,12 +29,15 @@ public:
         QVariant bg = index.data(Qt::BackgroundRole);
 
         if (bg.isValid()) {
-            // Tick flash: fill with model color, white text, suppress selection highlight
+            // Tick flash: fill with model color, dark text on light bg, suppress selection highlight
+            QColor bgColor = bg.value<QColor>();
             painter->save();
-            painter->fillRect(opt.rect, bg.value<QColor>());
+            painter->fillRect(opt.rect, bgColor);
             painter->restore();
-            opt.palette.setColor(QPalette::Text, Qt::white);
-            opt.palette.setColor(QPalette::HighlightedText, Qt::white);
+            // Use dark text for light-theme tick flash backgrounds
+            QColor textColor = QColor("#1e293b");
+            opt.palette.setColor(QPalette::Text, textColor);
+            opt.palette.setColor(QPalette::HighlightedText, textColor);
             opt.backgroundBrush = Qt::NoBrush;
             opt.state &= ~QStyle::State_Selected;
         } else if (opt.state & QStyle::State_Selected) {
@@ -90,20 +93,20 @@ void MarketWatchWindow::showContextMenu(const QPoint &pos)
     QMenu menu(this);
     menu.setStyleSheet(
         "QMenu {"
-        "    background-color: #0d1117;"
-        "    color: #e2e8f0;"
-        "    border: 1px solid #1e2530;"
+        "    background-color: #ffffff;"
+        "    color: #1e293b;"
+        "    border: 1px solid #e2e8f0;"
         "}"
         "QMenu::item {"
         "    padding: 6px 20px;"
         "}"
         "QMenu::item:selected {"
-        "    background-color: #1e3a5f;"
-        "    color: #93c5fd;"
+        "    background-color: #dbeafe;"
+        "    color: #1e40af;"
         "}"
         "QMenu::separator {"
         "    height: 1px;"
-        "    background: #1e2530;"
+        "    background: #e2e8f0;"
         "    margin: 4px 0px;"
         "}"
     );
@@ -152,10 +155,6 @@ void MarketWatchWindow::showContextMenu(const QPoint &pos)
     menu.addSeparator();
     menu.addAction("Save Portfolio...", this, &MarketWatchWindow::onSavePortfolio);
     menu.addAction("Load Portfolio...", this, &MarketWatchWindow::onLoadPortfolio);
-    
-    // Debug Tools
-    menu.addSeparator();
-    menu.addAction("Export Cache Debug (Ctrl+Shift+E)", this, &MarketWatchWindow::exportPriceCacheDebug);
     
     menu.exec(this->viewport()->mapToGlobal(pos));
 }

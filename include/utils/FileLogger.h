@@ -1,80 +1,15 @@
-// Simple File Logger for Trading Terminal
-// Add this to main.cpp before QApplication creation
+// File Logger for Trading Terminal
+// Provides file + stderr logging with thread-safe message handler.
+// Call setupFileLogging() once at startup, cleanupFileLogging() at shutdown.
 
-#include <QDateTime>
-#include <QDebug>
-#include <QDir>
-#include <QFile>
-#include <QMutex>
-#include <QTextStream>
+#ifndef FILELOGGER_H
+#define FILELOGGER_H
 
-static QFile *logFile = nullptr;
-static QMutex logMutex;
+/// Install Qt message handler that logs to file + stderr.
+/// Creates a timestamped log file in a `logs/` directory.
+void setupFileLogging();
 
-void messageHandler(QtMsgType type, const QMessageLogContext &context,
-                    const QString &msg) {
-  QMutexLocker locker(&logMutex);
+/// Close the log file and release resources.
+void cleanupFileLogging();
 
-  QString level;
-  switch (type) {
-  case QtDebugMsg:
-    // Silence DEBUG logs for a cleaner user experience
-    return;
-  case QtInfoMsg:
-    level = "INFO ";
-    break;
-  case QtWarningMsg:
-    level = "WARN ";
-    break;
-  case QtCriticalMsg:
-    level = "ERROR";
-    break;
-  case QtFatalMsg:
-    level = "FATAL";
-    break;
-  }
-
-  QString timestamp =
-      QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss.zzz");
-  QString logMessage =
-      QString("[%1] [%2] %3\n").arg(timestamp).arg(level).arg(msg);
-
-  // Write to console
-  fprintf(stderr, "%s", logMessage.toLocal8Bit().constData());
-
-  // Write to file
-  if (logFile && logFile->isOpen()) {
-    QTextStream stream(logFile);
-    stream << logMessage;
-    stream.flush();
-  }
-}
-
-void setupFileLogging() {
-  // Create logs directory
-  QDir().mkpath("logs");
-
-  // Create log file with timestamp
-  QString timestamp = QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss");
-  QString logFileName = QString("logs/trading_terminal_%1.log").arg(timestamp);
-
-  logFile = new QFile(logFileName);
-  if (logFile->open(QIODevice::WriteOnly | QIODevice::Append |
-                    QIODevice::Text)) {
-    qDebug() << "Log file created:" << logFileName;
-  } else {
-    fprintf(stderr, "Failed to open log file: %s\n",
-            logFileName.toLocal8Bit().constData());
-  }
-
-  // Install message handler
-  qInstallMessageHandler(messageHandler);
-}
-
-void cleanupFileLogging() {
-  if (logFile) {
-    logFile->close();
-    delete logFile;
-    logFile = nullptr;
-  }
-}
+#endif // FILELOGGER_H

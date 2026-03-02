@@ -553,4 +553,20 @@ void AppBootstrap::cleanup()
     qDebug() << "[Bootstrap] TA-Lib shut down.";
 #endif
     cleanupFileLogging();
+
+    // Clean up heap-allocated objects not owned by Qt parent hierarchy
+    delete m_mainWindow;
+    m_mainWindow = nullptr;
+
+    delete m_loginService;
+    m_loginService = nullptr;
+
+    delete m_tradingDataService;
+    m_tradingDataService = nullptr;
+
+    delete m_config;
+    m_config = nullptr;
+
+    // m_splash and m_loginWindow are cleaned up via deleteLater() in their
+    // respective transition methods (onSplashReady, onContinueClicked)
 }

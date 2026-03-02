@@ -12,7 +12,6 @@ add_library(repository STATIC
     RepositoryManager.cpp
 
     # Headers (for AUTOMOC)
-    ${CMAKE_SOURCE_DIR}/include/repository/ScripMaster.h
     ${CMAKE_SOURCE_DIR}/include/repository/ContractData.h
     ${CMAKE_SOURCE_DIR}/include/repository/MasterFileParser.h
     ${CMAKE_SOURCE_DIR}/include/repository/NSEFORepository.h

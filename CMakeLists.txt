@@ -255,7 +255,6 @@ include_directories(
     ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_nsefo/include
     ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_nsecm/include
     ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_bsefo/include
-    ${CMAKE_SOURCE_DIR}/lib/cpp_broadcast_bsecm/include
     ${LZO_INCLUDE_DIRS}
 )
 

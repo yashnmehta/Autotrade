@@ -184,6 +184,11 @@ private:
     
     QHash<QString, CandleBuilder> m_builders;  // Key: "SYMBOL_SEGMENT_TIMEFRAME"
     QHash<QString, QStringList> m_subscriptions;  // Key: "SYMBOL_SEGMENT"
+
+    // Reverse map: compositeKey (segment<<32 | token) → symbol name
+    // Populated in subscribeTo(), used in onTick() for O(1) token→symbol resolution
+    QHash<int64_t, QString> m_tokenToSymbol;
+
     mutable QMutex m_mutex;
     QTimer m_timer;
     bool m_autoSave = true;

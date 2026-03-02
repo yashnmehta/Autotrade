@@ -264,7 +264,6 @@ void WorkspaceManager::onRestoreWindowRequested(
       MarketWatchWindow *mw =
           qobject_cast<MarketWatchWindow *>(window->contentWidget());
       if (mw) {
-        mw->setupZeroCopyMode();
         mw->restoreState(settings);
       }
     } else if (type == "ATMWatch") {

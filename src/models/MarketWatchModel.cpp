@@ -4,6 +4,7 @@
 #include "utils/LatencyTracker.h"
 #include <QColor>
 #include <QFont>
+#include <QSize>
 #include <QDebug>
 
 MarketWatchModel::MarketWatchModel(QObject *parent)
@@ -51,13 +52,19 @@ QVariant MarketWatchModel::data(const QModelIndex &index, int role) const
 
     const ScripData &scrip = m_scrips.at(index.row());
     
-    // Special handling for blank rows
+    // Special handling for blank rows — visual separator
     if (scrip.isBlankRow) {
-        if (role == Qt::DisplayRole && index.column() == 0) {
-            return "───────────────";  // Show separator
+        if (role == Qt::DisplayRole) {
+            return QString();          // Empty text — no garbled Unicode
+        }
+        if (role == Qt::BackgroundRole) {
+            return QColor("#e2e8f0");  // Light-theme border/divider color
+        }
+        if (role == Qt::SizeHintRole) {
+            return QSize(-1, 6);       // Thin 6px separator bar
         }
         if (role == Qt::UserRole + 100) {
-            return true;  // Mark as blank row for delegate
+            return true;               // Mark as blank row for delegate
         }
         return QVariant();
     }
@@ -104,8 +111,8 @@ QVariant MarketWatchModel::data(const QModelIndex &index, int role) const
             else if (column == MarketWatchColumn::BUY_PRICE) tick = scrip.bidTick;
             else if (column == MarketWatchColumn::SELL_PRICE) tick = scrip.askTick;
 
-            if (tick > 0) return QColor("#1a3a6b"); // Dark blue for UP tick on black bg
-            if (tick < 0) return QColor("#4a1212"); // Dark crimson for DOWN tick on black bg
+            if (tick > 0) return QColor("#dbeafe"); // Light blue for UP tick (light theme)
+            if (tick < 0) return QColor("#fee2e2"); // Light red for DOWN tick (light theme)
         }
     }
 
@@ -160,6 +167,11 @@ void MarketWatchModel::addScrip(const ScripData &scrip)
     m_scrips.append(scrip);
     endInsertRows();
     
+    // Maintain token→row map
+    if (!scrip.isBlankRow && scrip.token > 0) {
+        m_tokenToRow[scrip.token] = row;
+    }
+    
     emit scripAdded(row, scrip);
     
     qDebug() << "[MarketWatchModel] Added scrip:" << scrip.symbol
@@ -190,6 +202,13 @@ void MarketWatchModel::insertScrip(int position, const ScripData &scrip)
     m_scrips.insert(position, scrip);
     endInsertRows();
     
+    // Re-index token→row map for all rows from position onwards
+    for (int i = position; i < m_scrips.count(); ++i) {
+        if (!m_scrips[i].isBlankRow && m_scrips[i].token > 0) {
+            m_tokenToRow[m_scrips[i].token] = i;
+        }
+    }
+    
     emit scripAdded(position, scrip);
     
     qDebug() << "[MarketWatchModel] Inserted scrip:" << scrip.symbol
@@ -205,8 +224,20 @@ void MarketWatchModel::removeScrip(int row)
         qDebug() << "[MarketWatchModel] Removing scrip:" << scrip.symbol
                  << "Token:" << scrip.token << "from row" << row;
         
+        // Remove from token→row map
+        if (!scrip.isBlankRow && scrip.token > 0) {
+            m_tokenToRow.remove(scrip.token);
+        }
+        
         m_scrips.removeAt(row);
         endRemoveRows();
+        
+        // Re-index all rows after the removed row
+        for (int i = row; i < m_scrips.count(); ++i) {
+            if (!m_scrips[i].isBlankRow && m_scrips[i].token > 0) {
+                m_tokenToRow[m_scrips[i].token] = i;
+            }
+        }
         
         emit scripRemoved(row);
     }
@@ -242,6 +273,15 @@ void MarketWatchModel::moveRow(int sourceRow, int targetRow)
     
     endMoveRows();
     
+    // Re-index affected range in token→row map
+    int lo = std::min(sourceRow, insertPos);
+    int hi = std::max(sourceRow, insertPos);
+    for (int i = lo; i <= hi; ++i) {
+        if (!m_scrips[i].isBlankRow && m_scrips[i].token > 0) {
+            m_tokenToRow[m_scrips[i].token] = i;
+        }
+    }
+    
     qDebug() << "[MarketWatchModel] Moved row from" << sourceRow << "to" << insertPos;
 }
 
@@ -249,6 +289,7 @@ void MarketWatchModel::clearAll()
 {
     beginResetModel();
     m_scrips.clear();
+    m_tokenToRow.clear();
     endResetModel();
     
     qDebug() << "[MarketWatchModel] Cleared all scrips";
@@ -267,6 +308,18 @@ int MarketWatchModel::findScripByToken(int token) const
 {
     if (token <= 0) return -1;
     
+    auto it = m_tokenToRow.find(token);
+    if (it != m_tokenToRow.end()) {
+        int row = it.value();
+        // Validate the cached row is still correct
+        if (row >= 0 && row < m_scrips.count()
+            && m_scrips.at(row).token == token
+            && !m_scrips.at(row).isBlankRow) {
+            return row;
+        }
+    }
+    
+    // Fallback: linear scan (should not normally happen)
     for (int i = 0; i < m_scrips.count(); ++i) {
         if (m_scrips.at(i).token == token && !m_scrips.at(i).isBlankRow)
             return i;
@@ -283,6 +336,13 @@ void MarketWatchModel::insertBlankRow(int position)
     beginInsertRows(QModelIndex(), position, position);
     m_scrips.insert(position, ScripData::createBlankRow());
     endInsertRows();
+    
+    // Re-index rows after the inserted blank row
+    for (int i = position + 1; i < m_scrips.count(); ++i) {
+        if (!m_scrips[i].isBlankRow && m_scrips[i].token > 0) {
+            m_tokenToRow[m_scrips[i].token] = i;
+        }
+    }
     
     qDebug() << "[MarketWatchModel] Inserted blank row at position" << position;
 }
@@ -421,8 +481,7 @@ void MarketWatchModel::updateBidAskQuantities(int row, int bidQty, int askQty)
         m_scrips[row].buyQty = bidQty;
         m_scrips[row].sellQty = askQty;
         
-        // Notify entire row (simplified - can optimize column range if needed)
-        notifyRowUpdated(row, 0, COL_COUNT - 1);
+        notifyRowUpdated(row, 0, columnCount() - 1);
     }
 }
 
@@ -432,8 +491,7 @@ void MarketWatchModel::updateTotalBuySellQty(int row, int totalBuyQty, int total
         m_scrips[row].totalBuyQty = totalBuyQty;
         m_scrips[row].totalSellQty = totalSellQty;
         
-        // Notify entire row (simplified - can optimize column range if needed)
-        notifyRowUpdated(row, 0, COL_COUNT - 1);
+        notifyRowUpdated(row, 0, columnCount() - 1);
     }
 }
 
@@ -469,9 +527,81 @@ void MarketWatchModel::updateScripData(int row, const ScripData &scrip)
 {
     if (row >= 0 && row < m_scrips.count()) {
         m_scrips[row] = scrip;
-        // Notify entire row
-        notifyRowUpdated(row, 0, COL_COUNT - 1);
+        notifyRowUpdated(row, 0, columnCount() - 1);
     }
+}
+
+void MarketWatchModel::updateFromUdpTick(int row, const UDP::MarketTick& tick, double change, double changePercent)
+{
+    if (row < 0 || row >= m_scrips.count() || m_scrips.at(row).isBlankRow)
+        return;
+    
+    ScripData& s = m_scrips[row];
+    
+    // Tick direction for LTP
+    if (tick.ltp > 0) {
+        if (tick.ltp > s.ltp && s.ltp > 0) s.ltpTick = 1;
+        else if (tick.ltp < s.ltp && s.ltp > 0) s.ltpTick = -1;
+        
+        s.ltp = tick.ltp;
+        s.change = change;
+        s.changePercent = changePercent;
+    }
+    
+    // OHLC (only update if values present)
+    if (tick.open > 0) s.open = tick.open;
+    if (tick.high > 0) s.high = tick.high;
+    if (tick.low > 0)  s.low = tick.low;
+    if (tick.prevClose > 0) s.close = tick.prevClose;
+    
+    // LTQ
+    if (tick.ltq > 0) s.ltq = tick.ltq;
+    
+    // Average traded price
+    if (tick.atp > 0) s.avgTradedPrice = tick.atp;
+    
+    // Volume
+    if (tick.volume > 0) s.volume = tick.volume;
+    
+    // Bid/Ask with tick direction
+    if (tick.bids[0].price > 0 || tick.asks[0].price > 0) {
+        double newBid = tick.bids[0].price;
+        double newAsk = tick.asks[0].price;
+        
+        if (newBid > 0) {
+            if (newBid > s.bid && s.bid > 0) s.bidTick = 1;
+            else if (newBid < s.bid && s.bid > 0) s.bidTick = -1;
+            s.bid = newBid;
+            s.buyPrice = newBid;
+        }
+        
+        if (newAsk > 0) {
+            if (newAsk > s.ask && s.ask > 0) s.askTick = 1;
+            else if (newAsk < s.ask && s.ask > 0) s.askTick = -1;
+            s.ask = newAsk;
+            s.sellPrice = newAsk;
+        }
+        
+        s.buyQty = tick.bids[0].quantity;
+        s.sellQty = tick.asks[0].quantity;
+    }
+    
+    // Total buy/sell quantities
+    if (tick.totalBidQty > 0 || tick.totalAskQty > 0) {
+        s.totalBuyQty = tick.totalBidQty;
+        s.totalSellQty = tick.totalAskQty;
+    }
+    
+    // Open Interest (derivatives only)
+    if (tick.openInterest > 0) {
+        s.openInterest = tick.openInterest;
+        if (tick.oiChange != 0) {
+            s.oiChangePercent = (static_cast<double>(tick.oiChange) / tick.openInterest) * 100.0;
+        }
+    }
+    
+    // ONE dataChanged signal for the entire row (was 9 before!)
+    notifyRowUpdated(row, 0, columnCount() - 1);
 }
 
 int MarketWatchModel::scripCount() const

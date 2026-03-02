@@ -1,6 +1,6 @@
 #include "repository/RepositoryManager.h"
-#include "repository/MasterFileParser.h"
 #include "core/ExchangeSegment.h"
+#include "repository/MasterFileParser.h"
 #include <QCoreApplication>
 #include <QDate>
 #include <QDebug>
@@ -123,32 +123,37 @@ bool RepositoryManager::loadAll(const QString &mastersPath) {
 
   // PHASE 1: Load NSE CM Index Master (Required) - Load from Masters directory
   qDebug() << "[RepositoryManager] [1/5] Loading NSE CM Index Master...";
-  
+
   // ⚡ FIX: Try root directory first, then processed_csv subdirectory
   bool indexLoaded = false;
-  
+
   // Try root directory first (where files are typically stored)
-  qDebug() << "[RepositoryManager] Trying index master from root:" << mastersDir;
+  qDebug() << "[RepositoryManager] Trying index master from root:"
+           << mastersDir;
   if (loadIndexMaster(mastersDir)) {
     indexLoaded = true;
   } else {
     // Try processed_csv subdirectory
     QString processedCsvPath = mastersDir + "/processed_csv";
-    qDebug() << "[RepositoryManager] Root failed, trying processed_csv:" << processedCsvPath;
+    qDebug() << "[RepositoryManager] Root failed, trying processed_csv:"
+             << processedCsvPath;
     if (loadIndexMaster(processedCsvPath)) {
       indexLoaded = true;
     } else {
       // Fallback: Try MasterFiles directory (development builds)
-      QString fallbackPath = QCoreApplication::applicationDirPath() + "/MasterFiles";
-      qDebug() << "[RepositoryManager] Still not found, trying fallback:" << fallbackPath;
+      QString fallbackPath =
+          QCoreApplication::applicationDirPath() + "/MasterFiles";
+      qDebug() << "[RepositoryManager] Still not found, trying fallback:"
+               << fallbackPath;
       if (loadIndexMaster(fallbackPath)) {
         indexLoaded = true;
       }
     }
   }
-  
+
   if (!indexLoaded) {
-    qWarning() << "[RepositoryManager] Failed to load index master from all attempted paths";
+    qWarning() << "[RepositoryManager] Failed to load index master from all "
+                  "attempted paths";
     // We continue, but some functionality might be limited (no indices)
   }
 
@@ -222,12 +227,12 @@ bool RepositoryManager::loadAll(const QString &mastersPath) {
 bool RepositoryManager::loadNSEFO(const QString &mastersPath, bool preferCSV) {
   // Try processed_csv subdirectory first (where SaveProcessedCSVs writes)
   QString csvFile = mastersPath + "/processed_csv/nsefo_processed.csv";
-  
+
   // Then try root directory (where files are typically located)
   if (!QFile::exists(csvFile)) {
     csvFile = mastersPath + "/nsefo_processed.csv";
   }
-  
+
   QString masterFile = mastersPath + "/contract_nsefo_latest.txt";
 
   // Try CSV first if preferred
@@ -257,7 +262,7 @@ bool RepositoryManager::loadNSECM(const QString &mastersPath, bool preferCSV) {
   if (!QFile::exists(csvFile)) {
     csvFile = mastersPath + "/nsecm_processed.csv";
   }
-  
+
   QString masterFile = mastersPath + "/master_contracts_latest.txt";
   if (!QFile::exists(masterFile)) {
     masterFile = mastersPath + "/contract_nsecm_latest.txt";
@@ -290,7 +295,7 @@ bool RepositoryManager::loadBSEFO(const QString &mastersPath, bool preferCSV) {
   if (!QFile::exists(csvFile)) {
     csvFile = mastersPath + "/bsefo_processed.csv";
   }
-  
+
   QString masterFile = mastersPath + "/master_contracts_latest.txt";
   if (!QFile::exists(masterFile)) {
     masterFile = mastersPath + "/contract_bsefo_latest.txt";
@@ -323,7 +328,7 @@ bool RepositoryManager::loadBSECM(const QString &mastersPath, bool preferCSV) {
   if (!QFile::exists(csvFile)) {
     csvFile = mastersPath + "/bsecm_processed.csv";
   }
-  
+
   QString masterFile = mastersPath + "/master_contracts_latest.txt";
   if (!QFile::exists(masterFile)) {
     masterFile = mastersPath + "/contract_bsecm_latest.txt";
@@ -494,7 +499,8 @@ const QHash<QString, qint64> &RepositoryManager::getIndexNameTokenMap() const {
   return m_indexNameTokenMap;
 }
 
-const QHash<uint32_t, QString> &RepositoryManager::getIndexTokenNameMap() const {
+const QHash<uint32_t, QString> &
+RepositoryManager::getIndexTokenNameMap() const {
   return m_indexTokenNameMap;
 }
 
@@ -944,6 +950,48 @@ bool RepositoryManager::loadFromMemory(const QString &csvData) {
   return anyLoaded;
 }
 
+QVector<ContractData> RepositoryManager::searchScrips(const QString &exchange,
+                                                      const QString &segment,
+                                                      const QString &series,
+                                                      const QString &searchText,
+                                                      int maxResults) const {
+
+  QReadLocker lock(&m_repositoryLock);
+
+  QString segmentKey = getSegmentKey(exchange, segment);
+  QString searchUpper = searchText.toUpper();
+
+  QVector<ContractData> results;
+  results.reserve(maxResults);
+
+  auto searchRepo = [&](auto *repo) {
+    if (!repo || !repo->isLoaded())
+      return;
+    repo->forEachContract([&](const ContractData &contract) {
+      if (results.size() >= maxResults)
+        return;
+      if (!series.isEmpty() && contract.series != series)
+        return;
+      if (!searchUpper.isEmpty() &&
+          !contract.name.startsWith(searchUpper, Qt::CaseInsensitive) &&
+          !contract.name.contains(searchUpper, Qt::CaseInsensitive))
+        return;
+      results.append(contract);
+    });
+  };
+
+  if (segmentKey == "NSEFO")
+    searchRepo(m_nsefo.get());
+  else if (segmentKey == "NSECM")
+    searchRepo(m_nsecm.get());
+  else if (segmentKey == "BSEFO")
+    searchRepo(m_bsefo.get());
+  else if (segmentKey == "BSECM")
+    searchRepo(m_bsecm.get());
+
+  return results;
+}
+
 QVector<ContractData> RepositoryManager::searchScripsGlobal(
     const QString &searchText, const QString &exchangeFilter,
     const QString &segmentFilter, const QString &expiryFilter,
@@ -969,7 +1017,7 @@ QVector<ContractData> RepositoryManager::searchScripsGlobal(
   QString segNormalized = segmentFilter.toUpper();
   // "ALL" means search both CM and FO - keep empty!
   if (segNormalized == "ALL") {
-    segNormalized = "";  // Search both CM and FO
+    segNormalized = ""; // Search both CM and FO
   } else if (segNormalized == "STOCKS" || segNormalized == "STOCK") {
     segNormalized = "CM";
   } else if (segNormalized == "OPTIONS" || segNormalized == "FUTURES") {
@@ -1322,7 +1370,8 @@ int RepositoryManager::getExchangeSegmentID(const QString &exchange,
   // Delegate to canonical ExchangeSegmentUtil (core/ExchangeSegment.h)
   QString segmentKey = getSegmentKey(exchange, segment);
   ExchangeSegment seg = ExchangeSegmentUtil::fromString(segmentKey);
-  return (seg != ExchangeSegment::Unknown) ? ExchangeSegmentUtil::toInt(seg) : -1;
+  return (seg != ExchangeSegment::Unknown) ? ExchangeSegmentUtil::toInt(seg)
+                                           : -1;
 }
 
 QString RepositoryManager::mapInstrumentToSeries(const QString &exchange,
@@ -1364,7 +1413,8 @@ QString RepositoryManager::mapInstrumentToSeries(const QString &exchange,
 
 QString RepositoryManager::getExchangeSegmentName(int exchangeSegmentID) {
   // Delegate to canonical ExchangeSegmentUtil (core/ExchangeSegment.h)
-  return ExchangeSegmentUtil::toString(ExchangeSegmentUtil::fromInt(exchangeSegmentID));
+  return ExchangeSegmentUtil::toString(
+      ExchangeSegmentUtil::fromInt(exchangeSegmentID));
 }
 
 bool RepositoryManager::saveProcessedCSVs(const QString &mastersPath) {
