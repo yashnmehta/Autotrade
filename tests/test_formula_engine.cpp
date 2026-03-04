@@ -13,7 +13,7 @@
  *   - Validation and introspection
  *   - Error handling (division by zero, unknown params, etc.)
  */
-
+#define _USE_MATH_DEFINES
 #include "strategy/runtime/FormulaEngine.h"
 #include <QCoreApplication>
 #include <QDebug>

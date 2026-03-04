@@ -250,6 +250,82 @@ void PreferencesManager::setWindowPreference(const QString &window,
 }
 
 // ============================================================================
+// Derivative Preferences
+// ============================================================================
+
+QString PreferencesManager::getUnderlyingPriceSource() const {
+  return m_settings.value("derivatives/underlying_price_source", "cash").toString().toLower();
+}
+
+void PreferencesManager::setUnderlyingPriceSource(const QString &source) {
+  m_settings.setValue("derivatives/underlying_price_source", source.toLower());
+  emit preferencesChanged("derivatives/underlying_price_source");
+}
+
+QString PreferencesManager::getDefaultDerivativeExchange() const {
+  return m_settings.value("derivatives/default_exchange", "NSE").toString();
+}
+
+void PreferencesManager::setDefaultDerivativeExchange(const QString &exchange) {
+  m_settings.setValue("derivatives/default_exchange", exchange);
+  emit preferencesChanged("derivatives/default_exchange");
+}
+
+QString PreferencesManager::getDefaultDerivativeSymbol() const {
+  return m_settings.value("derivatives/default_symbol", "NIFTY").toString();
+}
+
+void PreferencesManager::setDefaultDerivativeSymbol(const QString &symbol) {
+  m_settings.setValue("derivatives/default_symbol", symbol);
+  emit preferencesChanged("derivatives/default_symbol");
+}
+
+double PreferencesManager::getDividendYield() const {
+  return m_settings.value("derivatives/dividend_yield", 0.0).toDouble();
+}
+
+void PreferencesManager::setDividendYield(double dividend) {
+  m_settings.setValue("derivatives/dividend_yield", dividend);
+  emit preferencesChanged("derivatives/dividend_yield");
+}
+
+double PreferencesManager::getInterestRate() const {
+  return m_settings.value("derivatives/interest_rate", 6.50).toDouble();
+}
+
+void PreferencesManager::setInterestRate(double rate) {
+  m_settings.setValue("derivatives/interest_rate", rate);
+  emit preferencesChanged("derivatives/interest_rate");
+}
+
+QString PreferencesManager::getPricingModel() const {
+  return m_settings.value("derivatives/pricing_model", "Black-Scholes").toString();
+}
+
+void PreferencesManager::setPricingModel(const QString &model) {
+  m_settings.setValue("derivatives/pricing_model", model);
+  emit preferencesChanged("derivatives/pricing_model");
+}
+
+bool PreferencesManager::isFairValueEnabled() const {
+  return m_settings.value("derivatives/fair_value_enabled", false).toBool();
+}
+
+void PreferencesManager::setFairValueEnabled(bool enabled) {
+  m_settings.setValue("derivatives/fair_value_enabled", enabled);
+  emit preferencesChanged("derivatives/fair_value_enabled");
+}
+
+bool PreferencesManager::isDerivativeAlertsEnabled() const {
+  return m_settings.value("derivatives/alerts_enabled", false).toBool();
+}
+
+void PreferencesManager::setDerivativeAlertsEnabled(bool enabled) {
+  m_settings.setValue("derivatives/alerts_enabled", enabled);
+  emit preferencesChanged("derivatives/alerts_enabled");
+}
+
+// ============================================================================
 // Quick Presets
 // ============================================================================
 

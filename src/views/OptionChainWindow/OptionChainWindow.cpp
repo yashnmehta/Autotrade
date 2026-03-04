@@ -20,8 +20,9 @@ OptionChainWindow::OptionChainWindow(QWidget *parent)
       m_titleLabel(nullptr), m_callTable(nullptr), m_strikeTable(nullptr),
       m_putTable(nullptr), m_callModel(nullptr), m_strikeModel(nullptr),
       m_putModel(nullptr), m_callDelegate(nullptr), m_putDelegate(nullptr),
-      m_atmStrike(0.0), m_exchangeSegment(2), m_selectedCallRow(-1),
-      m_selectedPutRow(-1), m_profileManager(nullptr) {
+      m_atmStrike(0.0), m_underlyingPrice(0.0), m_underlyingToken(0),
+      m_exchangeSegment(2), m_selectedCallRow(-1),
+      m_selectedPutRow(-1), m_profileManager(nullptr), m_atmRefreshTimer(nullptr) {
   setupUI();
   setupModels();
   setupConnections();
@@ -78,12 +79,24 @@ OptionChainWindow::OptionChainWindow(QWidget *parent)
   // One explicit refresh to load initial data
   refreshData();
 
+  // Setup periodic ATM recalculation timer (every 60 seconds)
+  m_atmRefreshTimer = new QTimer(this);
+  m_atmRefreshTimer->setInterval(60000); // 60 seconds
+  connect(m_atmRefreshTimer, &QTimer::timeout, this, &OptionChainWindow::recalculateATMStrike);
+  m_atmRefreshTimer->start();
+  qWarning() << "[OptionChain] Periodic ATM refresh timer started (60s interval)";
+
   setWindowTitle("Option Chain");
   // NOTE: Do NOT call resize() here — the factory applies saved geometry
   //       or a default size via applyRestoredGeometryOrDefault().
 }
 
 OptionChainWindow::~OptionChainWindow() {
+  if (m_atmRefreshTimer) {
+    m_atmRefreshTimer->stop();
+    delete m_atmRefreshTimer;
+  }
+  FeedHandler::instance().unsubscribeAll(this);
   delete m_profileManager;
 }
 

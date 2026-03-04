@@ -7,6 +7,9 @@
 #include "repository/RepositoryManager.h"
 #include "services/FeedHandler.h"
 #include "services/GreeksCalculationService.h"
+#include "utils/PreferencesManager.h"
+#include "quant/ATMCalculator.h"
+#include "nsecm_price_store.h"
 #include <QDate>
 #include <QDebug>
 #include <QScrollBar>
@@ -377,9 +380,12 @@ void OptionChainWindow::refreshData() {
   m_callTable->resizeColumnsToContents();
   m_putTable->resizeColumnsToContents();
 
-  // Set ATM
+  // Subscribe to underlying future for ATM calculation
+  subscribeToUnderlying();
+
+  // Set ATM based on underlying price (or middle strike as fallback)
   if (!m_strikes.isEmpty()) {
-    m_atmStrike = m_strikes[m_strikes.size() / 2];
+    recalculateATMStrike();
     highlightATMStrike();
 
     int row = m_strikes.indexOf(m_atmStrike);
@@ -399,13 +405,47 @@ void OptionChainWindow::refreshData() {
 
   updateTableColors();
 
-  qDebug() << "[OptionChainWindow] Loaded" << m_strikeData.size()
-           << "strikes for" << m_currentSymbol << m_currentExpiry;
-  qDebug() << "[OptionChainWindow] Greeks will be calculated on tick updates";
+  qWarning() << "[OptionChain] Loaded" << m_strikeData.size()
+           << "strikes for" << m_currentSymbol << m_currentExpiry
+           << "| underlyingToken:" << m_underlyingToken
+           << "underlyingLTP:" << m_underlyingPrice
+           << "ATM:" << m_atmStrike;
 }
 
 void OptionChainWindow::onTickUpdate(const UDP::MarketTick &tick) {
   if (tick.updateType == UDP::UpdateType::DEPTH_UPDATE) {
+    return;
+  }
+
+  // Check if it's underlying future price update
+  if (tick.token == static_cast<uint32_t>(m_underlyingToken)) {
+    if (tick.ltp > 0) {
+      double prevPrice = m_underlyingPrice;
+      m_underlyingPrice = tick.ltp;
+      
+      // Debug: Log underlying price updates
+      static int updateCount = 0;
+      if (++updateCount % 50 == 0) { // Log every 50th tick to avoid spam
+        qWarning() << "[OptionChain] Underlying tick" << updateCount 
+                   << "LTP:" << tick.ltp << "ATM:" << m_atmStrike;
+      }
+      
+      // Only recalculate ATM if price crossed a strike boundary
+      if (!m_strikes.isEmpty()) {
+        double oldDist = std::abs(prevPrice - m_atmStrike);
+        double newDist = std::abs(m_underlyingPrice - m_atmStrike);
+        // Check if we should switch to a closer strike
+        for (double strike : m_strikes) {
+          double dist = std::abs(m_underlyingPrice - strike);
+          if (dist < newDist) {
+            qWarning() << "[OptionChain]" << m_currentSymbol 
+                       << "Price crossed strike boundary, triggering ATM recalc";
+            recalculateATMStrike();
+            break;
+          }
+        }
+      }
+    }
     return;
   }
 
@@ -466,6 +506,171 @@ void OptionChainWindow::onTickUpdate(const UDP::MarketTick &tick) {
 
   GreeksCalculationService::instance().onPriceUpdate(tick.token, tick.ltp,
                                                      m_exchangeSegment);
+}
+
+void OptionChainWindow::recalculateATMStrike() {
+  if (m_strikes.isEmpty() || m_underlyingPrice <= 0.0) {
+    // Fallback to middle strike
+    if (!m_strikes.isEmpty()) {
+      double fallbackStrike = m_strikes[m_strikes.size() / 2];
+      qWarning() << "[OptionChain] ATM FALLBACK - underlyingPrice:" 
+                 << m_underlyingPrice << "using middle strike:" << fallbackStrike;
+      m_atmStrike = fallbackStrike;
+    }
+    return;
+  }
+
+  // Use ATMCalculator (same as ATMWatch) for consistent calculations
+  // Convert QList to QVector for ATMCalculator
+  QVector<double> strikeVector = m_strikes.toVector();
+  auto result = ATMCalculator::calculateFromActualStrikes(m_underlyingPrice, strikeVector, 0);
+  
+  if (!result.isValid) {
+    qWarning() << "[OptionChain] ATMCalculator FAILED for" << m_currentSymbol 
+               << "underlying:" << m_underlyingPrice;
+    return;
+  }
+
+  double calculatedATM = result.atmStrike;
+
+  if (calculatedATM != m_atmStrike) {
+    qWarning() << "[OptionChain]" << m_currentSymbol << "ATM recalculated:" 
+               << m_atmStrike << "->" << calculatedATM 
+               << "(underlying:" << m_underlyingPrice << ")";
+    m_atmStrike = calculatedATM;
+    highlightATMStrike();
+
+    // Scroll to new ATM strike
+    int row = m_strikes.indexOf(m_atmStrike);
+    if (row >= 0) {
+      QTimer::singleShot(0, this, [this, row]() {
+        QModelIndex strikeIdx = m_strikeModel->index(row, 0);
+        if (strikeIdx.isValid()) {
+          m_strikeTable->scrollTo(strikeIdx, QAbstractItemView::PositionAtCenter);
+          int val = m_strikeTable->verticalScrollBar()->value();
+          m_callTable->verticalScrollBar()->setValue(val);
+          m_putTable->verticalScrollBar()->setValue(val);
+        }
+      });
+    }
+  } else {
+    qWarning() << "[OptionChain]" << m_currentSymbol 
+               << "ATM unchanged:" << m_atmStrike 
+               << "(underlying:" << m_underlyingPrice << ")";
+  }
+}
+
+void OptionChainWindow::subscribeToUnderlying() {
+  if (m_currentSymbol.isEmpty())
+    return;
+
+  RepositoryManager *repo = RepositoryManager::getInstance();
+
+  // ── Read user preference: "cash" or "future" ──
+  QString priceSource = PreferencesManager::instance().getUnderlyingPriceSource();
+  
+  qWarning() << "[OptionChain] subscribeToUnderlying" << m_currentSymbol
+             << "priceSource:" << priceSource;
+
+  if (priceSource == "future") {
+    // ── FUTURE MODE: subscribe to nearest future contract ──
+    QVector<ContractData> contracts = repo->getOptionChain(
+        (m_exchangeSegment == 12) ? "BSE" : "NSE", m_currentSymbol);
+    
+    int64_t futureToken = 0;
+    for (const auto &c : contracts) {
+      if (c.instrumentType == 1 && c.expiryDate == m_currentExpiry) {
+        futureToken = c.exchangeInstrumentID;
+        break;
+      }
+    }
+    // Fallback: first available future
+    if (futureToken == 0) {
+      for (const auto &c : contracts) {
+        if (c.instrumentType == 1) {
+          futureToken = c.exchangeInstrumentID;
+          break;
+        }
+      }
+    }
+    
+    if (futureToken > 0) {
+      m_underlyingToken = static_cast<int>(futureToken);
+      FeedHandler::instance().subscribe(m_exchangeSegment, m_underlyingToken, this,
+                                       &OptionChainWindow::onTickUpdate);
+      
+      auto state = MarketData::PriceStoreGateway::instance().getUnifiedSnapshot(
+          m_exchangeSegment, m_underlyingToken);
+      if (state.ltp > 0) {
+        m_underlyingPrice = state.ltp;
+      }
+      
+      qWarning() << "[OptionChain] Subscribed to FUTURE underlying:" << m_currentSymbol
+                 << "token:" << futureToken << "LTP:" << m_underlyingPrice;
+    } else {
+      qWarning() << "[OptionChain] No future token found for" << m_currentSymbol;
+    }
+  } else {
+    // ── CASH MODE (default): subscribe to spot/index price ──
+    // Step 1: Get initial price (Cash first, Future fallback)
+    m_underlyingPrice = repo->getUnderlyingPrice(m_currentSymbol, m_currentExpiry);
+    
+    // Step 2: Subscribe to cash market via asset token
+    int64_t assetToken = repo->getAssetTokenForSymbol(m_currentSymbol);
+    
+    if (assetToken > 0) {
+      m_underlyingToken = static_cast<int>(assetToken);
+      FeedHandler::instance().subscribe(1, m_underlyingToken, this,
+                                       &OptionChainWindow::onTickUpdate);
+      
+      double cashLtp = nsecm::getGenericLtp(static_cast<uint32_t>(assetToken));
+      if (cashLtp > 0) {
+        m_underlyingPrice = cashLtp;
+      }
+      
+      qWarning() << "[OptionChain] Subscribed to CASH underlying:" << m_currentSymbol
+                 << "assetToken:" << assetToken << "cashLTP:" << cashLtp
+                 << "finalPrice:" << m_underlyingPrice;
+    } else {
+      // Fallback to future if no cash token available
+      QVector<ContractData> contracts = repo->getOptionChain(
+          (m_exchangeSegment == 12) ? "BSE" : "NSE", m_currentSymbol);
+      
+      int64_t futureToken = 0;
+      for (const auto &c : contracts) {
+        if (c.instrumentType == 1 && c.expiryDate == m_currentExpiry) {
+          futureToken = c.exchangeInstrumentID;
+          break;
+        }
+      }
+      if (futureToken == 0) {
+        for (const auto &c : contracts) {
+          if (c.instrumentType == 1) {
+            futureToken = c.exchangeInstrumentID;
+            break;
+          }
+        }
+      }
+      
+      if (futureToken > 0) {
+        m_underlyingToken = static_cast<int>(futureToken);
+        FeedHandler::instance().subscribe(m_exchangeSegment, m_underlyingToken, this,
+                                         &OptionChainWindow::onTickUpdate);
+        
+        auto state = MarketData::PriceStoreGateway::instance().getUnifiedSnapshot(
+            m_exchangeSegment, m_underlyingToken);
+        if (state.ltp > 0) {
+          m_underlyingPrice = state.ltp;
+        }
+        
+        qWarning() << "[OptionChain] Cash token unavailable, fell back to FUTURE:"
+                   << m_currentSymbol << "token:" << futureToken 
+                   << "LTP:" << m_underlyingPrice;
+      } else {
+        qWarning() << "[OptionChain] No underlying token found for" << m_currentSymbol;
+      }
+    }
+  }
 }
 
 void OptionChainWindow::populateSymbols() {

@@ -179,6 +179,8 @@ private:
     void refreshData();
     void updateTableColors();
     void highlightATMStrike();
+    void recalculateATMStrike();   // Recalculate ATM based on underlying price
+    void subscribeToUnderlying();  // Subscribe to underlying future token
     void applyColumnVisibility();  // Show/hide columns from settings
     void showColumnDialog();       // Open column visibility dialog
     
@@ -222,10 +224,13 @@ private:
     QString m_currentSymbol;
     QString m_currentExpiry;
     double m_atmStrike;
-    int m_exchangeSegment;  // Current exchange segment (2=NSEFO, 12=BSEFO)
+    double m_underlyingPrice;  // Current underlying future LTP for ATM calculation
+    int m_underlyingToken;     // Underlying future token for subscription
+    int m_exchangeSegment;     // Current exchange segment (2=NSEFO, 12=BSEFO)
     int m_selectedCallRow;
     int m_selectedPutRow;
     bool m_syncingScroll = false; // Re-entrancy guard for tri-directional scroll sync
+    QTimer *m_atmRefreshTimer;    // Periodic ATM recalculation timer
     
     // Column profile (governs visibility + widths for both Call and Put tables)
     GenericTableProfile m_columnProfile;

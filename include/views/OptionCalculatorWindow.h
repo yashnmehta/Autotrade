@@ -12,6 +12,8 @@
 #include <QRadioButton>
 #include <QWidget>
 
+namespace Ui { class OptionCalculatorWindow; }
+
 /**
  * @brief Option Calculator Window
  *
@@ -36,11 +38,12 @@ private slots:
   void onCalculationMethodChanged();
 
 private:
-  void setupUI();
   void setupConnections();
+  void initializeFromDefaults();
 
-  // UI Elements
-  // Input Group
+  Ui::OptionCalculatorWindow *ui;
+
+  // Convenience pointers assigned from ui after setupUi()
   QLineEdit *m_spotPriceEdit;
   QLineEdit *m_strikePriceEdit;
   QLineEdit *m_volatilityEdit;
@@ -48,7 +51,6 @@ private:
   QLineEdit *m_dividendYieldEdit;
   QLineEdit *m_daysUntilExpirationEdit;
 
-  // Output Group (Call / Put)
   QLabel *m_callTheoPriceLabel;
   QLabel *m_callDeltaLabel;
   QLabel *m_callGammaLabel;
@@ -63,26 +65,20 @@ private:
   QLabel *m_putVegaLabel;
   QLabel *m_putRhoLabel;
 
-  // IV Section
-  QCheckBox *m_calcImpliedVolCheckBox;
-  QLineEdit *m_actualMarketValueEdit;
+  QCheckBox  *m_calcImpliedVolCheckBox;
+  QLineEdit  *m_actualMarketValueEdit;
 
-  // Radio Groups
   QRadioButton *m_callRadio;
   QRadioButton *m_putRadio;
-
   QRadioButton *m_binomialRadio;
   QRadioButton *m_blackScholesRadio;
 
-  // Action Buttons
   QPushButton *m_calculateBtn;
   QPushButton *m_impliedVolBtn;
   QPushButton *m_cancelBtn;
 
-  // Validation Message
   QLabel *m_errorLabel;
 
-  // Helpers
   bool validateInputs(double &spot, double &strike, double &vol, double &rate,
                       double &divYield, double &days);
   double applyDividendYield(double spot, double divYield, double timeToExpiry);

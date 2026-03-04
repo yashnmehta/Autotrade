@@ -5,6 +5,7 @@
 #include "data/PriceStoreGateway.h"
 #include "repository/RepositoryManager.h"
 #include "services/FeedHandler.h"
+#include "services/GreeksCalculationService.h"
 #include <QDate>
 #include <QDebug>
 #include <QStandardItem>
@@ -431,6 +432,10 @@ void ATMWatchWindow::onTickUpdate(const UDP::MarketTick &tick) {
       m_putModel->setData(m_putModel->index(row, PUT_OI),
                           QString::number(tick.openInterest));
     }
+
+    // Trigger IV/Greeks calculation for this option token
+    int exSeg = (m_exchangeCombo && m_exchangeCombo->currentText() == "BSE") ? 12 : 2;
+    GreeksCalculationService::instance().onPriceUpdate(tick.token, tick.ltp, exSeg);
 
   } else if (m_underlyingTokenToSymbol.contains(tick.token)) {
     // Case 2: Underlying Token Update ("Spot/Fut")

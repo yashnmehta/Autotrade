@@ -85,20 +85,27 @@ void SnapQuoteWindow::onTickUpdate(const UDP::MarketTick& tick)
     if (m_lbTotalBuyers) m_lbTotalBuyers->setText(QLocale().toString((int64_t)tick.totalBidQty));
     if (m_lbTotalSellers) m_lbTotalSellers->setText(QLocale().toString((int64_t)tick.totalAskQty));
     
-    // Update 5-level depth (with validation to skip garbage data)
+    // Update 5-level depth (with STRICT validation to filter garbage data)
     for (int i = 0; i < 5; i++) {
-        // Only update if price and quantity are reasonable (non-zero, not garbage)
-        if (tick.bids[i].price > 0 && tick.bids[i].quantity > 0 && tick.bids[i].quantity < 1000000000) {
+        // Only update if price and quantity are reasonable (non-zero, below 10 million)
+        if (tick.bids[i].price > 0 && tick.bids[i].quantity > 0 && tick.bids[i].quantity < 10000000) {
             updateBidDepth(i + 1, 
                            static_cast<qint64>(tick.bids[i].quantity),
                            tick.bids[i].price,
                            tick.bids[i].orders);
+        } else {
+            // Clear stale data if quantity is invalid/zero
+            updateBidDepth(i + 1, 0, 0.0, 0);
         }
-        if (tick.asks[i].price > 0 && tick.asks[i].quantity > 0 && tick.asks[i].quantity < 1000000000) {
+        
+        if (tick.asks[i].price > 0 && tick.asks[i].quantity > 0 && tick.asks[i].quantity < 10000000) {
             updateAskDepth(i + 1,
                            tick.asks[i].price,
                            static_cast<qint64>(tick.asks[i].quantity),
                            tick.asks[i].orders);
+        } else {
+            // Clear stale data if quantity is invalid/zero
+            updateAskDepth(i + 1, 0.0, 0, 0);
         }
     }
 }

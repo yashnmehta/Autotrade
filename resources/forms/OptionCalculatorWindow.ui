@@ -1,0 +1,413 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>OptionCalculatorWindow</class>
+ <widget class="QWidget" name="OptionCalculatorWindow">
+  <property name="geometry">
+   <rect><x>0</x><y>0</y><width>530</width><height>370</height></rect>
+  </property>
+  <property name="minimumSize">
+   <size><width>480</width><height>340</height></size>
+  </property>
+  <property name="windowTitle">
+   <string>Option Calculator</string>
+  </property>
+  <property name="styleSheet">
+   <string notr="true">
+/* ── root ────────────────────────────────────────── */
+OptionCalculatorWindow {
+    background-color: #ffffff;
+}
+
+/* ── group boxes ─────────────────────────────────── */
+QGroupBox {
+    background-color: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 5px;
+    margin-top: 8px;
+    padding-top: 2px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #475569;
+}
+QGroupBox::title {
+    subcontrol-origin: margin;
+    subcontrol-position: top left;
+    left: 8px;
+    padding: 0 4px;
+    color: #475569;
+}
+
+/* ── form row labels ────────────────────────────── */
+QLabel {
+    color: #475569;
+    font-size: 11px;
+    background: transparent;
+}
+
+/* ── column headers ──────────────────────────────── */
+QLabel#labelCallHeader {
+    color: #1d4ed8;
+    font-weight: 700;
+    font-size: 11px;
+    background: transparent;
+}
+QLabel#labelPutHeader {
+    color: #b91c1c;
+    font-weight: 700;
+    font-size: 11px;
+    background: transparent;
+}
+
+/* ── error label ─────────────────────────────────── */
+QLabel#m_errorLabel {
+    color: #dc2626;
+    font-size: 10px;
+    background: transparent;
+}
+
+/* ── input line edits ────────────────────────────── */
+QLineEdit {
+    background-color: #ffffff;
+    color: #1e293b;
+    border: 1px solid #cbd5e1;
+    border-radius: 3px;
+    padding: 2px 6px;
+    font-size: 11px;
+    selection-background-color: #dbeafe;
+}
+QLineEdit:focus {
+    border-color: #3b82f6;
+}
+QLineEdit[readOnly="true"] {
+    background-color: #f1f5f9;
+    color: #64748b;
+    border-color: #e2e8f0;
+}
+
+/* ── radio buttons / checkboxes ──────────────────── */
+QRadioButton {
+    color: #334155;
+    font-size: 11px;
+    spacing: 5px;
+    background: transparent;
+}
+QRadioButton::indicator { width: 13px; height: 13px; }
+QCheckBox {
+    color: #334155;
+    font-size: 11px;
+    spacing: 5px;
+    background: transparent;
+}
+
+/* ── base button ─────────────────────────────────── */
+QPushButton {
+    background-color: #f8fafc;
+    color: #334155;
+    border: 1px solid #cbd5e1;
+    border-radius: 3px;
+    padding: 4px 12px;
+    font-size: 11px;
+    font-weight: 500;
+    min-height: 24px;
+}
+QPushButton:hover   { background-color: #f1f5f9; border-color: #94a3b8; }
+QPushButton:pressed { background-color: #e2e8f0; }
+
+/* ── Calculate ───────────────────────────────────── */
+QPushButton#m_calculateBtn {
+    background-color: #2563eb;
+    color: #ffffff;
+    border-color: #2563eb;
+}
+QPushButton#m_calculateBtn:hover   { background-color: #1d4ed8; border-color: #1d4ed8; }
+QPushButton#m_calculateBtn:pressed { background-color: #1e40af; }
+
+/* ── Implied Vol ─────────────────────────────────── */
+QPushButton#m_impliedVolBtn {
+    background-color: #0891b2;
+    color: #ffffff;
+    border-color: #0891b2;
+}
+QPushButton#m_impliedVolBtn:hover   { background-color: #0e7490; border-color: #0e7490; }
+QPushButton#m_impliedVolBtn:pressed { background-color: #155e75; }
+   </string>
+  </property>
+
+  <!-- ═══════════════════════════════════════════════════════
+       MAIN LAYOUT
+  ════════════════════════════════════════════════════════ -->
+  <layout class="QVBoxLayout" name="mainLayout">
+   <property name="spacing"><number>6</number></property>
+   <property name="leftMargin"><number>8</number></property>
+   <property name="topMargin"><number>8</number></property>
+   <property name="rightMargin"><number>8</number></property>
+   <property name="bottomMargin"><number>8</number></property>
+
+   <!-- ── TOP ROW: Input │ Output ─────────────────────── -->
+   <item>
+    <layout class="QHBoxLayout" name="topRow">
+     <property name="spacing"><number>8</number></property>
+
+     <!-- INPUT GROUP -->
+     <item>
+      <widget class="QGroupBox" name="groupInput">
+       <property name="title"><string>Input Values</string></property>
+       <layout class="QFormLayout" name="formInput">
+        <property name="horizontalSpacing"><number>6</number></property>
+        <property name="verticalSpacing"><number>3</number></property>
+        <property name="leftMargin"><number>8</number></property>
+        <property name="topMargin"><number>10</number></property>
+        <property name="rightMargin"><number>8</number></property>
+        <property name="bottomMargin"><number>6</number></property>
+
+        <item row="0" column="0"><widget class="QLabel" name="label_spot"><property name="text"><string>Spot Price:</string></property></widget></item>
+        <item row="0" column="1">
+         <widget class="QLineEdit" name="m_spotPriceEdit">
+          <property name="text"><string>0</string></property>
+          <property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property>
+         </widget>
+        </item>
+
+        <item row="1" column="0"><widget class="QLabel" name="label_strike"><property name="text"><string>Strike Price:</string></property></widget></item>
+        <item row="1" column="1">
+         <widget class="QLineEdit" name="m_strikePriceEdit">
+          <property name="text"><string>0</string></property>
+          <property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property>
+         </widget>
+        </item>
+
+        <item row="2" column="0"><widget class="QLabel" name="label_vol"><property name="text"><string>Volatility (%):</string></property></widget></item>
+        <item row="2" column="1">
+         <widget class="QLineEdit" name="m_volatilityEdit">
+          <property name="text"><string>20</string></property>
+          <property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property>
+         </widget>
+        </item>
+
+        <item row="3" column="0"><widget class="QLabel" name="label_rate"><property name="text"><string>Interest Rate (%):</string></property></widget></item>
+        <item row="3" column="1">
+         <widget class="QLineEdit" name="m_interestRateEdit">
+          <property name="text"><string>6.5</string></property>
+          <property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property>
+         </widget>
+        </item>
+
+        <item row="4" column="0"><widget class="QLabel" name="label_div"><property name="text"><string>Dividend Yield (%):</string></property></widget></item>
+        <item row="4" column="1">
+         <widget class="QLineEdit" name="m_dividendYieldEdit">
+          <property name="text"><string>0</string></property>
+          <property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property>
+         </widget>
+        </item>
+
+        <item row="5" column="0"><widget class="QLabel" name="label_days"><property name="text"><string>Days to Expiry:</string></property></widget></item>
+        <item row="5" column="1">
+         <widget class="QLineEdit" name="m_daysUntilExpirationEdit">
+          <property name="text"><string>30</string></property>
+          <property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </item>
+
+     <!-- OUTPUT GROUP -->
+     <item>
+      <widget class="QGroupBox" name="groupOutput">
+       <property name="title"><string>Output Values</string></property>
+       <layout class="QGridLayout" name="gridOutput">
+        <property name="horizontalSpacing"><number>4</number></property>
+        <property name="verticalSpacing"><number>3</number></property>
+        <property name="leftMargin"><number>8</number></property>
+        <property name="topMargin"><number>10</number></property>
+        <property name="rightMargin"><number>8</number></property>
+        <property name="bottomMargin"><number>6</number></property>
+
+        <!-- Column headers -->
+        <item row="0" column="1">
+         <widget class="QLabel" name="labelCallHeader">
+          <property name="text"><string>Call</string></property>
+          <property name="alignment"><set>Qt::AlignCenter</set></property>
+         </widget>
+        </item>
+        <item row="0" column="2">
+         <widget class="QLabel" name="labelPutHeader">
+          <property name="text"><string>Put</string></property>
+          <property name="alignment"><set>Qt::AlignCenter</set></property>
+         </widget>
+        </item>
+
+        <!-- Theoretical -->
+        <item row="1" column="0"><widget class="QLabel" name="labelRowTheo"><property name="text"><string>Theoretical:</string></property></widget></item>
+        <item row="1" column="1"><widget class="QLabel" name="m_callTheoPriceLabel"><property name="text"><string>—</string></property><property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property><property name="styleSheet"><string>QLabel{background:#f8fafc;border:1px solid #e2e8f0;border-radius:3px;padding:2px 6px;font-size:11px;color:#1e293b;min-width:72px;}</string></property></widget></item>
+        <item row="1" column="2"><widget class="QLabel" name="m_putTheoPriceLabel"><property name="text"><string>—</string></property><property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property><property name="styleSheet"><string>QLabel{background:#f8fafc;border:1px solid #e2e8f0;border-radius:3px;padding:2px 6px;font-size:11px;color:#1e293b;min-width:72px;}</string></property></widget></item>
+
+        <!-- Delta -->
+        <item row="2" column="0"><widget class="QLabel" name="labelRowDelta"><property name="text"><string>Delta:</string></property></widget></item>
+        <item row="2" column="1"><widget class="QLabel" name="m_callDeltaLabel"><property name="text"><string>—</string></property><property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property><property name="styleSheet"><string>QLabel{background:#f8fafc;border:1px solid #e2e8f0;border-radius:3px;padding:2px 6px;font-size:11px;color:#1e293b;min-width:72px;}</string></property></widget></item>
+        <item row="2" column="2"><widget class="QLabel" name="m_putDeltaLabel"><property name="text"><string>—</string></property><property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property><property name="styleSheet"><string>QLabel{background:#f8fafc;border:1px solid #e2e8f0;border-radius:3px;padding:2px 6px;font-size:11px;color:#1e293b;min-width:72px;}</string></property></widget></item>
+
+        <!-- Gamma -->
+        <item row="3" column="0"><widget class="QLabel" name="labelRowGamma"><property name="text"><string>Gamma:</string></property></widget></item>
+        <item row="3" column="1"><widget class="QLabel" name="m_callGammaLabel"><property name="text"><string>—</string></property><property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property><property name="styleSheet"><string>QLabel{background:#f8fafc;border:1px solid #e2e8f0;border-radius:3px;padding:2px 6px;font-size:11px;color:#1e293b;min-width:72px;}</string></property></widget></item>
+        <item row="3" column="2"><widget class="QLabel" name="m_putGammaLabel"><property name="text"><string>—</string></property><property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property><property name="styleSheet"><string>QLabel{background:#f8fafc;border:1px solid #e2e8f0;border-radius:3px;padding:2px 6px;font-size:11px;color:#1e293b;min-width:72px;}</string></property></widget></item>
+
+        <!-- Theta -->
+        <item row="4" column="0"><widget class="QLabel" name="labelRowTheta"><property name="text"><string>Theta:</string></property></widget></item>
+        <item row="4" column="1"><widget class="QLabel" name="m_callThetaLabel"><property name="text"><string>—</string></property><property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property><property name="styleSheet"><string>QLabel{background:#f8fafc;border:1px solid #e2e8f0;border-radius:3px;padding:2px 6px;font-size:11px;color:#1e293b;min-width:72px;}</string></property></widget></item>
+        <item row="4" column="2"><widget class="QLabel" name="m_putThetaLabel"><property name="text"><string>—</string></property><property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property><property name="styleSheet"><string>QLabel{background:#f8fafc;border:1px solid #e2e8f0;border-radius:3px;padding:2px 6px;font-size:11px;color:#1e293b;min-width:72px;}</string></property></widget></item>
+
+        <!-- Vega -->
+        <item row="5" column="0"><widget class="QLabel" name="labelRowVega"><property name="text"><string>Vega:</string></property></widget></item>
+        <item row="5" column="1"><widget class="QLabel" name="m_callVegaLabel"><property name="text"><string>—</string></property><property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property><property name="styleSheet"><string>QLabel{background:#f8fafc;border:1px solid #e2e8f0;border-radius:3px;padding:2px 6px;font-size:11px;color:#1e293b;min-width:72px;}</string></property></widget></item>
+        <item row="5" column="2"><widget class="QLabel" name="m_putVegaLabel"><property name="text"><string>—</string></property><property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property><property name="styleSheet"><string>QLabel{background:#f8fafc;border:1px solid #e2e8f0;border-radius:3px;padding:2px 6px;font-size:11px;color:#1e293b;min-width:72px;}</string></property></widget></item>
+
+        <!-- Rho -->
+        <item row="6" column="0"><widget class="QLabel" name="labelRowRho"><property name="text"><string>Rho:</string></property></widget></item>
+        <item row="6" column="1"><widget class="QLabel" name="m_callRhoLabel"><property name="text"><string>—</string></property><property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property><property name="styleSheet"><string>QLabel{background:#f8fafc;border:1px solid #e2e8f0;border-radius:3px;padding:2px 6px;font-size:11px;color:#1e293b;min-width:72px;}</string></property></widget></item>
+        <item row="6" column="2"><widget class="QLabel" name="m_putRhoLabel"><property name="text"><string>—</string></property><property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property><property name="styleSheet"><string>QLabel{background:#f8fafc;border:1px solid #e2e8f0;border-radius:3px;padding:2px 6px;font-size:11px;color:#1e293b;min-width:72px;}</string></property></widget></item>
+       </layout>
+      </widget>
+     </item>
+
+    </layout>
+   </item>
+
+   <!-- ── IV ROW ───────────────────────────────────────── -->
+   <item>
+    <layout class="QHBoxLayout" name="ivRow">
+     <property name="spacing"><number>6</number></property>
+     <item>
+      <widget class="QCheckBox" name="m_calcImpliedVolCheckBox">
+       <property name="text"><string>Calculate Implied Volatility</string></property>
+      </widget>
+     </item>
+     <item>
+      <spacer>
+       <property name="orientation"><enum>Qt::Horizontal</enum></property>
+       <property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property>
+      </spacer>
+     </item>
+     <item>
+      <widget class="QLabel" name="labelAmv">
+       <property name="text"><string>Market Value:</string></property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLineEdit" name="m_actualMarketValueEdit">
+       <property name="text"><string>0</string></property>
+       <property name="maximumWidth"><number>90</number></property>
+       <property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+
+   <!-- ── BOTTOM ROW: Call/Put │ Model │ Buttons ────────── -->
+   <item>
+    <layout class="QHBoxLayout" name="bottomRow">
+     <property name="spacing"><number>8</number></property>
+
+     <!-- Call / Put -->
+     <item>
+      <widget class="QGroupBox" name="groupCallPut">
+       <property name="title"><string>Call / Put</string></property>
+       <property name="minimumWidth"><number>85</number></property>
+       <layout class="QVBoxLayout" name="vboxCallPut">
+        <property name="spacing"><number>3</number></property>
+        <property name="leftMargin"><number>8</number></property>
+        <property name="topMargin"><number>10</number></property>
+        <property name="rightMargin"><number>8</number></property>
+        <property name="bottomMargin"><number>6</number></property>
+        <item>
+         <widget class="QRadioButton" name="m_callRadio">
+          <property name="text"><string>Call</string></property>
+          <property name="checked"><bool>true</bool></property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QRadioButton" name="m_putRadio">
+          <property name="text"><string>Put</string></property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </item>
+
+     <!-- Pricing Model -->
+     <item>
+      <widget class="QGroupBox" name="groupMethod">
+       <property name="title"><string>Pricing Model</string></property>
+       <layout class="QVBoxLayout" name="vboxMethod">
+        <property name="spacing"><number>3</number></property>
+        <property name="leftMargin"><number>8</number></property>
+        <property name="topMargin"><number>10</number></property>
+        <property name="rightMargin"><number>8</number></property>
+        <property name="bottomMargin"><number>6</number></property>
+        <item>
+         <widget class="QRadioButton" name="m_binomialRadio">
+          <property name="text"><string>Cox-Ross-Rubinstein (Binomial)</string></property>
+          <property name="enabled"><bool>false</bool></property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QRadioButton" name="m_blackScholesRadio">
+          <property name="text"><string>Black-Scholes</string></property>
+          <property name="checked"><bool>true</bool></property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </item>
+
+     <!-- Action Buttons -->
+     <item>
+      <layout class="QVBoxLayout" name="vboxButtons">
+       <property name="spacing"><number>5</number></property>
+       <item>
+        <widget class="QPushButton" name="m_calculateBtn">
+         <property name="text"><string>Calculate</string></property>
+         <property name="toolTip"><string>Calculate option price &amp; Greeks  (Alt+C)</string></property>
+         <property name="minimumWidth"><number>110</number></property>
+         <property name="shortcut"><string>Alt+C</string></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="m_impliedVolBtn">
+         <property name="text"><string>Implied Vol</string></property>
+         <property name="toolTip"><string>Calculate implied volatility  (Alt+V)</string></property>
+         <property name="minimumWidth"><number>110</number></property>
+         <property name="shortcut"><string>Alt+V</string></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="m_cancelBtn">
+         <property name="text"><string>Cancel</string></property>
+         <property name="minimumWidth"><number>110</number></property>
+        </widget>
+       </item>
+       <item>
+        <spacer>
+         <property name="orientation"><enum>Qt::Vertical</enum></property>
+         <property name="sizeHint" stdset="0"><size><width>20</width><height>10</height></size></property>
+        </spacer>
+       </item>
+      </layout>
+     </item>
+
+    </layout>
+   </item>
+
+   <!-- ── ERROR LABEL ────────────────────────────────────── -->
+   <item>
+    <widget class="QLabel" name="m_errorLabel">
+     <property name="text"><string/></property>
+     <property name="wordWrap"><bool>true</bool></property>
+    </widget>
+   </item>
+
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

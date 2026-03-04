@@ -5,6 +5,7 @@
 #include "views/OptionChainWindow.h"
 #include "services/GreeksCalculationService.h"
 #include "views/GenericProfileDialog.h"
+#include "views/PreferenceDialog.h"
 #include <QCheckBox>
 #include <QDebug>
 #include <QDialogButtonBox>
@@ -248,14 +249,27 @@ void OptionChainWindow::setupUI() {
       "QPushButton:pressed { background: #dbeafe; border-color: #3b82f6; }");
   headerLayout->addWidget(m_calculatorButton);
 
-  m_columnsButton = new QPushButton("Columns...");
+  m_columnsButton = new QPushButton("Settings");
   m_columnsButton->setStyleSheet(
       "QPushButton { background: #f1f5f9; color: #334155; border: 1px solid "
       "#cbd5e1; "
       "padding: 5px 12px; border-radius: 4px; font-weight: 600; }"
       "QPushButton:hover { background: #e2e8f0; color: #0f172a; }"
       "QPushButton:pressed { background: #dbeafe; border-color: #3b82f6; }");
-  connect(m_columnsButton, &QPushButton::clicked, this, &OptionChainWindow::showColumnDialog);
+  connect(m_columnsButton, &QPushButton::clicked, this, [this]() {
+    QMenu menu(this);
+    menu.setStyleSheet(
+      "QMenu { background: #ffffff; border: 1px solid #e2e8f0; padding: 4px; }"
+      "QMenu::item { padding: 6px 20px; color: #1e293b; }"
+      "QMenu::item:selected { background: #dbeafe; color: #1e40af; }");
+    menu.addAction("Column Profile...", this, &OptionChainWindow::showColumnDialog);
+    menu.addSeparator();
+    menu.addAction("Preferences...", this, [this]() {
+      PreferenceDialog dialog(this->window());
+      dialog.exec();
+    });
+    menu.exec(m_columnsButton->mapToGlobal(QPoint(0, m_columnsButton->height())));
+  });
   headerLayout->addWidget(m_columnsButton);
 
   mainLayout->addLayout(headerLayout);
@@ -303,6 +317,11 @@ void OptionChainWindow::setupUI() {
   connect(m_callTable, &QTableView::customContextMenuRequested, this, [this](const QPoint &pos) {
     QMenu menu(this);
     menu.addAction("Column Profile...", this, &OptionChainWindow::showColumnDialog);
+    menu.addSeparator();
+    menu.addAction("Preferences...", this, [this]() {
+      PreferenceDialog dialog(this->window());
+      dialog.exec();
+    });
     menu.exec(m_callTable->viewport()->mapToGlobal(pos));
   });
   // Unified: same context menu from header
@@ -311,6 +330,11 @@ void OptionChainWindow::setupUI() {
           [this](const QPoint &headerPos) {
               QMenu menu(this);
               menu.addAction("Column Profile...", this, &OptionChainWindow::showColumnDialog);
+              menu.addSeparator();
+              menu.addAction("Preferences...", this, [this]() {
+                PreferenceDialog dialog(this->window());
+                dialog.exec();
+              });
               menu.exec(m_callTable->horizontalHeader()->mapToGlobal(headerPos));
           });
   tableLayout->addWidget(m_callTable, 4);
@@ -366,6 +390,11 @@ void OptionChainWindow::setupUI() {
   connect(m_putTable, &QTableView::customContextMenuRequested, this, [this](const QPoint &pos) {
     QMenu menu(this);
     menu.addAction("Column Profile...", this, &OptionChainWindow::showColumnDialog);
+    menu.addSeparator();
+    menu.addAction("Preferences...", this, [this]() {
+      PreferenceDialog dialog(this->window());
+      dialog.exec();
+    });
     menu.exec(m_putTable->viewport()->mapToGlobal(pos));
   });
   // Unified: same context menu from header
@@ -374,6 +403,11 @@ void OptionChainWindow::setupUI() {
           [this](const QPoint &headerPos) {
               QMenu menu(this);
               menu.addAction("Column Profile...", this, &OptionChainWindow::showColumnDialog);
+              menu.addSeparator();
+              menu.addAction("Preferences...", this, [this]() {
+                PreferenceDialog dialog(this->window());
+                dialog.exec();
+              });
               menu.exec(m_putTable->horizontalHeader()->mapToGlobal(headerPos));
           });
   tableLayout->addWidget(m_putTable, 4);

@@ -94,6 +94,42 @@ public:
     QString getPositionBookDefaultView() const;  // "Net", "DayWise"
     void setPositionBookDefaultView(const QString& view);
     
+    // ============================================================================
+    // Derivative Preferences
+    // ============================================================================
+    
+    // Underlying price source for ATM calculation: "cash" or "future"
+    QString getUnderlyingPriceSource() const;
+    void setUnderlyingPriceSource(const QString &source);
+    
+    // Default exchange for derivatives: "NSE", "BSE"
+    QString getDefaultDerivativeExchange() const;
+    void setDefaultDerivativeExchange(const QString &exchange);
+    
+    // Default symbol for derivatives
+    QString getDefaultDerivativeSymbol() const;
+    void setDefaultDerivativeSymbol(const QString &symbol);
+    
+    // Dividend yield
+    double getDividendYield() const;
+    void setDividendYield(double dividend);
+    
+    // Interest rate (risk-free rate)
+    double getInterestRate() const;
+    void setInterestRate(double rate);
+    
+    // Pricing model: "Black-Scholes", "Binomial"
+    QString getPricingModel() const;
+    void setPricingModel(const QString &model);
+    
+    // Fair value calculation enabled
+    bool isFairValueEnabled() const;
+    void setFairValueEnabled(bool enabled);
+    
+    // Derivative alerts enabled
+    bool isDerivativeAlertsEnabled() const;
+    void setDerivativeAlertsEnabled(bool enabled);
+
     // Window-specific preferences
     QVariant getWindowPreference(const QString &window, const QString &key, 
                                  const QVariant &defaultValue = QVariant()) const;

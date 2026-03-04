@@ -2,6 +2,7 @@
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QFrame>
 #include <QInputDialog>
 #include <QMessageBox>
 #include <QDebug>
@@ -25,55 +26,111 @@ GenericProfileDialog::GenericProfileDialog(const QString &windowTitle,
     setModal(true);
 
 #ifdef Q_OS_MACOS
-    // macOS: larger dialog to accommodate native control sizes and Retina DPI
-    resize(560, 400);
+    resize(600, 460);
 #else
-    resize(480, 340);
+    resize(560, 420);
 #endif
+    setMinimumSize(520, 380);
 
-    // ── Light-theme stylesheet (compact) ─────────────────────────────────
-    // macOS uses slightly larger font/padding for native feel
-#ifdef Q_OS_MACOS
-    const QString fontSize     = "12px";
-    const QString btnMinHeight = "26px";
-    const QString btnPadding   = "4px 12px";
-    const QString comboPadding = "4px 8px";
-    const QString comboHeight  = "22px";
-    const QString itemPadding  = "3px 8px";
-#else
-    const QString fontSize     = "11px";
-    const QString btnMinHeight = "20px";
-    const QString btnPadding   = "3px 10px";
-    const QString comboPadding = "3px 6px";
-    const QString comboHeight  = "18px";
-    const QString itemPadding  = "2px 6px";
-#endif
+    // ── Light-theme stylesheet ────────────────────────────────────────────
+    setStyleSheet(
+        "QDialog {"
+        "    background-color: #ffffff;"
+        "    color: #1e293b;"
+        "    font-size: 12px;"
+        "}"
 
-    setStyleSheet(QString(
-        "QDialog { background-color: #ffffff; color: #1e293b; font-size: %1; }"
-        "QLabel { color: #334155; font-size: %1; font-weight: 500; }"
+        /* Labels */
+        "QLabel {"
+        "    color: #475569;"
+        "    font-size: 11px;"
+        "    font-weight: 600;"
+        "    letter-spacing: 0.3px;"
+        "}"
+
+        /* ComboBox */
         "QComboBox {"
         "    background-color: #ffffff; color: #1e293b;"
-        "    border: 1px solid #cbd5e1; border-radius: 3px;"
-        "    padding: %5; min-height: %6; font-size: %1;"
+        "    border: 1px solid #e2e8f0; border-radius: 4px;"
+        "    padding: 4px 8px; min-height: 24px; font-size: 12px;"
         "}"
-        "QComboBox:hover { border: 1px solid #94a3b8; }"
-        "QComboBox:focus { border: 1px solid #3b82f6; }"
-        "QComboBox::drop-down { subcontrol-origin: padding; subcontrol-position: top right; width: 16px; border: none; }"
-        "QComboBox::down-arrow { image: none; border-left: 3px solid transparent; border-right: 3px solid transparent; border-top: 4px solid #64748b; margin-right: 4px; }"
-        "QComboBox QAbstractItemView { background-color: #ffffff; color: #1e293b; selection-background-color: #dbeafe; selection-color: #1e40af; border: 1px solid #e2e8f0; }"
-        "QComboBox QAbstractItemView::item { min-height: %6; padding: %7; }"
-        "QListWidget { background-color: #ffffff; color: #1e293b; border: 1px solid #e2e8f0; border-radius: 3px; outline: none; font-size: %1; padding: 1px; }"
-        "QListWidget::item { padding: %7; border: none; border-radius: 2px; margin: 0px; }"
-        "QListWidget::item:selected { background-color: #dbeafe; color: #1e40af; }"
+        "QComboBox:hover  { border-color: #94a3b8; }"
+        "QComboBox:focus  { border-color: #3b82f6; }"
+        "QComboBox::drop-down { width: 18px; border: none; }"
+        "QComboBox::down-arrow {"
+        "    border-left: 4px solid transparent;"
+        "    border-right: 4px solid transparent;"
+        "    border-top: 5px solid #64748b;"
+        "    margin-right: 4px;"
+        "}"
+        "QComboBox QAbstractItemView {"
+        "    background-color: #ffffff; color: #1e293b;"
+        "    selection-background-color: #dbeafe; selection-color: #1e40af;"
+        "    border: 1px solid #e2e8f0; outline: none;"
+        "}"
+
+        /* Lists */
+        "QListWidget {"
+        "    background-color: #f8fafc; color: #1e293b;"
+        "    border: 1px solid #e2e8f0; border-radius: 4px;"
+        "    font-size: 12px; outline: none; padding: 2px;"
+        "}"
+        "QListWidget::item {"
+        "    padding: 5px 8px;"
+        "    border-radius: 3px;"
+        "    margin: 1px 2px;"
+        "    color: #1e293b;"
+        "}"
+        "QListWidget::item:selected {"
+        "    background-color: #dbeafe; color: #1e40af;"
+        "}"
         "QListWidget::item:hover:!selected { background-color: #f1f5f9; }"
         "QListWidget::item:focus { outline: none; }"
-        "QPushButton { background-color: #2563eb; color: #ffffff; border: 1px solid #2563eb; border-radius: 3px; padding: %3; font-size: %1; font-weight: 500; min-width: 54px; min-height: %2; }"
-        "QPushButton:hover { background-color: #1d4ed8; border: 1px solid #1d4ed8; }"
-        "QPushButton:pressed { background-color: #1e40af; border: 1px solid #1e40af; }"
-        "QPushButton:disabled { background-color: #f1f5f9; color: #94a3b8; border: 1px solid #e2e8f0; }"
-        "QPushButton:focus { outline: none; border: 1px solid #3b82f6; }"
-    ).arg(fontSize, btnMinHeight, btnPadding, /*unused*/ QString(), comboPadding, comboHeight, itemPadding));
+
+        /* Base button style — neutral */
+        "QPushButton {"
+        "    background-color: #f8fafc; color: #334155;"
+        "    border: 1px solid #e2e8f0; border-radius: 4px;"
+        "    padding: 5px 12px; font-size: 12px; font-weight: 500;"
+        "    min-width: 70px; min-height: 26px;"
+        "}"
+        "QPushButton:hover   { background-color: #f1f5f9; border-color: #94a3b8; color: #1e293b; }"
+        "QPushButton:pressed { background-color: #e2e8f0; }"
+        "QPushButton:disabled { background-color: #f8fafc; color: #94a3b8; border-color: #f1f5f9; }"
+        "QPushButton:focus   { outline: none; border-color: #3b82f6; }"
+
+        /* Primary / OK button */
+        "QPushButton#btn_ok {"
+        "    background-color: #2563eb; color: #ffffff;"
+        "    border-color: #2563eb; min-width: 70px;"
+        "}"
+        "QPushButton#btn_ok:hover   { background-color: #1d4ed8; border-color: #1d4ed8; }"
+        "QPushButton#btn_ok:pressed { background-color: #1e40af; }"
+
+        /* Save button — blue */
+        "QPushButton#btn_save {"
+        "    background-color: #2563eb; color: #ffffff; border-color: #2563eb;"
+        "}"
+        "QPushButton#btn_save:hover { background-color: #1d4ed8; border-color: #1d4ed8; }"
+
+        /* Delete button — red */
+        "QPushButton#btn_delete {"
+        "    background-color: #ffffff; color: #dc2626; border-color: #fca5a5;"
+        "}"
+        "QPushButton#btn_delete:hover { background-color: #fef2f2; border-color: #dc2626; }"
+
+        /* Add button — green */
+        "QPushButton#btn_add {"
+        "    background-color: #16a34a; color: #ffffff; border-color: #16a34a;"
+        "}"
+        "QPushButton#btn_add:hover { background-color: #15803d; border-color: #15803d; }"
+
+        /* Remove button — red-tinted */
+        "QPushButton#btn_remove {"
+        "    background-color: #ffffff; color: #dc2626; border-color: #fca5a5;"
+        "}"
+        "QPushButton#btn_remove:hover { background-color: #fef2f2; border-color: #dc2626; }"
+    );
 
     setupUI();
     setupConnections();
@@ -86,77 +143,111 @@ GenericProfileDialog::GenericProfileDialog(const QString &windowTitle,
 void GenericProfileDialog::setupUI()
 {
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
-#ifdef Q_OS_MACOS
     mainLayout->setContentsMargins(12, 12, 12, 12);
     mainLayout->setSpacing(8);
-#else
-    mainLayout->setContentsMargins(8, 8, 8, 8);
-    mainLayout->setSpacing(6);
-#endif
 
-    // ── Top: profile combo + buttons ─────────────────────────────────────
+    // ── Top: profile combo + Save / Delete / Set Default ─────────────────
     QHBoxLayout *profileLayout = new QHBoxLayout();
-    profileLayout->setSpacing(4);
-    profileLayout->addWidget(new QLabel("Column Profile:"));
+    profileLayout->setSpacing(6);
+
+    QLabel *profileLabel = new QLabel("Column Profile:");
+    profileLabel->setStyleSheet("QLabel { color: #1e293b; font-size: 12px; font-weight: 600; }");
+    profileLayout->addWidget(profileLabel);
 
     m_profileCombo = new QComboBox(this);
-    m_profileCombo->setMinimumWidth(130);
+    m_profileCombo->setMinimumWidth(140);
+    m_profileCombo->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
     profileLayout->addWidget(m_profileCombo);
 
-    m_saveButton       = new QPushButton("Save", this);
-    m_deleteButton     = new QPushButton("Delete", this);
+    m_saveButton       = new QPushButton("Save",        this);
+    m_deleteButton     = new QPushButton("Delete",      this);
     m_setDefaultButton = new QPushButton("Set Default", this);
+
+    m_saveButton->setObjectName("btn_save");
+    m_deleteButton->setObjectName("btn_delete");
+    // m_setDefaultButton uses base style (neutral)
+
+    m_saveButton->setMinimumWidth(60);
+    m_deleteButton->setMinimumWidth(60);
+    m_setDefaultButton->setMinimumWidth(82);  // prevent clipping
 
     profileLayout->addWidget(m_saveButton);
     profileLayout->addWidget(m_deleteButton);
     profileLayout->addWidget(m_setDefaultButton);
-    profileLayout->addStretch();
     mainLayout->addLayout(profileLayout);
+
+    // ── Thin divider ─────────────────────────────────────────────────────
+    QFrame *divider = new QFrame(this);
+    divider->setFrameShape(QFrame::HLine);
+    divider->setStyleSheet("QFrame { background-color: #e2e8f0; max-height: 1px; border: none; }");
+    mainLayout->addWidget(divider);
 
     // ── Middle: dual list ────────────────────────────────────────────────
     QHBoxLayout *listsLayout = new QHBoxLayout();
-    listsLayout->setSpacing(4);
+    listsLayout->setSpacing(6);
 
+    // Available column
     QVBoxLayout *availLayout = new QVBoxLayout();
-    availLayout->addWidget(new QLabel("Available Columns"));
+    availLayout->setSpacing(4);
+    QLabel *availLabel = new QLabel("Available Columns");
+    availLayout->addWidget(availLabel);
     m_availableList = new QListWidget(this);
     m_availableList->setSelectionMode(QAbstractItemView::ExtendedSelection);
+    m_availableList->setMinimumWidth(150);
     availLayout->addWidget(m_availableList);
-    listsLayout->addLayout(availLayout);
+    listsLayout->addLayout(availLayout, 5);
 
+    // Add / Remove buttons (center column)
     QVBoxLayout *arrowLayout = new QVBoxLayout();
+    arrowLayout->setSpacing(6);
     arrowLayout->addStretch();
-    m_addButton    = new QPushButton("Add >", this);
-    m_removeButton = new QPushButton("< Remove", this);
+    m_addButton    = new QPushButton("Add \u25B6",    this);   // ▶
+    m_removeButton = new QPushButton("\u25C0 Remove", this);   // ◀
+    m_addButton->setObjectName("btn_add");
+    m_removeButton->setObjectName("btn_remove");
+    m_addButton->setMinimumWidth(80);
+    m_removeButton->setMinimumWidth(80);
     arrowLayout->addWidget(m_addButton);
     arrowLayout->addWidget(m_removeButton);
     arrowLayout->addStretch();
     listsLayout->addLayout(arrowLayout);
 
+    // Selected columns
     QVBoxLayout *selLayout = new QVBoxLayout();
-    selLayout->addWidget(new QLabel("Selected Columns"));
+    selLayout->setSpacing(4);
+    QLabel *selLabel = new QLabel("Selected Columns");
+    selLayout->addWidget(selLabel);
     m_selectedList = new QListWidget(this);
     m_selectedList->setSelectionMode(QAbstractItemView::ExtendedSelection);
+    m_selectedList->setMinimumWidth(150);
     selLayout->addWidget(m_selectedList);
-    listsLayout->addLayout(selLayout);
+    listsLayout->addLayout(selLayout, 5);
 
+    // Move Up / Down
     QVBoxLayout *moveLayout = new QVBoxLayout();
+    moveLayout->setSpacing(6);
     moveLayout->addStretch();
-    m_moveUpButton   = new QPushButton("Move Up", this);
-    m_moveDownButton = new QPushButton("Move Down", this);
+    m_moveUpButton   = new QPushButton("\u25B2 Move Up",   this);  // ▲
+    m_moveDownButton = new QPushButton("\u25BC Move Down", this);  // ▼
+    m_moveUpButton->setMinimumWidth(90);    // prevent "love Down" clipping
+    m_moveDownButton->setMinimumWidth(90);
     moveLayout->addWidget(m_moveUpButton);
     moveLayout->addWidget(m_moveDownButton);
     moveLayout->addStretch();
     listsLayout->addLayout(moveLayout);
 
-    mainLayout->addLayout(listsLayout);
+    mainLayout->addLayout(listsLayout, 1);
 
     // ── Bottom: OK / Cancel ──────────────────────────────────────────────
     QHBoxLayout *bottomLayout = new QHBoxLayout();
+    bottomLayout->setSpacing(6);
     bottomLayout->addStretch();
-    m_okButton     = new QPushButton("OK", this);
+    m_okButton     = new QPushButton("OK",     this);
     m_cancelButton = new QPushButton("Cancel", this);
+    m_okButton->setObjectName("btn_ok");
     m_okButton->setDefault(true);
+    m_okButton->setMinimumWidth(72);
+    m_cancelButton->setMinimumWidth(72);
     bottomLayout->addWidget(m_okButton);
     bottomLayout->addWidget(m_cancelButton);
     mainLayout->addLayout(bottomLayout);
@@ -206,6 +297,7 @@ void GenericProfileDialog::updateAvailableColumns()
         if (!m_profile.isColumnVisible(info.id)) {
             auto *item = new QListWidgetItem(info.name);
             item->setData(Qt::UserRole, info.id);
+            item->setForeground(QColor("#1e293b"));
             m_availableList->addItem(item);
         }
     }
@@ -218,6 +310,7 @@ void GenericProfileDialog::updateSelectedColumns()
         if (m_profile.isColumnVisible(id)) {
             auto *item = new QListWidgetItem(columnNameById(id));
             item->setData(Qt::UserRole, id);
+            item->setForeground(QColor("#1e293b"));
             m_selectedList->addItem(item);
         }
     }

@@ -120,8 +120,8 @@ void ATMWatchManager::addWatchesBatch(
     }
   }
 
-  /* qDebug() << "[ATMWatch] Added" << configs.size()
-           << "watches in batch, triggering calculation..."; */
+  qDebug() << "[ATMWatch] Added" << configs.size()
+           << "watches in batch, triggering calculation...";
 
   // Trigger ONE calculation for all watches
   QtConcurrent::run([this]() { calculateAll(); });
@@ -160,7 +160,7 @@ ATMWatchManager::getATMInfo(const QString &symbol) const {
 }
 
 void ATMWatchManager::onMinuteTimer() {
-  // qDebug() << "[ATMWatch] Running periodic ATM calculation...";
+  qDebug() << "[ATMWatch] Periodic timer fired (60s) - triggering calculation...";
   QtConcurrent::run([this]() { calculateAll(); });
 }
 
@@ -168,6 +168,7 @@ void ATMWatchManager::calculateAll() {
   // P2: Prevent concurrent calculations to reduce CPU load
   static std::atomic<bool> isCalculating{false};
   if (isCalculating.exchange(true)) {
+    qDebug() << "[ATMWatch] Calculation already in progress, skipping...";
     return;
   }
 
@@ -180,8 +181,12 @@ void ATMWatchManager::calculateAll() {
   std::unique_lock lock(m_mutex);
 
   auto repo = RepositoryManager::getInstance();
-  if (!repo->isLoaded())
+  if (!repo->isLoaded()) {
+    qDebug() << "[ATMWatch] ERROR: Repository not loaded, cannot calculate ATM";
     return;
+  }
+
+  qDebug() << "[ATMWatch] Starting calculation for" << m_configs.size() << "symbols...";
 
   int successCount = 0;
   int failCount = 0;
@@ -297,10 +302,8 @@ void ATMWatchManager::calculateAll() {
     }
   }
 
-  /* qDebug() << "[ATMWatch] Calculation complete:" << successCount <<
-     "succeeded,"
-           << failCount << "failed out of" << m_configs.size() << "symbols.
-     Results size:" << m_results.size(); */
+  qDebug() << "[ATMWatch] Calculation complete:" << successCount << "succeeded,"
+           << failCount << "failed out of" << m_configs.size() << "symbols. Results size:" << m_results.size();
 
   emit atmUpdated();
 

@@ -3,6 +3,7 @@
 #include "views/PreferencesOrderTab.h"
 #include "views/PreferencesWorkSpaceTab.h"
 #include "views/PreferencesPortfolioTab.h"
+#include "views/PreferencesDerivativeTab.h"
 #include "ui_PreferencesWindowTab.h"
 #include "utils/PreferencesManager.h"
 #include <QUiLoader>
@@ -20,6 +21,7 @@ PreferenceDialog::PreferenceDialog(QWidget *parent)
     , m_prefsManager(&PreferencesManager::instance())
     , m_generalTab(nullptr)
     , m_orderTab(nullptr)
+    , m_derivativeTab(nullptr)
 {
     ui->setupUi(this);
     
@@ -61,6 +63,11 @@ PreferenceDialog::PreferenceDialog(QWidget *parent)
     QWidget *portfolioTabWidget = findChild<QWidget*>("tabPortfolio");
     if (portfolioTabWidget) {
         m_portfolioTab = new PreferencesPortfolioTab(portfolioTabWidget, m_prefsManager, this);
+    }
+
+    QWidget *derivativeTabWidget = findChild<QWidget*>("tabDerivatives");
+    if (derivativeTabWidget) {
+        m_derivativeTab = new PreferencesDerivativeTab(derivativeTabWidget, m_prefsManager, this);
     }
     
     setupConnections();
@@ -139,6 +146,7 @@ void PreferenceDialog::loadPreferences()
     if (m_orderTab) m_orderTab->loadPreferences();
     if (m_workSpaceTab) m_workSpaceTab->loadPreferences();
     if (m_portfolioTab) m_portfolioTab->loadPreferences();
+    if (m_derivativeTab) m_derivativeTab->loadPreferences();
     
     qDebug() << "PreferenceDialog: All preferences loaded";
 }
@@ -154,6 +162,7 @@ void PreferenceDialog::savePreferences()
     if (m_orderTab) m_orderTab->savePreferences();
     if (m_workSpaceTab) m_workSpaceTab->savePreferences();
     if (m_portfolioTab) m_portfolioTab->savePreferences();
+    if (m_derivativeTab) m_derivativeTab->savePreferences();
     
     qDebug() << "PreferenceDialog: All preferences saved";
 }

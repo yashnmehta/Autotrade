@@ -32,6 +32,7 @@ add_library(views STATIC
     PreferenceDialog/PreferenceDialog.cpp
     PreferenceDialog/PreferencesGeneralTab.cpp
     PreferenceDialog/PreferencesOrderTab.cpp
+    PreferenceDialog/PreferencesDerivativeTab.cpp
     PreferenceDialog/PreferencesWorkSpaceTab.cpp
     PreferenceDialog/PreferencesPortfolioTab.cpp
     CustomizeDialog.cpp
@@ -62,6 +63,7 @@ add_library(views STATIC
     ${CMAKE_SOURCE_DIR}/include/views/PreferenceDialog.h
     ${CMAKE_SOURCE_DIR}/include/views/PreferencesGeneralTab.h
     ${CMAKE_SOURCE_DIR}/include/views/PreferencesOrderTab.h
+    ${CMAKE_SOURCE_DIR}/include/views/PreferencesDerivativeTab.h
     ${CMAKE_SOURCE_DIR}/include/views/PreferencesWorkSpaceTab.h
     ${CMAKE_SOURCE_DIR}/include/views/PreferencesPortfolioTab.h
     ${CMAKE_SOURCE_DIR}/include/views/CustomizeDialog.h

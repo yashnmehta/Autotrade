@@ -14,6 +14,7 @@
  *   - Input validation
  */
 
+#define _USE_MATH_DEFINES
 #include "quant/Greeks.h"
 #include "quant/IVCalculator.h"
 #include <QCoreApplication>
