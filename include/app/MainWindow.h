@@ -16,7 +16,7 @@ class QRect;
 #include <memory>
 
 // Forward declarations for chart widgets
-class TradingViewChartWidget;
+class ChartsWindow;
 class IndicatorChartWidget;
 
 class CustomMDIArea;

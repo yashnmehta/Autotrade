@@ -75,9 +75,27 @@ add_library(views STATIC
     ${CMAKE_SOURCE_DIR}/include/views/helpers/GenericTableFilter.h
 )
 
+# Add ChartsWindow + ChartDataFeed if TradingView is enabled
+if(ENABLE_TRADINGVIEW AND Qt5WebEngineWidgets_FOUND AND Qt5WebChannel_FOUND)
+    target_sources(views PRIVATE
+        ChartsWindow.cpp
+        ChartDataFeed.cpp
+        ${CMAKE_SOURCE_DIR}/include/views/ChartsWindow.h
+        ${CMAKE_SOURCE_DIR}/include/views/ChartDataFeed.h
+    )
+endif()
+
 target_link_libraries(views PUBLIC
     Qt5::Widgets
     Qt5::Network
     Qt5::UiTools
     Qt5::Concurrent
 )
+
+# Add WebEngine/WebChannel for TradingView charts
+if(ENABLE_TRADINGVIEW AND Qt5WebEngineWidgets_FOUND AND Qt5WebChannel_FOUND)
+    target_link_libraries(views PUBLIC
+        Qt5::WebEngineWidgets
+        Qt5::WebChannel
+    )
+endif()

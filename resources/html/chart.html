@@ -1,0 +1,205 @@
+<!DOCTYPE HTML>
+<html>
+
+<head>
+    <title>TradingView Chart</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,minimum-scale=1.0">
+    <meta charset="utf-8">
+
+    <!-- QWebChannel bridge for C++ ↔ JS communication -->
+    <script type="text/javascript" src="qrc:///qtwebchannel/qwebchannel.js"></script>
+
+    <!-- TradingView charting library — path substituted by C++ -->
+    <script type="text/javascript" src="{{LIBRARY_PATH}}charting_library.standalone.js"></script>
+
+    <script type="text/javascript">
+        // Global reference to the C++ backend (ChartDataFeed)
+        var backendDatafeed;
+
+        // Subscriber map for async callback correlation
+        var subscribers = {};
+
+        function initOnReady() {
+            new QWebChannel(qt.webChannelTransport, function (channel) {
+                backendDatafeed = channel.objects.backend;
+
+                // ── Connect C++ signals → JS handlers ──
+
+                backendDatafeed.symbolResolved.connect(function (cbId, symbolInfo) {
+                    if (subscribers[cbId] && subscribers[cbId].onSymbolResolvedCallback) {
+                        subscribers[cbId].onSymbolResolvedCallback(symbolInfo);
+                        delete subscribers[cbId];
+                    }
+                });
+
+                backendDatafeed.barsReceived.connect(function (cbId, bars, noData) {
+                    if (subscribers[cbId] && subscribers[cbId].onHistoryCallback) {
+                        // Normalise bar fields to plain JS numbers
+                        var normalizedBars = [];
+                        for (var i = 0; i < bars.length; i++) {
+                            normalizedBars.push({
+                                time:   +bars[i].time,
+                                open:   +bars[i].open,
+                                high:   +bars[i].high,
+                                low:    +bars[i].low,
+                                close:  +bars[i].close,
+                                volume: +bars[i].volume
+                            });
+                        }
+                        subscribers[cbId].onHistoryCallback(normalizedBars, { noData: noData });
+                        delete subscribers[cbId];
+                    }
+                });
+
+                backendDatafeed.realtimeUpdate.connect(function (uid, bar) {
+                    if (subscribers.realtime && subscribers.realtime[uid]) {
+                        var normalizedBar = {
+                            time:   +bar.time,
+                            open:   +bar.open,
+                            high:   +bar.high,
+                            low:    +bar.low,
+                            close:  +bar.close,
+                            volume: +bar.volume
+                        };
+                        subscribers.realtime[uid](normalizedBar);
+                    }
+                });
+
+                // ── Build custom Datafeed for TradingView widget ──
+
+                var Datafeed = {
+                    onReady: function (callback) {
+                        setTimeout(function () {
+                            callback({
+                                supported_resolutions: ["1", "5", "15", "30", "60", "1D"],
+                                supports_marks: false,
+                                supports_timescale_marks: false,
+                                supports_time: true
+                            });
+                        }, 0);
+                    },
+
+                    resolveSymbol: function (symbolName, onSymbolResolvedCallback, onResolveErrorCallback) {
+                        var cbId = "resolve_" + Date.now() + "_" + Math.random().toString(36).substr(2, 5);
+                        subscribers[cbId] = { onSymbolResolvedCallback: onSymbolResolvedCallback };
+                        backendDatafeed.resolveSymbol(symbolName, cbId);
+                    },
+
+                    getBars: function (symbolInfo, resolution, periodParams, onHistoryCallback, onErrorCallback) {
+                        var cbId = "bars_" + Date.now() + "_" + Math.random().toString(36).substr(2, 5);
+                        subscribers[cbId] = { onHistoryCallback: onHistoryCallback };
+
+                        var toTs = periodParams.to || Math.floor(Date.now() / 1000);
+                        var fromTs = periodParams.from;
+                        if (!fromTs || fromTs <= 0) {
+                            var countback = periodParams.countBack || 390;
+                            var resolutionSecs = resolution === '1D' ? 86400 : (parseInt(resolution) || 1) * 60;
+                            fromTs = toTs - countback * resolutionSecs;
+                        }
+
+                        backendDatafeed.getBars(
+                            JSON.stringify(symbolInfo),
+                            resolution,
+                            fromTs,
+                            toTs,
+                            cbId
+                        );
+                    },
+
+                    subscribeBars: function (symbolInfo, resolution, onRealtimeCallback, subscriberUID, onResetCacheNeededCallback) {
+                        if (!subscribers.realtime) subscribers.realtime = {};
+                        subscribers.realtime[subscriberUID] = onRealtimeCallback;
+                        backendDatafeed.subscribeBars(JSON.stringify(symbolInfo), resolution, subscriberUID);
+                    },
+
+                    unsubscribeBars: function (subscriberUID) {
+                        if (subscribers.realtime && subscribers.realtime[subscriberUID]) {
+                            delete subscribers.realtime[subscriberUID];
+                        }
+                        backendDatafeed.unsubscribeBars(subscriberUID);
+                    }
+                };
+
+                // ── Create TradingView widget ──
+
+                window.tvWidget = new TradingView.widget({
+                    fullscreen: true,
+                    symbol: '{{INITIAL_SYMBOL}}',
+                    interval: '1',
+                    container: "tv_chart_container",
+                    datafeed: Datafeed,
+                    library_path: "{{LIBRARY_PATH}}",
+                    locale: "en",
+                    disabled_features: [
+                        "use_localstorage_for_settings",
+                        "header_symbol_search"
+                    ],
+                    enabled_features: [
+                        "study_templates",
+                        "hide_left_toolbar_by_default"
+                    ],
+                    client_id: 'trading_terminal_cpp',
+                    user_id: 'public_user_id',
+                    theme: 'dark'
+                });
+
+                window.tvWidget.onChartReady(function () {
+                    // Notify C++ of visible range changes (for cross-chart sync)
+                    window.tvWidget.chart().onVisibleRangeChanged().subscribe(null, function (range) {
+                        if (!window._suppressRangeSync && backendDatafeed) {
+                            backendDatafeed.notifyVisibleRangeChanged(range.from, range.to);
+                        }
+                    });
+                });
+
+                window.frames[0].focus();
+            });
+        }
+
+        // ── Global functions callable from C++ via runJavaScript() ──
+
+        function setSymbol(symbolName) {
+            if (window.tvWidget && window.tvWidget.chart) {
+                window.tvWidget.chart().setSymbol(symbolName, function () {
+                    console.log("Symbol changed to " + symbolName);
+                });
+            }
+        }
+
+        window._suppressRangeSync = false;
+        function setVisibleRange(fromTs, toTs) {
+            if (window.tvWidget && window.tvWidget.chart) {
+                window._suppressRangeSync = true;
+                try {
+                    window.tvWidget.chart().setVisibleRange({ from: fromTs, to: toTs });
+                } catch (e) {
+                    console.error("setVisibleRange error:", e);
+                }
+                setTimeout(function () {
+                    window._suppressRangeSync = false;
+                }, 200);
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', initOnReady, false);
+    </script>
+
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #131722;
+        }
+
+        #tv_chart_container {
+            width: 100vw;
+            height: 100vh;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="tv_chart_container"></div>
+</body>
+
+</html>

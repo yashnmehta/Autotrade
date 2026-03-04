@@ -15,3 +15,6 @@ TODO List
 
 - optimise focus manegement with identifying root cuase for current focus switch order 
 
+
+-  for all window context menu standardisation and optimisation
+

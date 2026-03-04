@@ -31,7 +31,7 @@
 #include "views/SnapQuoteWindow.h"
 #include "views/TradeBookWindow.h"
 #ifdef HAVE_TRADINGVIEW
-#include "ui/TradingViewChartWidget.h"
+#include "views/ChartsWindow.h"
 #endif
 #ifdef HAVE_QTCHARTS
 #include "ui/IndicatorChartWidget.h"
@@ -359,17 +359,17 @@ CustomMDISubWindow *WindowFactory::createGlobalSearchWindow() {
                  << contract.displayName;
 
 #ifdef HAVE_TRADINGVIEW
-        TradingViewChartWidget *activeChart = nullptr;
+        ChartsWindow *activeChart = nullptr;
         CustomMDISubWindow *activeSub = m_mdiArea->activeWindow();
         if (activeSub && activeSub->windowType() == "ChartWindow") {
-          activeChart = qobject_cast<TradingViewChartWidget *>(
+          activeChart = qobject_cast<ChartsWindow *>(
               activeSub->contentWidget());
         }
         if (!activeChart) {
           for (auto win : m_mdiArea->windowList()) {
             if (win->windowType() == "ChartWindow") {
               activeChart =
-                  qobject_cast<TradingViewChartWidget *>(win->contentWidget());
+                  qobject_cast<ChartsWindow *>(win->contentWidget());
               break;
             }
           }
@@ -387,8 +387,11 @@ CustomMDISubWindow *WindowFactory::createGlobalSearchWindow() {
           }
           qDebug() << "[WindowFactory] Updating chart with token:"
                    << contract.exchangeInstrumentID << "segment:" << segId;
-          activeChart->loadSymbol(contract.name, segId,
-                                  contract.exchangeInstrumentID);
+          WindowContext ctx;
+          ctx.token = contract.exchangeInstrumentID;
+          ctx.symbol = contract.name;
+          ctx.exchange = QString::number(segId);
+          activeChart->loadFromContext(ctx);
         } else
 #endif
         {
@@ -497,16 +500,17 @@ CustomMDISubWindow *WindowFactory::createChartWindow() {
       new CustomMDISubWindow(QString("Chart %1").arg(counter++), m_mdiArea);
   window->setWindowType("ChartWindow");
 
-  TradingViewChartWidget *chartWidget = new TradingViewChartWidget(window);
-  chartWidget->setXTSMarketDataClient(m_xtsMarketDataClient);
-  chartWidget->setRepositoryManager(RepositoryManager::getInstance());
+  WindowContext context = getBestWindowContext();
+
+  ChartsWindow *chartWidget = new ChartsWindow(context, window);
+  chartWidget->setMarketDataClient(m_xtsMarketDataClient);
   window->setContentWidget(chartWidget);
   applyRestoredGeometryOrDefault(window, "ChartWindow", 1200, 700);
 
   connectWindowSignals(window);
 
-  connect(chartWidget, &TradingViewChartWidget::orderRequestedFromChart,
-          m_mainWindow, &MainWindow::placeOrder);
+  // TODO: connect orderFromChartRequested(QJsonObject) → MainWindow::placeOrder(XTS::OrderParams)
+  // when chart-based order entry is implemented
 
   m_mdiArea->setUpdatesEnabled(false);
   m_mdiArea->addWindow(window);
@@ -515,16 +519,11 @@ CustomMDISubWindow *WindowFactory::createChartWindow() {
   window->activateWindow();
   m_mdiArea->setUpdatesEnabled(true);
 
-  WindowContext context = getBestWindowContext();
-  if (context.isValid()) {
-    int segmentInt = 1;
-    if (context.segment == "F" || context.segment == "2") {
-      segmentInt = 2;
-    }
-    chartWidget->loadSymbol(context.symbol, segmentInt, context.token, "5");
+  if (context.token != 0 && !context.symbol.isEmpty()) {
+    chartWidget->loadFromContext(context);
   }
 
-  qDebug() << "[WindowFactory] Created Chart Window";
+  qDebug() << "[WindowFactory] Created Chart Window (ChartsWindow)";
   return window;
 }
 #else
