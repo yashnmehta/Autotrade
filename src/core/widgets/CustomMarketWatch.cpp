@@ -52,9 +52,12 @@ void CustomMarketWatch::setSourceModel(QAbstractItemModel *model)
 {
     m_proxyModel->setSourceModel(model);
     
-    // Enable sorting
+    // Enable header-click sorting but NOT dynamic re-sorting
+    // Dynamic sort filter causes: (1) new scrips auto-placed in sorted position,
+    // (2) every price tick potentially triggers re-sort — both are unwanted.
+    // Sort should be a one-shot operation triggered only by header click.
     setSortingEnabled(true);
-    m_proxyModel->setDynamicSortFilter(true);  // Enable automatic re-sorting
+    m_proxyModel->setDynamicSortFilter(false);
 }
 
 void CustomMarketWatch::applyDefaultStyling()

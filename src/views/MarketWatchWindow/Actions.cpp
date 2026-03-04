@@ -477,10 +477,6 @@ void MarketWatchWindow::onMakeDeltaPortfolio() {
   // We are rebuilding the entire list
   clearAll();
 
-  // Suspend rendering for performance during bulk inserts
-  if (m_proxyModel)
-    m_proxyModel->setDynamicSortFilter(false);
-
   int addedCount = 0;
   QList<ScripData> bulkScrips;
 
@@ -572,10 +568,6 @@ void MarketWatchWindow::onMakeDeltaPortfolio() {
   }
 
   addScrips(bulkScrips);
-
-  // Restore rendering
-  if (m_proxyModel)
-    m_proxyModel->setDynamicSortFilter(true);
 }
 
 void MarketWatchWindow::performRowMoveByTokens(const QList<int> &tokens,
