@@ -9,15 +9,15 @@
 
 ## 🎉 OPTIMIZATIONS COMPLETED (4 March 2026)
 
-**12 fixes and optimizations** implemented:
+**13 fixes and optimizations** implemented:
 - ✅ **Bug Fixes (5):** Light theme colors, out-of-range columns, context menu styling
-- ✅ **Performance (5):** 9× fewer signals, O(1) token lookup, batch updates, code cleanup
+- ✅ **Performance (6):** 9× fewer signals, O(1) token lookup, batch updates, code cleanup, sorting optimization
 - ✅ **Bug Fix (1):** Multi-row move re-subscription
 - ✅ **UX Enhancement (1):** Add scrip now focuses ScripBar via signal (no more MessageBox)
 
-**Result:** 9× reduction in Qt signals, O(1) token lookup, cleaner code, better UX  
+**Result:** 9× reduction in Qt signals, O(1) token lookup, one-shot sorting, cleaner code, better UX  
 **Tests:** All 83 tests passing  
-**Details:** See `MARKETWATCH_OPTIMIZATIONS_COMPLETED.md`
+**Details:** See `MARKETWATCH_OPTIMIZATIONS_COMPLETED.md` and `MARKETWATCH_SORTING_FIX.md`
 
 ---
 
@@ -289,9 +289,10 @@ Every `notifyRowUpdated(row, 0, columnCount() - 1)` tells Qt to repaint ALL colu
 | Feature | Status | Issue |
 |---------|--------|-------|
 | **Zero-copy mode** | 🔴 Dead code | `m_tokenUnifiedPointers` never populated. Timer fires but always returns empty. |
-| **Sort by column** | 🟡 Wired but no UX | `QSortFilterProxyModel` is in place, but no header-click-to-sort UX. Sort conflicts with manual drag order. |
 | **5-level market depth** | 🟡 Data arrives, not displayed | UDP tick carries `bids[5]/asks[5]` but only `bids[0]/asks[0]` shown in columns. No depth popup. |
 | **Performance logging** | 🟡 Too verbose | `addScripFromContract` logs 10 lines per add (token, timing breakdown). 100 scrips = 1000 debug lines. |
+
+**Note:** ✅ Sort by column UX now optimized (4 March 2026) — sorting is one-shot only, no auto-re-sort on data changes. See `MARKETWATCH_SORTING_FIX.md`.
 
 ### 🔴 Not Implemented / Stubs
 
