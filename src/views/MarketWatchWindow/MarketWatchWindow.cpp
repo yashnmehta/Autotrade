@@ -163,13 +163,13 @@ void MarketWatchWindow::keyPressEvent(QKeyEvent *event) {
     return;
   }
 
-  // Shift+Enter — insert a blank separator row below the current selection
+  // Shift+Enter — insert a blank separator row above the current selection
   if (event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter) {
     if (event->modifiers() & Qt::ShiftModifier) {
       QModelIndexList selection = selectionModel()->selectedRows();
       if (!selection.isEmpty()) {
-        int sourceRow = mapToSource(selection.last().row());
-        insertBlankRow(sourceRow + 1);
+        int sourceRow = mapToSource(selection.first().row());
+        insertBlankRow(sourceRow); // Insert above the selection
       } else {
         insertBlankRow(m_model->rowCount());
       }

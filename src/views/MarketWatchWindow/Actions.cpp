@@ -84,8 +84,19 @@ bool MarketWatchWindow::addScrip(const QString &symbol, const QString &exchange,
 
   scrip.isBlankRow = false;
 
-  int newRow = m_model->rowCount();
-  m_model->addScrip(scrip);
+  // Determine insertion position: above current selection, or at end if none
+  int insertPos = m_model->rowCount(); // default: append at end
+  QModelIndexList selection = selectionModel()->selectedRows();
+  if (!selection.isEmpty()) {
+    // Insert above the first selected row
+    int sourceRow = mapToSource(selection.first().row());
+    if (sourceRow >= 0) {
+      insertPos = sourceRow;
+    }
+  }
+
+  m_model->insertScrip(insertPos, scrip);
+  int newRow = insertPos;
 
   TokenSubscriptionManager::instance()->subscribe(exchange, token);
 
@@ -375,7 +386,7 @@ void MarketWatchWindow::pasteFromClipboard() {
   if (currentProxyIndex.isValid()) {
     int sourceRow = mapToSource(currentProxyIndex.row());
     if (sourceRow >= 0)
-      insertPosition = sourceRow + 1;
+      insertPosition = sourceRow; // Insert above current selection
   }
 
   QList<QStringList> rows = ClipboardHelpers::parseTSV(text);
