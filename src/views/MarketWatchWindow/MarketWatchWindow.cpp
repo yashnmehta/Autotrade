@@ -163,13 +163,13 @@ void MarketWatchWindow::keyPressEvent(QKeyEvent *event) {
     return;
   }
 
-  // Shift+Enter — insert a blank separator row below the current selection
+  // Shift+Enter — insert a blank separator row above the current selection
   if (event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter) {
     if (event->modifiers() & Qt::ShiftModifier) {
       QModelIndexList selection = selectionModel()->selectedRows();
       if (!selection.isEmpty()) {
-        int sourceRow = mapToSource(selection.last().row());
-        insertBlankRow(sourceRow + 1);
+        int sourceRow = mapToSource(selection.first().row());
+        insertBlankRow(sourceRow); // Insert above the selection
       } else {
         insertBlankRow(m_model->rowCount());
       }
@@ -184,13 +184,20 @@ void MarketWatchWindow::keyPressEvent(QKeyEvent *event) {
 void MarketWatchWindow::focusInEvent(QFocusEvent *event) {
   CustomMarketWatch::focusInEvent(event);
 
+  // If a recent addScrip() already set the selection, skip restoration
+  if (m_suppressFocusRestore) {
+    m_suppressFocusRestore = false;
+    qDebug() << "[MarketWatch] Focus gained — suppressing restore (addScrip set selection)";
+    return;
+  }
+
   // Restore focus to the last focused row when the Market Watch gains focus
   // Use a delayed timer to ensure the model is fully ready
   if (m_lastFocusedToken > 0) {
     qDebug()
         << "[MarketWatch] Focus gained, scheduling delayed focus restoration";
     QTimer::singleShot(50, this, [this]() {
-      if (m_lastFocusedToken > 0) {
+      if (m_lastFocusedToken > 0 && !m_suppressFocusRestore) {
         restoreFocusedRow();
       }
     });

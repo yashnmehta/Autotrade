@@ -378,6 +378,8 @@ private:
       -1; // Stores the last focused token for focus restoration
   QString
       m_lastFocusedSymbol; // Stores the last focused symbol for fallback lookup
+  bool m_suppressFocusRestore =
+      false; // When true, focusInEvent skips restoreFocusedRow()
 
   // Zero-Copy Members
   bool m_useZeroCopyPriceCache = true; // Default to true
