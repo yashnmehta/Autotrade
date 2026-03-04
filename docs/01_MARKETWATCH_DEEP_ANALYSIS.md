@@ -7,14 +7,15 @@
 
 ---
 
-## 🎉 OPTIMIZATIONS COMPLETED (2 March 2026)
+## 🎉 OPTIMIZATIONS COMPLETED (4 March 2026)
 
-**11 fixes and optimizations** implemented:
+**12 fixes and optimizations** implemented:
 - ✅ **Bug Fixes (5):** Light theme colors, out-of-range columns, context menu styling
 - ✅ **Performance (5):** 9× fewer signals, O(1) token lookup, batch updates, code cleanup
 - ✅ **Bug Fix (1):** Multi-row move re-subscription
+- ✅ **UX Enhancement (1):** Add scrip now focuses ScripBar via signal (no more MessageBox)
 
-**Result:** 9× reduction in Qt signals, O(1) token lookup, cleaner code  
+**Result:** 9× reduction in Qt signals, O(1) token lookup, cleaner code, better UX  
 **Tests:** All 83 tests passing  
 **Details:** See `MARKETWATCH_OPTIMIZATIONS_COMPLETED.md`
 
@@ -296,12 +297,13 @@ Every `notifyRowUpdated(row, 0, columnCount() - 1)` tells Qt to repaint ALL colu
 
 | Feature | Status | Code |
 |---------|--------|------|
-| **Add Scrip action** | Stub | `onAddScripAction()` shows MessageBox instead of opening ScripBar |
 | **Export Price Cache** | Stub | `exportPriceCacheDebug()` shows "being refactored" dialog |
 | **Multi-watchlist tabs** | Missing | Only one watchlist. Industry standard is 5-10 named tabs |
 | **Price alerts** | Missing | No alert mechanism |
 | **Inline search/filter** | Missing | No filter-within-watchlist |
 | **Market depth popup** | Missing | Data available but no UI |
+
+**Note:** ✅ Add Scrip action now implemented (4 March 2026) — focuses ScripBar via signal instead of showing MessageBox.
 
 ---
 
@@ -667,7 +669,7 @@ menu.setStyleSheet(
 | 2 | Fix tick flash colors to light theme palette | `MarketWatchModel.cpp:113-114` | 2 | ✅ Done |
 | 3 | Fix context menu to light theme palette | `UI.cpp:93-106` | 6 | ✅ Done |
 | 4 | Remove `exportPriceCacheDebug` from context menu | `UI.cpp` | 1 | ✅ Done |
-| 5 | Wire `onAddScripAction()` to open ScripBar instead of MessageBox | `Actions.cpp:428-431` | 3 | ⏸️ Deferred |
+| 5 | Wire `onAddScripAction()` to focus ScripBar via signal | `Actions.cpp, WindowFactory.cpp, MainWindow.h` | 10 | ✅ Done |
 
 ### ✅ COMPLETED: Phase 2: Performance (< 2 hours total)
 
