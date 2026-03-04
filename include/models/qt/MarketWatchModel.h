@@ -104,15 +104,19 @@ struct ScripData {
   int askTick = 0;
 
   /**
-   * @brief Create a blank separator row for organizing scrips
+   * @brief Create a blank row for organizing scrips
+   * 
+   * Blank rows are empty rows with no token, used to organize/group scrips.
+   * They look identical to regular rows (just show empty cells) but are not
+   * subscribed to market data and won't receive updates.
+   * 
    * @return ScripData configured as a blank row
    */
   static ScripData createBlankRow() {
     ScripData blank;
     blank.isBlankRow = true;
-    blank.symbol =
-        ""; // No text needed — separator is painted via BackgroundRole
-    blank.token = -1; // Invalid token for blank rows
+    blank.symbol = ""; // Empty symbol
+    blank.token = -1;  // Invalid token (won't be subscribed)
     return blank;
   }
 

@@ -45,20 +45,14 @@ QVariant MarketWatchModel::data(const QModelIndex &index, int role) const {
 
   const ScripData &scrip = m_scrips.at(index.row());
 
-  // Special handling for blank rows — visual separator
+  // Blank rows: just empty data rows (no special visual styling)
+  // They have isBlankRow=true and token=-1, so they won't be subscribed/updated,
+  // but visually they look identical to regular rows (just show empty cells).
   if (scrip.isBlankRow) {
     if (role == Qt::DisplayRole) {
-      return QString(); // Empty text — no garbled Unicode
+      return QString(); // Empty text for all columns
     }
-    if (role == Qt::BackgroundRole) {
-      return QColor("#e2e8f0"); // Light-theme border/divider color
-    }
-    if (role == Qt::SizeHintRole) {
-      return QSize(-1, 6); // Thin 6px separator bar
-    }
-    if (role == Qt::UserRole + 100) {
-      return true; // Mark as blank row for delegate
-    }
+    // No special background, no special size — looks like a regular row
     return QVariant();
   }
 
