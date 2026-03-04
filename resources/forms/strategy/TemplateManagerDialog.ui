@@ -1,0 +1,460 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>TemplateManagerDialog</class>
+ <widget class="QDialog" name="TemplateManagerDialog">
+  <property name="geometry">
+   <rect><x>0</x><y>0</y><width>1100</width><height>720</height></rect>
+  </property>
+  <property name="minimumSize">
+   <size><width>1000</width><height>640</height></size>
+  </property>
+  <property name="windowTitle">
+   <string>Strategy Template Manager</string>
+  </property>
+  <property name="styleSheet">
+   <string notr="true">
+/* ───── Global light-theme stylesheet ───── */
+QDialog, QWidget {
+    background: #ffffff;
+    color: #1e293b;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+QSplitter::handle { background: #e2e8f0; width: 2px; }
+
+QTableWidget {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    gridline-color: #f1f5f9;
+    color: #1e293b;
+    font-size: 12px;
+    selection-background-color: #dbeafe;
+    selection-color: #1e40af;
+    alternate-background-color: #f8fafc;
+}
+QTableWidget::item { padding: 4px 6px; }
+QTableWidget::item:hover { background: #eff6ff; }
+QHeaderView::section {
+    background: #f8fafc;
+    color: #475569;
+    padding: 6px 10px;
+    border: none;
+    border-bottom: 2px solid #e2e8f0;
+    font-weight: 700;
+    font-size: 10px;
+    text-transform: uppercase;
+}
+
+QLineEdit {
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    color: #0f172a;
+    padding: 6px 10px;
+    font-size: 12px;
+}
+QLineEdit:focus { border-color: #3b82f6; background: #ffffff; }
+
+QLabel { color: #475569; }
+
+QTextEdit {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+    color: #334155;
+    font-size: 12px;
+    padding: 4px;
+}
+
+QPushButton {
+    background: #f1f5f9;
+    color: #334155;
+    border: 1px solid #cbd5e1;
+    border-radius: 5px;
+    padding: 7px 18px;
+    font-size: 12px;
+    font-weight: 600;
+}
+QPushButton:hover { background: #e2e8f0; color: #0f172a; border-color: #94a3b8; }
+QPushButton:pressed { background: #dbeafe; border-color: #3b82f6; }
+QPushButton:disabled { background: #f8fafc; color: #94a3b8; border-color: #e2e8f0; }
+
+QGroupBox {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    margin-top: 14px;
+    padding: 12px 10px 10px 10px;
+    color: #2563eb;
+    font-weight: 700;
+}
+QGroupBox::title {
+    subcontrol-origin: margin;
+    subcontrol-position: top left;
+    left: 12px; top: 0;
+    padding: 0 6px;
+    color: #2563eb;
+    background: #f8fafc;
+}
+
+QScrollArea { border: none; background: transparent; }
+QScrollBar:vertical { background: #f1f5f9; width: 8px; border-radius: 4px; }
+QScrollBar::handle:vertical { background: #cbd5e1; border-radius: 4px; min-height: 24px; }
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
+
+/* ── Title bar ── */
+QWidget#titleBar {
+    background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #1e40af, stop:1 #2563eb);
+}
+QLabel#titleLabel {
+    color: #ffffff;
+    font-size: 16px;
+    font-weight: 700;
+    background: transparent;
+}
+
+/* ── List header ── */
+QLabel#listHeader {
+    color: #1e293b;
+    font-size: 13px;
+    background: transparent;
+}
+
+/* ── Action buttons ── */
+QPushButton#createBtn {
+    background: #eff6ff;
+    color: #1d4ed8;
+    border: 1px solid #bfdbfe;
+}
+QPushButton#createBtn:hover {
+    background: #dbeafe;
+    color: #1e40af;
+    border-color: #93c5fd;
+}
+QPushButton#deleteBtn {
+    background: #fef2f2;
+    color: #dc2626;
+    border: 1px solid #fecaca;
+}
+QPushButton#deleteBtn:hover {
+    background: #fee2e2;
+    color: #b91c1c;
+    border-color: #fca5a5;
+}
+
+/* ── Detail pane ── */
+QLabel#detailTitle {
+    color: #1e293b;
+    font-size: 14px;
+    font-weight: 700;
+    background: transparent;
+}
+QLabel#detailMeta {
+    color: #64748b;
+    font-size: 11px;
+    background: transparent;
+}
+QLabel#detailSymbols, QLabel#detailIndicators,
+QLabel#detailParams, QLabel#detailRisk {
+    color: #334155;
+    font-size: 11px;
+    background: transparent;
+}
+
+/* ── Deploy button ── */
+QPushButton#deployBtn {
+    background: qlineargradient(x1:0,y1:0,x2:0,y2:1, stop:0 #16a34a, stop:1 #15803d);
+    color: white;
+    font-weight: 700;
+    font-size: 13px;
+    border-radius: 6px;
+    border: none;
+    padding: 8px 24px;
+}
+QPushButton#deployBtn:hover { background: #22c55e; }
+QPushButton#deployBtn:disabled {
+    background: #f0fdf4;
+    color: #86efac;
+    border: 1px solid #bbf7d0;
+}
+
+/* ── Bottom bar ── */
+QWidget#bottomBar {
+    background: #f8fafc;
+    border-top: 2px solid #e2e8f0;
+}
+QLabel#countLabel {
+    color: #64748b;
+    font-size: 11px;
+    background: transparent;
+}
+   </string>
+  </property>
+
+  <layout class="QVBoxLayout" name="mainLayout">
+   <property name="spacing"><number>0</number></property>
+   <property name="leftMargin"><number>0</number></property>
+   <property name="topMargin"><number>0</number></property>
+   <property name="rightMargin"><number>0</number></property>
+   <property name="bottomMargin"><number>0</number></property>
+
+   <!-- ══════ Title bar ══════ -->
+   <item>
+    <widget class="QWidget" name="titleBar" native="true">
+     <layout class="QHBoxLayout" name="titleLayout">
+      <property name="leftMargin"><number>20</number></property>
+      <property name="topMargin"><number>12</number></property>
+      <property name="rightMargin"><number>20</number></property>
+      <property name="bottomMargin"><number>12</number></property>
+      <item>
+       <widget class="QLabel" name="titleLabel">
+        <property name="text"><string>📋  Strategy Template Manager</string></property>
+       </widget>
+      </item>
+      <item>
+       <spacer name="titleSpacer">
+        <property name="orientation"><enum>Qt::Horizontal</enum></property>
+       </spacer>
+      </item>
+      <item>
+       <widget class="QLineEdit" name="searchEdit">
+        <property name="placeholderText"><string>🔍 Search templates…</string></property>
+        <property name="minimumSize"><size><width>260</width><height>0</height></size></property>
+        <property name="maximumSize"><size><width>260</width><height>16777215</height></size></property>
+        <property name="clearButtonEnabled"><bool>true</bool></property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+
+   <!-- ══════ Body: splitter [table | detail] ══════ -->
+   <item>
+    <widget class="QWidget" name="bodyWidget" native="true">
+     <layout class="QHBoxLayout" name="bodyLayout">
+      <property name="leftMargin"><number>12</number></property>
+      <property name="topMargin"><number>12</number></property>
+      <property name="rightMargin"><number>12</number></property>
+      <property name="bottomMargin"><number>12</number></property>
+      <property name="spacing"><number>12</number></property>
+      <item>
+       <widget class="QSplitter" name="splitter">
+        <property name="orientation"><enum>Qt::Horizontal</enum></property>
+
+        <!-- ── Left pane ── -->
+        <widget class="QWidget" name="leftWidget" native="true">
+         <layout class="QVBoxLayout" name="leftLayout">
+          <property name="leftMargin"><number>0</number></property>
+          <property name="topMargin"><number>0</number></property>
+          <property name="rightMargin"><number>0</number></property>
+          <property name="bottomMargin"><number>0</number></property>
+          <property name="spacing"><number>8</number></property>
+          <item>
+           <widget class="QLabel" name="listHeader">
+            <property name="text"><string>&lt;b&gt;Templates&lt;/b&gt;</string></property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QTableWidget" name="templateTable">
+            <property name="columnCount"><number>5</number></property>
+            <property name="selectionBehavior"><enum>QAbstractItemView::SelectRows</enum></property>
+            <property name="selectionMode"><enum>QAbstractItemView::SingleSelection</enum></property>
+            <property name="editTriggers"><set>QAbstractItemView::NoEditTriggers</set></property>
+            <property name="alternatingRowColors"><bool>true</bool></property>
+            <property name="showGrid"><bool>false</bool></property>
+            <property name="sortingEnabled"><bool>true</bool></property>
+            <attribute name="verticalHeaderVisible"><bool>false</bool></attribute>
+            <column><property name="text"><string>Name</string></property></column>
+            <column><property name="text"><string>Mode</string></property></column>
+            <column><property name="text"><string>Symbols</string></property></column>
+            <column><property name="text"><string>Params</string></property></column>
+            <column><property name="text"><string>Updated</string></property></column>
+           </widget>
+          </item>
+          <item>
+           <layout class="QHBoxLayout" name="actionRow">
+            <property name="spacing"><number>6</number></property>
+            <item>
+             <widget class="QPushButton" name="createBtn">
+              <property name="text"><string>＋ New Template</string></property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="editBtn">
+              <property name="text"><string>✏️ Edit</string></property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="cloneBtn">
+              <property name="text"><string>📋 Clone</string></property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="deleteBtn">
+              <property name="text"><string>🗑 Delete</string></property>
+             </widget>
+            </item>
+            <item>
+             <spacer name="actionSpacer">
+              <property name="orientation"><enum>Qt::Horizontal</enum></property>
+             </spacer>
+            </item>
+           </layout>
+          </item>
+         </layout>
+        </widget>
+
+        <!-- ── Right pane ── -->
+        <widget class="QWidget" name="rightWidget" native="true">
+         <layout class="QVBoxLayout" name="rightLayout">
+          <property name="leftMargin"><number>0</number></property>
+          <property name="topMargin"><number>0</number></property>
+          <property name="rightMargin"><number>0</number></property>
+          <property name="bottomMargin"><number>0</number></property>
+          <property name="spacing"><number>8</number></property>
+          <item>
+           <widget class="QLabel" name="detailTitle">
+            <property name="text"><string>Select a template</string></property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QScrollArea" name="detailScroll">
+            <property name="widgetResizable"><bool>true</bool></property>
+            <widget class="QWidget" name="detailContent">
+             <layout class="QVBoxLayout" name="detailLayout">
+              <property name="leftMargin"><number>0</number></property>
+              <property name="topMargin"><number>4</number></property>
+              <property name="rightMargin"><number>0</number></property>
+              <property name="bottomMargin"><number>4</number></property>
+              <property name="spacing"><number>10</number></property>
+              <item>
+               <widget class="QLabel" name="detailMeta">
+                <property name="text"><string>—</string></property>
+                <property name="wordWrap"><bool>true</bool></property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QGroupBox" name="descGroup">
+                <property name="title"><string>Description</string></property>
+                <layout class="QVBoxLayout" name="descLayout">
+                 <item>
+                  <widget class="QTextEdit" name="detailDesc">
+                   <property name="readOnly"><bool>true</bool></property>
+                   <property name="maximumSize">
+                    <size><width>16777215</width><height>80</height></size>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+               </widget>
+              </item>
+              <item>
+               <widget class="QGroupBox" name="symGroup">
+                <property name="title"><string>Symbol Slots</string></property>
+                <layout class="QVBoxLayout" name="symLayout">
+                 <item>
+                  <widget class="QLabel" name="detailSymbols">
+                   <property name="text"><string>—</string></property>
+                   <property name="wordWrap"><bool>true</bool></property>
+                  </widget>
+                 </item>
+                </layout>
+               </widget>
+              </item>
+              <item>
+               <widget class="QGroupBox" name="indGroup">
+                <property name="title"><string>Indicators</string></property>
+                <layout class="QVBoxLayout" name="indLayout">
+                 <item>
+                  <widget class="QLabel" name="detailIndicators">
+                   <property name="text"><string>—</string></property>
+                   <property name="wordWrap"><bool>true</bool></property>
+                  </widget>
+                 </item>
+                </layout>
+               </widget>
+              </item>
+              <item>
+               <widget class="QGroupBox" name="parGroup">
+                <property name="title"><string>Parameters</string></property>
+                <layout class="QVBoxLayout" name="parLayout">
+                 <item>
+                  <widget class="QLabel" name="detailParams">
+                   <property name="text"><string>—</string></property>
+                   <property name="wordWrap"><bool>true</bool></property>
+                  </widget>
+                 </item>
+                </layout>
+               </widget>
+              </item>
+              <item>
+               <widget class="QGroupBox" name="riskGroup">
+                <property name="title"><string>Risk Defaults</string></property>
+                <layout class="QVBoxLayout" name="riskLayout">
+                 <item>
+                  <widget class="QLabel" name="detailRisk">
+                   <property name="text"><string>—</string></property>
+                   <property name="wordWrap"><bool>true</bool></property>
+                  </widget>
+                 </item>
+                </layout>
+               </widget>
+              </item>
+              <item>
+               <spacer name="detailBottomSpacer">
+                <property name="orientation"><enum>Qt::Vertical</enum></property>
+                <property name="sizeHint" stdset="0">
+                 <size><width>0</width><height>0</height></size>
+                </property>
+               </spacer>
+              </item>
+             </layout>
+            </widget>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="deployBtn">
+            <property name="text"><string>🚀  Deploy This Template</string></property>
+            <property name="minimumSize">
+             <size><width>0</width><height>40</height></size>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+
+   <!-- ══════ Bottom bar ══════ -->
+   <item>
+    <widget class="QWidget" name="bottomBar" native="true">
+     <layout class="QHBoxLayout" name="bottomLayout">
+      <property name="leftMargin"><number>16</number></property>
+      <property name="topMargin"><number>8</number></property>
+      <property name="rightMargin"><number>16</number></property>
+      <property name="bottomMargin"><number>8</number></property>
+      <item>
+       <widget class="QLabel" name="countLabel">
+        <property name="text"><string></string></property>
+       </widget>
+      </item>
+      <item>
+       <spacer name="bottomSpacer">
+        <property name="orientation"><enum>Qt::Horizontal</enum></property>
+       </spacer>
+      </item>
+      <item>
+       <widget class="QPushButton" name="closeBtn">
+        <property name="text"><string>Close</string></property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

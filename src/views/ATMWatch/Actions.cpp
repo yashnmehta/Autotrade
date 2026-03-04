@@ -4,8 +4,11 @@
 // ============================================================================
 #include "views/ATMWatchWindow.h"
 #include "views/OptionChainWindow.h"
+#include <QComboBox>
 #include <QDebug>
 #include <QHeaderView>
+#include <QLabel>
+#include <QTableView>
 
 void ATMWatchWindow::onExchangeChanged(int index) {
   m_currentExchange = m_exchangeCombo->currentText();

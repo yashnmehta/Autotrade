@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>PositionWindow</class>
+ <widget class="QWidget" name="PositionWindow">
+  <property name="geometry">
+   <rect><x>0</x><y>0</y><width>900</width><height>500</height></rect>
+  </property>
+  <property name="styleSheet">
+   <string notr="true">
+QWidget#filterContainer {
+  background-color: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+QWidget#filterContainer QLabel {
+  color: #475569;
+  font-size: 11px;
+}
+QWidget#filterContainer QComboBox {
+  background-color: #ffffff;
+  color: #1e293b;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  font-size: 11px;
+}
+QPushButton {
+  border-radius: 4px;
+  font-weight: 600;
+  font-size: 11px;
+  padding: 5px 12px;
+}
+QPushButton#m_btnRefresh {
+  background-color: #16a34a;
+  color: white;
+}
+QPushButton#m_btnRefresh:hover { background-color: #15803d; }
+QPushButton#m_btnExport {
+  background-color: #d97706;
+  color: white;
+}
+QPushButton#m_btnExport:hover { background-color: #b45309; }
+   </string>
+  </property>
+  <layout class="QVBoxLayout" name="mainLayout">
+   <property name="spacing"><number>0</number></property>
+   <property name="leftMargin"><number>0</number></property>
+   <property name="topMargin"><number>0</number></property>
+   <property name="rightMargin"><number>0</number></property>
+   <property name="bottomMargin"><number>0</number></property>
+
+   <!-- Filter Bar -->
+   <item>
+    <widget class="QWidget" name="filterContainer" native="true">
+     <layout class="QHBoxLayout" name="filterLayout">
+      <property name="leftMargin"><number>12</number></property>
+      <property name="topMargin"><number>10</number></property>
+      <property name="rightMargin"><number>12</number></property>
+      <property name="bottomMargin"><number>10</number></property>
+
+      <item>
+       <layout class="QVBoxLayout" name="exchangeLayout">
+        <item><widget class="QLabel" name="lblExchange"><property name="text"><string>Exchange</string></property></widget></item>
+        <item>
+         <widget class="QComboBox" name="m_cbExchange">
+          <item><property name="text"><string>All</string></property></item>
+          <item><property name="text"><string>NSE</string></property></item>
+          <item><property name="text"><string>BSE</string></property></item>
+          <item><property name="text"><string>MCX</string></property></item>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <layout class="QVBoxLayout" name="segmentLayout">
+        <item><widget class="QLabel" name="lblSegment"><property name="text"><string>Segment</string></property></widget></item>
+        <item>
+         <widget class="QComboBox" name="m_cbSegment">
+          <item><property name="text"><string>All</string></property></item>
+          <item><property name="text"><string>Cash</string></property></item>
+          <item><property name="text"><string>FO</string></property></item>
+          <item><property name="text"><string>CD</string></property></item>
+          <item><property name="text"><string>COM</string></property></item>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <layout class="QVBoxLayout" name="productLayout">
+        <item><widget class="QLabel" name="lblProduct"><property name="text"><string>Product</string></property></widget></item>
+        <item>
+         <widget class="QComboBox" name="m_cbPeriodicity">
+          <item><property name="text"><string>All</string></property></item>
+          <item><property name="text"><string>MIS</string></property></item>
+          <item><property name="text"><string>NRML</string></property></item>
+          <item><property name="text"><string>CNC</string></property></item>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <layout class="QVBoxLayout" name="userLayout">
+        <item><widget class="QLabel" name="lblUser"><property name="text"><string>User</string></property></widget></item>
+        <item>
+         <widget class="QComboBox" name="m_cbUser">
+          <item><property name="text"><string>All</string></property></item>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <layout class="QVBoxLayout" name="clientLayout">
+        <item><widget class="QLabel" name="lblClient"><property name="text"><string>Client</string></property></widget></item>
+        <item>
+         <widget class="QComboBox" name="m_cbClient">
+          <item><property name="text"><string>All</string></property></item>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <spacer name="filterSpacer">
+        <property name="orientation"><enum>Qt::Horizontal</enum></property>
+       </spacer>
+      </item>
+      <item>
+       <widget class="QPushButton" name="m_btnRefresh">
+        <property name="text"><string>Refresh</string></property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="m_btnExport">
+        <property name="text"><string>Export</string></property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+
+   <!-- Table placeholder — will be replaced programmatically with CustomNetPosition -->
+   <item>
+    <widget class="QTableView" name="m_tableViewPlaceholder">
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+       <horstretch>0</horstretch><verstretch>1</verstretch>
+      </sizepolicy>
+     </property>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

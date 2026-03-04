@@ -2,16 +2,15 @@
 #define ALLINDICESWINDOW_H
 
 #include <QWidget>
-#include <QTableView>
 #include <QAbstractTableModel>
 #include <QVector>
 #include <QHash>
-#include <QLineEdit>
-#include <QPushButton>
-#include <QSortFilterProxyModel>
 
-// Forward declaration
+// Forward declarations
 class RepositoryManager;
+class QSortFilterProxyModel;
+
+namespace Ui { class AllIndicesWindow; }
 
 // Data structure for index entry
 struct AllIndexEntry {
@@ -90,15 +89,10 @@ private slots:
     void onApplyClicked();
 
 private:
-    void setupUI();
+    Ui::AllIndicesWindow *ui;
 
-    QTableView *m_tableView;
     AllIndicesModel *m_model;
     QSortFilterProxyModel *m_proxyModel;
-    QLineEdit *m_searchBox;
-    QPushButton *m_selectAllBtn;
-    QPushButton *m_deselectAllBtn;
-    QPushButton *m_applyBtn;
     
     RepositoryManager* m_repoManager = nullptr;
 };

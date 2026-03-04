@@ -1,4 +1,5 @@
 #include "views/MarketMovementWindow.h"
+#include "ui_MarketMovementWindow.h"
 #include "utils/ConfigLoader.h"
 #include "utils/WindowSettingsHelper.h"
 #include <QBrush>
@@ -6,20 +7,20 @@
 #include <QDateTime>
 #include <QDebug>
 #include <QFile>
-#include <QHBoxLayout>
 #include <QHeaderView>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QLabel>
 #include <QMessageBox>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QPushButton>
 #include <QScrollBar>
+#include <QTableWidget>
 #include <QTimer>
 #include <QUrlQuery>
-#include <QVBoxLayout>
 
 
 // Helper function to load config
@@ -37,12 +38,11 @@ static void loadXTSConfig(QString &baseUrl, QString &authToken) {
 }
 
 MarketMovementWindow::MarketMovementWindow(QWidget *parent)
-    : QWidget(parent), m_mainLayout(nullptr), m_headerLayout(nullptr),
-      m_titleLabel(nullptr), m_instrumentLabel(nullptr), m_statusLabel(nullptr),
-      m_table(nullptr), m_currentSegment(0), m_currentToken(0),
+    : QWidget(parent), ui(new Ui::MarketMovementWindow),
+      m_currentSegment(0), m_currentToken(0),
       m_networkManager(nullptr), m_isLoadingHistorical(false) {
   loadXTSConfig(m_xtsBaseUrl, m_xtsAuthToken);
-  setupUI();
+  initUI();
   setupConnections();
   setupNetworkManager();
   WindowSettingsHelper::loadAndApplyWindowSettings(this, "MarketMovement");
@@ -50,13 +50,12 @@ MarketMovementWindow::MarketMovementWindow(QWidget *parent)
 
 MarketMovementWindow::MarketMovementWindow(const WindowContext &context,
                                            QWidget *parent)
-    : QWidget(parent), m_mainLayout(nullptr), m_headerLayout(nullptr),
-      m_titleLabel(nullptr), m_instrumentLabel(nullptr), m_statusLabel(nullptr),
-      m_table(nullptr), m_context(context), m_currentSegment(0),
+    : QWidget(parent), ui(new Ui::MarketMovementWindow),
+      m_context(context), m_currentSegment(0),
       m_currentToken(0), m_networkManager(nullptr),
       m_isLoadingHistorical(false) {
   loadXTSConfig(m_xtsBaseUrl, m_xtsAuthToken);
-  setupUI();
+  initUI();
   setupConnections();
   setupNetworkManager();
   WindowSettingsHelper::loadAndApplyWindowSettings(this, "MarketMovement");
@@ -77,105 +76,20 @@ MarketMovementWindow::~MarketMovementWindow() {
   if (m_networkManager) {
     m_networkManager->deleteLater();
   }
+  delete ui;
 }
 
-void MarketMovementWindow::setupUI() {
-  // Main layout
-  m_mainLayout = new QVBoxLayout(this);
-  m_mainLayout->setContentsMargins(10, 10, 10, 10);
-  m_mainLayout->setSpacing(10);
+void MarketMovementWindow::initUI() {
+  ui->setupUi(this);
 
-  // Header layout
-  m_headerLayout = new QHBoxLayout();
+  // Convenience pointers
+  m_table = ui->table;
+  m_instrumentLabel = ui->instrumentLabel;
+  m_statusLabel = ui->statusLabel;
 
-  m_titleLabel = new QLabel("Market Movement for OPTSTK", this);
-  QFont titleFont = m_titleLabel->font();
-  titleFont.setBold(true);
-  titleFont.setPointSize(12);
-  m_titleLabel->setFont(titleFont);
-
-  m_instrumentLabel = new QLabel("No instrument selected", this);
-  m_instrumentLabel->setStyleSheet("color: #888888;");
-
-  m_statusLabel = new QLabel("", this);
-  m_statusLabel->setStyleSheet("color: #4ec9b0; font-style: italic;");
-
-  // Refresh button
-  m_refreshButton = new QPushButton("Refresh", this);
-  m_refreshButton->setStyleSheet("QPushButton {"
-                                 "    background-color: #0e639c;"
-                                 "    color: white;"
-                                 "    border: none;"
-                                 "    padding: 5px 15px;"
-                                 "    border-radius: 3px;"
-                                 "}"
-                                 "QPushButton:hover {"
-                                 "    background-color: #1177bb;"
-                                 "}"
-                                 "QPushButton:pressed {"
-                                 "    background-color: #0d5a8f;"
-                                 "}");
-  connect(m_refreshButton, &QPushButton::clicked, this,
-          &MarketMovementWindow::onRefreshClicked);
-
-  m_headerLayout->addWidget(m_titleLabel);
-  m_headerLayout->addWidget(m_statusLabel);
-  m_headerLayout->addStretch();
-  m_headerLayout->addWidget(m_refreshButton);
-  m_headerLayout->addWidget(m_instrumentLabel);
-
-  m_mainLayout->addLayout(m_headerLayout);
-
-  // Create table
-  setupTable();
-
-  m_mainLayout->addWidget(m_table);
-
-  setLayout(m_mainLayout);
-}
-
-void MarketMovementWindow::setupTable() {
-  m_table = new QTableWidget(0, COL_COUNT, this);
-
-  // Set column headers
-  QStringList headers;
-  headers << "Time" << "Open" << "High" << "Low" << "Close"
-          << "Volume" << "Average";
-  m_table->setHorizontalHeaderLabels(headers);
-
-  // Table styling
-  m_table->setStyleSheet("QTableWidget {"
-                         "    background-color: #1e1e1e;"
-                         "    color: #ffffff;"
-                         "    gridline-color: #3e3e42;"
-                         "    border: 1px solid #3e3e42;"
-                         "}"
-                         "QTableWidget::item {"
-                         "    padding: 5px;"
-                         "    border-bottom: 1px solid #2d2d30;"
-                         "}"
-                         "QTableWidget::item:selected {"
-                         "    background-color: #094771;"
-                         "}"
-                         "QHeaderView::section {"
-                         "    background-color: #2d2d30;"
-                         "    color: #ffffff;"
-                         "    padding: 6px;"
-                         "    border: 1px solid #3e3e42;"
-                         "    font-weight: bold;"
-                         "}");
-
-  // Table properties
-  m_table->setAlternatingRowColors(false); // Disable to avoid white backgrounds
-  m_table->setSelectionBehavior(QAbstractItemView::SelectRows);
-  m_table->setSelectionMode(QAbstractItemView::SingleSelection);
-  m_table->setEditTriggers(QAbstractItemView::NoEditTriggers);
+  // Table configuration
   m_table->verticalHeader()->setVisible(false);
   m_table->horizontalHeader()->setStretchLastSection(true);
-
-  // Ensure all rows have dark background
-  m_table->setStyleSheet(m_table->styleSheet() +
-                         "QTableWidget::item { background-color: #1e1e1e; }");
 
   // Column widths
   m_table->setColumnWidth(COL_TIME, 120);
@@ -185,6 +99,10 @@ void MarketMovementWindow::setupTable() {
   m_table->setColumnWidth(COL_CLOSE, 100);
   m_table->setColumnWidth(COL_VOLUME, 120);
   m_table->setColumnWidth(COL_AVERAGE, 120);
+
+  // Connections
+  connect(ui->refreshButton, &QPushButton::clicked, this,
+          &MarketMovementWindow::onRefreshClicked);
 }
 
 void MarketMovementWindow::setupConnections() {

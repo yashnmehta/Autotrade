@@ -22,18 +22,14 @@
 #include <QDialog>
 #include <QVector>
 
-class QLabel;
-class QLineEdit;
-class QPushButton;
-class QTableWidget;
-class QTextEdit;
+namespace Ui { class TemplateManagerDialog; }
 
 class TemplateManagerDialog : public QDialog {
     Q_OBJECT
 
 public:
     explicit TemplateManagerDialog(QWidget *parent = nullptr);
-    ~TemplateManagerDialog() override = default;
+    ~TemplateManagerDialog() override;
 
     /// After Accepted with action == Deploy, call this to get the template.
     StrategyTemplate selectedTemplate() const { return m_selectedTemplate; }
@@ -57,30 +53,15 @@ private slots:
     void onDeployClicked();
 
 private:
-    void setupUI();
+    void initUI();
     void loadTemplates();
     void updateDetailPane();
     void updateButtonStates();
     int  selectedRow() const;
     void filterTable(const QString &text);
 
-    // ── UI elements ──
-    QLineEdit    *m_searchEdit     = nullptr;
-    QTableWidget *m_templateTable  = nullptr;
-    QLabel       *m_detailTitle    = nullptr;
-    QLabel       *m_detailMeta     = nullptr;
-    QTextEdit    *m_detailDesc     = nullptr;
-    QLabel       *m_detailSymbols  = nullptr;
-    QLabel       *m_detailParams   = nullptr;
-    QLabel       *m_detailIndicators = nullptr;
-    QLabel       *m_detailRisk     = nullptr;
-
-    QPushButton  *m_createBtn      = nullptr;
-    QPushButton  *m_editBtn        = nullptr;
-    QPushButton  *m_cloneBtn       = nullptr;
-    QPushButton  *m_deleteBtn      = nullptr;
-    QPushButton  *m_deployBtn      = nullptr;
-    QPushButton  *m_closeBtn       = nullptr;
+    // ── UI ──
+    Ui::TemplateManagerDialog *ui;
 
     // ── Data ──
     QVector<StrategyTemplate> m_allTemplates;

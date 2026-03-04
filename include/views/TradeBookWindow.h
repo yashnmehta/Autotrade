@@ -5,10 +5,11 @@
 #include "api/xts/XTSTypes.h"
 #include "models/qt/TradeModel.h"
 
+namespace Ui { class TradeBookWindow; }
+
 class CustomTradeBook;
 class TradingDataService;
 class QComboBox;
-class QDateTimeEdit;
 class QPushButton;
 class QCheckBox;
 class QLabel;
@@ -41,9 +42,7 @@ private:
     void updateSummary();
     void showTradeBookContextMenu(const QPoint &pos);
     
-    QWidget* createFilterWidget();
-    QWidget* createSummaryWidget();
-    
+    Ui::TradeBookWindow *ui;
     TradingDataService* m_tradingDataService;
     QVector<XTS::Trade> m_allTrades;
 
@@ -51,8 +50,6 @@ private:
     QComboBox *m_exchangeCombo;
     QComboBox *m_buySellCombo;
     QComboBox *m_orderTypeCombo;
-    QDateTimeEdit *m_fromTimeEdit;
-    QDateTimeEdit *m_toTimeEdit;
     QPushButton *m_applyFilterBtn;
     QPushButton *m_clearFilterBtn;
     QPushButton *m_exportBtn;

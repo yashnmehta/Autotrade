@@ -133,6 +133,18 @@ set(FORMS
     ${CMAKE_SOURCE_DIR}/resources/forms/strategy/StrategyManagerWindow.ui
     ${CMAKE_SOURCE_DIR}/resources/forms/strategy/CreateStrategyDialog.ui
     ${CMAKE_SOURCE_DIR}/resources/forms/strategy/StrategyTemplateBuilderDialog.ui
+    ${CMAKE_SOURCE_DIR}/resources/forms/ATMWatchSettingsDialog.ui
+    ${CMAKE_SOURCE_DIR}/resources/forms/GenericProfileDialog.ui
+    ${CMAKE_SOURCE_DIR}/resources/forms/PositionWindow.ui
+    ${CMAKE_SOURCE_DIR}/resources/forms/OrderBookWindow.ui
+    ${CMAKE_SOURCE_DIR}/resources/forms/TradeBookWindow.ui
+    ${CMAKE_SOURCE_DIR}/resources/forms/ATMWatchWindow.ui
+    ${CMAKE_SOURCE_DIR}/resources/forms/AllIndicesWindow.ui
+    ${CMAKE_SOURCE_DIR}/resources/forms/ModifyParametersDialog.ui
+    ${CMAKE_SOURCE_DIR}/resources/forms/GlobalSearchWidget.ui
+    ${CMAKE_SOURCE_DIR}/resources/forms/MarketMovementWindow.ui
+    ${CMAKE_SOURCE_DIR}/resources/forms/strategy/IndicatorPickerDialog.ui
+    ${CMAKE_SOURCE_DIR}/resources/forms/strategy/TemplateManagerDialog.ui
 )
 
 # ========================================

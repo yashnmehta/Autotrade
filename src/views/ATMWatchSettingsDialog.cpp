@@ -1,166 +1,47 @@
 #include "views/ATMWatchSettingsDialog.h"
+#include "ui_ATMWatchSettingsDialog.h"
 #include <QLabel>
-#include <QHBoxLayout>
 #include <QMessageBox>
 #include <QDebug>
+#include <QSettings>
 
 ATMWatchSettingsDialog::ATMWatchSettingsDialog(QWidget* parent)
-    : QDialog(parent)
+    : QDialog(parent), ui(new Ui::ATMWatchSettingsDialog)
 {
-    setWindowTitle("ATM Watch Settings");
-    setModal(true);
-    setMinimumWidth(500);
-    
-    setupUI();
-    loadSettings();
-    
-    // Update example when strike range changes
+    ui->setupUi(this);
+
+    // Assign convenience pointers from ui
+    m_strikeSelectionGroup      = ui->m_strikeSelectionGroup;
+    m_strikeRangeSpinBox        = ui->m_strikeRangeSpinBox;
+    m_strikeRangeExampleLabel   = ui->m_strikeRangeExampleLabel;
+    m_updateSettingsGroup       = ui->m_updateSettingsGroup;
+    m_autoRecalculateCheckbox   = ui->m_autoRecalculateCheckbox;
+    m_updateIntervalSpinBox     = ui->m_updateIntervalSpinBox;
+    m_thresholdMultiplierSpinBox= ui->m_thresholdMultiplierSpinBox;
+    m_basePriceSourceCombo      = ui->m_basePriceSourceCombo;
+    m_greeksGroup               = ui->m_greeksGroup;
+    m_enableGreeksCheckbox      = ui->m_enableGreeksCheckbox;
+    m_riskFreeRateSpinBox       = ui->m_riskFreeRateSpinBox;
+    m_showGreeksColumnsCheckbox = ui->m_showGreeksColumnsCheckbox;
+    m_alertsGroup               = ui->m_alertsGroup;
+    m_soundAlertsCheckbox       = ui->m_soundAlertsCheckbox;
+    m_visualAlertsCheckbox      = ui->m_visualAlertsCheckbox;
+    m_systemNotificationsCheckbox = ui->m_systemNotificationsCheckbox;
+    m_okButton                  = ui->m_okButton;
+    m_cancelButton              = ui->m_cancelButton;
+    m_resetButton               = ui->m_resetButton;
+
+    // Wire signals
     connect(m_strikeRangeSpinBox, QOverload<int>::of(&QSpinBox::valueChanged),
             this, &ATMWatchSettingsDialog::onStrikeRangeChanged);
+    connect(m_okButton, &QPushButton::clicked, this, &ATMWatchSettingsDialog::onOkClicked);
+    connect(m_cancelButton, &QPushButton::clicked, this, &ATMWatchSettingsDialog::onCancelClicked);
+    connect(m_resetButton, &QPushButton::clicked, this, &ATMWatchSettingsDialog::onResetClicked);
+
+    loadSettings();
 }
 
-void ATMWatchSettingsDialog::setupUI() {
-    QVBoxLayout* mainLayout = new QVBoxLayout(this);
-    mainLayout->setSpacing(15);
-    
-    // ========== Strike Selection Group ==========
-    m_strikeSelectionGroup = new QGroupBox("Strike Selection", this);
-    QFormLayout* strikeLayout = new QFormLayout();
-    
-    m_strikeRangeSpinBox = new QSpinBox(this);
-    m_strikeRangeSpinBox->setRange(0, 10);
-    m_strikeRangeSpinBox->setSuffix(" strikes around ATM");
-    m_strikeRangeSpinBox->setToolTip(
-        "Number of strikes to display on each side of ATM\n"
-        "0 = ATM only (1 strike)\n"
-        "5 = ATM ± 5 (11 strikes total)"
-    );
-    strikeLayout->addRow("Strike Range:", m_strikeRangeSpinBox);
-    
-    m_strikeRangeExampleLabel = new QLabel(this);
-    m_strikeRangeExampleLabel->setStyleSheet("QLabel { color: #64748b; font-size: 9pt; }");
-    m_strikeRangeExampleLabel->setWordWrap(true);
-    strikeLayout->addRow("", m_strikeRangeExampleLabel);
-    
-    m_strikeSelectionGroup->setLayout(strikeLayout);
-    mainLayout->addWidget(m_strikeSelectionGroup);
-    
-    // ========== Update Settings Group ==========
-    m_updateSettingsGroup = new QGroupBox("Update Settings", this);
-    QFormLayout* updateLayout = new QFormLayout();
-    
-    m_autoRecalculateCheckbox = new QCheckBox("Auto-calculate on price changes", this);
-    m_autoRecalculateCheckbox->setToolTip("Enable event-driven ATM calculation");
-    updateLayout->addRow(m_autoRecalculateCheckbox);
-    
-    m_updateIntervalSpinBox = new QSpinBox(this);
-    m_updateIntervalSpinBox->setRange(10, 300);
-    m_updateIntervalSpinBox->setSuffix(" seconds (backup)");
-    m_updateIntervalSpinBox->setToolTip(
-        "Backup timer interval for ATM calculation\n"
-        "Only used if auto-calculate is disabled or events are missed"
-    );
-    updateLayout->addRow("Timer Interval:", m_updateIntervalSpinBox);
-    
-    m_thresholdMultiplierSpinBox = new QDoubleSpinBox(this);
-    m_thresholdMultiplierSpinBox->setRange(0.25, 1.0);
-    m_thresholdMultiplierSpinBox->setSingleStep(0.05);
-    m_thresholdMultiplierSpinBox->setDecimals(2);
-    m_thresholdMultiplierSpinBox->setToolTip(
-        "Price movement threshold for recalculation\n"
-        "0.25 = High sensitivity (quarter strike interval)\n"
-        "0.50 = Default (half strike interval)\n"
-        "1.00 = Conservative (full strike interval)"
-    );
-    updateLayout->addRow("Threshold Multiplier:", m_thresholdMultiplierSpinBox);
-    
-    QLabel* thresholdNote = new QLabel(
-        "Recalculates when price moves by multiplier × strike interval", this);
-    thresholdNote->setStyleSheet("QLabel { color: #64748b; font-size: 9pt; }");
-    thresholdNote->setWordWrap(true);
-    updateLayout->addRow("", thresholdNote);
-    
-    m_basePriceSourceCombo = new QComboBox(this);
-    m_basePriceSourceCombo->addItem("Cash (Spot Price)");
-    m_basePriceSourceCombo->addItem("Future (Front Month)");
-    m_basePriceSourceCombo->setToolTip(
-        "Source for underlying price calculation\n"
-        "Cash: Uses equity/index cash market price\n"
-        "Future: Uses front month futures price"
-    );
-    updateLayout->addRow("Base Price Source:", m_basePriceSourceCombo);
-    
-    m_updateSettingsGroup->setLayout(updateLayout);
-    mainLayout->addWidget(m_updateSettingsGroup);
-    
-    // ========== Greeks Calculation Group (Future - Phase 4) ==========
-    m_greeksGroup = new QGroupBox("Greeks Calculation", this);
-    QFormLayout* greeksLayout = new QFormLayout();
-    
-    m_enableGreeksCheckbox = new QCheckBox("Enable Greeks calculation", this);
-    m_enableGreeksCheckbox->setEnabled(false); // Disabled until Phase 4
-    m_enableGreeksCheckbox->setToolTip("Greeks calculation (IV, Delta, Gamma, etc.) - Coming in Phase 4");
-    greeksLayout->addRow(m_enableGreeksCheckbox);
-    
-    m_riskFreeRateSpinBox = new QDoubleSpinBox(this);
-    m_riskFreeRateSpinBox->setRange(0.0, 10.0);
-    m_riskFreeRateSpinBox->setSingleStep(0.1);
-    m_riskFreeRateSpinBox->setDecimals(2);
-    m_riskFreeRateSpinBox->setSuffix(" % (RBI Repo Rate)");
-    m_riskFreeRateSpinBox->setEnabled(false); // Disabled until Phase 4
-    greeksLayout->addRow("Risk-Free Rate:", m_riskFreeRateSpinBox);
-    
-    m_showGreeksColumnsCheckbox = new QCheckBox("Show Greeks columns (IV, Delta, Gamma, etc.)", this);
-    m_showGreeksColumnsCheckbox->setEnabled(false); // Disabled until Phase 4
-    greeksLayout->addRow(m_showGreeksColumnsCheckbox);
-    
-    QLabel* greeksNote = new QLabel("Greeks features will be available in Phase 4", this);
-    greeksNote->setStyleSheet("QLabel { color: #64748b; font-size: 9pt; font-style: italic; }");
-    greeksLayout->addRow("", greeksNote);
-    
-    m_greeksGroup->setLayout(greeksLayout);
-    mainLayout->addWidget(m_greeksGroup);
-    
-    // ========== Alerts Group ==========
-    m_alertsGroup = new QGroupBox("Alerts", this);
-    QVBoxLayout* alertsLayout = new QVBoxLayout();
-    
-    m_soundAlertsCheckbox = new QCheckBox("Sound alerts on ATM change", this);
-    m_soundAlertsCheckbox->setToolTip("Play sound when ATM strike changes");
-    alertsLayout->addWidget(m_soundAlertsCheckbox);
-    
-    m_visualAlertsCheckbox = new QCheckBox("Visual flash on strike change", this);
-    m_visualAlertsCheckbox->setToolTip("Highlight row when ATM strike changes");
-    alertsLayout->addWidget(m_visualAlertsCheckbox);
-    
-    m_systemNotificationsCheckbox = new QCheckBox("System notifications", this);
-    m_systemNotificationsCheckbox->setToolTip("Show system notifications for ATM changes");
-    alertsLayout->addWidget(m_systemNotificationsCheckbox);
-    
-    m_alertsGroup->setLayout(alertsLayout);
-    mainLayout->addWidget(m_alertsGroup);
-    
-    // ========== Buttons ==========
-    QHBoxLayout* buttonLayout = new QHBoxLayout();
-    buttonLayout->addStretch();
-    
-    m_resetButton = new QPushButton("Reset to Defaults", this);
-    connect(m_resetButton, &QPushButton::clicked, this, &ATMWatchSettingsDialog::onResetClicked);
-    buttonLayout->addWidget(m_resetButton);
-    
-    buttonLayout->addSpacing(20);
-    
-    m_okButton = new QPushButton("OK", this);
-    m_okButton->setDefault(true);
-    connect(m_okButton, &QPushButton::clicked, this, &ATMWatchSettingsDialog::onOkClicked);
-    buttonLayout->addWidget(m_okButton);
-    
-    m_cancelButton = new QPushButton("Cancel", this);
-    connect(m_cancelButton, &QPushButton::clicked, this, &ATMWatchSettingsDialog::onCancelClicked);
-    buttonLayout->addWidget(m_cancelButton);
-    
-    mainLayout->addLayout(buttonLayout);
-}
+ATMWatchSettingsDialog::~ATMWatchSettingsDialog() { delete ui; }
 
 void ATMWatchSettingsDialog::loadSettings() {
     QSettings settings("configs/config.ini", QSettings::IniFormat);

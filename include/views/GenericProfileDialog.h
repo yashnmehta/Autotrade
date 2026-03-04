@@ -2,11 +2,14 @@
 #define GENERICPROFILEDIALOG_H
 
 #include <QDialog>
-#include <QListWidget>
-#include <QComboBox>
-#include <QPushButton>
 #include "models/profiles/GenericTableProfile.h"
 #include "models/profiles/GenericProfileManager.h"
+
+class QListWidget;
+class QComboBox;
+class QPushButton;
+
+namespace Ui { class GenericProfileDialog; }
 
 /**
  * @brief Universal dual-list column profile dialog.
@@ -31,6 +34,7 @@ public:
                          GenericProfileManager *manager,
                          const GenericTableProfile &currentProfile,
                          QWidget *parent = nullptr);
+    ~GenericProfileDialog();
 
     GenericTableProfile getProfile() const { return m_profile; }
     bool wasAccepted() const { return m_accepted; }
@@ -48,7 +52,6 @@ private slots:
     void onRejected();
 
 private:
-    void setupUI();
     void setupConnections();
     void loadProfile(const GenericTableProfile &profile);
     void updateAvailableColumns();
@@ -56,11 +59,14 @@ private:
     void refreshProfileList();
     QString columnNameById(int id) const;
 
+    Ui::GenericProfileDialog *ui;
+
     QList<GenericColumnInfo> m_allColumns;
     GenericProfileManager *m_manager;          ///< NOT owned — caller keeps alive
     GenericTableProfile m_profile;
     bool m_accepted;
 
+    // Convenience pointers (owned by ui)
     QComboBox *m_profileCombo;
     QListWidget *m_availableList;
     QListWidget *m_selectedList;

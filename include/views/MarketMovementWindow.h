@@ -4,13 +4,14 @@
 #include "models/domain/WindowContext.h"
 #include <QCloseEvent>
 #include <QDateTime>
-#include <QLabel>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
-#include <QPushButton>
 #include <QString>
-#include <QTableWidget>
 #include <QWidget>
+
+class QLabel;
+class QPushButton;
+class QTableWidget;
 
 
 /**
@@ -37,6 +38,8 @@ struct CandleData {
 class QVBoxLayout;
 class QHBoxLayout;
 class QTimer;
+
+namespace Ui { class MarketMovementWindow; }
 
 /**
  * @brief Market Movement Window - Displays 1-minute OHLC candles from XTS API
@@ -100,23 +103,21 @@ protected:
   void closeEvent(QCloseEvent *event) override;
 
 private:
-  void setupUI();
-  void setupConnections();
-  void setupTable();
-  void setupNetworkManager();
-  void updateHeader();
-  void addCandleToTable(const CandleData &candle);
-  void fetchHistoricalOHLC();
-  int getSegmentFromExchange(const QString &exchange) const;
+    void initUI();
+    void setupConnections();
+    void setupNetworkManager();
+    void updateHeader();
+    void addCandleToTable(const CandleData &candle);
+    void fetchHistoricalOHLC();
+    int getSegmentFromExchange(const QString &exchange) const;
 
-  // UI Components
-  QVBoxLayout *m_mainLayout;
-  QHBoxLayout *m_headerLayout;
-  QLabel *m_titleLabel;
-  QLabel *m_instrumentLabel;
-  QLabel *m_statusLabel;
-  QPushButton *m_refreshButton;
-  QTableWidget *m_table;
+    // UI
+    Ui::MarketMovementWindow *ui;
+
+    // Convenience pointers (owned by ui)
+    QLabel *m_instrumentLabel;
+    QLabel *m_statusLabel;
+    QTableWidget *m_table;
 
   // Data
   WindowContext m_context;

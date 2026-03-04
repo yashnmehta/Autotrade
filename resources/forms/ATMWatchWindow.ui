@@ -1,0 +1,203 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>ATMWatchWindow</class>
+ <widget class="QWidget" name="ATMWatchWindow">
+  <property name="geometry">
+   <rect><x>0</x><y>0</y><width>1100</width><height>600</height></rect>
+  </property>
+  <property name="styleSheet">
+   <string notr="true">
+QWidget#ATMWatchWindow {
+  background-color: #ffffff;
+}
+QToolBar {
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 2px;
+}
+QToolButton {
+  background-color: #f1f5f9;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+  padding: 4px 8px;
+  margin: 2px;
+  border-radius: 4px;
+}
+QToolButton:hover { background-color: #e2e8f0; color: #0f172a; }
+QToolButton:pressed { background-color: #dbeafe; border-color: #3b82f6; }
+QLabel#exchangeLabel, QLabel#expiryLabel {
+  color: #475569;
+  font-weight: bold;
+}
+QLabel#m_statusLabel {
+  color: #64748b;
+  font-style: italic;
+}
+QComboBox#m_exchangeCombo, QComboBox#m_expiryCombo {
+  background-color: #ffffff;
+  color: #0f172a;
+  border: 1px solid #cbd5e1;
+  padding: 4px;
+  border-radius: 4px;
+}
+QComboBox#m_exchangeCombo::drop-down, QComboBox#m_expiryCombo::drop-down { border: none; }
+QComboBox QAbstractItemView {
+  background-color: #ffffff;
+  color: #0f172a;
+  selection-background-color: #bfdbfe;
+  selection-color: #1e40af;
+}
+QTableView#m_callTable, QTableView#m_putTable {
+  background-color: #ffffff;
+  color: #1e293b;
+  gridline-color: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  selection-background-color: #bfdbfe;
+  selection-color: #1e40af;
+}
+QTableView#m_callTable::item:selected, QTableView#m_putTable::item:selected {
+  background: #bfdbfe;
+  color: #1e40af;
+}
+QTableView#m_symbolTable {
+  background-color: #f0f4ff;
+  color: #1e293b;
+  gridline-color: #e2e8f0;
+  border: 1px solid #cbd5e1;
+  selection-background-color: #bfdbfe;
+  selection-color: #1e40af;
+}
+QTableView#m_symbolTable::item:selected {
+  background: #bfdbfe;
+  color: #1e40af;
+}
+QHeaderView::section {
+  background-color: #f8fafc;
+  color: #475569;
+  padding: 4px;
+  border: none;
+  border-bottom: 2px solid #e2e8f0;
+  font-weight: bold;
+}
+QTableView#m_symbolTable QHeaderView::section {
+  background-color: #e8ecf4;
+  color: #334155;
+  border-bottom: 2px solid #cbd5e1;
+}
+   </string>
+  </property>
+  <layout class="QVBoxLayout" name="mainLayout">
+   <property name="spacing"><number>5</number></property>
+   <property name="leftMargin"><number>5</number></property>
+   <property name="topMargin"><number>5</number></property>
+   <property name="rightMargin"><number>5</number></property>
+   <property name="bottomMargin"><number>5</number></property>
+
+   <!-- Toolbar -->
+   <item>
+    <widget class="QToolBar" name="m_toolbar">
+     <property name="movable"><bool>false</bool></property>
+     <property name="floatable"><bool>false</bool></property>
+     <property name="contextMenuPolicy"><enum>Qt::PreventContextMenu</enum></property>
+    </widget>
+   </item>
+
+   <!-- Filter Panel -->
+   <item>
+    <layout class="QHBoxLayout" name="filterLayout">
+     <property name="spacing"><number>10</number></property>
+     <item>
+      <widget class="QLabel" name="exchangeLabel">
+       <property name="text"><string>Exchange:</string></property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QComboBox" name="m_exchangeCombo">
+       <property name="minimumSize"><size><width>80</width><height>0</height></size></property>
+       <item><property name="text"><string>NSE</string></property></item>
+       <item><property name="text"><string>BSE</string></property></item>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="expiryLabel">
+       <property name="text"><string>Expiry:</string></property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QComboBox" name="m_expiryCombo">
+       <property name="minimumSize"><size><width>150</width><height>0</height></size></property>
+       <item><property name="text"><string>Current (Nearest)</string></property></item>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="m_statusLabel">
+       <property name="text"><string>Loading...</string></property>
+      </widget>
+     </item>
+     <item>
+      <spacer name="filterSpacer">
+       <property name="orientation"><enum>Qt::Horizontal</enum></property>
+      </spacer>
+     </item>
+    </layout>
+   </item>
+
+   <!-- Three-table layout -->
+   <item>
+    <layout class="QHBoxLayout" name="tableLayout">
+     <property name="spacing"><number>0</number></property>
+     <item>
+      <widget class="QTableView" name="m_callTable">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+         <horstretch>2</horstretch><verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="selectionBehavior"><enum>QAbstractItemView::SelectRows</enum></property>
+       <property name="selectionMode"><enum>QAbstractItemView::SingleSelection</enum></property>
+       <property name="editTriggers"><set>QAbstractItemView::NoEditTriggers</set></property>
+       <property name="showGrid"><bool>true</bool></property>
+       <property name="horizontalScrollBarPolicy"><enum>Qt::ScrollBarAlwaysOff</enum></property>
+       <property name="verticalScrollBarPolicy"><enum>Qt::ScrollBarAlwaysOff</enum></property>
+       <attribute name="verticalHeaderVisible"><bool>false</bool></attribute>
+      </widget>
+     </item>
+     <item>
+      <widget class="QTableView" name="m_symbolTable">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+         <horstretch>1</horstretch><verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="selectionBehavior"><enum>QAbstractItemView::SelectRows</enum></property>
+       <property name="selectionMode"><enum>QAbstractItemView::SingleSelection</enum></property>
+       <property name="editTriggers"><set>QAbstractItemView::NoEditTriggers</set></property>
+       <property name="showGrid"><bool>true</bool></property>
+       <property name="horizontalScrollBarPolicy"><enum>Qt::ScrollBarAlwaysOff</enum></property>
+       <property name="verticalScrollBarPolicy"><enum>Qt::ScrollBarAsNeeded</enum></property>
+       <attribute name="verticalHeaderVisible"><bool>false</bool></attribute>
+      </widget>
+     </item>
+     <item>
+      <widget class="QTableView" name="m_putTable">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+         <horstretch>2</horstretch><verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="selectionBehavior"><enum>QAbstractItemView::SelectRows</enum></property>
+       <property name="selectionMode"><enum>QAbstractItemView::SingleSelection</enum></property>
+       <property name="editTriggers"><set>QAbstractItemView::NoEditTriggers</set></property>
+       <property name="showGrid"><bool>true</bool></property>
+       <property name="horizontalScrollBarPolicy"><enum>Qt::ScrollBarAlwaysOff</enum></property>
+       <property name="verticalScrollBarPolicy"><enum>Qt::ScrollBarAlwaysOff</enum></property>
+       <attribute name="verticalHeaderVisible"><bool>false</bool></attribute>
+      </widget>
+     </item>
+    </layout>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>AllIndicesWindow</class>
+ <widget class="QWidget" name="AllIndicesWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>600</width>
+    <height>500</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>All Indices</string>
+  </property>
+  <property name="styleSheet">
+   <string notr="true">
+QWidget {
+    background-color: #ffffff;
+    color: #1e293b;
+    font-family: &quot;Segoe UI&quot;, sans-serif;
+}
+
+QLineEdit {
+    background-color: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+    padding: 6px 10px;
+    color: #1e293b;
+    font-size: 13px;
+}
+
+QLineEdit:focus {
+    border-color: #3b82f6;
+}
+
+QTableView {
+    background-color: #ffffff;
+    border: 1px solid #e2e8f0;
+    gridline-color: #f1f5f9;
+    color: #1e293b;
+    selection-background-color: #dbeafe;
+    selection-color: #1e40af;
+    alternate-background-color: #f8fafc;
+}
+
+QHeaderView::section {
+    background-color: #f8fafc;
+    color: #475569;
+    padding: 5px;
+    border: none;
+    border-bottom: 2px solid #e2e8f0;
+    font-weight: 600;
+}
+
+QPushButton {
+    padding: 6px 16px;
+    border-radius: 4px;
+    font-weight: 500;
+    border: 1px solid #e2e8f0;
+    background-color: #f8fafc;
+    color: #1e293b;
+}
+
+QPushButton:hover {
+    background-color: #e2e8f0;
+}
+
+QPushButton#applyBtn {
+    background-color: #16a34a;
+    color: #ffffff;
+    border: none;
+    font-weight: 600;
+}
+
+QPushButton#applyBtn:hover {
+    background-color: #15803d;
+}
+
+QLabel#titleLabel {
+    font-size: 14px;
+    font-weight: bold;
+    color: #1e293b;
+}
+   </string>
+  </property>
+  <layout class="QVBoxLayout" name="mainLayout">
+   <property name="spacing">
+    <number>5</number>
+   </property>
+   <property name="leftMargin">
+    <number>5</number>
+   </property>
+   <property name="topMargin">
+    <number>5</number>
+   </property>
+   <property name="rightMargin">
+    <number>5</number>
+   </property>
+   <property name="bottomMargin">
+    <number>5</number>
+   </property>
+   <item>
+    <widget class="QLabel" name="titleLabel">
+     <property name="text">
+      <string>All Indices - Select to add to Indices View</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QLineEdit" name="searchBox">
+     <property name="placeholderText">
+      <string>Search indices...</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QTableView" name="tableView">
+     <property name="sortingEnabled">
+      <bool>true</bool>
+     </property>
+     <property name="selectionMode">
+      <enum>QAbstractItemView::SingleSelection</enum>
+     </property>
+     <property name="selectionBehavior">
+      <enum>QAbstractItemView::SelectRows</enum>
+     </property>
+     <property name="alternatingRowColors">
+      <bool>true</bool>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="buttonLayout">
+     <item>
+      <widget class="QPushButton" name="selectAllBtn">
+       <property name="text">
+        <string>Select All</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="deselectAllBtn">
+       <property name="text">
+        <string>Deselect All</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <spacer name="horizontalSpacer">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+     <item>
+      <widget class="QPushButton" name="applyBtn">
+       <property name="text">
+        <string>Apply</string>
+       </property>
+       <property name="default">
+        <bool>true</bool>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

@@ -5,10 +5,11 @@
 #include "api/xts/XTSTypes.h"
 #include "models/qt/OrderModel.h"
 
+namespace Ui { class OrderBookWindow; }
+
 class CustomOrderBook;
 class TradingDataService;
 class QComboBox;
-class QDateTimeEdit;
 class QPushButton;
 class QLabel;
 
@@ -54,13 +55,11 @@ private:
     void updateSummary();
     void showOrderBookContextMenu(const QPoint &pos);
     
-    QWidget* createFilterWidget();
-    QWidget* createSummaryWidget();
-    
     // Helper to get selected order
     bool getSelectedOrder(XTS::Order &outOrder) const;
     QVector<XTS::Order> getSelectedOrders() const;
     
+    Ui::OrderBookWindow *ui;
     TradingDataService* m_tradingDataService;
     QVector<XTS::Order> m_allOrders;
 
@@ -69,8 +68,6 @@ private:
     QComboBox *m_orderTypeCombo;
     QComboBox *m_exchangeCombo;
     QComboBox *m_buySellCombo;
-    QDateTimeEdit *m_fromTimeEdit;
-    QDateTimeEdit *m_toTimeEdit;
     QPushButton *m_applyFilterBtn;
     QPushButton *m_clearFilterBtn;
     QPushButton *m_exportBtn;

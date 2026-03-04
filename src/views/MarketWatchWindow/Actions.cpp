@@ -1,6 +1,7 @@
 #include "data/PriceStoreGateway.h"
 #include "data/UnifiedPriceState.h"
 #include "models/domain/TokenAddressBook.h"
+#include "quant/ATMCalculator.h"
 #include "repository/RepositoryManager.h"
 #include "services/TokenSubscriptionManager.h"
 #include "utils/ClipboardHelpers.h"
@@ -14,6 +15,7 @@
 #include <QElapsedTimer>
 #include <QFileDialog>
 #include <QHeaderView>
+#include <QInputDialog>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -25,13 +27,16 @@
 // Helper: Convert exchange string to UDP segment (eliminates 4x duplication)
 // ============================================================================
 static UDP::ExchangeSegment exchangeToSegment(const QString &exchange) {
-  if (exchange == "NSEFO") return UDP::ExchangeSegment::NSEFO;
-  if (exchange == "NSECM") return UDP::ExchangeSegment::NSECM;
-  if (exchange == "BSEFO") return UDP::ExchangeSegment::BSEFO;
-  if (exchange == "BSECM") return UDP::ExchangeSegment::BSECM;
+  if (exchange == "NSEFO")
+    return UDP::ExchangeSegment::NSEFO;
+  if (exchange == "NSECM")
+    return UDP::ExchangeSegment::NSECM;
+  if (exchange == "BSEFO")
+    return UDP::ExchangeSegment::BSEFO;
+  if (exchange == "BSECM")
+    return UDP::ExchangeSegment::BSECM;
   return UDP::ExchangeSegment::NSECM; // default
 }
-
 
 bool MarketWatchWindow::addScrip(const QString &symbol, const QString &exchange,
                                  int token) {
@@ -121,6 +126,85 @@ bool MarketWatchWindow::addScrip(const QString &symbol, const QString &exchange,
 
   emit scripAdded(scrip.symbol, exchange, token);
   return true;
+}
+
+void MarketWatchWindow::addScrips(const QList<ScripData> &scrips) {
+  if (scrips.isEmpty())
+    return;
+
+  QList<ScripData> validScrips;
+  for (const auto &scripData : scrips) {
+    ScripData scrip = scripData;
+    if (!scrip.isBlankRow) {
+      if (scrip.token <= 0 || hasDuplicate(scrip.token))
+        continue;
+
+      const ContractData *contract =
+          RepositoryManager::getInstance()->getContractByToken(scrip.exchange,
+                                                               scrip.token);
+      if (contract) {
+        scrip.symbol = contract->name;
+        if (scrip.symbol.isEmpty())
+          scrip.symbol = contract->displayName;
+        scrip.instrumentType = contract->series;
+        scrip.strikePrice = contract->strikePrice;
+        scrip.optionType = contract->optionType;
+        scrip.seriesExpiry = contract->expiryDate;
+        scrip.close = contract->prevClose;
+        scrip.code = scrip.token;
+      } else {
+        scrip.code = scrip.token;
+      }
+    }
+    validScrips.append(scrip);
+  }
+
+  if (validScrips.isEmpty())
+    return;
+
+  int newRowStart = m_model->rowCount();
+  m_model->addScrips(validScrips);
+
+  for (int i = 0; i < validScrips.count(); ++i) {
+    const auto &scrip = validScrips[i];
+    if (scrip.isBlankRow)
+      continue;
+
+    int row = newRowStart + i;
+    TokenSubscriptionManager::instance()->subscribe(scrip.exchange,
+                                                    scrip.token);
+
+    UDP::ExchangeSegment segment = exchangeToSegment(scrip.exchange);
+    FeedHandler::instance().subscribeUDP(segment, scrip.token, this,
+                                         &MarketWatchWindow::onUdpTickUpdate);
+
+    if (m_useZeroCopyPriceCache) {
+      auto data = MarketData::PriceStoreGateway::instance().getUnifiedSnapshot(
+          static_cast<int>(segment), scrip.token);
+      if (data.token != 0 && data.ltp > 0) {
+        UDP::MarketTick udpTick;
+        udpTick.exchangeSegment = segment;
+        udpTick.token = scrip.token;
+        udpTick.ltp = data.ltp;
+        udpTick.open = data.open;
+        udpTick.high = data.high;
+        udpTick.low = data.low;
+        udpTick.prevClose = data.close;
+        udpTick.volume = data.volume;
+        udpTick.atp = data.avgPrice;
+        udpTick.bids[0].price = data.bids[0].price;
+        udpTick.bids[0].quantity = data.bids[0].quantity;
+        udpTick.asks[0].price = data.asks[0].price;
+        udpTick.asks[0].quantity = data.asks[0].quantity;
+        onUdpTickUpdate(udpTick);
+      }
+    }
+
+    m_tokenAddressBook->addCompositeToken(scrip.exchange, "", scrip.token, row);
+    m_tokenAddressBook->addIntKeyToken(static_cast<int>(segment), scrip.token,
+                                       row);
+    emit scripAdded(scrip.symbol, scrip.exchange, scrip.token);
+  }
 }
 
 bool MarketWatchWindow::addScripFromContract(const ScripData &contractData) {
@@ -364,6 +448,136 @@ void MarketWatchWindow::onAddScripAction() {
                            "Use ScripBar (Ctrl+S) to search and add scrips.");
 }
 
+void MarketWatchWindow::onMakeDeltaPortfolio() {
+  auto repo = RepositoryManager::getInstance();
+  if (!repo->isLoaded()) {
+    QMessageBox::warning(this, "Delta Portfolio", "Repository not loaded.");
+    return;
+  }
+
+  // Get available expiries
+  auto expiries = repo->getAllExpiries();
+  if (expiries.isEmpty()) {
+    QMessageBox::warning(this, "Delta Portfolio", "No expiries found.");
+    return;
+  }
+
+  bool ok;
+  QStringList expiryList = expiries.toList();
+  QString selectedExpiry =
+      QInputDialog::getItem(this, "Make Delta Portfolio",
+                            "Select Expiry:", expiryList, 0, false, &ok);
+  if (!ok || selectedExpiry.isEmpty()) {
+    return;
+  }
+
+  // Get all unique symbols from NSEFO
+  QStringList allSymbols = repo->getUniqueSymbols("NSE", "FO");
+
+  // We are rebuilding the entire list
+  clearAll();
+
+  // Suspend rendering for performance during bulk inserts
+  if (m_proxyModel)
+    m_proxyModel->setDynamicSortFilter(false);
+
+  int addedCount = 0;
+  QList<ScripData> bulkScrips;
+
+  for (const QString &symbol : allSymbols) {
+    // Check if this symbol has a future in the selected expiry using O(1) cache
+    // lookup
+    int64_t futureToken =
+        repo->getFutureTokenForSymbolExpiry(symbol, selectedExpiry);
+    if (futureToken <= 0)
+      continue;
+
+    // Retrieve underlying price
+    int64_t assetToken = repo->getAssetTokenForSymbol(symbol);
+    double basePrice = 0.0;
+
+    if (assetToken > 0) {
+      auto data = MarketData::PriceStoreGateway::instance().getUnifiedSnapshot(
+          1, static_cast<int>(assetToken));
+      if (data.token != 0 && data.ltp > 0)
+        basePrice = data.ltp;
+    }
+    if (basePrice <= 0 && futureToken > 0) {
+      auto data = MarketData::PriceStoreGateway::instance().getUnifiedSnapshot(
+          2, futureToken);
+      if (data.token != 0 && data.ltp > 0)
+        basePrice = data.ltp;
+    }
+    if (basePrice <= 0) {
+      basePrice = repo->getUnderlyingPrice(symbol, selectedExpiry);
+    }
+
+    // We strictly need to know the price to calculate ATM strikes
+    if (basePrice <= 0)
+      continue;
+
+    const QVector<double> &strikeList =
+        repo->getStrikesForSymbolExpiry(symbol, selectedExpiry);
+    if (strikeList.isEmpty())
+      continue;
+
+    auto atmResult = ATMCalculator::calculateFromActualStrikes(
+        basePrice, strikeList, 5); // 5 strikes each side
+    if (!atmResult.isValid)
+      continue;
+
+    // insert blank row as a separator between symbols
+    if (addedCount > 0) {
+      bulkScrips.append(ScripData::createBlankRow());
+    }
+
+    if (assetToken > 0) {
+      ScripData scrip;
+      scrip.symbol = symbol;
+      scrip.exchange = "NSECM";
+      scrip.token = static_cast<int>(assetToken);
+      bulkScrips.append(scrip);
+    }
+
+    ScripData futScrip;
+    futScrip.symbol = symbol + " FUT";
+    futScrip.exchange = "NSEFO";
+    futScrip.token = static_cast<int>(futureToken);
+    bulkScrips.append(futScrip);
+
+    // Add a blank row to separate underlying from options
+    bulkScrips.append(ScripData::createBlankRow());
+
+    // Get CE/PE for each strike
+    for (double strike : atmResult.strikes) {
+      auto tokens = repo->getTokensForStrike(symbol, selectedExpiry, strike);
+
+      if (tokens.first > 0) {
+        ScripData ce;
+        ce.symbol = symbol + " " + QString::number(strike) + " CE";
+        ce.exchange = "NSEFO";
+        ce.token = static_cast<int>(tokens.first);
+        bulkScrips.append(ce);
+      }
+      if (tokens.second > 0) {
+        ScripData pe;
+        pe.symbol = symbol + " " + QString::number(strike) + " PE";
+        pe.exchange = "NSEFO";
+        pe.token = static_cast<int>(tokens.second);
+        bulkScrips.append(pe);
+      }
+    }
+
+    addedCount++;
+  }
+
+  addScrips(bulkScrips);
+
+  // Restore rendering
+  if (m_proxyModel)
+    m_proxyModel->setDynamicSortFilter(true);
+}
+
 void MarketWatchWindow::performRowMoveByTokens(const QList<int> &tokens,
                                                int targetSourceRow) {
   if (tokens.isEmpty())
@@ -439,8 +653,8 @@ void MarketWatchWindow::performRowMoveByTokens(const QList<int> &tokens,
         TokenSubscriptionManager::instance()->subscribe(scrips[i].exchange,
                                                         scrips[i].token);
         UDP::ExchangeSegment udpSeg = exchangeToSegment(scrips[i].exchange);
-        FeedHandler::instance().subscribeUDP(udpSeg, scrips[i].token, this,
-                                             &MarketWatchWindow::onUdpTickUpdate);
+        FeedHandler::instance().subscribeUDP(
+            udpSeg, scrips[i].token, this, &MarketWatchWindow::onUdpTickUpdate);
       }
     }
   }
@@ -588,11 +802,9 @@ void MarketWatchWindow::restoreState(QSettings &settings) {
   }
 }
 
-void MarketWatchWindow::captureProfileFromView(
-    GenericTableProfile &profile) {
+void MarketWatchWindow::captureProfileFromView(GenericTableProfile &profile) {
   QHeaderView *header = this->horizontalHeader();
-  QList<int> modelColumns =
-      m_model->getColumnProfile().visibleColumns();
+  QList<int> modelColumns = m_model->getColumnProfile().visibleColumns();
 
   // Build a map of logical index -> column ID for currently visible columns
   QMap<int, int> logicalToColumn;
@@ -646,8 +858,7 @@ void MarketWatchWindow::captureProfileFromView(
            << completeOrder.size();
 }
 
-void MarketWatchWindow::applyProfileToView(
-    const GenericTableProfile &profile) {
+void MarketWatchWindow::applyProfileToView(const GenericTableProfile &profile) {
   QHeaderView *header = this->horizontalHeader();
   QList<int> visibleCols = profile.visibleColumns();
 

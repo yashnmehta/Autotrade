@@ -2,12 +2,14 @@
 // UI.cpp — ATMWatch UI setup, models, connections, shortcuts, styling
 // ============================================================================
 #include "views/ATMWatchWindow.h"
+#include "ui_ATMWatchWindow.h"
 #include "views/ATMWatchSettingsDialog.h"
 #include "views/GenericProfileDialog.h"
 #include "services/GreeksCalculationService.h"
 #include <QAction>
 #include <QApplication>
 #include <QClipboard>
+#include <QComboBox>
 #include <QCoreApplication>
 #include <QDateTime>
 #include <QDebug>
@@ -16,130 +18,43 @@
 #include <QHeaderView>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QLabel>
 #include <QMenu>
 #include <QMessageBox>
 #include <QScrollBar>
 #include <QShortcut>
 #include <QStandardItem>
+#include <QTableView>
+#include <QToolBar>
+#include <QVBoxLayout>
 
 void ATMWatchWindow::setupUI() {
-  QVBoxLayout *mainLayout = new QVBoxLayout(this);
-  mainLayout->setContentsMargins(5, 5, 5, 5);
-  mainLayout->setSpacing(5);
+  ui = new Ui::ATMWatchWindow();
+  ui->setupUi(this);
 
-  // Toolbar at Top
-  m_toolbar = new QToolBar(this);
-  m_toolbar->setContextMenuPolicy(Qt::PreventContextMenu);  // Prevent Qt's default toolbar context menu
-  m_toolbar->setMovable(false);  // Toolbar is fixed, not draggable
-  m_toolbar->setFloatable(false);  // Toolbar cannot be undocked
-  m_toolbar->setStyleSheet(
-      "QToolBar { background-color: #f8fafc; border: 1px solid #e2e8f0; "
-      "padding: 2px; }"
-      "QToolButton { background-color: #f1f5f9; color: #334155; border: 1px "
-      "solid #cbd5e1; "
-      "padding: 4px 8px; margin: 2px; border-radius: 4px; }"
-      "QToolButton:hover { background-color: #e2e8f0; color: #0f172a; }"
-      "QToolButton:pressed { background-color: #dbeafe; border-color: #3b82f6; }");
+  // Assign convenience pointers from ui
+  m_toolbar       = ui->m_toolbar;
+  m_exchangeCombo = ui->m_exchangeCombo;
+  m_expiryCombo   = ui->m_expiryCombo;
+  m_statusLabel   = ui->m_statusLabel;
+  m_callTable     = ui->m_callTable;
+  m_symbolTable   = ui->m_symbolTable;
+  m_putTable      = ui->m_putTable;
 
-  QAction *settingsAction = m_toolbar->addAction("⚙ Settings");
+  // Toolbar actions (must be added programmatically)
+  m_toolbar->setContextMenuPolicy(Qt::PreventContextMenu);
+  QAction *settingsAction = m_toolbar->addAction(QString::fromUtf8("⚙ Settings"));
   connect(settingsAction, &QAction::triggered, this,
           &ATMWatchWindow::onSettingsClicked);
 
-  QAction *refreshAction = m_toolbar->addAction("🔄 Refresh");
+  QAction *refreshAction = m_toolbar->addAction(QString::fromUtf8("🔄 Refresh"));
   connect(refreshAction, &QAction::triggered, this,
           &ATMWatchWindow::refreshData);
 
-  mainLayout->addWidget(m_toolbar);
-
-  // Filter Panel at Top
-  QHBoxLayout *filterLayout = new QHBoxLayout();
-  filterLayout->setSpacing(10);
-
-  // Exchange Selection
-  QLabel *exchangeLabel = new QLabel("Exchange:");
-  exchangeLabel->setStyleSheet("color: #475569; font-weight: bold;");
-  m_exchangeCombo = new QComboBox();
-  m_exchangeCombo->setObjectName("exchangeCombo");
-  m_exchangeCombo->addItems({"NSE", "BSE"});
-  m_exchangeCombo->setStyleSheet(
-      "QComboBox { background-color: #ffffff; color: #0f172a; border: 1px "
-      "solid #cbd5e1; padding: 4px; border-radius: 4px; }"
-      "QComboBox::drop-down { border: none; }"
-      "QComboBox QAbstractItemView { background-color: #ffffff; color: "
-      "#0f172a; selection-background-color: #bfdbfe; selection-color: #1e40af; }");
-  m_exchangeCombo->setMinimumWidth(80);
-
-  // Expiry Selection
-  QLabel *expiryLabel = new QLabel("Expiry:");
-  expiryLabel->setStyleSheet("color: #475569; font-weight: bold;");
-  m_expiryCombo = new QComboBox();
-  m_expiryCombo->setObjectName("expiryCombo");
-  m_expiryCombo->addItem("Current (Nearest)", "CURRENT");
-  m_expiryCombo->setStyleSheet(
-      "QComboBox { background-color: #ffffff; color: #0f172a; border: 1px "
-      "solid #cbd5e1; padding: 4px; border-radius: 4px; }"
-      "QComboBox::drop-down { border: none; }"
-      "QComboBox QAbstractItemView { background-color: #ffffff; color: "
-      "#0f172a; selection-background-color: #bfdbfe; selection-color: #1e40af; }");
-  m_expiryCombo->setMinimumWidth(150);
-
-  // Status Label
-  m_statusLabel = new QLabel("Loading...");
-  m_statusLabel->setStyleSheet("color: #64748b; font-style: italic;");
-
-  filterLayout->addWidget(exchangeLabel);
-  filterLayout->addWidget(m_exchangeCombo);
-  filterLayout->addWidget(expiryLabel);
-  filterLayout->addWidget(m_expiryCombo);
-  filterLayout->addWidget(m_statusLabel);
-  filterLayout->addStretch();
-
-  mainLayout->addLayout(filterLayout);
-
-  // Table Layout (existing code)
-  QHBoxLayout *tableLayout = new QHBoxLayout();
-  tableLayout->setSpacing(0);
-
-  auto setupTable = [this](QTableView *table) {
-    table->setSelectionBehavior(QAbstractItemView::SelectRows);
-    table->setSelectionMode(QAbstractItemView::SingleSelection);
-    table->setEditTriggers(QAbstractItemView::NoEditTriggers);
-    table->verticalHeader()->hide();
-    table->setShowGrid(true);
-    table->setGridStyle(Qt::SolidLine);
-    table->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    table->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    table->viewport()->installEventFilter(this);
-    table->setStyleSheet(
-        "QTableView { background-color: #ffffff; color: #1e293b; "
-        "gridline-color: #f1f5f9; border: 1px solid #e2e8f0; "
-        "selection-background-color: #bfdbfe; selection-color: #1e40af; }"
-        "QTableView::item:selected { background: #bfdbfe; color: #1e40af; }"
-        "QHeaderView::section { background-color: #f8fafc; color: #475569; "
-        "padding: 4px; border: none; border-bottom: 2px solid #e2e8f0; font-weight: bold; }");
-  };
-
-  m_callTable = new QTableView();
-  m_symbolTable = new QTableView();
-  m_putTable = new QTableView();
-
-  setupTable(m_callTable);
-  setupTable(m_symbolTable);
-  setupTable(m_putTable);
-
-  // Symbols table (Middle) should show vertical scrollbar
-  m_symbolTable->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-  m_symbolTable->setStyleSheet(
-      "QTableView { background-color: #f0f4ff; color: #1e293b; "
-      "gridline-color: #e2e8f0; border: 1px solid #cbd5e1; "
-      "selection-background-color: #bfdbfe; selection-color: #1e40af; }"
-      "QTableView::item:selected { background: #bfdbfe; color: #1e40af; }"
-      "QHeaderView::section { background-color: #e8ecf4; color: #334155; "
-      "padding: 4px; border: none; border-bottom: 2px solid #cbd5e1; font-weight: bold; }");
-
-  tableLayout->addWidget(m_callTable, 2);
-  tableLayout->addWidget(m_symbolTable, 1);
-  tableLayout->addWidget(m_putTable, 2);
+  // Install event filters on table viewports for wheel-sync
+  m_callTable->viewport()->installEventFilter(this);
+  m_symbolTable->viewport()->installEventFilter(this);
+  m_putTable->viewport()->installEventFilter(this);
 
   // Enable sorting on Symbol table header
   m_symbolTable->horizontalHeader()->setSectionsClickable(true);
@@ -158,8 +73,6 @@ void ATMWatchWindow::setupUI() {
   connect(m_putTable->horizontalHeader(), &QHeaderView::sectionClicked, this,
           &ATMWatchWindow::onPutHeaderClicked);
 
-  mainLayout->addLayout(tableLayout);
-
   // Keyboard-first: focus policies + tab order
   m_exchangeCombo->setFocusPolicy(Qt::StrongFocus);
   m_expiryCombo->setFocusPolicy(Qt::StrongFocus);
@@ -172,8 +85,6 @@ void ATMWatchWindow::setupUI() {
   QWidget::setTabOrder(m_symbolTable,   m_callTable);
   QWidget::setTabOrder(m_callTable,     m_putTable);
   QWidget::setTabOrder(m_putTable,      m_exchangeCombo);
-
-  setStyleSheet("QWidget { background-color: #ffffff; }");
 }
 
 void ATMWatchWindow::setupModels() {

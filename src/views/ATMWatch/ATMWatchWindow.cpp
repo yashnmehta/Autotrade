@@ -10,6 +10,7 @@
 #include "utils/WindowSettingsHelper.h"
 #include <QApplication>
 #include <QClipboard>
+#include <QComboBox>
 #include <QCoreApplication>
 #include <QDebug>
 #include <QDir>
@@ -20,8 +21,11 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QKeyEvent>
+#include <QLabel>
 #include <QScrollBar>
+#include <QTableView>
 #include <QTimer>
+#include <QToolBar>
 #include <QWheelEvent>
 
 ATMWatchWindow::ATMWatchWindow(QWidget *parent) : QWidget(parent) {
@@ -57,6 +61,7 @@ ATMWatchWindow::ATMWatchWindow(QWidget *parent) : QWidget(parent) {
 
 ATMWatchWindow::~ATMWatchWindow() {
   FeedHandler::instance().unsubscribeAll(this);
+  delete ui;
 }
 
 void ATMWatchWindow::showEvent(QShowEvent *event) {

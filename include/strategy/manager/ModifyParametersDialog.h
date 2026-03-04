@@ -7,12 +7,15 @@
 class QDoubleSpinBox;
 class QTextEdit;
 
+namespace Ui { class ModifyParametersDialog; }
+
 class ModifyParametersDialog : public QDialog
 {
     Q_OBJECT
 
 public:
     explicit ModifyParametersDialog(QWidget *parent = nullptr);
+    ~ModifyParametersDialog();
 
     void setInitialValues(double stopLoss, double target, const QVariantMap& parameters);
 
@@ -26,9 +29,7 @@ protected:
 private:
     QVariantMap parseParameters(bool* ok) const;
 
-    QDoubleSpinBox* m_stopLossSpin;
-    QDoubleSpinBox* m_targetSpin;
-    QTextEdit* m_paramsEdit;
+    Ui::ModifyParametersDialog *ui;
     QVariantMap m_cachedParameters;
 };
 

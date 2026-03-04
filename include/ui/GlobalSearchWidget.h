@@ -2,15 +2,13 @@
 #define GLOBAL_SEARCH_WIDGET_H
 
 #include "repository/ContractData.h"
-#include <QComboBox>
-#include <QHBoxLayout>
-#include <QLabel>
-#include <QLineEdit>
-#include <QPushButton>
-#include <QTableWidget>
-#include <QVBoxLayout>
 #include <QWidget>
 
+class QComboBox;
+class QLineEdit;
+class QTableWidget;
+
+namespace Ui { class GlobalSearchWidget; }
 
 class GlobalSearchWidget : public QWidget {
   Q_OBJECT
@@ -28,16 +26,10 @@ private slots:
   void onReturnPressed();
 
 private:
-  void setupUI();
   void updateResults();
   void populateExpiries(const QString &symbol);
 
-  QLineEdit *m_searchEdit;
-  QComboBox *m_exchangeCombo;
-  QComboBox *m_segmentCombo;
-  QComboBox *m_expiryCombo;
-  QTableWidget *m_resultsTable;
-
+  Ui::GlobalSearchWidget *ui;
   QVector<ContractData> m_currentResults;
 };
 

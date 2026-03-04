@@ -1,0 +1,203 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MarketMovementWindow</class>
+ <widget class="QWidget" name="MarketMovementWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>800</width>
+    <height>600</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Market Movement</string>
+  </property>
+  <property name="styleSheet">
+   <string notr="true">
+QWidget {
+    background-color: #ffffff;
+    color: #1e293b;
+    font-family: &quot;Segoe UI&quot;, sans-serif;
+}
+
+QLabel {
+    color: #475569;
+}
+
+QLabel#titleLabel {
+    color: #1e293b;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+QLabel#statusLabel {
+    color: #16a34a;
+    font-style: italic;
+    font-size: 12px;
+}
+
+QLabel#instrumentLabel {
+    color: #2563eb;
+    font-weight: bold;
+    font-size: 12px;
+}
+
+QPushButton#refreshButton {
+    background-color: #2563eb;
+    color: #ffffff;
+    border: none;
+    padding: 5px 15px;
+    border-radius: 4px;
+    font-weight: 600;
+}
+
+QPushButton#refreshButton:hover {
+    background-color: #1d4ed8;
+}
+
+QPushButton#refreshButton:pressed {
+    background-color: #1e40af;
+}
+
+QTableWidget {
+    background-color: #ffffff;
+    border: 1px solid #e2e8f0;
+    gridline-color: #f1f5f9;
+    color: #1e293b;
+}
+
+QTableWidget::item {
+    padding: 5px;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+QTableWidget::item:selected {
+    background-color: #dbeafe;
+    color: #1e40af;
+}
+
+QHeaderView::section {
+    background-color: #f8fafc;
+    color: #475569;
+    padding: 6px;
+    border: none;
+    border-bottom: 2px solid #e2e8f0;
+    font-weight: 600;
+}
+   </string>
+  </property>
+  <layout class="QVBoxLayout" name="mainLayout">
+   <property name="spacing">
+    <number>10</number>
+   </property>
+   <property name="leftMargin">
+    <number>10</number>
+   </property>
+   <property name="topMargin">
+    <number>10</number>
+   </property>
+   <property name="rightMargin">
+    <number>10</number>
+   </property>
+   <property name="bottomMargin">
+    <number>10</number>
+   </property>
+   <item>
+    <layout class="QHBoxLayout" name="headerLayout">
+     <item>
+      <widget class="QLabel" name="titleLabel">
+       <property name="text">
+        <string>Market Movement for OPTSTK</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="statusLabel">
+       <property name="text">
+        <string/>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <spacer name="headerSpacer">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+     <item>
+      <widget class="QPushButton" name="refreshButton">
+       <property name="text">
+        <string>Refresh</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="instrumentLabel">
+       <property name="text">
+        <string>No instrument selected</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <widget class="QTableWidget" name="table">
+     <property name="editTriggers">
+      <set>QAbstractItemView::NoEditTriggers</set>
+     </property>
+     <property name="selectionMode">
+      <enum>QAbstractItemView::SingleSelection</enum>
+     </property>
+     <property name="selectionBehavior">
+      <enum>QAbstractItemView::SelectRows</enum>
+     </property>
+     <column>
+      <property name="text">
+       <string>Time</string>
+      </property>
+     </column>
+     <column>
+      <property name="text">
+       <string>Open</string>
+      </property>
+     </column>
+     <column>
+      <property name="text">
+       <string>High</string>
+      </property>
+     </column>
+     <column>
+      <property name="text">
+       <string>Low</string>
+      </property>
+     </column>
+     <column>
+      <property name="text">
+       <string>Close</string>
+      </property>
+     </column>
+     <column>
+      <property name="text">
+       <string>Volume</string>
+      </property>
+     </column>
+     <column>
+      <property name="text">
+       <string>Average</string>
+      </property>
+     </column>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

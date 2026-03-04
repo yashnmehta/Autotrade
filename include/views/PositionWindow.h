@@ -7,6 +7,8 @@
 #include "PositionModel.h"
 #include <QMutex>
 
+namespace Ui { class PositionWindow; }
+
 class CustomNetPosition;
 class TradingDataService;
 class QComboBox;
@@ -44,8 +46,8 @@ private:
     void setupConnections();
     void updateSummaryRow();
     void showPositionContextMenu(const QPoint &pos);
-    QWidget* createFilterWidget();
     
+    Ui::PositionWindow *ui;
     TradingDataService* m_tradingDataService;
     QList<PositionData> m_allPositions;
 

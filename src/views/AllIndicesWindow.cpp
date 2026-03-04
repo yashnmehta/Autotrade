@@ -1,9 +1,10 @@
 #include "views/AllIndicesWindow.h"
+#include "ui_AllIndicesWindow.h"
 #include "repository/RepositoryManager.h"
-#include <QVBoxLayout>
-#include <QHBoxLayout>
 #include <QHeaderView>
-#include <QLabel>
+#include <QLineEdit>
+#include <QPushButton>
+#include <QSortFilterProxyModel>
 #include <QDebug>
 #include <QSettings>
 
@@ -163,81 +164,39 @@ void AllIndicesModel::setSelectedIndices(const QStringList& selectedNames)
 
 AllIndicesWindow::AllIndicesWindow(QWidget *parent)
     : QWidget(parent)
-    , m_tableView(new QTableView(this))
+    , ui(new Ui::AllIndicesWindow)
     , m_model(new AllIndicesModel(this))
     , m_proxyModel(new QSortFilterProxyModel(this))
-    , m_searchBox(new QLineEdit(this))
-    , m_selectAllBtn(new QPushButton("Select All", this))
-    , m_deselectAllBtn(new QPushButton("Deselect All", this))
-    , m_applyBtn(new QPushButton("Apply Selection", this))
 {
-    setupUI();
-}
-
-AllIndicesWindow::~AllIndicesWindow()
-{
-}
-
-void AllIndicesWindow::setupUI()
-{
-    QVBoxLayout *mainLayout = new QVBoxLayout(this);
-    mainLayout->setContentsMargins(5, 5, 5, 5);
-    mainLayout->setSpacing(5);
-
-    // Title
-    QLabel *titleLabel = new QLabel("All Indices - Select to add to Indices View", this);
-    QFont titleFont = titleLabel->font();
-    titleFont.setBold(true);
-    titleLabel->setFont(titleFont);
-    mainLayout->addWidget(titleLabel);
-
-    // Search box
-    m_searchBox->setPlaceholderText("Search indices...");
-    connect(m_searchBox, &QLineEdit::textChanged, this, &AllIndicesWindow::onSearchTextChanged);
-    mainLayout->addWidget(m_searchBox);
+    ui->setupUi(this);
 
     // Setup proxy model for filtering
     m_proxyModel->setSourceModel(m_model);
     m_proxyModel->setFilterCaseSensitivity(Qt::CaseInsensitive);
     m_proxyModel->setFilterKeyColumn(AllIndicesModel::COL_NAME);
 
-    // Table view
-    m_tableView->setModel(m_proxyModel);
-    m_tableView->setSortingEnabled(true);
-    m_tableView->setSelectionBehavior(QAbstractItemView::SelectRows);
-    m_tableView->setSelectionMode(QAbstractItemView::SingleSelection);
-    m_tableView->setAlternatingRowColors(true);
-    m_tableView->verticalHeader()->setVisible(false);
-    m_tableView->horizontalHeader()->setStretchLastSection(true);
-    
+    // Table view configuration
+    ui->tableView->setModel(m_proxyModel);
+    ui->tableView->verticalHeader()->setVisible(false);
+    ui->tableView->horizontalHeader()->setStretchLastSection(true);
+
     // Column widths
-    m_tableView->setColumnWidth(AllIndicesModel::COL_SELECTED, 40);
-    m_tableView->setColumnWidth(AllIndicesModel::COL_NAME, 300);
-    m_tableView->setColumnWidth(AllIndicesModel::COL_TOKEN, 80);
-    
-    mainLayout->addWidget(m_tableView);
+    ui->tableView->setColumnWidth(AllIndicesModel::COL_SELECTED, 40);
+    ui->tableView->setColumnWidth(AllIndicesModel::COL_NAME, 300);
+    ui->tableView->setColumnWidth(AllIndicesModel::COL_TOKEN, 80);
 
-    // Buttons layout
-    QHBoxLayout *btnLayout = new QHBoxLayout();
-    btnLayout->addWidget(m_selectAllBtn);
-    btnLayout->addWidget(m_deselectAllBtn);
-    btnLayout->addStretch();
-    btnLayout->addWidget(m_applyBtn);
+    // Connections
+    connect(ui->searchBox, &QLineEdit::textChanged, this, &AllIndicesWindow::onSearchTextChanged);
+    connect(ui->selectAllBtn, &QPushButton::clicked, this, &AllIndicesWindow::onSelectAllClicked);
+    connect(ui->deselectAllBtn, &QPushButton::clicked, this, &AllIndicesWindow::onDeselectAllClicked);
+    connect(ui->applyBtn, &QPushButton::clicked, this, &AllIndicesWindow::onApplyClicked);
 
-    connect(m_selectAllBtn, &QPushButton::clicked, this, &AllIndicesWindow::onSelectAllClicked);
-    connect(m_deselectAllBtn, &QPushButton::clicked, this, &AllIndicesWindow::onDeselectAllClicked);
-    connect(m_applyBtn, &QPushButton::clicked, this, &AllIndicesWindow::onApplyClicked);
-
-    m_applyBtn->setDefault(true);
-    m_applyBtn->setStyleSheet("QPushButton { background-color: #16a34a; color: white; font-weight: bold; padding: 5px 15px; border-radius: 4px; border: none; }"
-                              "QPushButton:hover { background-color: #15803d; }");
-
-    mainLayout->addLayout(btnLayout);
-
-    setLayout(mainLayout);
-    setWindowTitle("All Indices");
     setWindowFlags(Qt::Window);
-    resize(600, 500);
+}
+
+AllIndicesWindow::~AllIndicesWindow()
+{
+    delete ui;
 }
 
 void AllIndicesWindow::initialize(RepositoryManager* repoManager)

@@ -1,0 +1,188 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>TradeBookWindow</class>
+ <widget class="QWidget" name="TradeBookWindow">
+  <property name="geometry">
+   <rect><x>0</x><y>0</y><width>900</width><height>500</height></rect>
+  </property>
+  <property name="styleSheet">
+   <string notr="true">
+QWidget#filterContainer {
+  background-color: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+QWidget#filterContainer QLabel {
+  color: #475569;
+  font-size: 11px;
+}
+QWidget#filterContainer QComboBox {
+  background-color: #ffffff;
+  color: #1e293b;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  font-size: 11px;
+}
+QWidget#filterContainer QCheckBox {
+  color: #475569;
+}
+QPushButton {
+  border-radius: 4px;
+  font-weight: 600;
+  font-size: 11px;
+  padding: 5px 12px;
+}
+QPushButton#m_applyFilterBtn {
+  background-color: #16a34a;
+  color: white;
+}
+QPushButton#m_applyFilterBtn:hover { background-color: #15803d; }
+QPushButton#m_clearFilterBtn {
+  background-color: #f1f5f9;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+}
+QPushButton#m_clearFilterBtn:hover { background-color: #e2e8f0; }
+QPushButton#m_exportBtn {
+  background-color: #d97706;
+  color: white;
+}
+QPushButton#m_exportBtn:hover { background-color: #b45309; }
+QWidget#summaryWidget {
+  background-color: #f5f5f5;
+  border-top: 1px solid #ccc;
+}
+   </string>
+  </property>
+  <layout class="QVBoxLayout" name="mainLayout">
+   <property name="spacing"><number>0</number></property>
+   <property name="leftMargin"><number>0</number></property>
+   <property name="topMargin"><number>0</number></property>
+   <property name="rightMargin"><number>0</number></property>
+   <property name="bottomMargin"><number>0</number></property>
+
+   <!-- Filter Bar -->
+   <item>
+    <widget class="QWidget" name="filterContainer" native="true">
+     <layout class="QVBoxLayout" name="filterMainLayout">
+      <property name="leftMargin"><number>12</number></property>
+      <property name="topMargin"><number>10</number></property>
+      <property name="rightMargin"><number>12</number></property>
+      <property name="bottomMargin"><number>10</number></property>
+      <property name="spacing"><number>8</number></property>
+      <item>
+       <layout class="QHBoxLayout" name="filterLayout">
+        <item>
+         <layout class="QVBoxLayout" name="instrumentLayout">
+          <item><widget class="QLabel" name="lblInstrument"><property name="text"><string>Instrument</string></property></widget></item>
+          <item>
+           <widget class="QComboBox" name="m_instrumentTypeCombo">
+            <item><property name="text"><string>All</string></property></item>
+            <item><property name="text"><string>NSE OPT</string></property></item>
+            <item><property name="text"><string>NSE FUT</string></property></item>
+            <item><property name="text"><string>NSE EQ</string></property></item>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QVBoxLayout" name="exchangeLayout">
+          <item><widget class="QLabel" name="lblExchange"><property name="text"><string>Exchange</string></property></widget></item>
+          <item>
+           <widget class="QComboBox" name="m_exchangeCombo">
+            <item><property name="text"><string>All</string></property></item>
+            <item><property name="text"><string>NSE</string></property></item>
+            <item><property name="text"><string>BSE</string></property></item>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QVBoxLayout" name="buySellLayout">
+          <item><widget class="QLabel" name="lblBuySell"><property name="text"><string>Buy/Sell</string></property></widget></item>
+          <item>
+           <widget class="QComboBox" name="m_buySellCombo">
+            <item><property name="text"><string>All</string></property></item>
+            <item><property name="text"><string>Buy</string></property></item>
+            <item><property name="text"><string>Sell</string></property></item>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QVBoxLayout" name="orderTypeLayout">
+          <item><widget class="QLabel" name="lblOrderType"><property name="text"><string>Order Type</string></property></widget></item>
+          <item>
+           <widget class="QComboBox" name="m_orderTypeCombo">
+            <item><property name="text"><string>All</string></property></item>
+            <item><property name="text"><string>Day</string></property></item>
+            <item><property name="text"><string>IOC</string></property></item>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <spacer name="filterSpacer">
+          <property name="orientation"><enum>Qt::Horizontal</enum></property>
+         </spacer>
+        </item>
+        <item>
+         <widget class="QCheckBox" name="m_showSummaryCheck">
+          <property name="text"><string>Summary</string></property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="m_applyFilterBtn">
+          <property name="text"><string>Apply</string></property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="m_clearFilterBtn">
+          <property name="text"><string>Clear</string></property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="m_exportBtn">
+          <property name="text"><string>Export</string></property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+     </layout>
+    </widget>
+   </item>
+
+   <!-- Table placeholder — replaced programmatically with CustomTradeBook -->
+   <item>
+    <widget class="QTableView" name="m_tableViewPlaceholder">
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+       <horstretch>0</horstretch><verstretch>1</verstretch>
+      </sizepolicy>
+     </property>
+    </widget>
+   </item>
+
+   <!-- Summary Bar -->
+   <item>
+    <widget class="QWidget" name="summaryWidget" native="true">
+     <property name="minimumSize"><size><width>0</width><height>32</height></size></property>
+     <property name="maximumSize"><size><width>16777215</width><height>32</height></size></property>
+     <layout class="QHBoxLayout" name="summaryLayout">
+      <item>
+       <widget class="QLabel" name="m_summaryLabel">
+        <property name="text"><string></string></property>
+       </widget>
+      </item>
+      <item>
+       <spacer name="summarySpacer">
+        <property name="orientation"><enum>Qt::Horizontal</enum></property>
+       </spacer>
+      </item>
+     </layout>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

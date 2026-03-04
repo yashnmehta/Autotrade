@@ -6,9 +6,13 @@
 #include "repository/RepositoryManager.h"
 #include "services/FeedHandler.h"
 #include "services/GreeksCalculationService.h"
+#include <QComboBox>
 #include <QDate>
 #include <QDebug>
+#include <QLabel>
+#include <QScrollBar>
 #include <QStandardItem>
+#include <QTableView>
 #include <QtConcurrent>
 
 void ATMWatchWindow::updateItemWithColor(QStandardItemModel *model, int row,

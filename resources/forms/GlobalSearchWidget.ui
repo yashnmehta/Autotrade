@@ -1,0 +1,214 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>GlobalSearchWidget</class>
+ <widget class="QWidget" name="GlobalSearchWidget">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>700</width>
+    <height>500</height>
+   </rect>
+  </property>
+  <property name="styleSheet">
+   <string notr="true">
+QWidget {
+    background-color: #ffffff;
+    color: #1e293b;
+    font-family: &quot;Segoe UI&quot;, sans-serif;
+}
+
+QLineEdit {
+    background-color: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    color: #0f172a;
+    padding: 5px 8px;
+    font-size: 14px;
+}
+
+QLineEdit:focus {
+    border-color: #3b82f6;
+}
+
+QComboBox {
+    background-color: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    padding: 4px 8px;
+    color: #0f172a;
+}
+
+QComboBox::drop-down {
+    border: none;
+}
+
+QComboBox QAbstractItemView {
+    background: #ffffff;
+    color: #0f172a;
+    border: 1px solid #e2e8f0;
+    selection-background-color: #dbeafe;
+    selection-color: #1e40af;
+}
+
+QTableWidget {
+    background-color: #ffffff;
+    border: 1px solid #e2e8f0;
+    gridline-color: #f1f5f9;
+    color: #1e293b;
+}
+
+QTableWidget::item:selected {
+    background: #dbeafe;
+    color: #1e40af;
+}
+
+QTableWidget::item:hover {
+    background: #f8fafc;
+}
+
+QHeaderView::section {
+    background-color: #f8fafc;
+    color: #475569;
+    padding: 5px;
+    border: none;
+    border-bottom: 2px solid #e2e8f0;
+    font-weight: 600;
+}
+
+QLabel {
+    color: #475569;
+}
+   </string>
+  </property>
+  <layout class="QVBoxLayout" name="mainLayout">
+   <property name="spacing">
+    <number>10</number>
+   </property>
+   <property name="leftMargin">
+    <number>10</number>
+   </property>
+   <property name="topMargin">
+    <number>10</number>
+   </property>
+   <property name="rightMargin">
+    <number>10</number>
+   </property>
+   <property name="bottomMargin">
+    <number>10</number>
+   </property>
+   <item>
+    <layout class="QHBoxLayout" name="searchLayout">
+     <item>
+      <widget class="QLineEdit" name="searchEdit">
+       <property name="minimumSize">
+        <size>
+         <width>0</width>
+         <height>35</height>
+        </size>
+       </property>
+       <property name="placeholderText">
+        <string>Search scripts (e.g., NIFTY 17FEB 26000 CE)</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="filterLayout">
+     <item>
+      <widget class="QLabel" name="exchangeLabel">
+       <property name="text">
+        <string>Exchange:</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QComboBox" name="exchangeCombo"/>
+     </item>
+     <item>
+      <widget class="QLabel" name="segmentLabel">
+       <property name="text">
+        <string>Segment:</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QComboBox" name="segmentCombo"/>
+     </item>
+     <item>
+      <widget class="QLabel" name="expiryLabel">
+       <property name="text">
+        <string>Expiry:</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QComboBox" name="expiryCombo"/>
+     </item>
+     <item>
+      <spacer name="filterSpacer">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <widget class="QTableWidget" name="resultsTable">
+     <property name="editTriggers">
+      <set>QAbstractItemView::NoEditTriggers</set>
+     </property>
+     <property name="selectionMode">
+      <enum>QAbstractItemView::SingleSelection</enum>
+     </property>
+     <property name="selectionBehavior">
+      <enum>QAbstractItemView::SelectRows</enum>
+     </property>
+     <property name="alternatingRowColors">
+      <bool>true</bool>
+     </property>
+     <column>
+      <property name="text">
+       <string>Symbol</string>
+      </property>
+     </column>
+     <column>
+      <property name="text">
+       <string>Exchange</string>
+      </property>
+     </column>
+     <column>
+      <property name="text">
+       <string>Segment</string>
+      </property>
+     </column>
+     <column>
+      <property name="text">
+       <string>Expiry</string>
+      </property>
+     </column>
+     <column>
+      <property name="text">
+       <string>Strike</string>
+      </property>
+     </column>
+     <column>
+      <property name="text">
+       <string>Type</string>
+      </property>
+     </column>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

@@ -6,24 +6,27 @@
 #include "models/profiles/GenericProfileManager.h"
 #include "services/ATMWatchManager.h"
 #include "udp/UDPTypes.h"
-#include <QComboBox>
 #include <QCloseEvent>
-#include <QHBoxLayout>
 #include <QKeyEvent>
-#include <QLabel>
-#include <QLineEdit>
 #include <QMap>
 #include <QPainter>
-#include <QPushButton>
-#include <QScrollBar>
 #include <QSettings>
 #include <QStandardItem>
 #include <QStandardItemModel>
 #include <QStyledItemDelegate>
-#include <QTableView>
-#include <QToolBar>
-#include <QVBoxLayout>
 #include <QWidget>
+
+namespace Ui { class ATMWatchWindow; }
+
+class QComboBox;
+class QHBoxLayout;
+class QLabel;
+class QLineEdit;
+class QPushButton;
+class QScrollBar;
+class QTableView;
+class QToolBar;
+class QVBoxLayout;
 
 /**
  * @brief Custom delegate for color-coding cells based on value changes
@@ -205,6 +208,9 @@ private:
 
   // Context & Key Handling
   void keyPressEvent(QKeyEvent *event) override;
+
+  // Ui pointer
+  Ui::ATMWatchWindow *ui;
 
   // UI Components - Toolbar
   QToolBar *m_toolbar;

@@ -9,6 +9,9 @@ class QTreeWidget;
 class QTreeWidgetItem;
 class QLabel;
 class QLineEdit;
+class QComboBox;
+
+namespace Ui { class IndicatorPickerDialog; }
 
 /**
  * @brief Modal picker that lets the user browse all TA-Lib indicators by
@@ -28,6 +31,7 @@ public:
     explicit IndicatorPickerDialog(const QStringList &symbolIds,
                                    int               existingCount = 0,
                                    QWidget          *parent = nullptr);
+    ~IndicatorPickerDialog();
 
     IndicatorMeta selectedMeta()     const { return m_selected;   }
     QString       selectedSymbolId() const { return m_symbolId;   }
@@ -52,13 +56,7 @@ private:
     void buildTree(const QString &filter = {});
     void updateDescription(const IndicatorMeta &m);
 
-    QLineEdit    *m_filterEdit  = nullptr;
-    QTreeWidget  *m_tree        = nullptr;
-    QLabel       *m_descLabel   = nullptr;
-    QLabel       *m_paramLabel  = nullptr;
-    class QComboBox *m_symCombo    = nullptr;
-    class QComboBox *m_outputCombo = nullptr;  // output series selector
-    class QComboBox *m_tfCombo     = nullptr;  // timeframe selector
+    Ui::IndicatorPickerDialog *ui;
 
     IndicatorMeta m_selected;
     QString       m_symbolId;

@@ -1,22 +1,20 @@
 #include "views/PositionWindow.h"
+#include "ui_PositionWindow.h"
 #include "core/widgets/CustomNetPosition.h"
 #include "repository/RepositoryManager.h"
 #include "services/TradingDataService.h"
 #include "utils/WindowSettingsHelper.h"
-#include <QVBoxLayout>
-
 
 #include "models/qt/PinnedRowProxyModel.h"
 #include <QComboBox>
 #include <QDebug>
-#include <QHBoxLayout>
 #include <QLabel>
 #include <QMenu>
 #include <QMessageBox>
 #include <QPushButton>
 #include <QSortFilterProxyModel>
+#include <QVBoxLayout>
 #include <QVector>
-
 
 #include "data/PriceStoreGateway.h"
 #include <QMutexLocker>
@@ -26,6 +24,7 @@
 PositionWindow::PositionWindow(TradingDataService *tradingDataService,
                                QWidget *parent)
     : BaseBookWindow("PositionBook", parent),
+      ui(new Ui::PositionWindow),
       m_tradingDataService(tradingDataService), m_isUpdating(false) {
   setupUI();
   loadInitialProfile();
@@ -52,58 +51,39 @@ PositionWindow::PositionWindow(TradingDataService *tradingDataService,
   WindowSettingsHelper::loadAndApplyWindowSettings(this, "PositionBook");
 }
 
-PositionWindow::~PositionWindow() {}
+PositionWindow::~PositionWindow() { delete ui; }
 
 void PositionWindow::setupUI() {
-  QVBoxLayout *mainLayout = new QVBoxLayout(this);
-  mainLayout->setContentsMargins(0, 0, 0, 0);
-  mainLayout->setSpacing(0);
-  mainLayout->addWidget(createFilterWidget());
+  ui->setupUi(this);
+
+  // Assign convenience pointers from ui
+  m_cbExchange   = ui->m_cbExchange;
+  m_cbSegment    = ui->m_cbSegment;
+  m_cbPeriodicity = ui->m_cbPeriodicity;
+  m_cbUser       = ui->m_cbUser;
+  m_cbClient     = ui->m_cbClient;
+  m_btnRefresh   = ui->m_btnRefresh;
+  m_btnExport    = ui->m_btnExport;
+
+  // Connect filter combos
+  connect(m_cbExchange, &QComboBox::currentTextChanged, this, &PositionWindow::applyFilters);
+  connect(m_cbSegment, &QComboBox::currentTextChanged, this, &PositionWindow::applyFilters);
+  connect(m_cbPeriodicity, &QComboBox::currentTextChanged, this, &PositionWindow::applyFilters);
+  connect(m_cbUser, &QComboBox::currentTextChanged, this, &PositionWindow::applyFilters);
+  connect(m_cbClient, &QComboBox::currentTextChanged, this, &PositionWindow::applyFilters);
+
+  // Connect buttons
+  connect(m_btnRefresh, &QPushButton::clicked, this, &PositionWindow::onRefreshClicked);
+  connect(m_btnExport, &QPushButton::clicked, this, &PositionWindow::onExportClicked);
+
+  // Replace placeholder table with real CustomNetPosition
   setupTable();
-  mainLayout->addWidget(m_tableView, 1);
-}
-
-QWidget *PositionWindow::createFilterWidget() {
-  QWidget *container = new QWidget(this);
-  container->setObjectName("filterContainer");
-  container->setStyleSheet(
-      "QWidget#filterContainer { background-color: #f8fafc; border-bottom: 1px "
-      "solid #e2e8f0; } QLabel { color: #475569; font-size: 11px; } QComboBox "
-      "{ background-color: #ffffff; color: #1e293b; border: 1px solid #cbd5e1; "
-      "border-radius: 4px; font-size: 11px; } QPushButton { border-radius: "
-      "4px; font-weight: 600; font-size: 11px; padding: 5px 12px; }");
-  QHBoxLayout *layout = new QHBoxLayout(container);
-  layout->setContentsMargins(12, 10, 12, 10);
-
-  auto addCombo = [&](const QString &l, QComboBox *&c, const QStringList &i) {
-    QVBoxLayout *v = new QVBoxLayout();
-    v->addWidget(new QLabel(l));
-    c = new QComboBox();
-    c->addItems(i);
-    v->addWidget(c);
-    layout->addLayout(v);
-    connect(c, &QComboBox::currentTextChanged, this,
-            &PositionWindow::applyFilters);
-  };
-  addCombo("Exchange", m_cbExchange, {"All", "NSE", "BSE", "MCX"});
-  addCombo("Segment", m_cbSegment, {"All", "Cash", "FO", "CD", "COM"});
-  addCombo("Product", m_cbPeriodicity, {"All", "MIS", "NRML", "CNC"});
-  addCombo("User", m_cbUser, {"All"});
-  addCombo("Client", m_cbClient, {"All"});
-
-  layout->addStretch();
-  m_btnRefresh = new QPushButton("Refresh");
-  m_btnRefresh->setStyleSheet("background-color: #16a34a; color: white;");
-  m_btnExport = new QPushButton("Export");
-  m_btnExport->setStyleSheet("background-color: #d97706; color: white;");
-  layout->addWidget(m_btnRefresh);
-  layout->addWidget(m_btnExport);
-
-  connect(m_btnRefresh, &QPushButton::clicked, this,
-          &PositionWindow::onRefreshClicked);
-  connect(m_btnExport, &QPushButton::clicked, this,
-          &PositionWindow::onExportClicked);
-  return container;
+  QVBoxLayout *mainLayout = qobject_cast<QVBoxLayout*>(layout());
+  if (mainLayout) {
+    mainLayout->replaceWidget(ui->m_tableViewPlaceholder, m_tableView);
+    ui->m_tableViewPlaceholder->hide();
+    ui->m_tableViewPlaceholder->deleteLater();
+  }
 }
 
 void PositionWindow::setupTable() {

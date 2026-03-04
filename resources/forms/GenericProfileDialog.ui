@@ -1,0 +1,300 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>GenericProfileDialog</class>
+ <widget class="QDialog" name="GenericProfileDialog">
+  <property name="geometry">
+   <rect><x>0</x><y>0</y><width>560</width><height>420</height></rect>
+  </property>
+  <property name="windowTitle">
+   <string>Column Selection</string>
+  </property>
+  <property name="minimumSize">
+   <size><width>520</width><height>380</height></size>
+  </property>
+  <property name="modal">
+   <bool>true</bool>
+  </property>
+  <property name="styleSheet">
+   <string notr="true">
+QDialog {
+  background-color: #ffffff;
+  color: #1e293b;
+  font-size: 12px;
+}
+QLabel {
+  color: #475569;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+QComboBox {
+  background-color: #ffffff;
+  color: #1e293b;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  padding: 4px 8px;
+  min-height: 24px;
+  font-size: 12px;
+}
+QComboBox:hover  { border-color: #94a3b8; }
+QComboBox:focus  { border-color: #3b82f6; }
+QComboBox::drop-down { width: 18px; border: none; }
+QComboBox::down-arrow {
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid #64748b;
+  margin-right: 4px;
+}
+QComboBox QAbstractItemView {
+  background-color: #ffffff;
+  color: #1e293b;
+  selection-background-color: #dbeafe;
+  selection-color: #1e40af;
+  border: 1px solid #e2e8f0;
+  outline: none;
+}
+QListWidget {
+  background-color: #f8fafc;
+  color: #1e293b;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  font-size: 12px;
+  outline: none;
+  padding: 2px;
+}
+QListWidget::item {
+  padding: 5px 8px;
+  border-radius: 3px;
+  margin: 1px 2px;
+  color: #1e293b;
+}
+QListWidget::item:selected {
+  background-color: #dbeafe;
+  color: #1e40af;
+}
+QListWidget::item:hover:!selected { background-color: #f1f5f9; }
+QListWidget::item:focus { outline: none; }
+QPushButton {
+  background-color: #f8fafc;
+  color: #334155;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  min-width: 70px;
+  min-height: 26px;
+}
+QPushButton:hover   { background-color: #f1f5f9; border-color: #94a3b8; color: #1e293b; }
+QPushButton:pressed { background-color: #e2e8f0; }
+QPushButton:disabled { background-color: #f8fafc; color: #94a3b8; border-color: #f1f5f9; }
+QPushButton:focus   { outline: none; border-color: #3b82f6; }
+QPushButton#btn_ok {
+  background-color: #2563eb;
+  color: #ffffff;
+  border-color: #2563eb;
+  min-width: 70px;
+}
+QPushButton#btn_ok:hover   { background-color: #1d4ed8; border-color: #1d4ed8; }
+QPushButton#btn_ok:pressed { background-color: #1e40af; }
+QPushButton#btn_save {
+  background-color: #2563eb;
+  color: #ffffff;
+  border-color: #2563eb;
+}
+QPushButton#btn_save:hover { background-color: #1d4ed8; border-color: #1d4ed8; }
+QPushButton#btn_delete {
+  background-color: #ffffff;
+  color: #dc2626;
+  border-color: #fca5a5;
+}
+QPushButton#btn_delete:hover { background-color: #fef2f2; border-color: #dc2626; }
+QPushButton#btn_add {
+  background-color: #16a34a;
+  color: #ffffff;
+  border-color: #16a34a;
+}
+QPushButton#btn_add:hover { background-color: #15803d; border-color: #15803d; }
+QPushButton#btn_remove {
+  background-color: #ffffff;
+  color: #dc2626;
+  border-color: #fca5a5;
+}
+QPushButton#btn_remove:hover { background-color: #fef2f2; border-color: #dc2626; }
+   </string>
+  </property>
+  <layout class="QVBoxLayout" name="mainLayout">
+   <property name="spacing"><number>8</number></property>
+   <property name="leftMargin"><number>12</number></property>
+   <property name="topMargin"><number>12</number></property>
+   <property name="rightMargin"><number>12</number></property>
+   <property name="bottomMargin"><number>12</number></property>
+
+   <!-- Top: Profile combo + Save / Delete / Set Default -->
+   <item>
+    <layout class="QHBoxLayout" name="profileLayout">
+     <property name="spacing"><number>6</number></property>
+     <item>
+      <widget class="QLabel" name="profileLabel">
+       <property name="text"><string>Column Profile:</string></property>
+       <property name="styleSheet"><string>color: #1e293b; font-size: 12px; font-weight: 600;</string></property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QComboBox" name="m_profileCombo">
+       <property name="minimumSize"><size><width>140</width><height>0</height></size></property>
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+         <horstretch>0</horstretch><verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="m_saveButton">
+       <property name="text"><string>Save</string></property>
+       <property name="objectName"><string>btn_save</string></property>
+       <property name="minimumSize"><size><width>60</width><height>0</height></size></property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="m_deleteButton">
+       <property name="text"><string>Delete</string></property>
+       <property name="objectName"><string>btn_delete</string></property>
+       <property name="minimumSize"><size><width>60</width><height>0</height></size></property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="m_setDefaultButton">
+       <property name="text"><string>Set Default</string></property>
+       <property name="minimumSize"><size><width>82</width><height>0</height></size></property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+
+   <!-- Divider -->
+   <item>
+    <widget class="QFrame" name="divider">
+     <property name="frameShape"><enum>QFrame::HLine</enum></property>
+     <property name="styleSheet"><string>background-color: #e2e8f0; max-height: 1px; border: none;</string></property>
+    </widget>
+   </item>
+
+   <!-- Middle: dual list -->
+   <item>
+    <layout class="QHBoxLayout" name="listsLayout">
+     <property name="spacing"><number>6</number></property>
+
+     <!-- Available Columns -->
+     <item>
+      <layout class="QVBoxLayout" name="availLayout">
+       <property name="spacing"><number>4</number></property>
+       <item>
+        <widget class="QLabel" name="availLabel">
+         <property name="text"><string>Available Columns</string></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QListWidget" name="m_availableList">
+         <property name="selectionMode"><enum>QAbstractItemView::ExtendedSelection</enum></property>
+         <property name="minimumSize"><size><width>150</width><height>0</height></size></property>
+        </widget>
+       </item>
+      </layout>
+     </item>
+
+     <!-- Add / Remove buttons -->
+     <item>
+      <layout class="QVBoxLayout" name="arrowLayout">
+       <property name="spacing"><number>6</number></property>
+       <item><spacer name="arrowTop"><property name="orientation"><enum>Qt::Vertical</enum></property></spacer></item>
+       <item>
+        <widget class="QPushButton" name="m_addButton">
+         <property name="text"><string>Add ▶</string></property>
+         <property name="objectName"><string>btn_add</string></property>
+         <property name="minimumSize"><size><width>80</width><height>0</height></size></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="m_removeButton">
+         <property name="text"><string>◀ Remove</string></property>
+         <property name="objectName"><string>btn_remove</string></property>
+         <property name="minimumSize"><size><width>80</width><height>0</height></size></property>
+        </widget>
+       </item>
+       <item><spacer name="arrowBottom"><property name="orientation"><enum>Qt::Vertical</enum></property></spacer></item>
+      </layout>
+     </item>
+
+     <!-- Selected Columns -->
+     <item>
+      <layout class="QVBoxLayout" name="selLayout">
+       <property name="spacing"><number>4</number></property>
+       <item>
+        <widget class="QLabel" name="selLabel">
+         <property name="text"><string>Selected Columns</string></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QListWidget" name="m_selectedList">
+         <property name="selectionMode"><enum>QAbstractItemView::ExtendedSelection</enum></property>
+         <property name="minimumSize"><size><width>150</width><height>0</height></size></property>
+        </widget>
+       </item>
+      </layout>
+     </item>
+
+     <!-- Move Up / Down buttons -->
+     <item>
+      <layout class="QVBoxLayout" name="moveLayout">
+       <property name="spacing"><number>6</number></property>
+       <item><spacer name="moveTop"><property name="orientation"><enum>Qt::Vertical</enum></property></spacer></item>
+       <item>
+        <widget class="QPushButton" name="m_moveUpButton">
+         <property name="text"><string>▲ Move Up</string></property>
+         <property name="minimumSize"><size><width>90</width><height>0</height></size></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="m_moveDownButton">
+         <property name="text"><string>▼ Move Down</string></property>
+         <property name="minimumSize"><size><width>90</width><height>0</height></size></property>
+        </widget>
+       </item>
+       <item><spacer name="moveBottom"><property name="orientation"><enum>Qt::Vertical</enum></property></spacer></item>
+      </layout>
+     </item>
+    </layout>
+   </item>
+
+   <!-- Bottom: OK / Cancel -->
+   <item>
+    <layout class="QHBoxLayout" name="bottomLayout">
+     <property name="spacing"><number>6</number></property>
+     <item>
+      <spacer name="bottomSpacer">
+       <property name="orientation"><enum>Qt::Horizontal</enum></property>
+      </spacer>
+     </item>
+     <item>
+      <widget class="QPushButton" name="m_okButton">
+       <property name="text"><string>OK</string></property>
+       <property name="objectName"><string>btn_ok</string></property>
+       <property name="default"><bool>true</bool></property>
+       <property name="minimumSize"><size><width>72</width><height>0</height></size></property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="m_cancelButton">
+       <property name="text"><string>Cancel</string></property>
+       <property name="minimumSize"><size><width>72</width><height>0</height></size></property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

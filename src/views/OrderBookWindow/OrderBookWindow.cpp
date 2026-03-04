@@ -1,13 +1,12 @@
 #include "views/OrderBookWindow.h"
+#include "ui_OrderBookWindow.h"
 #include "core/widgets/CustomOrderBook.h"
 #include "services/TradingDataService.h"
 #include "utils/PreferencesManager.h"
 #include "utils/WindowSettingsHelper.h"
 #include "api/xts/XTSTypes.h"
 #include <QVBoxLayout>
-#include <QHBoxLayout>
 #include <QComboBox>
-#include <QDateTimeEdit>
 #include <QPushButton>
 #include <QLabel>
 #include <QMessageBox>
@@ -17,7 +16,9 @@
 #include "models/qt/PinnedRowProxyModel.h"
 
 OrderBookWindow::OrderBookWindow(TradingDataService* tradingDataService, QWidget *parent)
-    : BaseBookWindow("OrderBook", parent), m_tradingDataService(tradingDataService) 
+    : BaseBookWindow("OrderBook", parent),
+      ui(new Ui::OrderBookWindow),
+      m_tradingDataService(tradingDataService) 
 {
     setupUI();
     loadInitialProfile();
@@ -58,47 +59,30 @@ OrderBookWindow::OrderBookWindow(TradingDataService* tradingDataService, QWidget
     WindowSettingsHelper::loadAndApplyWindowSettings(this, "OrderBook");
 }
 
-OrderBookWindow::~OrderBookWindow() {}
+OrderBookWindow::~OrderBookWindow() { delete ui; }
 
 void OrderBookWindow::setupUI() {
-    QVBoxLayout *mainLayout = new QVBoxLayout(this);
-    mainLayout->setContentsMargins(0,0,0,0); mainLayout->setSpacing(0);
-    mainLayout->addWidget(createFilterWidget());
+    ui->setupUi(this);
+
+    // Assign convenience pointers from ui
+    m_instrumentTypeCombo = ui->m_instrumentTypeCombo;
+    m_statusCombo         = ui->m_statusCombo;
+    m_buySellCombo        = ui->m_buySellCombo;
+    m_exchangeCombo       = ui->m_exchangeCombo;
+    m_orderTypeCombo      = ui->m_orderTypeCombo;
+    m_applyFilterBtn      = ui->m_applyFilterBtn;
+    m_clearFilterBtn      = ui->m_clearFilterBtn;
+    m_exportBtn           = ui->m_exportBtn;
+    m_summaryLabel        = ui->m_summaryLabel;
+
+    // Replace placeholder table with real CustomOrderBook
     setupTable();
-    mainLayout->addWidget(m_tableView, 1);
-    mainLayout->addWidget(createSummaryWidget());
-}
-
-QWidget* OrderBookWindow::createFilterWidget() {
-    QWidget *container = new QWidget(this);
-    container->setObjectName("filterContainer");
-    container->setStyleSheet("QWidget#filterContainer { background-color: #f8fafc; border-bottom: 1px solid #e2e8f0; } QLabel { color: #475569; font-size: 11px; } QDateTimeEdit, QComboBox { background-color: #ffffff; color: #1e293b; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 11px; } QPushButton { border-radius: 4px; font-weight: 600; font-size: 11px; padding: 5px 12px; }");
-    QVBoxLayout *mainLayout = new QVBoxLayout(container);
-    mainLayout->setContentsMargins(12, 10, 12, 10);
-    mainLayout->setSpacing(8);
-    QHBoxLayout *filterLayout = new QHBoxLayout();
-    
-    auto addCombo = [&](const QString &l, QComboBox* &c, const QStringList &i) {
-        QVBoxLayout *v = new QVBoxLayout(); v->addWidget(new QLabel(l)); c = new QComboBox(); c->addItems(i); v->addWidget(c); filterLayout->addLayout(v);
-    };
-    addCombo("Instrument", m_instrumentTypeCombo, {"All", "NSE OPT", "NSE FUT", "NSE EQ"});
-    addCombo("Status", m_statusCombo, {"All", "Pending", "Unconfirmed", "Open", "Filled", "Executed", "Success", "Cancelled", "Rejected", "Failed", "Admin pending", "min/admin Pending"});
-    addCombo("Buy/Sell", m_buySellCombo, {"All", "Buy", "Sell"});
-    addCombo("Exchange", m_exchangeCombo, {"All", "NSE", "BSE"});
-    addCombo("Order Type", m_orderTypeCombo, {"All", "Market", "Limit"});
-    filterLayout->addStretch();
-    
-    m_applyFilterBtn = new QPushButton("Apply"); m_applyFilterBtn->setStyleSheet("background-color: #16a34a; color: white;");
-    m_clearFilterBtn = new QPushButton("Clear"); m_clearFilterBtn->setStyleSheet("background-color: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 4px;");
-    m_exportBtn = new QPushButton("Export"); m_exportBtn->setStyleSheet("background-color: #d97706; color: white;");
-    filterLayout->addWidget(m_applyFilterBtn); filterLayout->addWidget(m_clearFilterBtn); filterLayout->addWidget(m_exportBtn);
-    mainLayout->addLayout(filterLayout);
-    return container;
-}
-
-QWidget* OrderBookWindow::createSummaryWidget() {
-    QWidget *sw = new QWidget(); sw->setStyleSheet("background-color: #f5f5f5; border-top: 1px solid #ccc;"); sw->setFixedHeight(32);
-    QHBoxLayout *l = new QHBoxLayout(sw); m_summaryLabel = new QLabel(); l->addWidget(m_summaryLabel); l->addStretch(); return sw;
+    QVBoxLayout *mainLayout = qobject_cast<QVBoxLayout*>(layout());
+    if (mainLayout) {
+        mainLayout->replaceWidget(ui->m_tableViewPlaceholder, m_tableView);
+        ui->m_tableViewPlaceholder->hide();
+        ui->m_tableViewPlaceholder->deleteLater();
+    }
 }
 
 void OrderBookWindow::setupTable() {
