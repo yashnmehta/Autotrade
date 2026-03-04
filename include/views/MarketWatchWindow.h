@@ -304,6 +304,12 @@ signals:
   void buyRequestedWithContext(const WindowContext &context);
   void sellRequestedWithContext(const WindowContext &context);
 
+  /**
+   * @brief Emitted when user requests to add a scrip (e.g., via + button or typing in empty row)
+   * Connected to MainWindow::focusScripBar() to activate global scrip search
+   */
+  void scripSearchRequested();
+
 protected:
   /**
    * @brief Handle keyboard events (Delete key)

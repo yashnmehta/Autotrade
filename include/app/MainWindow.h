@@ -85,6 +85,10 @@ public:
   void modifyOrder(const XTS::ModifyOrderParams &params);
   void cancelOrder(int64_t appOrderID);
 
+public slots:
+  /// Focus the global ScripBar for searching/adding scrips
+  void focusScripBar();
+
 private slots:
   // ── Thin delegators to WindowFactory (kept as slots for menu/shortcut) ──
   void createMarketWatch();
@@ -102,7 +106,6 @@ private slots:
   void createIndicatorChartWindow();
   void createMarketMovementWindow();
   void createOptionCalculatorWindow();
-  void focusScripBar();
   void onAddToWatchRequested(const InstrumentData &instrument);
   void resetLayout();
 

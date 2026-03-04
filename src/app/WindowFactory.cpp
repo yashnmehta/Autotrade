@@ -230,6 +230,16 @@ void WindowFactory::connectWindowSignals(CustomMDISubWindow *window) {
     }
   }
 
+  // Auto-connect MarketWatchWindow signals
+  if (window->contentWidget() && window->windowType() == "MarketWatch") {
+    MarketWatchWindow *mw =
+        qobject_cast<MarketWatchWindow *>(window->contentWidget());
+    if (mw) {
+      connect(mw, &MarketWatchWindow::scripSearchRequested, m_mainWindow,
+              &MainWindow::focusScripBar);
+    }
+  }
+
   // Auto-connect BaseOrderWindow signals (Buy/Sell)
   if (window->contentWidget() && (window->windowType() == "BuyWindow" ||
                                   window->windowType() == "SellWindow")) {
