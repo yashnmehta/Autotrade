@@ -444,8 +444,8 @@ void MarketWatchWindow::onSellAction() {
 }
 
 void MarketWatchWindow::onAddScripAction() {
-  QMessageBox::information(this, "Add Scrip",
-                           "Use ScripBar (Ctrl+S) to search and add scrips.");
+  // Request ScripBar focus from MainWindow instead of showing a message
+  emit scripSearchRequested();
 }
 
 void MarketWatchWindow::onMakeDeltaPortfolio() {

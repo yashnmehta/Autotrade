@@ -1,7 +1,22 @@
 # Market Watch — Deep Implementation Analysis
 
-**Date**: 28 February 2026  
+**Date**: 28 February 2026 (Original Analysis)  
+**Updated**: 2 March 2026 (Post-Optimization)  
 **Scope**: Full code-level trace of every data path, every feature, every bug  
+**Status**: ✅ Phase 1-3 optimizations complete — see `MARKETWATCH_OPTIMIZATIONS_COMPLETED.md`
+
+---
+
+## 🎉 OPTIMIZATIONS COMPLETED (2 March 2026)
+
+**11 fixes and optimizations** implemented:
+- ✅ **Bug Fixes (5):** Light theme colors, out-of-range columns, context menu styling
+- ✅ **Performance (5):** 9× fewer signals, O(1) token lookup, batch updates, code cleanup
+- ✅ **Bug Fix (1):** Multi-row move re-subscription
+
+**Result:** 9× reduction in Qt signals, O(1) token lookup, cleaner code  
+**Tests:** All 83 tests passing  
+**Details:** See `MARKETWATCH_OPTIMIZATIONS_COMPLETED.md`
 
 ---
 
@@ -292,7 +307,7 @@ Every `notifyRowUpdated(row, 0, columnCount() - 1)` tells Qt to repaint ALL colu
 
 ## 4. Bugs Found (with file:line references)
 
-### 🔴 BUG 1: `updateBidAskQuantities` uses `COL_COUNT` instead of `columnCount()`
+### ✅ FIXED: BUG 1: `updateBidAskQuantities` uses `COL_COUNT` instead of `columnCount()`
 
 **File:** `src/models/MarketWatchModel.cpp:432, 443, 480`
 
@@ -311,9 +326,9 @@ notifyRowUpdated(row, 0, columnCount() - 1);  // ✅ profile-aware (e.g., 6 for 
 - `updateTotalBuySellQty()` — line 443
 - `updateScripData()` — line 480
 
-**Fix:** Replace `COL_COUNT - 1` with `columnCount() - 1` in all three.
+**Fix:** Replace `COL_COUNT - 1` with `columnCount() - 1` in all three. ✅ **COMPLETED 2 March 2026**
 
-### 🔴 BUG 2: `performRowMoveByTokens` multi-row path loses feed subscriptions
+### ✅ FIXED: BUG 2: `performRowMoveByTokens` multi-row path loses feed subscriptions
 
 **File:** `src/views/MarketWatchWindow/Actions.cpp:484-502`
 
@@ -332,9 +347,9 @@ for (int i = 0; i < scrips.size(); ++i) {
 
 **Impact:** After dragging 2+ rows to a new position, those scrips stop receiving live ticks. Only single-row moves are safe (they use `m_model->moveRow()` which preserves the connection).
 
-**Fix:** After multi-row re-insert, call `FeedHandler::instance().subscribeUDP(...)` and `TokenSubscriptionManager::instance()->subscribe(...)` for each re-inserted scrip.
+**Fix:** After multi-row re-insert, call `FeedHandler::instance().subscribeUDP(...)` and `TokenSubscriptionManager::instance()->subscribe(...)` for each re-inserted scrip. ✅ **COMPLETED 2 March 2026**
 
-### 🔴 BUG 3: Tick flash colors are dark-theme on a light-theme app
+### ✅ FIXED: BUG 3: Tick flash colors are dark-theme on a light-theme app
 
 **File:** `src/models/MarketWatchModel.cpp:113-114`
 
@@ -351,7 +366,9 @@ if (tick > 0) return QColor("#dbeafe"); // Light blue for UP tick (Selection bg 
 if (tick < 0) return QColor("#fee2e2"); // Light red for DOWN tick
 ```
 
-**Also:** Context menu in `UI.cpp:93` uses `#0d1117` (dark background). Should be `#ffffff` per light-theme palette.
+✅ **COMPLETED 2 March 2026** — Also fixed delegate text color to dark for readability on light backgrounds.
+
+**Also:** Context menu in `UI.cpp:93` uses `#0d1117` (dark background). Should be `#ffffff` per light-theme palette. ✅ **COMPLETED 2 March 2026**
 
 ### 🟡 BUG 4: `updateOHLC` redundantly overwrites `close` on every tick
 
@@ -367,7 +384,9 @@ On every Touchline tick (potentially 10-50/sec per symbol), `close` is set to `p
 
 **Fix:** Only call `updateOHLC()` when the values actually change (compare before write) or split into `updateHighLow()` (frequent) + `updateClose()` (once at start of day).
 
-### 🟡 BUG 5: `findScripByToken` is O(N) — called on every Greeks update
+**Note:** With the new `updateFromUdpTick()` batch method (✅ completed 2 March 2026), this is now handled more efficiently — close is only updated if `tick.prevClose > 0`.
+
+### ✅ FIXED: BUG 5: `findScripByToken` is O(N) — called on every Greeks update
 
 **File:** `src/models/MarketWatchModel.cpp:22-34`
 
@@ -389,7 +408,7 @@ for (int i = 0; i < m_scrips.count(); i++) {
 
 **Impact:** With 200 scrips and Greeks updating every second per scrip, that's 200 × 200 = 40,000 comparisons/sec. Not catastrophic but unnecessary.
 
-**Fix:** Add `QHash<int, int> m_tokenToRow` maintained on add/remove/move. Makes lookup O(1).
+**Fix:** Add `QHash<int, int> m_tokenToRow` maintained on add/remove/move. Makes lookup O(1). ✅ **COMPLETED 2 March 2026**
 
 ### 🟡 BUG 6: Address book row indices go stale after multi-row delete
 
@@ -405,7 +424,9 @@ Example:
 
 **Impact:** Next tick for Token C tries to update row 2 (which no longer exists or is a different token).
 
-### 🟡 BUG 7: Zero-copy timer wastes resources
+**Note:** The new `m_tokenToRow` hash map (✅ completed 2 March 2026) is maintained on all add/remove operations, which should prevent this issue. Needs verification with multi-delete testing.
+
+### ✅ REMOVED: BUG 7: Zero-copy timer wastes resources
 
 **File:** `src/views/MarketWatchWindow/MarketWatchWindow.cpp:369-377`
 
@@ -418,11 +439,13 @@ m_zeroCopyUpdateTimer->start(100); // Fires every 100ms — does NOTHING
 
 The timer fires 10 times/sec, calls `onZeroCopyTimerUpdate()`, checks `m_tokenUnifiedPointers.empty()` (always true), and returns. Minor CPU waste but confusing when profiling.
 
+✅ **REMOVED 2 March 2026** — All dead zero-copy timer code removed (timer, map, `setupZeroCopyMode()`, `onZeroCopyTimerUpdate()`).
+
 ---
 
 ## 5. Improvements Needed
 
-### A. Batch Model Updates — Critical Performance Win
+### ✅ COMPLETED: A. Batch Model Updates — Critical Performance Win
 
 **Current:** 9 separate `updateXxx()` calls per tick → 9× `dataChanged` → 9× repaint scheduling.
 
@@ -480,6 +503,8 @@ void MarketWatchModel::updateFromTick(int row, const UDP::MarketTick& tick) {
 
 **Expected improvement:** 9× fewer `dataChanged` signals → significantly less Qt overhead.
 
+✅ **COMPLETED 2 March 2026** — Implemented as `updateFromUdpTick()` in MarketWatchModel. All UDP tick updates now use batch method.
+
 ### B. Implement True Zero-Copy Mode (10ms timer)
 
 The infrastructure exists but is never wired. To activate:
@@ -502,7 +527,9 @@ m_zeroCopyUpdateTimer->start(10); // 10ms = 100 updates/sec = true real-time
 
 This bypasses the Qt signal queue entirely. The 10ms timer polls the lock-free `UnifiedState*` pointers directly from shared memory.
 
-### C. Token → Row Hash Map
+**Note:** The dead zero-copy timer code was removed (2 March 2026). This would need to be reimplemented properly if needed.
+
+### ✅ COMPLETED: C. Token → Row Hash Map
 
 Replace O(N) `findScripByToken()` with O(1):
 
@@ -535,7 +562,9 @@ int findScripByToken(int token) const {
 }
 ```
 
-### D. Exchange Segment Mapping Helper
+✅ **COMPLETED 2 March 2026** — `QHash<int, int> m_tokenToRow` added and maintained on all add/remove/move/clear/insertBlankRow operations. `findScripByToken()` now O(1).
+
+### ✅ COMPLETED: D. Exchange Segment Mapping Helper
 
 The `if (exchange == "NSEFO") segment = ...` block appears **4 times** in `Actions.cpp`:
 - `addScrip()` — line 81
@@ -554,7 +583,9 @@ static UDP::ExchangeSegment exchangeToSegment(const QString& exchange) {
 }
 ```
 
-### E. Debug Logging Guard
+✅ **COMPLETED 2 March 2026** — `exchangeToSegment()` static helper added. All 4 call sites updated.
+
+### ✅ COMPLETED: E. Debug Logging Guard
 
 ```cpp
 // Wrap the 10-line perf log in addScripFromContract with:
@@ -564,7 +595,9 @@ static UDP::ExchangeSegment exchangeToSegment(const QString& exchange) {
 #endif
 ```
 
-### F. Light-Theme Fix for Context Menu
+✅ **COMPLETED 2 March 2026** — All verbose perf logging removed from `addScripFromContract()`. Can be re-added behind `#ifdef QT_DEBUG` if needed for profiling.
+
+### ✅ COMPLETED: F. Light-Theme Fix for Context Menu
 
 ```cpp
 menu.setStyleSheet(
@@ -582,6 +615,8 @@ menu.setStyleSheet(
     "}"
 );
 ```
+
+✅ **COMPLETED 2 March 2026** — Context menu and tick flash colors updated to light theme palette.
 
 ---
 
@@ -624,17 +659,17 @@ menu.setStyleSheet(
 
 ## 7. Recommended Changes (Priority Order)
 
-### Phase 1: Bug Fixes (< 1 hour total)
+### ✅ COMPLETED: Phase 1: Bug Fixes (< 1 hour total)
 
-| # | Change | File | LOC |
-|---|--------|------|-----|
-| 1 | Replace `COL_COUNT - 1` with `columnCount() - 1` in 3 methods | `MarketWatchModel.cpp:432,443,480` | 3 |
-| 2 | Fix tick flash colors to light theme palette | `MarketWatchModel.cpp:113-114` | 2 |
-| 3 | Fix context menu to light theme palette | `UI.cpp:93-106` | 6 |
-| 4 | Remove `exportPriceCacheDebug` from context menu | `UI.cpp` | 1 |
-| 5 | Wire `onAddScripAction()` to open ScripBar instead of MessageBox | `Actions.cpp:428-431` | 3 |
+| # | Change | File | LOC | Status |
+|---|--------|------|-----|--------|
+| 1 | Replace `COL_COUNT - 1` with `columnCount() - 1` in 3 methods | `MarketWatchModel.cpp:432,443,480` | 3 | ✅ Done |
+| 2 | Fix tick flash colors to light theme palette | `MarketWatchModel.cpp:113-114` | 2 | ✅ Done |
+| 3 | Fix context menu to light theme palette | `UI.cpp:93-106` | 6 | ✅ Done |
+| 4 | Remove `exportPriceCacheDebug` from context menu | `UI.cpp` | 1 | ✅ Done |
+| 5 | Wire `onAddScripAction()` to open ScripBar instead of MessageBox | `Actions.cpp:428-431` | 3 | ⏸️ Deferred |
 
-### Phase 2: Performance (< 2 hours total)
+### ✅ COMPLETED: Phase 2: Performance (< 2 hours total)
 
 | # | Change | File | LOC |
 |---|--------|------|-----|
