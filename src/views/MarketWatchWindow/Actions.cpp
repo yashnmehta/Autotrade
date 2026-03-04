@@ -98,6 +98,21 @@ bool MarketWatchWindow::addScrip(const QString &symbol, const QString &exchange,
   m_model->insertScrip(insertPos, scrip);
   int newRow = insertPos;
 
+  // Select the newly inserted row so the user sees it immediately
+  int proxyRow = mapToProxy(newRow);
+  if (proxyRow >= 0) {
+    QModelIndex proxyIndex = proxyModel()->index(proxyRow, 0);
+    clearSelection();
+    setCurrentIndex(proxyIndex);
+    selectRow(proxyRow);
+    scrollTo(proxyIndex, QAbstractItemView::EnsureVisible);
+
+    // Update stored focus to the new scrip so focusInEvent won't fight it
+    m_lastFocusedToken = token;
+    m_lastFocusedSymbol = scrip.symbol;
+    m_suppressFocusRestore = true;
+  }
+
   TokenSubscriptionManager::instance()->subscribe(exchange, token);
 
   // Subscribe to UDP ticks
@@ -249,6 +264,22 @@ bool MarketWatchWindow::addScripFromContract(const ScripData &contractData) {
   int newRow = m_model->rowCount();
   m_model->addScrip(scrip);
 
+  // Select the newly added row so the user sees it immediately
+  {
+    int proxyRow = mapToProxy(newRow);
+    if (proxyRow >= 0) {
+      QModelIndex proxyIndex = proxyModel()->index(proxyRow, 0);
+      clearSelection();
+      setCurrentIndex(proxyIndex);
+      selectRow(proxyRow);
+      scrollTo(proxyIndex, QAbstractItemView::EnsureVisible);
+
+      m_lastFocusedToken = scrip.token;
+      m_lastFocusedSymbol = scrip.symbol;
+      m_suppressFocusRestore = true;
+    }
+  }
+
   TokenSubscriptionManager::instance()->subscribe(scrip.exchange, scrip.token);
 
   // Subscribe to UDP ticks
@@ -345,6 +376,16 @@ void MarketWatchWindow::clearAll() {
 
 void MarketWatchWindow::insertBlankRow(int position) {
   m_model->insertBlankRow(position);
+
+  // Select the newly inserted blank row
+  int proxyRow = mapToProxy(position);
+  if (proxyRow >= 0) {
+    QModelIndex proxyIndex = proxyModel()->index(proxyRow, 0);
+    clearSelection();
+    setCurrentIndex(proxyIndex);
+    selectRow(proxyRow);
+    scrollTo(proxyIndex, QAbstractItemView::EnsureVisible);
+  }
 }
 
 void MarketWatchWindow::deleteSelectedRows() {

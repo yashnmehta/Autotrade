@@ -184,13 +184,20 @@ void MarketWatchWindow::keyPressEvent(QKeyEvent *event) {
 void MarketWatchWindow::focusInEvent(QFocusEvent *event) {
   CustomMarketWatch::focusInEvent(event);
 
+  // If a recent addScrip() already set the selection, skip restoration
+  if (m_suppressFocusRestore) {
+    m_suppressFocusRestore = false;
+    qDebug() << "[MarketWatch] Focus gained — suppressing restore (addScrip set selection)";
+    return;
+  }
+
   // Restore focus to the last focused row when the Market Watch gains focus
   // Use a delayed timer to ensure the model is fully ready
   if (m_lastFocusedToken > 0) {
     qDebug()
         << "[MarketWatch] Focus gained, scheduling delayed focus restoration";
     QTimer::singleShot(50, this, [this]() {
-      if (m_lastFocusedToken > 0) {
+      if (m_lastFocusedToken > 0 && !m_suppressFocusRestore) {
         restoreFocusedRow();
       }
     });
