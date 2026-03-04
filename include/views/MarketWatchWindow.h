@@ -305,6 +305,16 @@ signals:
   void sellRequestedWithContext(const WindowContext &context);
 
   /**
+   * @brief Emitted when user requests Snap Quote for a scrip (double-click or context menu)
+   */
+  void openSnapQuoteRequested(const WindowContext &context);
+
+  /**
+   * @brief Emitted when user requests to open a chart for a scrip (context menu)
+   */
+  void openChartRequested(const WindowContext &context);
+
+  /**
    * @brief Emitted when user requests to add a scrip (e.g., via + button or typing in empty row)
    * Connected to MainWindow::focusScripBar() to activate global scrip search
    */
@@ -343,6 +353,11 @@ protected:
                               int targetSourceRow) override;
   void closeEvent(QCloseEvent *event) override;
 
+  /**
+   * @brief Double-click opens Snap Quote for the clicked scrip
+   */
+  void mouseDoubleClickEvent(QMouseEvent *event) override;
+
 private slots:
   void showContextMenu(const QPoint &pos);
   void showColumnProfileDialog();
@@ -352,6 +367,8 @@ private slots:
   void onMakeDeltaPortfolio();
   void onSavePortfolio();
   void onLoadPortfolio();
+  void onOpenSnapQuoteAction();
+  void onOpenChartAction();
 
 private:
   void setupUI();

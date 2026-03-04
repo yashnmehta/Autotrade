@@ -57,6 +57,7 @@ public:
   CustomMDISubWindow *createStrategyManagerWindow();
   CustomMDISubWindow *createGlobalSearchWindow();
   CustomMDISubWindow *createChartWindow();
+  CustomMDISubWindow *createChartWindowWithContext(const WindowContext &context);
   CustomMDISubWindow *createIndicatorChartWindow();
   CustomMDISubWindow *createMarketMovementWindow();
   CustomMDISubWindow *createOptionCalculatorWindow();

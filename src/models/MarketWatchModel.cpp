@@ -13,6 +13,11 @@ MarketWatchModel::MarketWatchModel(QObject *parent)
   // Initialize with default column profile
   m_columnProfile = MarketWatchColumnProfile::createDefaultProfile();
 
+  // Flash reset timer: single-shot, fires 350ms after last tick to clear flash colors
+  m_flashResetTimer.setSingleShot(true);
+  m_flashResetTimer.setInterval(350);
+  connect(&m_flashResetTimer, &QTimer::timeout, this, &MarketWatchModel::onFlashResetTimeout);
+
   // Connect to Greeks service for live updates
   auto &greeksService = GreeksCalculationService::instance();
   connect(
@@ -90,23 +95,55 @@ QVariant MarketWatchModel::data(const QModelIndex &index, int role) const {
     return scrip.exchange;
   }
 
-  // Background coloring for value changes (Ticks)
+  // Background coloring for value changes (Ticks) — auto-resets after 300ms
   else if (role == Qt::BackgroundRole) {
     if (column == MarketWatchColumn::LAST_TRADED_PRICE ||
         column == MarketWatchColumn::BUY_PRICE ||
         column == MarketWatchColumn::SELL_PRICE) {
       int tick = 0;
-      if (column == MarketWatchColumn::LAST_TRADED_PRICE)
+      qint64 tickTime = 0;
+      if (column == MarketWatchColumn::LAST_TRADED_PRICE) {
         tick = scrip.ltpTick;
-      else if (column == MarketWatchColumn::BUY_PRICE)
+        tickTime = scrip.ltpTickTime;
+      } else if (column == MarketWatchColumn::BUY_PRICE) {
         tick = scrip.bidTick;
-      else if (column == MarketWatchColumn::SELL_PRICE)
+        tickTime = scrip.bidTickTime;
+      } else if (column == MarketWatchColumn::SELL_PRICE) {
         tick = scrip.askTick;
+        tickTime = scrip.askTickTime;
+      }
 
-      if (tick > 0)
-        return QColor("#dbeafe"); // Light blue for UP tick (light theme)
-      if (tick < 0)
-        return QColor("#fee2e2"); // Light red for DOWN tick (light theme)
+      // Only show flash if within 300ms of the tick
+      if (tick != 0 && tickTime > 0) {
+        qint64 elapsed = QDateTime::currentMSecsSinceEpoch() - tickTime;
+        if (elapsed < 300) {
+          if (tick > 0)
+            return QColor("#dbeafe"); // Light blue for UP tick
+          if (tick < 0)
+            return QColor("#fee2e2"); // Light red for DOWN tick
+        }
+      }
+    }
+  }
+
+  // Foreground (text) coloring — green/red for LTP, change, change%
+  else if (role == Qt::ForegroundRole) {
+    if (column == MarketWatchColumn::NET_CHANGE_RS ||
+        column == MarketWatchColumn::PERCENT_CHANGE) {
+      double val = (column == MarketWatchColumn::NET_CHANGE_RS)
+                       ? scrip.change
+                       : scrip.changePercent;
+      if (val > 0)
+        return QColor("#16a34a"); // Green for positive
+      if (val < 0)
+        return QColor("#dc2626"); // Red for negative
+    }
+    // LTP text color follows change direction
+    else if (column == MarketWatchColumn::LAST_TRADED_PRICE) {
+      if (scrip.change > 0)
+        return QColor("#16a34a"); // Green
+      if (scrip.change < 0)
+        return QColor("#dc2626"); // Red
     }
   }
 
@@ -139,16 +176,13 @@ QVariant MarketWatchModel::headerData(int section, Qt::Orientation orientation,
 }
 
 void MarketWatchModel::addScrip(const ScripData &scrip) {
-  // Reject duplicates: same exchange + token already exists (blank rows exempt)
+  // O(1) duplicate check via token→row map (was O(N) linear scan)
   if (!scrip.isBlankRow && scrip.token > 0) {
-    for (const ScripData &existing : m_scrips) {
-      if (!existing.isBlankRow && existing.token == scrip.token &&
-          existing.exchange == scrip.exchange) {
-        qDebug() << "[MarketWatchModel] Skipping duplicate scrip:"
-                 << scrip.symbol << "Exchange:" << scrip.exchange
-                 << "Token:" << scrip.token;
-        return;
-      }
+    if (m_tokenToRow.contains(scrip.token)) {
+      qDebug() << "[MarketWatchModel] Skipping duplicate scrip:"
+               << scrip.symbol << "Exchange:" << scrip.exchange
+               << "Token:" << scrip.token;
+      return;
     }
   }
 
@@ -177,15 +211,8 @@ void MarketWatchModel::addScrips(const QList<ScripData> &scrips) {
 
   for (const auto &scrip : scrips) {
     if (!scrip.isBlankRow && scrip.token > 0) {
-      bool isDup = false;
-      for (const ScripData &existing : m_scrips) {
-        if (!existing.isBlankRow && existing.token == scrip.token &&
-            existing.exchange == scrip.exchange) {
-          isDup = true;
-          break;
-        }
-      }
-      if (!isDup)
+      // O(1) duplicate check via token→row map (was O(N) linear scan)
+      if (!m_tokenToRow.contains(scrip.token))
         toAdd.append(scrip);
     } else {
       toAdd.append(scrip);
@@ -273,6 +300,15 @@ void MarketWatchModel::removeScrip(int row) {
       }
     }
 
+    // Keep flash tracking in sync: remove this row, shift higher rows down
+    m_flashingRows.remove(row);
+    QSet<int> shifted;
+    for (int r : m_flashingRows) {
+      if (r > row) shifted.insert(r - 1);
+      else shifted.insert(r);
+    }
+    m_flashingRows = shifted;
+
     emit scripRemoved(row);
   }
 }
@@ -325,6 +361,8 @@ void MarketWatchModel::moveRow(int sourceRow, int targetRow) {
 }
 
 void MarketWatchModel::clearAll() {
+  m_flashResetTimer.stop();
+  m_flashingRows.clear();
   beginResetModel();
   m_scrips.clear();
   m_tokenToRow.clear();
@@ -398,10 +436,13 @@ const ScripData &MarketWatchModel::getScripAt(int row) const {
 }
 
 ScripData &MarketWatchModel::getScripAt(int row) {
-  static ScripData emptyData;
   if (row >= 0 && row < m_scrips.count()) {
     return m_scrips[row];
   }
+  // Reset static to default before returning — prevents stale data if a
+  // previous caller accidentally mutated it
+  static ScripData emptyData;
+  emptyData = ScripData{};
   return emptyData;
 }
 
@@ -411,56 +452,74 @@ void MarketWatchModel::updatePrice(int row, double ltp, double change,
     ScripData &scrip = m_scrips[row];
 
     // Determine tick direction for LTP
-    if (ltp > scrip.ltp && scrip.ltp > 0)
+    if (ltp > scrip.ltp && scrip.ltp > 0) {
       scrip.ltpTick = 1;
-    else if (ltp < scrip.ltp && scrip.ltp > 0)
+      scrip.ltpTickTime = QDateTime::currentMSecsSinceEpoch();
+      scheduleFlashReset(row);
+    } else if (ltp < scrip.ltp && scrip.ltp > 0) {
       scrip.ltpTick = -1;
+      scrip.ltpTickTime = QDateTime::currentMSecsSinceEpoch();
+      scheduleFlashReset(row);
+    }
 
     scrip.ltp = ltp;
     scrip.change = change;
     scrip.changePercent = changePercent;
 
-    // Notify entire row to support dynamic column profiles correctly
-    notifyRowUpdated(row, 0, columnCount() - 1);
+    notifyColumnsUpdated(row, {MarketWatchColumn::LAST_TRADED_PRICE,
+                               MarketWatchColumn::NET_CHANGE_RS,
+                               MarketWatchColumn::PERCENT_CHANGE});
   }
 }
 
 void MarketWatchModel::updateVolume(int row, qint64 volume) {
   if (row >= 0 && row < m_scrips.count() && !m_scrips.at(row).isBlankRow) {
     m_scrips[row].volume = volume;
-    notifyRowUpdated(row, 0, columnCount() - 1);
+    notifyColumnsUpdated(row, {MarketWatchColumn::VOLUME});
   }
 }
 
 void MarketWatchModel::updateBidAsk(int row, double bid, double ask) {
   if (row >= 0 && row < m_scrips.count() && !m_scrips.at(row).isBlankRow) {
     ScripData &scrip = m_scrips[row];
+    qint64 now = QDateTime::currentMSecsSinceEpoch();
 
     // Determine tick direction for Bid
-    if (bid > scrip.bid && scrip.bid > 0)
+    if (bid > scrip.bid && scrip.bid > 0) {
       scrip.bidTick = 1;
-    else if (bid < scrip.bid && scrip.bid > 0)
+      scrip.bidTickTime = now;
+      scheduleFlashReset(row);
+    } else if (bid < scrip.bid && scrip.bid > 0) {
       scrip.bidTick = -1;
+      scrip.bidTickTime = now;
+      scheduleFlashReset(row);
+    }
 
     // Determine tick direction for Ask
-    if (ask > scrip.ask && scrip.ask > 0)
+    if (ask > scrip.ask && scrip.ask > 0) {
       scrip.askTick = 1;
-    else if (ask < scrip.ask && scrip.ask > 0)
+      scrip.askTickTime = now;
+      scheduleFlashReset(row);
+    } else if (ask < scrip.ask && scrip.ask > 0) {
       scrip.askTick = -1;
+      scrip.askTickTime = now;
+      scheduleFlashReset(row);
+    }
 
     scrip.bid = bid;
     scrip.ask = ask;
     scrip.buyPrice = bid;  // Buy Price = Bid
     scrip.sellPrice = ask; // Sell Price = Ask
 
-    notifyRowUpdated(row, 0, columnCount() - 1);
+    notifyColumnsUpdated(row, {MarketWatchColumn::BUY_PRICE,
+                               MarketWatchColumn::SELL_PRICE});
   }
 }
 
 void MarketWatchModel::updateLastTradedQuantity(int row, qint64 ltq) {
   if (row >= 0 && row < m_scrips.count() && !m_scrips.at(row).isBlankRow) {
     m_scrips[row].ltq = ltq;
-    notifyRowUpdated(row, 0, columnCount() - 1);
+    notifyColumnsUpdated(row, {MarketWatchColumn::LAST_TRADED_QUANTITY});
   }
 }
 
@@ -468,22 +527,21 @@ void MarketWatchModel::updateHighLow(int row, double high, double low) {
   if (row >= 0 && row < m_scrips.count() && !m_scrips.at(row).isBlankRow) {
     m_scrips[row].high = high;
     m_scrips[row].low = low;
-    notifyRowUpdated(row, 0, columnCount() - 1);
+    notifyColumnsUpdated(row, {MarketWatchColumn::HIGH, MarketWatchColumn::LOW});
   }
 }
 
 void MarketWatchModel::updateOpenInterest(int row, qint64 oi) {
   if (row >= 0 && row < m_scrips.count() && !m_scrips.at(row).isBlankRow) {
     m_scrips[row].openInterest = oi;
-    // Notify entire row to support dynamic column profiles correctly
-    notifyRowUpdated(row, 0, columnCount() - 1);
+    notifyColumnsUpdated(row, {MarketWatchColumn::OPEN_INTEREST});
   }
 }
 
 void MarketWatchModel::updateAveragePrice(int row, double avgPrice) {
   if (row >= 0 && row < m_scrips.count() && !m_scrips.at(row).isBlankRow) {
     m_scrips[row].avgTradedPrice = avgPrice;
-    notifyRowUpdated(row, 0, columnCount() - 1);
+    notifyColumnsUpdated(row, {MarketWatchColumn::AVG_TRADED_PRICE});
   }
 }
 
@@ -496,7 +554,8 @@ void MarketWatchModel::updateOHLC(int row, double open, double high, double low,
     scrip.low = low;
     scrip.close = close;
 
-    notifyRowUpdated(row, 0, columnCount() - 1);
+    notifyColumnsUpdated(row, {MarketWatchColumn::OPEN, MarketWatchColumn::HIGH,
+                               MarketWatchColumn::LOW, MarketWatchColumn::CLOSE});
   }
 }
 
@@ -505,7 +564,8 @@ void MarketWatchModel::updateBidAskQuantities(int row, int bidQty, int askQty) {
     m_scrips[row].buyQty = bidQty;
     m_scrips[row].sellQty = askQty;
 
-    notifyRowUpdated(row, 0, columnCount() - 1);
+    notifyColumnsUpdated(row, {MarketWatchColumn::BUY_QTY,
+                               MarketWatchColumn::SELL_QTY});
   }
 }
 
@@ -515,7 +575,8 @@ void MarketWatchModel::updateTotalBuySellQty(int row, int totalBuyQty,
     m_scrips[row].totalBuyQty = totalBuyQty;
     m_scrips[row].totalSellQty = totalSellQty;
 
-    notifyRowUpdated(row, 0, columnCount() - 1);
+    notifyColumnsUpdated(row, {MarketWatchColumn::TOTAL_BUY_QTY,
+                               MarketWatchColumn::TOTAL_SELL_QTY});
   }
 }
 
@@ -525,8 +586,8 @@ void MarketWatchModel::updateOpenInterestWithChange(int row, qint64 oi,
     m_scrips[row].openInterest = oi;
     m_scrips[row].oiChangePercent = oiChangePercent;
 
-    // Notify OI columns
-    notifyRowUpdated(row, COL_OPEN_INTEREST, COL_OPEN_INTEREST);
+    notifyColumnsUpdated(row, {MarketWatchColumn::OPEN_INTEREST,
+                               MarketWatchColumn::OI_CHANGE_PERCENT});
   }
 }
 
@@ -543,8 +604,14 @@ void MarketWatchModel::updateGreeks(int row, double iv, double bidIV,
     scrip.vega = vega;
     scrip.theta = theta;
 
-    // Notify entire row for Greeks columns
-    notifyRowUpdated(row, 0, columnCount() - 1);
+    // Notify Greeks columns only
+    notifyColumnsUpdated(row, {MarketWatchColumn::IMPLIED_VOLATILITY,
+                               MarketWatchColumn::BID_IV,
+                               MarketWatchColumn::ASK_IV,
+                               MarketWatchColumn::DELTA,
+                               MarketWatchColumn::GAMMA,
+                               MarketWatchColumn::VEGA,
+                               MarketWatchColumn::THETA});
   }
 }
 
@@ -561,13 +628,20 @@ void MarketWatchModel::updateFromUdpTick(int row, const UDP::MarketTick &tick,
     return;
 
   ScripData &s = m_scrips[row];
+  qint64 now = QDateTime::currentMSecsSinceEpoch();
+  bool hasFlash = false;
 
   // Tick direction for LTP
   if (tick.ltp > 0) {
-    if (tick.ltp > s.ltp && s.ltp > 0)
+    if (tick.ltp > s.ltp && s.ltp > 0) {
       s.ltpTick = 1;
-    else if (tick.ltp < s.ltp && s.ltp > 0)
+      s.ltpTickTime = now;
+      hasFlash = true;
+    } else if (tick.ltp < s.ltp && s.ltp > 0) {
       s.ltpTick = -1;
+      s.ltpTickTime = now;
+      hasFlash = true;
+    }
 
     s.ltp = tick.ltp;
     s.change = change;
@@ -602,19 +676,29 @@ void MarketWatchModel::updateFromUdpTick(int row, const UDP::MarketTick &tick,
     double newAsk = tick.asks[0].price;
 
     if (newBid > 0) {
-      if (newBid > s.bid && s.bid > 0)
+      if (newBid > s.bid && s.bid > 0) {
         s.bidTick = 1;
-      else if (newBid < s.bid && s.bid > 0)
+        s.bidTickTime = now;
+        hasFlash = true;
+      } else if (newBid < s.bid && s.bid > 0) {
         s.bidTick = -1;
+        s.bidTickTime = now;
+        hasFlash = true;
+      }
       s.bid = newBid;
       s.buyPrice = newBid;
     }
 
     if (newAsk > 0) {
-      if (newAsk > s.ask && s.ask > 0)
+      if (newAsk > s.ask && s.ask > 0) {
         s.askTick = 1;
-      else if (newAsk < s.ask && s.ask > 0)
+        s.askTickTime = now;
+        hasFlash = true;
+      } else if (newAsk < s.ask && s.ask > 0) {
         s.askTick = -1;
+        s.askTickTime = now;
+        hasFlash = true;
+      }
       s.ask = newAsk;
       s.sellPrice = newAsk;
     }
@@ -640,6 +724,10 @@ void MarketWatchModel::updateFromUdpTick(int row, const UDP::MarketTick &tick,
 
   // ONE dataChanged signal for the entire row (was 9 before!)
   notifyRowUpdated(row, 0, columnCount() - 1);
+
+  // Schedule flash reset if any price changed direction
+  if (hasFlash)
+    scheduleFlashReset(row);
 }
 
 int MarketWatchModel::scripCount() const {
@@ -661,6 +749,31 @@ void MarketWatchModel::emitCellChanged(int row, int column) {
 // Native Callback Helper (Ultra-Low Latency Mode)
 // ============================================================================
 
+int MarketWatchModel::visibleIndexOf(MarketWatchColumn col) const {
+  QList<int> vis = m_columnProfile.visibleColumns();
+  int id = static_cast<int>(col);
+  for (int i = 0; i < vis.size(); ++i) {
+    if (vis[i] == id)
+      return i;
+  }
+  return -1;
+}
+
+void MarketWatchModel::notifyColumnsUpdated(
+    int row, std::initializer_list<MarketWatchColumn> cols) {
+  int minIdx = INT_MAX, maxIdx = -1;
+  for (MarketWatchColumn c : cols) {
+    int idx = visibleIndexOf(c);
+    if (idx >= 0) {
+      if (idx < minIdx) minIdx = idx;
+      if (idx > maxIdx) maxIdx = idx;
+    }
+  }
+  if (maxIdx >= 0) {
+    notifyRowUpdated(row, minIdx, maxIdx);
+  }
+}
+
 void MarketWatchModel::notifyRowUpdated(int row, int firstColumn,
                                         int lastColumn) {
   // ALWAYS emit dataChanged. Proxy models and the view's internal cache
@@ -670,6 +783,29 @@ void MarketWatchModel::notifyRowUpdated(int row, int firstColumn,
   if (m_viewCallback) {
     // Optional native C++ callback for even faster viewport invalidation
     m_viewCallback->onRowUpdated(row, firstColumn, lastColumn);
+  }
+}
+
+// ============================================================================
+// Flash Reset Timer
+// ============================================================================
+
+void MarketWatchModel::scheduleFlashReset(int row) {
+  m_flashingRows.insert(row);
+  // Restart the timer — coalesces multiple ticks arriving within 350ms
+  m_flashResetTimer.start();
+}
+
+void MarketWatchModel::onFlashResetTimeout() {
+  // Repaint all rows that had active flashes so the expired flash is cleared.
+  // The data() method will return QVariant() for expired flashes automatically.
+  QSet<int> rows;
+  rows.swap(m_flashingRows);
+
+  for (int row : rows) {
+    if (row >= 0 && row < m_scrips.count()) {
+      notifyRowUpdated(row, 0, columnCount() - 1);
+    }
   }
 }
 

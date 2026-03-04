@@ -119,6 +119,11 @@ void MarketWatchWindow::showContextMenu(const QPoint &pos) {
     menu.addAction("Buy (F1)", this, &MarketWatchWindow::onBuyAction);
     menu.addAction("Sell (F2)", this, &MarketWatchWindow::onSellAction);
     menu.addSeparator();
+    menu.addAction("Snap Quote (Ctrl+Q)", this,
+                   &MarketWatchWindow::onOpenSnapQuoteAction);
+    menu.addAction("Open Chart", this,
+                   &MarketWatchWindow::onOpenChartAction);
+    menu.addSeparator();
   }
 
   // Add scrip

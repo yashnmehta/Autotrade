@@ -237,6 +237,14 @@ void WindowFactory::connectWindowSignals(CustomMDISubWindow *window) {
     if (mw) {
       connect(mw, &MarketWatchWindow::scripSearchRequested, m_mainWindow,
               &MainWindow::focusScripBar);
+      connect(mw, &MarketWatchWindow::openSnapQuoteRequested, this,
+              [this, mw](const WindowContext &ctx) {
+                createSnapQuoteWindowWithContext(ctx, mw);
+              });
+      connect(mw, &MarketWatchWindow::openChartRequested, this,
+              [this](const WindowContext &ctx) {
+                createChartWindowWithContext(ctx);
+              });
     }
   }
 
@@ -526,8 +534,46 @@ CustomMDISubWindow *WindowFactory::createChartWindow() {
   qDebug() << "[WindowFactory] Created Chart Window (ChartsWindow)";
   return window;
 }
+
+CustomMDISubWindow *WindowFactory::createChartWindowWithContext(
+    const WindowContext &context) {
+  static int counter = 1;
+
+  CustomMDISubWindow *window =
+      new CustomMDISubWindow(QString("Chart %1").arg(counter++), m_mdiArea);
+  window->setWindowType("ChartWindow");
+
+  ChartsWindow *chartWidget = new ChartsWindow(context, window);
+  chartWidget->setMarketDataClient(m_xtsMarketDataClient);
+  window->setContentWidget(chartWidget);
+  applyRestoredGeometryOrDefault(window, "ChartWindow", 1200, 700);
+
+  connectWindowSignals(window);
+
+  m_mdiArea->setUpdatesEnabled(false);
+  m_mdiArea->addWindow(window);
+  window->setFocus();
+  window->raise();
+  window->activateWindow();
+  m_mdiArea->setUpdatesEnabled(true);
+
+  if (context.token != 0 && !context.symbol.isEmpty()) {
+    chartWidget->loadFromContext(context);
+  }
+
+  qDebug() << "[WindowFactory] Created Chart Window with context:"
+           << context.symbol;
+  return window;
+}
+
 #else
 CustomMDISubWindow *WindowFactory::createChartWindow() {
+  qWarning()
+      << "[WindowFactory] TradingView not available. Cannot create Chart.";
+  return nullptr;
+}
+CustomMDISubWindow *WindowFactory::createChartWindowWithContext(
+    const WindowContext &) {
   qWarning()
       << "[WindowFactory] TradingView not available. Cannot create Chart.";
   return nullptr;

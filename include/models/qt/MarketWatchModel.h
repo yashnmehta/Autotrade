@@ -9,7 +9,10 @@
 #include <QDateTime>
 #include <QHash>
 #include <QList>
+#include <QSet>
 #include <QString>
+#include <QTimer>
+#include <initializer_list>
 
 
 /**
@@ -102,6 +105,11 @@ struct ScripData {
   int ltpTick = 0;
   int bidTick = 0;
   int askTick = 0;
+
+  // Timestamps for auto-resetting tick flash (milliseconds since epoch)
+  qint64 ltpTickTime = 0;
+  qint64 bidTickTime = 0;
+  qint64 askTickTime = 0;
 
   /**
    * @brief Create a blank row for organizing scrips
@@ -279,12 +287,30 @@ private:
   // Native C++ callback for ultra-low latency updates (bypasses Qt signals)
   IMarketWatchViewCallback *m_viewCallback = nullptr;
 
+  // Tick flash auto-reset: rows with active flashes are tracked here.
+  // A coalescing timer fires ~350ms after the last tick to repaint them.
+  QTimer m_flashResetTimer;
+  QSet<int> m_flashingRows;
+
+  // Schedule a flash reset repaint for the given row
+  void scheduleFlashReset(int row);
+  // Called when the flash timer fires — repaints all expired-flash rows
+  void onFlashResetTimeout();
+
   // Helper to notify view of data changes (uses native callback if enabled,
   // else Qt signal)
   void notifyRowUpdated(int row, int firstColumn, int lastColumn);
 
   // Helper to emit data changed for a specific cell (legacy Qt signal mode)
   void emitCellChanged(int row, int column);
+
+  // Helper to find the visible column index for a MarketWatchColumn enum
+  // Returns -1 if the column is not visible in the current profile
+  int visibleIndexOf(MarketWatchColumn col) const;
+
+  // Helper to notify a contiguous range of MarketWatchColumn enums
+  // Finds the min/max visible indices and emits a single notification
+  void notifyColumnsUpdated(int row, std::initializer_list<MarketWatchColumn> cols);
 
   // Helper to get data for a specific column
   QVariant getColumnData(const ScripData &scrip,

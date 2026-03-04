@@ -13,6 +13,7 @@
 #include <QElapsedTimer>
 #include <QFocusEvent>
 #include <QKeyEvent>
+#include <QMouseEvent>
 #include <QTimer>
 #include <QUuid>
 
@@ -337,6 +338,48 @@ void MarketWatchWindow::onRowsRemoved(int firstRow, int lastRow) {
   viewport()->update();
 }
 void MarketWatchWindow::onModelReset() { viewport()->update(); }
+
+// ============================================================================
+// Double-click → Open Snap Quote for the clicked scrip
+// ============================================================================
+
+void MarketWatchWindow::mouseDoubleClickEvent(QMouseEvent *event) {
+  QModelIndex proxyIndex = indexAt(event->pos());
+  if (!proxyIndex.isValid()) {
+    CustomMarketWatch::mouseDoubleClickEvent(event);
+    return;
+  }
+
+  int sourceRow = mapToSource(proxyIndex.row());
+  if (sourceRow < 0 || sourceRow >= m_model->rowCount() ||
+      m_model->isBlankRow(sourceRow)) {
+    CustomMarketWatch::mouseDoubleClickEvent(event);
+    return;
+  }
+
+  // Build context and emit snap quote request
+  // First select the row so getSelectedContractContext() picks it up
+  selectRow(proxyIndex.row());
+
+  WindowContext context = getSelectedContractContext();
+  if (context.isValid()) {
+    emit openSnapQuoteRequested(context);
+  }
+}
+
+void MarketWatchWindow::onOpenSnapQuoteAction() {
+  WindowContext context = getSelectedContractContext();
+  if (context.isValid()) {
+    emit openSnapQuoteRequested(context);
+  }
+}
+
+void MarketWatchWindow::onOpenChartAction() {
+  WindowContext context = getSelectedContractContext();
+  if (context.isValid()) {
+    emit openChartRequested(context);
+  }
+}
 
 void MarketWatchWindow::closeEvent(QCloseEvent *event) {
   // Persist column profile to JSON file (survives restart)
